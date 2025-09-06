@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -64,6 +65,7 @@ type AppConfig struct {
 	TickInterval     time.Duration
 	TickRoundTimeout time.Duration
 	StopTimeout      time.Duration
+	StopInterval     time.Duration
 	InitTimeout      time.Duration
 
 	// 日志配置
@@ -89,6 +91,7 @@ type AppImpl interface {
 	Run(arguments []string) error
 
 	Init(arguments []string) error
+	RunOnce(tickTimer *time.Ticker) error
 	Stop() error
 	Reload() error
 	GetAppId() uint64
@@ -135,17 +138,16 @@ type AppInstance struct {
 	lastCommand    []string
 
 	// 模块管理
-	modules      []AppModuleImpl
-	modulesMutex sync.RWMutex
+	modules []AppModuleImpl
 
 	// 生命周期控制
-	ctx    context.Context
-	cancel context.CancelFunc
+	appContext    context.Context
+	stopAppHandle context.CancelFunc
 
 	// 定时器和事件
-	tickTimer *time.Timer
-	stopTimer *time.Timer
-	tickMutex sync.Mutex
+	tickTimer     *time.Ticker
+	stopTimepoint time.Time
+	stopTimeout   time.Time
 
 	// 事件处理
 	eventHandlers map[string]EventHandler
@@ -171,6 +173,8 @@ type AppInstance struct {
 func CreateAppInstance() AppImpl {
 	ret := &AppInstance{
 		mode:          AppModeCustom,
+		stopTimepoint: time.Time{},
+		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
 		logger:        slog.Default(),
@@ -189,12 +193,13 @@ func CreateAppInstance() AppImpl {
 	ret.flagSet.String("startup-log", "", "startup log file")
 	ret.flagSet.String("startup-error-file", "", "startup error file")
 
-	ret.ctx, ret.cancel = context.WithCancel(context.Background())
+	ret.appContext, ret.stopAppHandle = context.WithCancel(context.Background())
 
 	// 设置默认配置
 	ret.config.TickInterval = 8 * time.Millisecond
 	ret.config.TickRoundTimeout = 128 * time.Millisecond
 	ret.config.StopTimeout = 30 * time.Second
+	ret.config.StopInterval = 100 * time.Millisecond
 	ret.config.InitTimeout = 30 * time.Second
 	ret.config.ExecutePath = os.Args[0]
 	ret.config.AppVersion = "1.0.0"
@@ -216,14 +221,15 @@ func CreateAppInstance() AppImpl {
 }
 
 func (app *AppInstance) destroy() {
-	if app.IsInited() && !app.IsClosed() {
+	if !app.IsClosed() {
 		app.close()
 	}
 
-	for _, m := range app.modules {
-		if m.IsActived() {
-			m.Unactive()
-		}
+	if app.IsInited() {
+		app.cleanup()
+	}
+
+	for _, m := range slices.Backward(app.modules) {
 		m.OnUnbind()
 	}
 
@@ -239,8 +245,16 @@ func (app *AppInstance) generateHashCode() {
 }
 
 // 状态管理方法
+func checkFlag(flags uint64, checked AppFlag) bool {
+	return flags&uint64(checked) != 0
+}
+
+func (app *AppInstance) getFlags() uint64 {
+	return atomic.LoadUint64(&app.flags)
+}
+
 func (app *AppInstance) CheckFlag(flag AppFlag) bool {
-	return atomic.LoadUint64(&app.flags)&uint64(flag) != 0
+	return checkFlag(app.getFlags(), flag)
 }
 
 func (app *AppInstance) SetFlag(flag AppFlag, value bool) bool {
@@ -264,8 +278,10 @@ func (app *AppInstance) IsClosing() bool { return app.CheckFlag(AppFlagStopping)
 func (app *AppInstance) IsClosed() bool  { return app.CheckFlag(AppFlagStopped) }
 
 func (app *AppInstance) AddModule(module AppModuleImpl) error {
-	app.modulesMutex.Lock()
-	defer app.modulesMutex.Unlock()
+	flags := app.getFlags()
+	if checkFlag(flags, AppFlagInitialized) || checkFlag(flags, AppFlagInitializing) {
+		return fmt.Errorf("cannot add module when app is initializing or initialized")
+	}
 
 	app.modules = append(app.modules, module)
 	module.OnBind()
@@ -317,7 +333,7 @@ func (app *AppInstance) Init(arguments []string) error {
 		return fmt.Errorf("load config failed: %w", err)
 	}
 
-	if app.mode != AppModeCustom && app.mode != AppModeStop && app.mode != AppModeReload {
+	if app.mode == AppModeCustom || app.mode == AppModeStop || app.mode == AppModeReload {
 		return app.sendLastCommand()
 	}
 
@@ -347,45 +363,110 @@ func (app *AppInstance) Init(arguments []string) error {
 		return err
 	}
 
-	// 初始化所有模块
-	app.modulesMutex.RLock()
-	modules := make([]AppModuleImpl, len(app.modules))
-	copy(modules, app.modules)
-	app.modulesMutex.RUnlock()
+	initContext, initCancel := context.WithTimeout(app.appContext, app.config.InitTimeout)
+	defer initCancel()
 
+	// 初始化所有模块
 	// Setup phase
-	for _, m := range modules {
-		if err := m.Setup(); err != nil {
+	for _, m := range app.modules {
+		if initContext.Err() != nil {
+			break
+		}
+		if err := m.Setup(initContext); err != nil {
 			return fmt.Errorf("module setup failed: %w", err)
 		}
 	}
 
 	// Setup log phase
-	for _, m := range modules {
-		if err := m.SetupLog(); err != nil {
+	for _, m := range app.modules {
+		if initContext.Err() != nil {
+			break
+		}
+		if err := m.SetupLog(initContext); err != nil {
 			return fmt.Errorf("module setup log failed: %w", err)
 		}
 	}
 
 	// Init phase
-	for _, m := range modules {
-		if err := m.Init(); err != nil {
+	for _, m := range app.modules {
+		if initContext.Err() != nil {
+			break
+		}
+		if err := m.Init(initContext); err != nil {
 			return fmt.Errorf("module init failed: %w", err)
 		}
 	}
 
-	// Ready phase
-	for _, m := range modules {
-		if err := m.Ready(); err != nil {
-			return fmt.Errorf("module ready failed: %w", err)
+	maybeErr := initContext.Err()
+
+	if maybeErr != nil {
+		app.SetFlag(AppFlagRunning, true)
+		// Ready phase
+		for _, m := range app.modules {
+			if initContext.Err() != nil {
+				break
+			}
+
+			m.Ready()
+		}
+
+		app.SetFlag(AppFlagInitialized, true)
+		app.SetFlag(AppFlagStopped, false)
+		app.SetFlag(AppFlagStopping, false)
+	}
+
+	return maybeErr
+}
+
+func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
+	if !app.IsInited() && !app.CheckFlag(AppFlagInitializing) {
+		return fmt.Errorf("app is not initialized")
+	}
+
+	if app.CheckFlag(AppFlagInCallback) {
+		return nil
+	}
+
+	if app.mode != AppModeCustom && app.mode == AppModeStart {
+		return nil
+	}
+
+	select {
+	case <-app.appContext.Done():
+		app.logger.Info("Start to stop...")
+	case sig := <-app.signalChan:
+		if sig == syscall.SIGTERM || sig == syscall.SIGQUIT {
+			app.logger.Info("Received signal: %v, stopping...", sig)
+			app.Stop()
+		}
+	case <-tickTimer.C:
+		if err := app.tick(); err != nil {
+			app.logger.Error("Tick error: %v", err)
 		}
 	}
 
-	app.SetFlag(AppFlagInitialized, true)
-	app.SetFlag(AppFlagStopped, false)
-	app.SetFlag(AppFlagStopping, false)
+	flags := app.getFlags()
+	if checkFlag(flags, AppFlagStopping) && !checkFlag(flags, AppFlagStopped) {
+		now := time.Now()
+		if now.After(app.stopTimeout) {
+			app.SetFlag(AppFlagTimeout, true)
+		}
+		forceTimeout := checkFlag(flags, AppFlagTimeout)
+		if now.After(app.stopTimepoint) || forceTimeout {
+			app.stopTimepoint = now.Add(app.config.StopInterval)
+			app.closeAllModules(forceTimeout)
+		}
+	}
+
+	if checkFlag(flags, AppFlagStopped) && !checkFlag(flags, AppFlagInitialized) {
+		app.cleanup()
+	}
 
 	return nil
+}
+
+func (app *AppInstance) RunOnce(tickTimer *time.Ticker) error {
+	return app.internalRunOnce(tickTimer)
 }
 
 func (app *AppInstance) Run(arguments []string) error {
@@ -395,48 +476,98 @@ func (app *AppInstance) Run(arguments []string) error {
 		}
 	}
 
-	app.SetFlag(AppFlagRunning, true)
-	defer app.SetFlag(AppFlagRunning, false)
-
 	// 主事件循环
-	tickTimer := time.NewTicker(app.config.TickInterval)
-	defer tickTimer.Stop()
-
-	for !app.IsClosing() && !app.IsClosed() {
-		select {
-		case <-app.ctx.Done():
-			return nil
-		case sig := <-app.signalChan:
-			if sig == syscall.SIGTERM || sig == syscall.SIGQUIT {
-				app.logger.Info("Received signal: %v, stopping...", sig)
-				app.Stop()
-			}
-		case <-tickTimer.C:
-			if err := app.tick(); err != nil {
-				app.logger.Error("Tick error: %v", err)
-			}
-		}
+	for app.IsInited() && !app.IsClosed() {
+		app.internalRunOnce(app.tickTimer)
 	}
 
 	return nil
 }
 
-func (app *AppInstance) close() error {
-	// TODO: all modules stop
-	// TODO: all modules cleanup
+func (app *AppInstance) closeAllModules(forceTimeout bool) (bool, error) {
+	// 设置停止标志
+	allClosed := true
+	var err error = nil
+
+	// all modules stop
+	for _, m := range slices.Backward(app.modules) {
+		if !m.IsActived() {
+			continue
+		}
+
+		moduleClosed, err := m.Stop()
+		if err != nil {
+			app.logger.Error("Module %s stop failed: %v", m.Name(), err)
+			m.Unactive()
+		} else if !moduleClosed {
+			if forceTimeout {
+				m.Timeout()
+				m.Unactive()
+			} else {
+				allClosed = false
+			}
+		} else {
+			m.Cleanup()
+		}
+	}
+
+	if allClosed {
+		app.SetFlag(AppFlagStopped, true)
+	}
+
+	return allClosed, err
+}
+
+func (app *AppInstance) close() (bool, error) {
+	allClosed := true
+	var err error = nil
+
+	// all modules stop
+	for _, m := range slices.Backward(app.modules) {
+		if !m.IsActived() {
+			continue
+		}
+
+		moduleClosed, err := m.Stop()
+		if err != nil {
+			app.logger.Error("Module %s stop failed: %v", m.Name(), err)
+		} else if !moduleClosed {
+			allClosed = false
+		}
+	}
+
+	return allClosed, err
+}
+
+func (app *AppInstance) cleanup() error {
+	// all modules cleanup
+	for _, m := range slices.Backward(app.modules) {
+		m.Cleanup()
+	}
 
 	// TODO: cleanup event
 
-	// TODO: close tick timer
+	// close tick timer
+	if app.tickTimer != nil {
+		app.tickTimer.Stop()
+	}
 
-	// TODO: cleanup pidfile
+	// cleanup pidfile
+	app.cleanupPidFile()
+
+	app.SetFlag(AppFlagRunning, false)
+	app.SetFlag(AppFlagInitialized, false)
 
 	// TODO: finally callback
 	return nil
 }
 
 func (app *AppInstance) RunCommand(arguments []string) error {
-	// TODO: 实现命令处理逻辑
+	// 分发命令处理逻辑
+	command := arguments[0]
+	args := arguments[1:]
+
+	app.commandManager.ExecuteCommand(app, command, args)
 	return nil
 }
 
@@ -446,29 +577,13 @@ func (app *AppInstance) sendLastCommand() error {
 }
 
 func (app *AppInstance) Stop() error {
-	if app.IsClosing() || app.IsClosed() {
+	if app.IsClosing() {
 		return nil
 	}
 
+	app.stopTimeout = time.Now().Add(app.config.StopTimeout)
 	app.SetFlag(AppFlagStopping, true)
-	app.cancel()
-
-	app.modulesMutex.RLock()
-	modules := make([]AppModuleImpl, len(app.modules))
-	copy(modules, app.modules)
-	app.modulesMutex.RUnlock()
-
-	// 停止所有模块
-	for _, m := range modules {
-		m.Stop()
-	}
-
-	// 清理所有模块
-	for _, m := range modules {
-		m.Cleanup()
-	}
-
-	app.SetFlag(AppFlagStopped, true)
+	app.stopAppHandle()
 	return nil
 }
 
@@ -478,13 +593,8 @@ func (app *AppInstance) Reload() error {
 		return fmt.Errorf("reload config failed: %w", err)
 	}
 
-	app.modulesMutex.RLock()
-	modules := make([]AppModuleImpl, len(app.modules))
-	copy(modules, app.modules)
-	app.modulesMutex.RUnlock()
-
 	// 重新加载所有模块
-	for _, m := range modules {
+	for _, m := range app.modules {
 		if err := m.Reload(); err != nil {
 			return fmt.Errorf("module reload failed: %w", err)
 		}
@@ -647,7 +757,7 @@ func (app *AppInstance) setupLog() error {
 func (app *AppInstance) setupTickTimer() error {
 	// 定时器在 Run 方法中设置
 	if app.tickTimer == nil {
-		app.tickTimer := time.NewTicker(app.config.TickInterval)
+		app.tickTimer = time.NewTicker(app.config.TickInterval)
 	} else {
 		app.tickTimer.Reset(app.config.TickInterval)
 	}
@@ -665,12 +775,15 @@ func (app *AppInstance) tick() error {
 	atomic.AddUint64(&app.stats.tickCount, 1)
 
 	// 处理模块的tick
-	app.modulesMutex.RLock()
-	modules := make([]AppModuleImpl, len(app.modules))
-	copy(modules, app.modules)
-	app.modulesMutex.RUnlock()
+	tickContext, cancel := context.WithCancel(app.appContext)
+	defer cancel()
 
-	// TODO: 调用模块的tick方法（如果模块接口支持的话）
+	// 调用模块的tick方法
+	for _, m := range app.modules {
+		if m.IsActived() {
+			m.Tick(tickContext)
+		}
+	}
 
 	return nil
 }
@@ -727,7 +840,7 @@ func (app *AppInstance) setDefaults() {
 }
 
 // 命令处理相关
-type CommandHandler func(*AppInstance, []string) error
+type CommandHandler func(*AppInstance, string, []string) error
 
 type CommandManager struct {
 	commands map[string]CommandHandler
@@ -752,10 +865,16 @@ func (cm *CommandManager) ExecuteCommand(app *AppInstance, command string, args 
 	cm.mutex.RUnlock()
 
 	if !exists {
-		return fmt.Errorf("unknown command: %s", command)
+		handler, exists = cm.commands["@OnError"]
+		if exists {
+			return handler(app, command, args)
+		} else {
+			app.logger.Error("Error command executed: %s %v", command, args)
+			return nil
+		}
 	}
 
-	return handler(app, args)
+	return handler(app, command, args)
 }
 
 func (cm *CommandManager) ListCommands() []string {
@@ -776,14 +895,18 @@ func (app *AppInstance) setupCommandManager() {
 	cm := NewCommandManager()
 
 	// 注册默认命令（使用包装函数来匹配 CommandHandler 签名）
-	cm.RegisterCommand("start", func(app *AppInstance, args []string) error {
+	cm.RegisterCommand("start", func(app *AppInstance, _command string, args []string) error {
 		return app.handleStartCommand(args)
 	})
-	cm.RegisterCommand("stop", func(app *AppInstance, args []string) error {
+	cm.RegisterCommand("stop", func(app *AppInstance, _command string, args []string) error {
 		return app.handleStopCommand(args)
 	})
-	cm.RegisterCommand("reload", func(app *AppInstance, args []string) error {
+	cm.RegisterCommand("reload", func(app *AppInstance, _command string, args []string) error {
 		return app.handleReloadCommand(args)
+	})
+	cm.RegisterCommand("@OnError", func(app *AppInstance, command string, args []string) error {
+		app.logger.Error("Error command executed: %s %v", command, args)
+		return nil
 	})
 
 	app.commandManager = cm
@@ -791,70 +914,18 @@ func (app *AppInstance) setupCommandManager() {
 
 // 默认命令处理器
 func (app *AppInstance) handleStartCommand(args []string) error {
-	app.logger.Info("Handling start command")
+	app.logger.Info("======================== App start ========================")
 	return app.Run(args)
 }
 
 func (app *AppInstance) handleStopCommand(args []string) error {
-	app.logger.Info("Handling stop command")
+	app.logger.Info("======================== App received stop command ========================")
 	return app.Stop()
 }
 
 func (app *AppInstance) handleReloadCommand(args []string) error {
-	app.logger.Info("Handling reload command")
+	app.logger.Info("======================== App received reload command ========================")
 	return app.Reload()
-}
-
-// 运行模式处理
-func (app *AppInstance) RunWithMode(mode AppMode, arguments []string) error {
-	app.mode = mode
-
-	switch mode {
-	case AppModeStart:
-		return app.Run(arguments)
-	case AppModeStop:
-		return app.handleStopCommand(arguments)
-	case AppModeReload:
-		return app.handleReloadCommand(arguments)
-	case AppModeInfo, AppModeHelp:
-		return app.handleVersionCommand(arguments)
-	default:
-		return app.RunCommand(app.flagSet.Args()[1:])
-	}
-}
-
-// 解析命令行参数并确定运行模式
-func (app *AppInstance) ParseArgumentsAndRun(arguments []string) error {
-	if err := app.setupOptions(arguments); err != nil {
-		return fmt.Errorf("failed to parse arguments: %w", err)
-	}
-
-	// 根据参数确定运行模式
-	mode := AppModeStart
-	if app.flagSet.Lookup("v").Value.String() == "true" {
-		mode = AppModeInfo
-	}
-
-	// 检查位置参数以确定命令
-	args := app.flagSet.Args()
-	if len(args) > 0 {
-		switch args[0] {
-		case "start":
-			mode = AppModeStart
-		case "stop":
-			mode = AppModeStop
-		case "reload":
-			mode = AppModeReload
-		case "help":
-			mode = AppModeHelp
-		case "version":
-			mode = AppModeInfo
-		case "run":
-			mode = AppModeCustom
-		}
-	}
-
-	return app.RunWithMode(mode, arguments)
 }
 
 func (app *AppInstance) MakeAction(callback func(action *AppActionData) error, message_data []byte, private_data interface{}) *AppActionSender {
@@ -885,12 +956,6 @@ func (app *AppInstance) processAction(sender *AppActionSender) {
 
 	sender.reset()
 	globalAppActionSenderPool.Put(sender)
-}
-
-// 便利函数：创建并运行应用
-func RunApp(arguments []string) error {
-	app := CreateAppInstance().(*AppInstance)
-	return app.ParseArgumentsAndRun(arguments)
 }
 
 // AppAction对象

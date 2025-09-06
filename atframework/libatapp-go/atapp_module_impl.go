@@ -6,7 +6,9 @@ import (
 
 // App 应用接口
 type AppModuleImpl interface {
-	GetApp() *AppImpl
+	GetApp() AppImpl
+
+	Name() string
 
 	// Call this callback when a module is added into atapp for the first time
 	OnBind()
@@ -29,7 +31,7 @@ type AppModuleImpl interface {
 	// This callback is called after configure is reloaded
 	Reload() error
 
-	// This callback may be called more than once, when the first return false, this module will be disabled.
+	// This callback may be called more than once, when the first return false, or this module will be disabled.
 	Stop() (bool, error)
 
 	// This callback only will be call once after all module stopped
@@ -39,13 +41,51 @@ type AppModuleImpl interface {
 	// After this event, all module and atapp will be forced stopped.
 	Timeout()
 
+	// This function will be called in every tick if it's actived. return true when busy.
+	Tick(parent context.Context) bool
+
 	IsActived() bool
 	Active()
 	Unactive()
 }
 
 type AppModuleBase struct {
+	owner   AppImpl
 	actived bool
+}
+
+func (m *AppModuleBase) GetApp() AppImpl {
+	return m.owner
+}
+
+func (m *AppModuleBase) OnBind() {}
+
+func (m *AppModuleBase) OnUnbind() {}
+
+func (m *AppModuleBase) Setup(parent context.Context) error {
+	return nil
+}
+
+func (m *AppModuleBase) SetupLog(parent context.Context) error {
+	return nil
+}
+
+func (m *AppModuleBase) Ready() {}
+
+func (m *AppModuleBase) Reload() error {
+	return nil
+}
+
+func (m *AppModuleBase) Stop() (bool, error) {
+	return true, nil
+}
+
+func (m *AppModuleBase) Cleanup() {}
+
+func (m *AppModuleBase) Timeout() {}
+
+func (m *AppModuleBase) Tick(parent context.Context) bool {
+	return false
 }
 
 func (m *AppModuleBase) IsActived() bool {

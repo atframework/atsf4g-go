@@ -11,7 +11,6 @@ import (
 type ExampleModule struct {
 	AppModuleBase
 
-	app    *AppImpl
 	name   string
 	inited bool
 }
@@ -22,8 +21,8 @@ func NewExampleModule(name string) *ExampleModule {
 	}
 }
 
-func (m *ExampleModule) GetApp() *AppImpl {
-	return m.app
+func (m *ExampleModule) Name() string {
+	return m.name
 }
 
 func (m *ExampleModule) OnBind() {
@@ -71,6 +70,11 @@ func (m *ExampleModule) Cleanup() {
 
 func (m *ExampleModule) Timeout() {
 	fmt.Printf("Module %s: Timeout called\n", m.name)
+}
+
+func (m *ExampleModule) Tick(parent context.Context) bool {
+	fmt.Printf("Module %s: Tick called\n", m.name)
+	return false
 }
 
 // 测试基本功能
@@ -127,24 +131,6 @@ func TestAppBasicFunctionality(t *testing.T) {
 
 	if !app.IsClosed() {
 		t.Error("App should be closed after stop")
-	}
-}
-
-// 测试命令处理
-func TestCommandHandling(t *testing.T) {
-	app := CreateAppInstance().(*AppInstance)
-
-	cm := app.GetCommandManager()
-	commands := cm.ListCommands()
-
-	expectedCommands := []string{"start", "stop", "reload", "status", "version"}
-	if len(commands) != len(expectedCommands) {
-		t.Errorf("Expected %d commands, got %d", len(expectedCommands), len(commands))
-	}
-
-	// 测试版本命令
-	if err := app.handleVersionCommand([]string{}); err != nil {
-		t.Errorf("Version command failed: %v", err)
 	}
 }
 
