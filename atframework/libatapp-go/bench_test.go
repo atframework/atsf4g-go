@@ -38,7 +38,10 @@ func BenchmarkEventTrigger(b *testing.B) {
 	})
 
 	b.ResetTimer()
+	action := app.MakeAction(func(action *AppActionData) error {
+		return nil
+	}, nil, nil)
 	for i := 0; i < b.N; i++ {
-		app.TriggerEvent("test", "arg1", "arg2")
+		app.TriggerEvent("test", action)
 	}
 }

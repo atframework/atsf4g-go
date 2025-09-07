@@ -317,19 +317,27 @@ func (app *AppInstance) Init(arguments []string) error {
 
 	// 初始化启动流程日志
 	if err := app.setupStartupLog(); err != nil {
+		if app.mode == AppModeStart {
+			app.writeStartupErrorFile(err)
+		}
 		return fmt.Errorf("setup startup log failed: %w", err)
 	}
 
 	// 设置信号处理
 	if app.mode != AppModeCustom && app.mode != AppModeStop && app.mode != AppModeReload {
 		if err := app.setupSignal(); err != nil {
-			app.writeStartupErrorFile(err)
+			if app.mode == AppModeStart {
+				app.writeStartupErrorFile(err)
+			}
 			return fmt.Errorf("setup signal failed: %w", err)
 		}
 	}
 
 	// 加载配置
 	if err := app.LoadConfig(app.config.ConfigFile); err != nil {
+		if app.mode == AppModeStart {
+			app.writeStartupErrorFile(err)
+		}
 		return fmt.Errorf("load config failed: %w", err)
 	}
 
@@ -339,11 +347,17 @@ func (app *AppInstance) Init(arguments []string) error {
 
 	// 初始化日志
 	if err := app.setupLog(); err != nil {
+		if app.mode == AppModeStart {
+			app.writeStartupErrorFile(err)
+		}
 		return fmt.Errorf("setup log failed: %w", err)
 	}
 
 	// 设置定时器
 	if err := app.setupTickTimer(); err != nil {
+		if app.mode == AppModeStart {
+			app.writeStartupErrorFile(err)
+		}
 		return fmt.Errorf("setup timer failed: %w", err)
 	}
 
@@ -360,6 +374,9 @@ func (app *AppInstance) Init(arguments []string) error {
 	// , ants.WithNonblocking(true)
 	)
 	if err != nil {
+		if app.mode == AppModeStart {
+			app.writeStartupErrorFile(err)
+		}
 		return err
 	}
 
@@ -373,8 +390,12 @@ func (app *AppInstance) Init(arguments []string) error {
 			break
 		}
 		if err := m.Setup(initContext); err != nil {
+			if app.mode == AppModeStart {
+				app.writeStartupErrorFile(err)
+			}
 			return fmt.Errorf("module setup failed: %w", err)
 		}
+		m.Enable()
 	}
 
 	// Setup log phase
@@ -383,7 +404,23 @@ func (app *AppInstance) Init(arguments []string) error {
 			break
 		}
 		if err := m.SetupLog(initContext); err != nil {
+			if app.mode == AppModeStart {
+				app.writeStartupErrorFile(err)
+			}
 			return fmt.Errorf("module setup log failed: %w", err)
+		}
+	}
+
+	// Start reload phase
+	for _, m := range app.modules {
+		if initContext.Err() != nil {
+			break
+		}
+		if err := m.Reload(); err != nil {
+			if app.mode == AppModeStart {
+				app.writeStartupErrorFile(err)
+			}
+			return fmt.Errorf("module reload failed: %w", err)
 		}
 	}
 
@@ -393,26 +430,44 @@ func (app *AppInstance) Init(arguments []string) error {
 			break
 		}
 		if err := m.Init(initContext); err != nil {
+			if app.mode == AppModeStart {
+				app.writeStartupErrorFile(err)
+			}
 			return fmt.Errorf("module init failed: %w", err)
 		}
 	}
 
 	maybeErr := initContext.Err()
+	if maybeErr == nil {
+		maybeErr = app.appContext.Err()
+	}
 
-	if maybeErr != nil {
+	if maybeErr == nil {
+		// TODO: evt_on_all_module_inited_(*this);
+
 		app.SetFlag(AppFlagRunning, true)
-		// Ready phase
-		for _, m := range app.modules {
-			if initContext.Err() != nil {
-				break
-			}
-
-			m.Ready()
-		}
-
 		app.SetFlag(AppFlagInitialized, true)
 		app.SetFlag(AppFlagStopped, false)
 		app.SetFlag(AppFlagStopping, false)
+
+		if app.mode == AppModeStart {
+			app.writePidFile()
+			app.cleanupStartupErrorFile()
+		}
+
+		// Ready phase
+		for _, m := range app.modules {
+			m.Ready()
+		}
+	} else {
+		// 失败处理
+		app.Stop()
+
+		for app.IsInited() && !app.IsClosed() {
+			app.internalRunOnce(app.tickTimer)
+		}
+
+		app.writeStartupErrorFile(maybeErr)
 	}
 
 	return maybeErr
@@ -507,7 +562,7 @@ func (app *AppInstance) closeAllModules(forceTimeout bool) (bool, error) {
 				allClosed = false
 			}
 		} else {
-			m.Cleanup()
+			m.Unactive()
 		}
 	}
 
@@ -542,7 +597,10 @@ func (app *AppInstance) close() (bool, error) {
 func (app *AppInstance) cleanup() error {
 	// all modules cleanup
 	for _, m := range slices.Backward(app.modules) {
-		m.Cleanup()
+		if m.IsEnabled() {
+			m.Cleanup()
+			m.Disable()
+		}
 	}
 
 	// TODO: cleanup event
@@ -820,6 +878,15 @@ func (app *AppInstance) writeStartupErrorFile(err error) {
 
 	pidData := fmt.Sprintf("%v\n", err)
 	os.WriteFile(app.config.StartupErrorFile, []byte(pidData), 0644)
+}
+
+// 辅助方法：清理启动失败标记文件
+func (app *AppInstance) cleanupStartupErrorFile() error {
+	if app.config.StartupErrorFile == "" {
+		return nil
+	}
+
+	return os.Remove(app.config.StartupErrorFile)
 }
 
 // 辅助方法：设置默认值

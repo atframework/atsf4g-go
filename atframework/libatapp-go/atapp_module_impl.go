@@ -47,11 +47,16 @@ type AppModuleImpl interface {
 	IsActived() bool
 	Active()
 	Unactive()
+
+	IsEnabled() bool
+	Enable()
+	Disable()
 }
 
 type AppModuleBase struct {
 	owner   AppImpl
 	actived bool
+	enabled bool
 }
 
 func (m *AppModuleBase) GetApp() AppImpl {
@@ -98,4 +103,16 @@ func (m *AppModuleBase) Active() {
 
 func (m *AppModuleBase) Unactive() {
 	m.actived = false
+}
+
+func (m *AppModuleBase) IsEnabled() bool {
+	return m.enabled
+}
+
+func (m *AppModuleBase) Enable() {
+	m.enabled = true
+}
+
+func (m *AppModuleBase) Disable() {
+	m.enabled = false
 }
