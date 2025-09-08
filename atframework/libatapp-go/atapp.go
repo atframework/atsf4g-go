@@ -217,6 +217,8 @@ func CreateAppInstance() AppImpl {
 		app.destroy()
 	})
 
+	// TODO: 内置公共引用层模块
+
 	return ret
 }
 

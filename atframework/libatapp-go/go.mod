@@ -1,4 +1,4 @@
-module github.com/atframework/libapp-go
+module github.com/atframework/libatapp-go
 
 go 1.25.0
 
