@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"sync"
@@ -493,12 +492,12 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 		app.logger.Info("Start to stop...")
 	case sig := <-app.signalChan:
 		if sig == syscall.SIGTERM || sig == syscall.SIGQUIT {
-			app.logger.Info("Received signal: %v, stopping...", sig)
+			app.logger.Info("Received signal, stopping...", slog.Any("signal", sig))
 			app.Stop()
 		}
 	case <-tickTimer.C:
 		if err := app.tick(); err != nil {
-			app.logger.Error("Tick error: %v", err)
+			app.logger.Error("Tick error", slog.Any("err", err))
 		}
 	}
 
@@ -680,7 +679,7 @@ func (app *AppInstance) LoadConfig(configFile string) error {
 	if configFile != "" {
 		app.config.ConfigFile = configFile
 		// TODO: 实际的配置文件解析逻辑
-		app.logger.Info("Loading config from: %s", configFile)
+		app.logger.Info("Loading config from", "configFile", configFile)
 	}
 	return nil
 }
@@ -688,13 +687,21 @@ func (app *AppInstance) LoadConfig(configFile string) error {
 // 消息相关
 func (app *AppInstance) SendMessage(targetId uint64, msgType int32, data []byte) error {
 	// TODO: 实现消息发送逻辑
-	app.logger.Debug("Sending message to %d, type: %d, size: %d", targetId, msgType, len(data))
+	app.logger.Debug("Sending message",
+		"targetId", targetId,
+		"type", msgType,
+		"size", len(data),
+	)
 	return nil
 }
 
 func (app *AppInstance) SendMessageByName(targetName string, msgType int32, data []byte) error {
 	// TODO: 实现按名称发送消息逻辑
-	app.logger.Debug("Sending message to %s, type: %d, size: %d", targetName, msgType, len(data))
+	app.logger.Debug("Sending message",
+		"targetName", targetName,
+		"type", msgType,
+		"size", len(data),
+	)
 	return nil
 }
 
@@ -737,14 +744,14 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	}
 
 	// 检查是否在测试环境中
-	for _, arg := range os.Args {
+	for _, arg := range arguments {
 		if startsWith(arg, "-test.") {
-			// 在测试环境中，不解析 os.Args
+			// 在测试环境中，不解析 arguments
 			return nil
 		}
 	}
 
-	if err := app.flagSet.Parse(os.Args[1:]); err != nil {
+	if err := app.flagSet.Parse(arguments); err != nil {
 		return err
 	}
 
@@ -803,7 +810,7 @@ func (app *AppInstance) setupStartupLog() error {
 	// TODO: 根据配置设置启动流程日志
 	if len(app.config.StartupLog) > 0 {
 		for _, logFile := range app.config.StartupLog {
-			app.logger.Info("Setting up startup log: %s", logFile)
+			app.logger.Info("Setting up startup log", "file", logFile)
 		}
 	}
 	return nil
@@ -891,23 +898,6 @@ func (app *AppInstance) cleanupStartupErrorFile() error {
 	return os.Remove(app.config.StartupErrorFile)
 }
 
-// 辅助方法：设置默认值
-func (app *AppInstance) setDefaults() {
-	if app.config.AppName == "" && app.config.TypeName != "" {
-		app.config.AppName = fmt.Sprintf("%s-0x%x", app.config.TypeName, app.config.AppId)
-	}
-
-	if app.config.AppIdentity == "" {
-		// 生成基于可执行文件路径和配置的唯一标识
-		absPath, _ := filepath.Abs(app.config.ExecutePath)
-		identity := fmt.Sprintf("%s\n%s\nid: %d\nname: %s",
-			absPath, app.config.ConfigFile, app.config.AppId, app.config.AppName)
-		hasher := sha256.New()
-		hasher.Write([]byte(identity))
-		app.config.AppIdentity = hex.EncodeToString(hasher.Sum(nil))
-	}
-}
-
 // 命令处理相关
 type CommandHandler func(*AppInstance, string, []string) error
 
@@ -982,17 +972,17 @@ func (app *AppInstance) setupCommandManager() {
 }
 
 // 默认命令处理器
-func (app *AppInstance) handleStartCommand(args []string) error {
+func (app *AppInstance) handleStartCommand(_args []string) error {
 	app.logger.Info("======================== App start ========================")
-	return app.Run(args)
+	return nil
 }
 
-func (app *AppInstance) handleStopCommand(args []string) error {
+func (app *AppInstance) handleStopCommand(_args []string) error {
 	app.logger.Info("======================== App received stop command ========================")
 	return app.Stop()
 }
 
-func (app *AppInstance) handleReloadCommand(args []string) error {
+func (app *AppInstance) handleReloadCommand(_args []string) error {
 	app.logger.Info("======================== App received reload command ========================")
 	return app.Reload()
 }
@@ -1010,7 +1000,7 @@ func (app *AppInstance) MakeAction(callback func(action *AppActionData) error, m
 func (app *AppInstance) PushAction(callback func(action *AppActionData) error, message_data []byte, private_data interface{}) error {
 	sender := app.MakeAction(callback, message_data, private_data)
 	if err := app.workerPool.Invoke(sender); err != nil {
-		app.logger.Error("failed to invoke action: %w", err)
+		app.logger.Error("failed to invoke action", "err", err)
 		return err
 	}
 
@@ -1020,7 +1010,7 @@ func (app *AppInstance) PushAction(callback func(action *AppActionData) error, m
 func (app *AppInstance) processAction(sender *AppActionSender) {
 	err := sender.callback(&sender.data)
 	if err != nil {
-		app.logger.Error("Action callback error: %v", err)
+		app.logger.Error("Action callback error", slog.Any("err", err))
 	}
 
 	sender.reset()
