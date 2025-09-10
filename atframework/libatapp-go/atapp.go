@@ -123,6 +123,9 @@ type AppImpl interface {
 	IsClosed() bool
 	CheckFlag(flag AppFlag) bool
 	SetFlag(flag AppFlag, value bool) bool
+
+	// 生命周期管理
+	GetAppContext() *context.Context
 }
 
 type AppInstance struct {
@@ -721,6 +724,10 @@ func (app *AppInstance) TriggerEvent(eventType string, args *AppActionSender) in
 		return handler(app, args)
 	}
 	return 0
+}
+
+func (app *AppInstance) GetAppContext() *context.Context {
+	return &app.appContext
 }
 
 // 内部辅助方法

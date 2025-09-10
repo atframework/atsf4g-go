@@ -119,15 +119,13 @@ message SCPlayerGetInfoRsp {
   DPlayerOptions player_options = 2; // 玩家自定义选项
 }
 
-service LoginsvrClientService {
+service LobbyClientService {
   rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
     option (atframework.rpc_options) = {
       api_name : "Authorization"
     };
   };
-}
 
-service GamesvrClientService {
   rpc login(CSLoginReq) returns (SCLoginRsp) {
     option (atframework.rpc_options) = {
       api_name : "Login"

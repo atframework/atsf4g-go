@@ -43,7 +43,7 @@ type DispatcherAwaitOptions struct {
 	Timeout  time.Duration
 }
 
-type DispatcherTargetObject struct {
+type ActorExecutor struct {
 	Instance interface{}
 }
 
