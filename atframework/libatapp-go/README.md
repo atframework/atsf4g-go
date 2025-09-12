@@ -15,6 +15,16 @@ A Go implementation of the atapp application framework, inspired by the C++ liba
 
 ## Quick Start
 
+### Prepare
+
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install "github.com/bufbuild/buf/cmd/buf@latest"
+
+# go generate ./...
+buf generate
+```
+
 ### Basic Usage
 
 ```go

@@ -1,0 +1,4 @@
+[submodule "third_party/xresloader/xres-code-generator"]
+	path = third_party/xresloader/xres-code-generator
+	url = https://github.com/xresloader/xres-code-generator.git
+	branch = main

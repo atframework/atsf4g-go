@@ -1,6 +1,10 @@
 package atframework_component_dispatcher
 
-import "time"
+import (
+	"container/list"
+	"sync"
+	"time"
+)
 
 type MessageOpType int
 
@@ -43,7 +47,26 @@ type DispatcherAwaitOptions struct {
 	Timeout  time.Duration
 }
 
+type ActorExecutorStatus int
+
+const (
+	ActorExecutorStatusFree ActorExecutorStatus = iota // 0
+	ActorExecutorStatusPending
+	ActorExecutorStatusRunning
+)
+
+type ActorAction struct {
+	action   TaskActionImpl
+	callback func() error
+}
+
 type ActorExecutor struct {
+	current_action TaskActionImpl
+
+	action_status   ActorExecutorStatus
+	action_lock     sync.Mutex
+	pending_actions list.List
+
 	Instance interface{}
 }
 

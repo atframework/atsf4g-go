@@ -112,6 +112,9 @@ type AppImpl interface {
 	SetEventHandler(eventType string, handler EventHandler)
 	TriggerEvent(eventType string, args *AppActionSender) int
 
+	// 自定义Action
+	PushAction(callback func(action *AppActionData) error, message_data []byte, private_data interface{}) error
+
 	// 配置相关
 	GetConfig() *AppConfig
 	LoadConfig(configFile string) error
@@ -126,6 +129,9 @@ type AppImpl interface {
 
 	// 生命周期管理
 	GetAppContext() *context.Context
+
+	// Logger
+	GetLogger() *slog.Logger
 }
 
 type AppInstance struct {
@@ -728,6 +734,10 @@ func (app *AppInstance) TriggerEvent(eventType string, args *AppActionSender) in
 
 func (app *AppInstance) GetAppContext() *context.Context {
 	return &app.appContext
+}
+
+func (app *AppInstance) GetLogger() *slog.Logger {
+	return app.logger
 }
 
 // 内部辅助方法
