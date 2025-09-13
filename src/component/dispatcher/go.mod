@@ -6,11 +6,14 @@ replace github.com/atframework/libatapp-go => ../../../atframework/libatapp-go
 
 replace github.com/atframework/atsf4g-go/component-protocol-public => ../protocol/public
 
+replace github.com/atframework/atsf4g-go/component-protocol-private => ../protocol/private
+
 replace github.com/xresloader/xresloader => ../../../third_party/xresloader/protocols/core
 
 replace github.com/xresloader/xres-code-generator => ../../../third_party/xresloader/protocols/code
 
 require (
+	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 	google.golang.org/protobuf v1.36.9

@@ -19,6 +19,11 @@ type TaskActionImpl interface {
 	// 最终业务流程执行
 	Run(DispatcherStartData) error
 
+	// 权限检查（通常在解包后，Run之前执行）
+	// 如果权限检查失败，返回 (错误，错误码) 或 (nil, 错误码) Run不会被调用
+	// 如果权限检查成功，返回 (nil, 0) ，Run会被调用
+	CheckPermission(TaskActionImpl) (int32, error)
+
 	// 允许公共逻辑在运行最终业务流程前执行前置或后置操作
 	HookRun(TaskActionImpl, DispatcherStartData) error
 
