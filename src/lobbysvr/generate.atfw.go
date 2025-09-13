@@ -1,3 +1,3 @@
-package libatapp
+package service_lobbysvr
 
 //go:generate protoc --go_out=. --go_opt=paths=source_relative --proto_path=. --proto_path=../component/protocol/public/pbdesc --proto_path=../component/protocol/public/config --proto_path=../component/protocol/public/common --proto_path=../component/protocol/public/extension --proto_path=../component/protocol/private/config --proto_path=../component/protocol/private/common --proto_path=../component/protocol/private/extension --proto_path=../../third_party/xresloader/protocols/core --proto_path=../../third_party/xresloader/protocols/code --proto_path=../../atframework/libatapp-go/protocol protocol/pbdesc/*.proto

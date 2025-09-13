@@ -10,7 +10,7 @@ To work with <https://github.com/atframework/atsf4g-co>.
 
 ```bash
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install "github.com/bufbuild/buf/cmd/buf@latest"
+# go install "github.com/bufbuild/buf/cmd/buf@latest"
 
 cd tools/generate
 go run .

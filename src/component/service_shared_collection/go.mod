@@ -1,4 +1,4 @@
-module github.com/atframework/atsf4g-go/src/component/service_shared_collection
+module github.com/atframework/atsf4g-go/component-service_shared_collection
 
 go 1.25.0
 

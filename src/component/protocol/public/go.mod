@@ -1,4 +1,4 @@
-module github.com/atframework/atsf4g-go/src/component/protocol/public
+module github.com/atframework/atsf4g-go/component-protocol-public
 
 go 1.25.0
 

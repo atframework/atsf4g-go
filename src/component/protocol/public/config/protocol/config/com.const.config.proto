@@ -6,7 +6,7 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/src/component/protocol/public";
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";

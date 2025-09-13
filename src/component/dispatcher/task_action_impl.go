@@ -1,9 +1,12 @@
 package atframework_component_dispatcher
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -129,8 +132,8 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData Dispat
 
 		if err != nil {
 			if action.GetResponseCode() == 0 {
-				// TODO: 统一错误码定义
-				action.SetResponseCode(-1)
+				// 未设置错误
+				action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_UNKNOWN))
 			}
 
 			app.GetLogger().Error("TaskAction run failed",
@@ -138,20 +141,20 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData Dispat
 				slog.Uint64("task_id", action.GetTaskId()),
 				slog.Any("error", err), slog.Int("response_code", int(action.GetResponseCode())))
 
-			// TODO: 超时错误码/错误
-			// if errors.Is(err, context.DeadlineExceeded) {
-			// 	action.OnTimeout()
-			// }
+			// 超时错误码/错误
+			if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) || errors.Is(err, context.DeadlineExceeded) {
+				action.OnTimeout()
+			}
 			action.OnFailed()
 
 		} else {
 			if action.GetResponseCode() < 0 {
 				app.GetLogger().Error("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 
-				// TODO: 超时错误码
-				// if errors.Is(err, context.DeadlineExceeded) {
-				// 	action.OnTimeout()
-				// }
+				// 超时错误码
+				if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) {
+					action.OnTimeout()
+				}
 				action.OnFailed()
 			} else {
 				app.GetLogger().Debug("TaskAction run success", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))

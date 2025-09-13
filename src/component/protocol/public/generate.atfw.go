@@ -1,4 +1,4 @@
-package libatapp
+package component_protocol_public
 
 //go:generate protoc --go_out=extension --go_opt=paths=source_relative --proto_path=extension extension/protocol/extension/*.proto
 //go:generate protoc --go_out=common --go_opt=paths=source_relative --proto_path=common --proto_path=extension --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../../../../third_party/xresloader/protocols/code common/protocol/common/*.proto

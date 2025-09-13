@@ -5,7 +5,7 @@ import "google/protobuf/descriptor.proto";
 
 package atapp.protocol;
 
-option go_package = "github.com/atframework/libatapp-go/protocol";
+option go_package = "github.com/atframework/libatapp-go/protocol/atframe";
 option optimize_for = SPEED;
 // option optimize_for = LITE_RUNTIME;
 // option optimize_for = CODE_SIZE;

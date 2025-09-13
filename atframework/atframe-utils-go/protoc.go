@@ -107,9 +107,14 @@ func ensureProtoc(version string, binDir string) string {
 	cacheRoot := binDir
 	targetDir := filepath.Join(cacheRoot, "protoc", version, osName+"-"+arch)
 	protocPath := filepath.Join(targetDir, binName("protoc"))
+	protocFallbackPath := filepath.Join(targetDir, "bin", binName("protoc"))
 
 	if fileExists(protocPath) {
 		return protocPath
+	}
+
+	if fileExists(protocFallbackPath) {
+		return protocFallbackPath
 	}
 
 	log.Printf("Downloading protoc %s for %s/%s\nURL: %s", version, osName, arch, assetURL)
@@ -123,6 +128,10 @@ func ensureProtoc(version string, binDir string) string {
 		unzipToDir(data, targetDir)
 	} else {
 		untarGzToDir(data, targetDir)
+	}
+
+	if !fileExists(protocPath) && fileExists(protocFallbackPath) {
+		os.Rename(protocFallbackPath, protocPath)
 	}
 
 	// 包结构通常为：bin/protoc, include/***

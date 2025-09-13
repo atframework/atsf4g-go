@@ -2,50 +2,98 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 
 	atframe_utils "github.com/atframework/atframe-utils-go"
 )
 
-func main() {
-	scanDir := "../../"
-	if len(os.Args) > 1 && os.Args[1] != "" {
-		scanDir = os.Args[1]
+func guessBinDir() string {
+	if _, filename, _, ok := runtime.Caller(0); ok {
+		if _, err := os.Stat(filename); err == nil {
+			return filepath.Join(filepath.Dir(filepath.Dir(filename)), "bin")
+		}
 	}
 
-	var protocBin string
-	if _, filename, _, ok := runtime.Caller(1); ok {
-		protocBin = atframe_utils.EnsureProtocExecutable(path.Join(filepath.Dir(filename), "bin"))
-	} else {
-		protocBin = atframe_utils.EnsureProtocExecutable(path.Join("..", "bin"))
+	exePath, err := os.Executable()
+	if err != nil {
+		return exePath
 	}
+
+	cwdDir, _ := os.Getwd()
+	baseDir := cwdDir
+	previousDir := baseDir + "_"
+	for i := 0; previousDir != baseDir && previousDir != ""; i++ {
+		if _, err := os.Stat(filepath.Join(baseDir, "tools", "generate", "go.mod")); err == nil {
+			return filepath.Join(baseDir, "tools", "bin")
+		}
+
+		previousDir = baseDir
+		baseDir = filepath.Dir(baseDir)
+	}
+
+	return cwdDir
+}
+
+func main() {
+	scanDirs := []string{"../../"}
+	if len(os.Args) > 1 && os.Args[1] != "" {
+		scanDirs = os.Args[1:]
+	}
+
+	toolsBinDir := guessBinDir()
+	if toolsBinDir == "" {
+		fmt.Fprintf(os.Stderr, "Cannot guess tools bin dir\n")
+		os.Exit(1)
+	}
+
+	log.Println("Tools bin dir:", toolsBinDir)
+
+	protocBin := atframe_utils.EnsureProtocExecutable(toolsBinDir)
 	// 将protocBin的上级目录加入PATH
 	binDir := filepath.Dir(protocBin)
 	os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	pendingGoTidy := make(map[string]bool)
+	runCache := make(map[string]bool)
 
 	// 扫描所有 generate.atfw.go 文件
 	var matches []string
-	err := filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
+	for _, scanDir := range scanDirs {
+		err := filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if filepath.Base(path) == "generate.atfw.go" {
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					if runCache[absPath] {
+						return nil
+					}
+					matches = append(matches, absPath)
+					runCache[absPath] = true
+				} else {
+					if runCache[path] {
+						return nil
+					}
+					matches = append(matches, path)
+					runCache[path] = true
+				}
+			}
 			return nil
+		})
+
+		if err != nil || len(matches) == 0 {
+			fmt.Fprintf(os.Stderr, "Scan generate.atfw.go failed: %v\n", err)
+			os.Exit(1)
 		}
-		if filepath.Base(path) == "generate.atfw.go" {
-			matches = append(matches, path)
-		}
-		return nil
-	})
-	if err != nil || len(matches) == 0 {
-		fmt.Fprintf(os.Stderr, "Scan generate.atfw.go failed: %v\n", err)
-		os.Exit(1)
 	}
+
 	for _, file := range matches {
 		// 执行 go generate
 		if err := runGoGenerate(file); err != nil {
