@@ -46,7 +46,7 @@ type DispatcherBase struct {
 	messageFilters    []MessageFilterHandler
 }
 
-func (dispatcher *DispatcherBase) Init(_parent context.Context) error {
+func (dispatcher *DispatcherBase) Init(_initCtx context.Context) error {
 	dispatcher.sequenceAllocator.Store(
 		// 使用时间戳作为初始值, 避免与重启前的值冲突
 		uint64(time.Now().Sub(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()),

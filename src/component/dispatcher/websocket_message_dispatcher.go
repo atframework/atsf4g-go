@@ -1,1 +1,481 @@
 package atframework_component_dispatcher
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+
+	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+)
+
+type WebSocketSession struct {
+	SessionId uint64
+
+	Connection *websocket.Conn
+
+	Authorized       bool
+	sentCloseMessage bool
+
+	runningContext context.Context
+	runningCancel  context.CancelFunc
+
+	sendQueue    chan *public_protocol_extension.CSMsg
+	errorCounter int
+}
+
+type WebSocketMessageDispatcher struct {
+	DispatcherBase
+
+	serverConfig            *private_protocol_config.WebserverCfg
+	wsConfig                *private_protocol_config.WebsocketServerCfg
+	upgrader                *websocket.Upgrader
+	upgraderReadBufferSize  uint32
+	upgraderWriteBufferSize uint32
+	upgraderLock            sync.RWMutex
+
+	sessions           map[uint64]*WebSocketSession
+	sessionIdAllocator uint64
+	sessionLock        sync.Mutex
+
+	webServerHandle   *http.ServeMux
+	webServerInstance *http.Server
+	webServerAddress  string
+
+	stopContext context.Context
+	stopCancel  context.CancelFunc
+
+	callbackLock    sync.RWMutex
+	onNewSession    func(session *WebSocketSession) error
+	onRemoveSession func(session *WebSocketSession)
+	onNewMessage    func(session *WebSocketSession, message *public_protocol_extension.CSMsg) error
+}
+
+func (d *WebSocketMessageDispatcher) Name() string { return "WebSocketMessageDispatcher" }
+
+func (d *WebSocketMessageDispatcher) Init(initCtx context.Context) error {
+	err := d.DispatcherBase.Init(initCtx)
+	if err != nil {
+		return err
+	}
+
+	return d.setupListen()
+}
+
+func (d *WebSocketMessageDispatcher) setupUpgrader() {
+	d.upgraderLock.Lock()
+	defer d.upgraderLock.Unlock()
+
+	d.upgrader = &websocket.Upgrader{
+		HandshakeTimeout: d.wsConfig.HandshakeTimeout.AsDuration(),
+		ReadBufferSize:   int(d.wsConfig.ReadBufferSize),
+		WriteBufferSize:  int(d.wsConfig.WriteBufferSize),
+		Subprotocols:     d.wsConfig.SubProtocols,
+		CheckOrigin: func(r *http.Request) bool {
+			// Configure origin checking for production
+			return true
+		},
+		EnableCompression: d.wsConfig.EnableCompression,
+	}
+
+	d.upgraderReadBufferSize = d.wsConfig.ReadBufferSize
+	d.upgraderWriteBufferSize = d.wsConfig.WriteBufferSize
+}
+
+func (d *WebSocketMessageDispatcher) setupListen() error {
+	if d.GetApp().IsClosing() || d.GetApp().IsClosed() {
+		return fmt.Errorf("application is closing or closed")
+	}
+
+	d.setupUpgrader()
+
+	if d.webServerHandle == nil {
+		d.webServerHandle = http.NewServeMux()
+		d.webServerHandle.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, d.wsConfig.Path) {
+				http.NotFound(w, r)
+				return
+			}
+
+			d.handleConnection(w, r)
+		})
+	}
+
+	if d.webServerInstance != nil && d.webServerAddress != d.serverConfig.Host+":"+string(d.serverConfig.Port) {
+		d.webServerInstance.Close()
+		d.webServerInstance = nil
+	}
+
+	if d.webServerInstance == nil {
+		d.webServerAddress = d.serverConfig.Host + ":" + string(d.serverConfig.Port)
+		d.webServerInstance = &http.Server{
+			Addr:         d.webServerAddress,
+			Handler:      d.webServerHandle,
+			ReadTimeout:  d.serverConfig.ReadTimeout.AsDuration(),
+			WriteTimeout: d.serverConfig.WriteTimeout.AsDuration(),
+			IdleTimeout:  d.serverConfig.IdleTimeout.AsDuration(),
+		}
+	}
+
+	go d.runServer()
+
+	return nil
+}
+
+func (d *WebSocketMessageDispatcher) runServer() error {
+	if d.webServerInstance == nil {
+		return fmt.Errorf("web server instance not initialized")
+	}
+
+	var err error
+	if d.serverConfig.TlsCertFile != "" && d.serverConfig.TlsKeyFile != "" {
+		err = d.webServerInstance.ListenAndServeTLS(d.serverConfig.TlsCertFile, d.serverConfig.TlsKeyFile)
+	} else {
+		err = d.webServerInstance.ListenAndServe()
+	}
+
+	return err
+}
+
+func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *http.Request) {
+	if d.GetApp().IsClosing() || d.GetApp().IsClosed() {
+		http.Error(w, "Application is closing or closed", http.StatusServiceUnavailable)
+		return
+	}
+
+	d.sessionLock.Lock()
+	defer d.sessionLock.Unlock()
+
+	if len(d.sessions) >= int(d.wsConfig.MaxConnections) {
+		http.Error(w, "Max connections reached", http.StatusBadGateway)
+		return
+	}
+
+	d.upgraderLock.RLock()
+	defer d.upgraderLock.RUnlock()
+
+	conn, err := d.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
+		d.GetApp().GetLogger().Error("WebSocket upgrade failed", "error", err)
+		return
+	}
+	conn.SetReadLimit(int64(d.wsConfig.MaxMessageSize))
+
+	session := &WebSocketSession{
+		SessionId:  d.AllocateSessionId(),
+		Connection: conn,
+		Authorized: false,
+		sendQueue:  make(chan *public_protocol_extension.CSMsg, d.wsConfig.MaxWriteMessageCount),
+	}
+
+	session.runningContext, session.runningCancel = context.WithCancel(d.GetApp().GetAppContext())
+
+	go d.handleSessionRead(session)
+	go d.handleSessionWrite(session)
+}
+
+func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
+	d.sessionLock.Lock()
+	defer d.sessionLock.Unlock()
+
+	d.callbackLock.RLock()
+	defer d.callbackLock.RUnlock()
+
+	if d.onNewSession != nil {
+		err := d.onNewSession(session)
+		if err != nil {
+			d.GetApp().GetLogger().Error("OnNewSession callback error", "error", err, "session_id", session.SessionId)
+			d.Close(session, websocket.CloseServiceRestart, "Service shutdown")
+
+			if session.runningCancel != nil {
+				session.runningCancel()
+				session.runningCancel = nil
+			}
+			return
+		}
+	}
+
+	d.sessions[session.SessionId] = session
+}
+
+func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
+	d.sessionLock.Lock()
+	defer d.sessionLock.Unlock()
+
+	delete(d.sessions, session.SessionId)
+
+	d.callbackLock.RLock()
+	defer d.callbackLock.RUnlock()
+	if d.onRemoveSession != nil {
+		d.onRemoveSession(session)
+	}
+}
+
+func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession) {
+	defer d.Close(session, websocket.CloseGoingAway, "Session closed by peer")
+
+	for {
+		_, messageData, err := session.Connection.ReadMessage()
+		if err != nil {
+			d.increaseErrorCounter(session)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				d.GetApp().GetLogger().Error("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
+			}
+			break
+		}
+
+		d.GetApp().GetLogger().Debug("Websocket session read message", "session_id", session.SessionId, "message_size", len(messageData))
+
+		msg := &public_protocol_extension.CSMsg{}
+		err = proto.Unmarshal(messageData, msg)
+		if err != nil {
+			d.increaseErrorCounter(session)
+			d.GetApp().GetLogger().Error("Failed to unmarshal message", "error", err, "session_id", session.SessionId)
+			continue
+		}
+
+		session.resetErrorCounter()
+
+		d.callbackLock.RLock()
+		if d.onNewMessage != nil {
+			err = d.onNewMessage(session, msg)
+			if err != nil {
+				d.GetApp().GetLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
+			}
+		} else {
+			d.GetApp().GetLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.String())
+		}
+		d.callbackLock.RUnlock()
+	}
+}
+
+func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSession) {
+	d.addSession(session)
+	defer d.removeSession(session)
+	defer session.Connection.Close()
+
+	authTimeoutContext, cancelFn := context.WithTimeout(session.runningContext, d.wsConfig.HandshakeTimeout.AsDuration())
+
+	cleanTimeout := func() {
+		if cancelFn != nil {
+			cancelFn()
+			cancelFn = nil
+		}
+	}
+	defer cleanTimeout()
+
+	for {
+		// 已认证，不需要判定超时
+		if session.Authorized || authTimeoutContext == nil {
+			select {
+			case <-session.runningContext.Done():
+				d.Close(session, websocket.CloseServiceRestart, "Service shutdown")
+				break
+			case writeMessage, ok := <-session.sendQueue:
+				if !ok {
+					d.Close(session, websocket.CloseGoingAway, "Session closing")
+					break
+				}
+				d.writeMessageToConnection(session, writeMessage)
+			}
+		} else {
+			select {
+			case <-authTimeoutContext.Done():
+				if !session.Authorized {
+					d.Close(session, websocket.CloseNormalClosure, "Authentication timeout")
+				}
+				authTimeoutContext = nil
+				cleanTimeout()
+
+			case <-session.runningContext.Done():
+				d.Close(session, websocket.CloseServiceRestart, "Service shutdown")
+				break
+			case writeMessage, ok := <-session.sendQueue:
+				if !ok {
+					d.Close(session, websocket.CloseGoingAway, "Session closing")
+					break
+				}
+				d.writeMessageToConnection(session, writeMessage)
+			}
+
+			if session.Authorized {
+				authTimeoutContext = nil
+				cleanTimeout()
+			}
+		}
+	}
+}
+
+func (d *WebSocketMessageDispatcher) WriteMessage(session *WebSocketSession, message *public_protocol_extension.CSMsg) error {
+	if message == nil || session == nil {
+		return fmt.Errorf("message or session is nil")
+	}
+
+	select {
+	case session.sendQueue <- message:
+		return nil
+	default:
+		d.increaseErrorCounter(session)
+		d.GetApp().GetLogger().Error("Send queue full, dropping message", "session_id", session.SessionId)
+		return fmt.Errorf("send queue full")
+	}
+}
+
+func (d *WebSocketMessageDispatcher) writeMessageToConnection(session *WebSocketSession, message *public_protocol_extension.CSMsg) error {
+	messageData, err := proto.Marshal(message)
+	if err != nil {
+		d.increaseErrorCounter(session)
+		d.GetApp().GetLogger().Error("Failed to marshal message", "error", err, "session_id", session.SessionId)
+		return err
+	}
+
+	err = session.Connection.WriteMessage(websocket.BinaryMessage, messageData)
+	if err != nil {
+		d.increaseErrorCounter(session)
+		d.GetApp().GetLogger().Error("Failed to write message", "error", err, "session_id", session.SessionId)
+		return err
+	}
+
+	session.resetErrorCounter()
+
+	d.GetApp().GetLogger().Debug("Websocket session sent message", "session_id", session.SessionId, "message_size", len(messageData))
+	return nil
+}
+
+func (d *WebSocketMessageDispatcher) Close(session *WebSocketSession, closeCode int, text string) {
+	if !session.sentCloseMessage {
+		d.GetApp().GetLogger().Info("Closing WebSocket session", "session_id", session.SessionId, "reason", text)
+
+		session.sentCloseMessage = true
+		session.Connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCode, text))
+		close(session.sendQueue)
+	}
+
+	if session.runningCancel != nil {
+		session.runningCancel()
+		session.runningCancel = nil
+	}
+}
+
+func (d *WebSocketMessageDispatcher) increaseErrorCounter(session *WebSocketSession) {
+	session.errorCounter++
+
+	if session.errorCounter > 10 {
+		d.Close(session, websocket.ClosePolicyViolation, "Too many errors")
+	}
+}
+
+func (s *WebSocketSession) resetErrorCounter() {
+	s.errorCounter = 0
+}
+
+func (d *WebSocketMessageDispatcher) Reload() error {
+	err := d.DispatcherBase.Reload()
+	if err != nil {
+		return err
+	}
+
+	// TODO: reload from config
+
+	d.serverConfig = &private_protocol_config.WebserverCfg{
+		Host:         "",
+		Port:         7001,
+		ReadTimeout:  durationpb.New(15 * time.Second),
+		WriteTimeout: durationpb.New(15 * time.Second),
+		IdleTimeout:  durationpb.New(60 * time.Second),
+	}
+	d.wsConfig = &private_protocol_config.WebsocketServerCfg{
+		MaxConnections:       50000,
+		ReadBufferSize:       4096,
+		WriteBufferSize:      4096,
+		HandshakeTimeout:     durationpb.New(10 * time.Second),
+		PongWait:             durationpb.New(60 * time.Second),
+		PingPeriod:           durationpb.New(54 * time.Second),
+		WriteWait:            durationpb.New(10 * time.Second),
+		MaxMessageSize:       2 * 1024 * 1024,
+		MaxWriteMessageCount: 256,
+		EnableCompression:    true,
+		Path:                 "/ws/v1",
+	}
+
+	if d.IsActived() {
+		return d.setupListen()
+	}
+
+	return nil
+}
+
+func (d *WebSocketMessageDispatcher) Stop() (bool, error) {
+	if d.stopContext == nil {
+		d.stopContext, d.stopCancel = context.WithTimeout(context.Background(), 5*time.Second)
+
+		if d.webServerInstance != nil {
+			d.webServerInstance.Shutdown(d.stopContext)
+		}
+
+		d.sessionLock.Lock()
+		defer d.sessionLock.Unlock()
+
+		for _, session := range d.sessions {
+			if session.runningCancel != nil {
+				session.runningCancel()
+				session.runningCancel = nil
+			}
+		}
+	}
+
+	ret := true
+	if len(d.sessions) > 0 {
+		ret = false
+	} else {
+		d.stopCancel()
+		d.stopContext = nil
+		d.stopCancel = nil
+	}
+
+	return ret, nil
+}
+
+// This callback only will be call once after all module stopped
+func (d *WebSocketMessageDispatcher) Cleanup() {
+	if d.webServerInstance != nil {
+		d.webServerInstance.Close()
+	}
+
+	if d.stopCancel != nil {
+		d.stopCancel()
+		d.stopContext = nil
+		d.stopCancel = nil
+	}
+}
+
+func (d *WebSocketMessageDispatcher) AllocateSessionId() uint64 {
+	d.sessionIdAllocator++
+	return d.sessionIdAllocator
+}
+
+func (d *WebSocketMessageDispatcher) SetOnNewSession(callback func(session *WebSocketSession) error) {
+	d.callbackLock.Lock()
+	defer d.callbackLock.Unlock()
+	d.onNewSession = callback
+}
+
+func (d *WebSocketMessageDispatcher) SetOnRemoveSession(callback func(session *WebSocketSession)) {
+	d.callbackLock.Lock()
+	defer d.callbackLock.Unlock()
+	d.onRemoveSession = callback
+}
+
+func (d *WebSocketMessageDispatcher) SetOnNewMessage(callback func(session *WebSocketSession, message *public_protocol_extension.CSMsg) error) {
+	d.callbackLock.Lock()
+	defer d.callbackLock.Unlock()
+	d.onNewMessage = callback
+}

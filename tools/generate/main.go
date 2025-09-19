@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 
 	atframe_utils "github.com/atframework/atframe-utils-go"
 )
@@ -69,7 +71,9 @@ func main() {
 			if d.IsDir() {
 				return nil
 			}
-			if filepath.Base(path) == "generate.atfw.go" {
+
+			baseName := filepath.Base(path)
+			if strings.HasPrefix(baseName, "generate.atfw.") || strings.HasSuffix(baseName, ".go") {
 				absPath, err := filepath.Abs(path)
 				if err != nil {
 					if runCache[absPath] {
@@ -93,6 +97,10 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i] < matches[j]
+	})
 
 	for _, file := range matches {
 		// 执行 go generate

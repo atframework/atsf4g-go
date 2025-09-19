@@ -128,7 +128,7 @@ type AppImpl interface {
 	SetFlag(flag AppFlag, value bool) bool
 
 	// 生命周期管理
-	GetAppContext() *context.Context
+	GetAppContext() context.Context
 
 	// Logger
 	GetLogger() *slog.Logger
@@ -405,6 +405,7 @@ func (app *AppInstance) Init(arguments []string) error {
 			}
 			return fmt.Errorf("module setup failed: %w", err)
 		}
+
 		m.Enable()
 	}
 
@@ -445,6 +446,8 @@ func (app *AppInstance) Init(arguments []string) error {
 			}
 			return fmt.Errorf("module init failed: %w", err)
 		}
+
+		m.Active()
 	}
 
 	maybeErr := initContext.Err()
@@ -596,8 +599,11 @@ func (app *AppInstance) close() (bool, error) {
 		moduleClosed, err := m.Stop()
 		if err != nil {
 			app.logger.Error("Module %s stop failed: %v", m.Name(), err)
+			m.Unactive()
 		} else if !moduleClosed {
 			allClosed = false
+		} else {
+			m.Unactive()
 		}
 	}
 
@@ -732,8 +738,8 @@ func (app *AppInstance) TriggerEvent(eventType string, args *AppActionSender) in
 	return 0
 }
 
-func (app *AppInstance) GetAppContext() *context.Context {
-	return &app.appContext
+func (app *AppInstance) GetAppContext() context.Context {
+	return app.appContext
 }
 
 func (app *AppInstance) GetLogger() *slog.Logger {
@@ -881,7 +887,7 @@ func (app *AppInstance) writePidFile() error {
 	pid := os.Getpid()
 	pidData := fmt.Sprintf("%d\n", pid)
 
-	return os.WriteFile(app.config.PidFile, []byte(pidData), 0644)
+	return os.WriteFile(app.config.PidFile, []byte(pidData), 0o644)
 }
 
 // 辅助方法：清理PID文件
@@ -903,7 +909,7 @@ func (app *AppInstance) writeStartupErrorFile(err error) {
 	}
 
 	pidData := fmt.Sprintf("%v\n", err)
-	os.WriteFile(app.config.StartupErrorFile, []byte(pidData), 0644)
+	os.WriteFile(app.config.StartupErrorFile, []byte(pidData), 0o644)
 }
 
 // 辅助方法：清理启动失败标记文件

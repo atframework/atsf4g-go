@@ -67,11 +67,11 @@ func (m *AppModuleBase) OnBind() {}
 
 func (m *AppModuleBase) OnUnbind() {}
 
-func (m *AppModuleBase) Setup(parent context.Context) error {
+func (m *AppModuleBase) Setup(_initCtx context.Context) error {
 	return nil
 }
 
-func (m *AppModuleBase) SetupLog(parent context.Context) error {
+func (m *AppModuleBase) SetupLog(_initCtx context.Context) error {
 	return nil
 }
 
@@ -89,7 +89,7 @@ func (m *AppModuleBase) Cleanup() {}
 
 func (m *AppModuleBase) Timeout() {}
 
-func (m *AppModuleBase) Tick(parent context.Context) bool {
+func (m *AppModuleBase) Tick(_initCtx context.Context) bool {
 	return false
 }
 

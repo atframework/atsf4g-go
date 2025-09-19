@@ -41,6 +41,53 @@ message logic_server_cfg {
   logic_server_shared_component_cfg shared_component = 106;
 }
 
+message webserver_cfg {
+  string host = 1 [ (atapp.protocol.CONFIGURE) = {default_value : ""} ];
+  int32 port = 2 [
+    (atapp.protocol.CONFIGURE) = {default_value : "7001" min_value : "80"}
+  ];
+  google.protobuf.Duration read_timeout = 3
+      [ (atapp.protocol.CONFIGURE) = {default_value : "15s"} ];
+  google.protobuf.Duration write_timeout = 4
+      [ (atapp.protocol.CONFIGURE) = {default_value : "15s"} ];
+  google.protobuf.Duration idle_timeout = 5
+      [ (atapp.protocol.CONFIGURE) = {default_value : "60s"} ];
+
+  string tls_cert_file = 6;
+  string tls_key_file = 7;
+}
+
+message websocket_server_cfg {
+  uint32 max_connections = 1
+      [ (atapp.protocol.CONFIGURE) = {default_value : "50000"} ];
+  uint32 read_buffer_size = 2
+      [ (atapp.protocol.CONFIGURE) = {default_value : "4096"} ];
+  uint32 write_buffer_size = 3
+      [ (atapp.protocol.CONFIGURE) = {default_value : "4096"} ];
+
+  google.protobuf.Duration handshake_timeout = 4
+      [ (atapp.protocol.CONFIGURE) = {default_value : "10s" min_value : "1s"} ];
+  google.protobuf.Duration pong_wait = 5
+      [ (atapp.protocol.CONFIGURE) = {default_value : "60s" min_value : "1s"} ];
+  google.protobuf.Duration ping_period = 6
+      [ (atapp.protocol.CONFIGURE) = {default_value : "54s" min_value : "1s"} ];
+  google.protobuf.Duration write_wait = 7
+      [ (atapp.protocol.CONFIGURE) = {default_value : "10s" min_value : "1s"} ];
+
+  uint32 max_message_size = 8 [
+    (atapp.protocol.CONFIGURE) = {default_value : "2097152" min_value : "32768"}
+  ];
+  uint32 max_write_message_count = 9
+      [ (atapp.protocol.CONFIGURE) = {default_value : "256" min_value : "1"} ];
+
+  bool enable_compression = 10
+      [ (atapp.protocol.CONFIGURE) = {default_value : "true"} ];
+
+  string path = 11 [ (atapp.protocol.CONFIGURE) = {default_value : "/ws/v1"} ];
+
+  repeated string sub_protocols = 12;
+}
+
 message logic_user_async_job_cfg {
   google.protobuf.Duration timeout = 101
       [ (atapp.protocol.CONFIGURE) = {default_value : "30s" min_value : "5"} ];
