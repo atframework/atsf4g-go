@@ -23,7 +23,7 @@ func (t *TaskActionBase) CheckPermission(_action TaskActionImpl) (int32, error) 
 	return 0, nil
 }
 
-func (t *TaskActionBase) HookRun(action TaskActionImpl, startData DispatcherStartData) error {
+func (t *TaskActionBase) HookRun(action TaskActionImpl, startData *DispatcherStartData) error {
 	responseCode, err := action.CheckPermission(action)
 	if err != nil || responseCode < 0 {
 		action.SetResponseCode(responseCode)

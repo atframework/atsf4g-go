@@ -134,7 +134,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission(_action Ta
 	return 0, nil
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionImpl, startData DispatcherStartData) error {
+func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionImpl, startData *DispatcherStartData) error {
 	csMsg, ok := startData.Message.Instance.(*public_protocol_extension.CSMsg)
 	if !ok {
 		return fmt.Errorf("TaskActionCSBase: invalid message type %v", startData.Message.Type)

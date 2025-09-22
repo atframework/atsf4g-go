@@ -59,6 +59,14 @@ type AppModuleBase struct {
 	enabled bool
 }
 
+func CreateAppModuleBase(owner AppImpl) AppModuleBase {
+	return AppModuleBase{
+		owner:   owner,
+		actived: true,
+		enabled: true,
+	}
+}
+
 func (m *AppModuleBase) GetApp() AppImpl {
 	return m.owner
 }

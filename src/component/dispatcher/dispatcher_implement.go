@@ -2,41 +2,58 @@ package atframework_component_dispatcher
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+	"strings"
 	"sync/atomic"
 	"time"
 	"unsafe"
 
 	libatapp "github.com/atframework/libatapp-go"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 )
 
-type MessageFilterHandler func(msg *DispatcherRawMessage) bool
+type MessageFilterHandler func(rd DispatcherImpl, msg *DispatcherRawMessage) bool
+
+type TaskActionCreator = func(rd DispatcherImpl, startData *DispatcherStartData) (TaskActionImpl, error)
 
 // 调度器接口
 type DispatcherImpl interface {
 	libatapp.AppModuleImpl
 
 	GetInstanceIdent() uint64
-	IsClosing() bool
+	IsClosing(rd DispatcherImpl) bool
 
 	AllocSequence() uint64
 
-	OnSendMessageFailed(rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
-	OnCreateTaskFailed(startData DispatcherStartData, err error)
+	OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
+	OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error)
+
+	OnReceiveMessage(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error
 
 	PickMessageTaskId(msg *DispatcherRawMessage) uint64
 	PickMessageRpcName(msg *DispatcherRawMessage) string
-	PickMessageOpType(msg *DispatcherRawMessage) MessageOpType
 
-	CreateTask(startData DispatcherStartData) (TaskActionImpl, error)
+	CreateTask(rd DispatcherImpl, startData *DispatcherStartData) (TaskActionImpl, error)
 
-	RegisterAction(ServiceDescriptor interface{}, rpcFullName string) error
-	GetRegisteredService(serviceFullName string) interface{}
-	GetRegisteredMethod(methodFullName string) interface{}
+	RegisterAction(ServiceDescriptor protoreflect.ServiceDescriptor, rpcFullName string, creator TaskActionCreator) error
+	GetRegisteredService(serviceFullName string) protoreflect.ServiceDescriptor
+	GetRegisteredMethod(methodFullName string) protoreflect.MethodDescriptor
 
 	PushFrontMessageFilter(handle MessageFilterHandler)
 	PushBackMessageFilter(handle MessageFilterHandler)
+}
+
+type taskActionCreatorData struct {
+	service protoreflect.ServiceDescriptor
+	method  protoreflect.MethodDescriptor
+	creator TaskActionCreator
+	options *public_protocol_extension.DispatcherOptions
 }
 
 type DispatcherBase struct {
@@ -44,12 +61,27 @@ type DispatcherBase struct {
 
 	sequenceAllocator atomic.Uint64
 	messageFilters    []MessageFilterHandler
+
+	registeredService map[string]protoreflect.ServiceDescriptor
+	registeredMethod  map[string]protoreflect.MethodDescriptor
+	registeredCreator map[string]taskActionCreatorData
+}
+
+func CreateDispatcherBase(owner libatapp.AppImpl) DispatcherBase {
+	return DispatcherBase{
+		AppModuleBase:     libatapp.CreateAppModuleBase(owner),
+		sequenceAllocator: atomic.Uint64{},
+		messageFilters:    make([]MessageFilterHandler, 0),
+		registeredService: make(map[string]protoreflect.ServiceDescriptor),
+		registeredMethod:  make(map[string]protoreflect.MethodDescriptor),
+		registeredCreator: make(map[string]taskActionCreatorData),
+	}
 }
 
 func (dispatcher *DispatcherBase) Init(_initCtx context.Context) error {
 	dispatcher.sequenceAllocator.Store(
 		// 使用时间戳作为初始值, 避免与重启前的值冲突
-		uint64(time.Now().Sub(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()),
+		uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()),
 	)
 	return nil
 }
@@ -58,12 +90,131 @@ func (dispatcher *DispatcherBase) GetInstanceIdent() uint64 {
 	return uint64(uintptr(unsafe.Pointer(dispatcher)))
 }
 
+func (dispatcher *DispatcherBase) IsClosing(_rd DispatcherImpl) bool {
+	return dispatcher.GetApp().IsClosing()
+}
+
 func (dispatcher *DispatcherBase) AllocSequence() uint64 {
 	return dispatcher.sequenceAllocator.Add(1)
 }
 
-func (dispatcher *DispatcherBase) OnReceiveMessage(rpcContext *RpcContext, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
+func (dispatcher *DispatcherBase) OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
+	rd.GetApp().GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
+}
+
+func (dispatcher *DispatcherBase) OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error) {
+	rd.GetApp().GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", rd.PickMessageRpcName(startData.Message))
+}
+
+func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
+	if msg == nil || msg.Instance == nil {
+		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
+		return fmt.Errorf("OnReceiveMessage message can not be nil")
+	}
+
+	if msg.Type != rd.GetInstanceIdent() {
+		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage message type mismatch", "expect", rd.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
+		return fmt.Errorf("OnReceiveMessage message type mismatch, expect %d, got %d", rd.GetInstanceIdent(), msg.Type)
+	}
+
+	if len(dispatcher.messageFilters) > 0 {
+		for _, filter := range dispatcher.messageFilters {
+			if !filter(rd, msg) {
+				// 被过滤掉了
+				return nil
+			}
+		}
+	}
+
+	resumeTaskId := rd.PickMessageTaskId(msg)
+	if resumeTaskId != 0 {
+		// TODO: 处理恢复任务
+		return nil
+	}
+
+	startData := &DispatcherStartData{
+		Message:           msg,
+		PrivateData:       privateData,
+		MessageRpcContext: rpcContext,
+	}
+
+	action, err := rd.CreateTask(rd, startData)
+	if err != nil {
+		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg))
+		dispatcher.OnCreateTaskFailed(rd, startData, err)
+		return err
+	}
+
+	err = RunTaskAction(rd.GetApp(), action, startData)
+	if err != nil {
+		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
+		return err
+	}
 	return nil
+}
+
+func (dispatcher *DispatcherBase) CreateTask(rd DispatcherImpl, startData *DispatcherStartData) (TaskActionImpl, error) {
+	if rd == nil {
+		return nil, fmt.Errorf("CreateTask dispatcher can not be nil")
+	}
+
+	rpcFullName := rd.PickMessageRpcName(startData.Message)
+	if rpcFullName == "" {
+		return nil, fmt.Errorf("CreateTask rpc name can not be empty")
+	}
+
+	creator, ok := dispatcher.registeredCreator[rpcFullName]
+	if !ok || creator.creator == nil {
+		return nil, fmt.Errorf("CreateTask rpc %s not registered", rpcFullName)
+	}
+
+	return creator.creator(rd, startData)
+}
+
+func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string, creator TaskActionCreator) error {
+	// 实现注册逻辑
+	if serviceDescriptor == nil {
+		return fmt.Errorf("RegisterAction ServiceDescriptor can not be nil")
+	}
+
+	if creator == nil {
+		return fmt.Errorf("RegisterAction creator can not be nil")
+	}
+
+	serviceFullName := string(serviceDescriptor.FullName())
+	dispatcher.registeredService[serviceFullName] = serviceDescriptor
+
+	rpcShortName := rpcFullName[strings.LastIndex(rpcFullName, ".")+1:]
+	methodDescriptor := serviceDescriptor.Methods().ByName(protoreflect.Name(rpcShortName))
+	if methodDescriptor == nil {
+		dispatcher.GetApp().GetLogger().Error("RegisterAction method not found", "method", rpcShortName, "service", serviceFullName)
+		return fmt.Errorf("RegisterAction method %s not found in service %s", rpcShortName, serviceFullName)
+	}
+
+	dispatcher.registeredMethod[string(methodDescriptor.FullName())] = methodDescriptor
+
+	methodOpts := methodDescriptor.Options().(*descriptorpb.MethodOptions)
+
+	var options *public_protocol_extension.DispatcherOptions = nil
+	if proto.HasExtension(methodOpts, public_protocol_extension.E_RpcOptions) {
+		options = proto.GetExtension(methodOpts, public_protocol_extension.E_RpcOptions).(*public_protocol_extension.DispatcherOptions)
+	}
+
+	dispatcher.registeredCreator[string(methodDescriptor.FullName())] = taskActionCreatorData{
+		service: serviceDescriptor,
+		method:  methodDescriptor,
+		creator: creator,
+		options: options,
+	}
+	return nil
+}
+
+func (dispatcher *DispatcherBase) GetRegisteredService(serviceFullName string) protoreflect.ServiceDescriptor {
+	return dispatcher.registeredService[serviceFullName]
+}
+
+func (dispatcher *DispatcherBase) GetRegisteredMethod(methodFullName string) protoreflect.MethodDescriptor {
+	return dispatcher.registeredMethod[methodFullName]
 }
 
 func (dispatcher *DispatcherBase) PushFrontMessageFilter(handle MessageFilterHandler) {

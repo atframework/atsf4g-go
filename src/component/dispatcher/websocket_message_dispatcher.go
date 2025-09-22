@@ -254,6 +254,14 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 			d.GetApp().GetLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.String())
 		}
 		d.callbackLock.RUnlock()
+
+		if err == nil {
+			task_context, _ := context.WithCancel(session.runningContext)
+			d.OnReceiveMessage(d, &RpcContext{Context: task_context}, &DispatcherRawMessage{
+				Type:     d.GetInstanceIdent(),
+				Instance: msg,
+			}, session, d.AllocSequence())
+		}
 	}
 }
 
@@ -455,6 +463,40 @@ func (d *WebSocketMessageDispatcher) Cleanup() {
 		d.stopContext = nil
 		d.stopCancel = nil
 	}
+}
+
+func (d *WebSocketMessageDispatcher) PickMessageTaskId(msg *DispatcherRawMessage) uint64 {
+	// CS消息，不允许携带任务ID
+	return 0
+}
+
+func (d *WebSocketMessageDispatcher) PickMessageRpcName(msg *DispatcherRawMessage) string {
+	if msg == nil || msg.Type != d.GetInstanceIdent() {
+		return ""
+	}
+
+	if csMsg, ok := msg.Instance.(*public_protocol_extension.CSMsg); ok {
+		if csMsg.Head == nil {
+			return ""
+		}
+
+		req := csMsg.Head.GetRpcRequest()
+		if req != nil {
+			return req.RpcName
+		}
+
+		rsp := csMsg.Head.GetRpcResponse()
+		if rsp != nil {
+			return rsp.RpcName
+		}
+
+		stream := csMsg.Head.GetRpcStream()
+		if stream != nil {
+			return stream.RpcName
+		}
+	}
+
+	return ""
 }
 
 func (d *WebSocketMessageDispatcher) AllocateSessionId() uint64 {

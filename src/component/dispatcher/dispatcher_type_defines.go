@@ -2,20 +2,14 @@ package atframework_component_dispatcher
 
 import (
 	"container/list"
+	"context"
 	"sync"
 	"time"
 )
 
-type MessageOpType int
-
-const (
-	MessageOpTypeMisup MessageOpType = iota // 0
-	MessageOpTypeStream
-	MessageOpTypeUnaryRequest
-	MessageOpTypeUnaryResponse
-)
-
-type RpcContext struct{}
+type RpcContext struct {
+	Context context.Context
+}
 
 type DispatcherOptions struct {
 	// TODO: 使用协议里的结构
@@ -61,17 +55,15 @@ type ActorAction struct {
 }
 
 type ActorExecutor struct {
-	current_action TaskActionImpl
+	currentAction TaskActionImpl
 
-	action_status   ActorExecutorStatus
-	action_lock     sync.Mutex
-	pending_actions list.List
+	actionStatus   ActorExecutorStatus
+	actionLock     sync.Mutex
+	pendingActions list.List
 
 	Instance interface{}
 }
 
-type TraceInheritOption struct {
-}
+type TraceInheritOption struct{}
 
-type TraceStartOption struct {
-}
+type TraceStartOption struct{}
