@@ -36,7 +36,13 @@ type DispatcherStartData struct {
 	MessageRpcContext *RpcContext
 }
 
+type DispatcherKillData struct {
+	Error        error
+	ResponseCode int32
+}
+
 type DispatcherAwaitOptions struct {
+	Type     uint64
 	Sequence uint64
 	Timeout  time.Duration
 }

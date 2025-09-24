@@ -10,6 +10,11 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 )
 
+type TaskActionAwaitChannelData struct {
+	resume *DispatcherResumeData
+	killed *DispatcherKillData
+}
+
 type TaskActionImpl interface {
 	MutableActorExecutorFromMessage(startData *DispatcherStartData) *ActorExecutor
 
@@ -47,6 +52,11 @@ type TaskActionImpl interface {
 	DisableResponse()
 	IsResponseDisabled() bool
 	SendResponse() error
+
+	// 切出等待管理
+	TrySetupAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (chan TaskActionAwaitChannelData, error)
+	TryFinishAwait(resumeData *DispatcherResumeData) error
+	TryKillAwait(killData *DispatcherKillData) error
 }
 
 func popRunActorActions(app_action *libatapp.AppActionData) error {
@@ -133,6 +143,17 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 	run_action := func() error {
 		// TODO: 链路跟踪Start和对象上下文继承
 
+		actor := action.GetActorExecutor()
+		if actor != nil {
+			actor.currentAction = action
+		}
+		cleanupCurrentAction := func() {
+			if actor != nil && actor.currentAction == action {
+				actor.currentAction = nil
+			}
+		}
+		defer cleanupCurrentAction()
+
 		err := action.HookRun(action, startData)
 
 		if err != nil {
@@ -192,17 +213,41 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 	}
 }
 
-func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, ExceptMessageType uint64, ExceptSequence uint64) error {
+func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*DispatcherResumeData, *DispatcherKillData) {
 	// TODO: 暂停任务逻辑, 让出令牌
-	return nil
+	// TODO: TaskManager管理超时和等待数据
+
+	actor := action.GetActorExecutor()
+	if actor != nil {
+		actor.currentAction = nil
+	}
+
+	if actor != nil {
+		actor.currentAction = action
+	}
+
+	return nil, nil
 }
 
 func ResumeTaskAction(app libatapp.AppImpl, action TaskActionImpl, resumeData *DispatcherResumeData) error {
-	// TODO: 恢复任务逻辑, 排队占用令牌
+	// TODO: TaskManager移除超时和等待数据
+
+	err := action.TryFinishAwait(resumeData)
+	if err != nil {
+		app.GetLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		return err
+	}
+
 	return nil
 }
 
-func KillTaskAction(app libatapp.AppImpl, action TaskActionImpl, err error, responseCode int32) error {
-	// TODO: 杀死任务逻辑, 排队占用令牌
+func KillTaskAction(app libatapp.AppImpl, action TaskActionImpl, killData *DispatcherKillData) error {
+	// TODO: TaskManager移除超时和等待数据
+
+	err := action.TryKillAwait(killData)
+	if err != nil {
+		app.GetLogger().Error("task KillTaskAction TryKillAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		return err
+	}
 	return nil
 }
