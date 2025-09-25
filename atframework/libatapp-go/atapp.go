@@ -753,27 +753,7 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 		return nil
 	}
 
-	// 避免与测试标志冲突，创建新的 FlagSet 而不是使用全局的
-	if len(arguments) > 0 {
-		// 过滤掉测试相关的标志
-		var filteredArgs []string
-		for _, arg := range arguments {
-			if !contains([]string{"-test.v", "-test.run", "-test.testlogfile", "-test.timeout", "-test.count", "-test.cpu", "-test.parallel", "-test.bench", "-test.benchmem", "-test.short"}, arg) &&
-				!startsWith(arg, "-test.") {
-				filteredArgs = append(filteredArgs, arg)
-			}
-		}
-		return app.flagSet.Parse(filteredArgs)
-	}
-
 	// 检查是否在测试环境中
-	for _, arg := range arguments {
-		if startsWith(arg, "-test.") {
-			// 在测试环境中，不解析 arguments
-			return nil
-		}
-	}
-
 	if err := app.flagSet.Parse(arguments); err != nil {
 		return err
 	}
