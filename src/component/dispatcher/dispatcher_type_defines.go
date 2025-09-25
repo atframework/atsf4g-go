@@ -1,9 +1,7 @@
 package atframework_component_dispatcher
 
 import (
-	"container/list"
 	"context"
-	"sync"
 	"time"
 )
 
@@ -47,27 +45,9 @@ type DispatcherAwaitOptions struct {
 	Timeout  time.Duration
 }
 
-type ActorExecutorStatus int
-
-const (
-	ActorExecutorStatusFree ActorExecutorStatus = iota // 0
-	ActorExecutorStatusPending
-	ActorExecutorStatusRunning
-)
-
 type ActorAction struct {
 	action   TaskActionImpl
 	callback func() error
-}
-
-type ActorExecutor struct {
-	currentAction TaskActionImpl
-
-	actionStatus   ActorExecutorStatus
-	actionLock     sync.Mutex
-	pendingActions list.List
-
-	Instance interface{}
 }
 
 type TraceInheritOption struct{}

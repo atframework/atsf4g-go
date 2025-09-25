@@ -16,17 +16,18 @@ type TaskActionCSSession interface {
 	GetSessionId() uint64
 	GetSessionNodeId() uint64
 	AllocSessionSequence() uint64
+
+	GetUser() TaskActionCSUser
+	BindUser(TaskActionCSUser)
 }
 
 type TaskActionCSUser interface {
 	GetUserId() uint64
 	GetZoneId() uint64
-}
 
-type TaskActionCSImpl interface {
-	TaskActionImpl
+	GetSession() TaskActionCSSession
 
-	AllowNewSession() bool
+	GetActorExecutor() *ActorExecutor
 }
 
 type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] struct {
@@ -41,6 +42,73 @@ type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] str
 	responseBody  ResponseType
 }
 
+func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Message](
+	rd DispatcherImpl,
+	session TaskActionCSSession,
+	rpcDescriptor protoreflect.MethodDescriptor,
+	requestBody RequestType,
+	responseBody ResponseType,
+) TaskActionCSBase[RequestType, ResponseType] {
+	var user TaskActionCSUser = nil
+	var actor *ActorExecutor = nil
+	if session != nil {
+		user = session.GetUser()
+	}
+	if user != nil {
+		actor = user.GetActorExecutor()
+	}
+
+	return TaskActionCSBase[RequestType, ResponseType]{
+		TaskActionBase: CreateTaskActionBase(rd, actor),
+		session:        session,
+		user:           user,
+		rpcDescriptor:  rpcDescriptor,
+		requestHead:    nil,
+		requestBody:    requestBody,
+		responseBody:   responseBody,
+	}
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
+	if user == nil {
+		t.user = nil
+		return
+	}
+
+	t.user = user
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() TaskActionCSUser {
+	if t.user == nil {
+		if t.session != nil {
+			t.user = t.session.GetUser()
+		}
+	}
+
+	return t.user
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetSession() TaskActionCSSession {
+	return t.session
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) SetSession(session TaskActionCSSession) {
+	if session == nil {
+		if t.session != nil {
+			if t.user == t.session.GetUser() {
+				t.user = nil
+			}
+			t.session = nil
+		}
+
+		return
+	}
+
+	// 换绑session也要换绑定user
+	t.session = session
+	t.user = nil
+}
+
 func (t *TaskActionCSBase[RequestType, ResponseType]) IsStreamRpc() bool {
 	if t.rpcDescriptor == nil {
 		return false
@@ -50,6 +118,10 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) IsStreamRpc() bool {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetRequestHead() *public_protocol_extension.CSMsgHead {
+	if t.requestHead == nil {
+		return &public_protocol_extension.CSMsgHead{}
+	}
+
 	return t.requestHead
 }
 
@@ -67,6 +139,11 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 		return nil
 	}
 
+	var clientSequence uint64 = 0
+	if t.requestHead != nil {
+		clientSequence = t.requestHead.ClientSequence
+	}
+
 	// 构造响应消息
 	// TODO: 使用全局时间戳 Timestamp
 	now := time.Now()
@@ -75,7 +152,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 			// 复制请求头的一些信息
 			ErrorCode:       t.GetResponseCode(),
 			Timestamp:       now.Unix(),
-			ClientSequence:  t.requestHead.ClientSequence,
+			ClientSequence:  clientSequence,
 			ServerSequence:  t.GetDispatcher().AllocSequence(),
 			SessionSequence: 0,
 			SessionId:       0,
@@ -126,12 +203,16 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	return nil
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission(_action TaskActionImpl) (int32, error) {
-	if t.session == nil || t.user == nil {
+func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission(action TaskActionImpl) (int32, error) {
+	if !action.AllowNoActor() && t.GetUser() == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
 	}
 
 	return 0, nil
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) AllowNoActor() bool {
+	return false
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionImpl, startData *DispatcherStartData) error {
@@ -146,21 +227,20 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	t.requestHead = csMsg.Head
 
 	// 创建请求体实例
-	var reqBody RequestType
 	if len(bodyData) > 0 {
-		if err := proto.Unmarshal(bodyData, reqBody); err != nil {
+		if err := proto.Unmarshal(bodyData, t.requestBody); err != nil {
 			return fmt.Errorf("failed to parse request body: %w", err)
 		}
 	}
-	t.requestBody = reqBody
 
 	// 清空 CSMsg 的 BodyBin，因为已经解析到了 requestBody
 	csMsg.BodyBin = []byte{}
 
-	// TODO: 是否自动创建Session
-	// TODO: 是否允许无Session
-
 	return t.TaskActionBase.HookRun(action, startData)
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetTypeName() string {
+	return "CS Task Action"
 }
 
 type TaskActionCSTest struct {

@@ -3,6 +3,8 @@ package atframework_component_dispatcher
 import (
 	"fmt"
 	"sync"
+
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 )
 
 type TaskActionBase struct {
@@ -12,23 +14,35 @@ type TaskActionBase struct {
 
 	actorExecutor *ActorExecutor
 	dispatcher    DispatcherImpl
-	typeName      string
-
-	traceInheritOption TraceInheritOption
-	traceStartOption   TraceStartOption
 
 	disableResponse bool
 
 	currentAwaitingLock    sync.Mutex
 	currentAwaitingOption  *DispatcherAwaitOptions
-	currentAwaitingChannel chan TaskActionAwaitChannelData
+	currentAwaitingChannel *chan TaskActionAwaitChannelData
+}
+
+func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskActionBase {
+	return TaskActionBase{
+		taskId:          rd.AllocSequence(),
+		responseCode:    0,
+		actorExecutor:   actorExecutor,
+		dispatcher:      rd,
+		disableResponse: false,
+		// currentAwaitingLock:    sync.Mutex{},
+		currentAwaitingOption:  nil,
+		currentAwaitingChannel: nil,
+	}
 }
 
 func (t *TaskActionBase) GetTaskId() uint64 {
 	return t.taskId
 }
 
-func (t *TaskActionBase) CheckPermission(_action TaskActionImpl) (int32, error) {
+func (t *TaskActionBase) CheckPermission(action TaskActionImpl) (int32, error) {
+	if !action.AllowNoActor() && action.GetActorExecutor() == nil {
+		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
+	}
 	return 0, nil
 }
 
@@ -51,7 +65,7 @@ func (t *TaskActionBase) GetDispatcher() DispatcherImpl {
 }
 
 func (t *TaskActionBase) GetTypeName() string {
-	return t.typeName
+	return "TaskActionBase [type not set]"
 }
 
 func (t *TaskActionBase) GetResponseCode() int32 {
@@ -82,22 +96,25 @@ func (t *TaskActionBase) OnTimeout() {}
 
 func (t *TaskActionBase) OnComplete() {}
 
-func (t *TaskActionBase) GetTraceInheritOption() *TraceInheritOption {
-	return &t.traceInheritOption
+func (t *TaskActionBase) GetTraceInheritOption(_action TaskActionImpl) *TraceInheritOption {
+	return &TraceInheritOption{}
 }
 
-func (t *TaskActionBase) GetTraceStartOption() *TraceStartOption {
-	return &t.traceStartOption
+func (t *TaskActionBase) GetTraceStartOption(_action TaskActionImpl) *TraceStartOption {
+	return &TraceStartOption{}
 }
 
 func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) error {
 	if awaitOptions == nil {
-		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions can not be nil", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions can not be nil", action.Name(), action.GetTaskId())
 	}
 
 	actor := action.GetActorExecutor()
-	if actor != nil && actor.currentAction != nil && actor.currentAction != action {
-		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, action is running in actor, can not await", t.GetTypeName(), t.GetTaskId())
+	if actor != nil {
+		currentAction := actor.getCurrentRunningAction()
+		if currentAction != nil && currentAction != action {
+			return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, action is running in actor, can not await", action.Name(), action.GetTaskId())
+		}
 	}
 
 	if t.currentAwaitingOption == awaitOptions {
@@ -111,7 +128,7 @@ func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *Dispat
 		}
 
 		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, already awaiting %v:%v , can not await %v:%v again",
-			t.GetTypeName(), t.GetTaskId(), t.currentAwaitingOption.Type, t.currentAwaitingOption.Sequence,
+			action.Name(), action.GetTaskId(), t.currentAwaitingOption.Type, t.currentAwaitingOption.Sequence,
 			awaitOptions.Type, awaitOptions.Sequence,
 		)
 	}
@@ -119,7 +136,7 @@ func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *Dispat
 	return nil
 }
 
-func (t *TaskActionBase) TrySetupAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (chan TaskActionAwaitChannelData, error) {
+func (t *TaskActionBase) TrySetupAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*chan TaskActionAwaitChannelData, error) {
 	t.currentAwaitingLock.Lock()
 	defer t.currentAwaitingLock.Unlock()
 
@@ -128,55 +145,68 @@ func (t *TaskActionBase) TrySetupAwait(action TaskActionImpl, awaitOptions *Disp
 		return nil, err
 	}
 
+	if t.currentAwaitingChannel == nil {
+		ch := make(chan TaskActionAwaitChannelData, 1)
+		t.currentAwaitingChannel = &ch
+	}
+
 	return t.currentAwaitingChannel, nil
 }
 
-func (t *TaskActionBase) TryFinishAwait(resumeData *DispatcherResumeData) error {
+func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData) error {
 	t.currentAwaitingLock.Lock()
 	defer t.currentAwaitingLock.Unlock()
 
 	if resumeData == nil {
-		return fmt.Errorf("task %s, %d TryFinishAwait resumeData can not be nil", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TryFinishAwait resumeData can not be nil", action.Name(), action.GetTaskId())
 	}
 
 	if t.currentAwaitingOption == nil {
-		return fmt.Errorf("task %s, %d TryFinishAwait no current awaiting", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TryFinishAwait no current awaiting", action.Name(), action.GetTaskId())
 	}
 
 	if t.currentAwaitingOption.Type != resumeData.Message.Type || t.currentAwaitingOption.Sequence != resumeData.Sequence {
 		return fmt.Errorf("task %s, %d TryFinishAwait resumeData mismatch, current awaiting %v:%v , got %v:%v",
-			t.GetTypeName(), t.GetTaskId(), t.currentAwaitingOption.Type, t.currentAwaitingOption.Sequence,
+			action.Name(), action.GetTaskId(), t.currentAwaitingOption.Type, t.currentAwaitingOption.Sequence,
 			resumeData.Message.Type, resumeData.Sequence,
 		)
 	}
 
+	if t.currentAwaitingChannel == nil {
+		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
+	}
+
 	select {
-	case t.currentAwaitingChannel <- TaskActionAwaitChannelData{resume: resumeData}:
+	case *t.currentAwaitingChannel <- TaskActionAwaitChannelData{resume: resumeData}:
 		t.currentAwaitingOption = nil
 	default:
-		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}
 
 	return nil
 }
 
-func (t *TaskActionBase) TryKillAwait(killData *DispatcherKillData) error {
+func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *DispatcherKillData) error {
 	t.currentAwaitingLock.Lock()
 	defer t.currentAwaitingLock.Unlock()
 
 	if killData == nil {
-		return fmt.Errorf("task %s, %d TryKillAwait killData can not be nil", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait killData can not be nil", action.Name(), action.GetTaskId())
 	}
 
 	if t.currentAwaitingOption == nil {
-		return fmt.Errorf("task %s, %d TryKillAwait no current awaiting", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait no current awaiting", action.Name(), action.GetTaskId())
+	}
+
+	if t.currentAwaitingChannel == nil {
+		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}
 
 	select {
-	case t.currentAwaitingChannel <- TaskActionAwaitChannelData{killed: killData}:
+	case *t.currentAwaitingChannel <- TaskActionAwaitChannelData{killed: killData}:
 		t.currentAwaitingOption = nil
 	default:
-		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", t.GetTypeName(), t.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}
 
 	return nil
