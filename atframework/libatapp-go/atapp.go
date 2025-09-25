@@ -102,7 +102,9 @@ type AppImpl interface {
 	GetAppVersion() string
 	GetBuildVersion() string
 
-	AddModule(module AppModuleImpl) error
+	AddModule(module AppModuleImpl) (int, error)
+
+	GetModule(moduleId int) AppModuleImpl
 
 	// 消息相关
 	SendMessage(targetId uint64, msgType int32, data []byte) error
@@ -287,15 +289,23 @@ func (app *AppInstance) IsRunning() bool { return app.CheckFlag(AppFlagRunning) 
 func (app *AppInstance) IsClosing() bool { return app.CheckFlag(AppFlagStopping) }
 func (app *AppInstance) IsClosed() bool  { return app.CheckFlag(AppFlagStopped) }
 
-func (app *AppInstance) AddModule(module AppModuleImpl) error {
+func (app *AppInstance) AddModule(module AppModuleImpl) (int, error) {
 	flags := app.getFlags()
 	if checkFlag(flags, AppFlagInitialized) || checkFlag(flags, AppFlagInitializing) {
-		return fmt.Errorf("cannot add module when app is initializing or initialized")
+		return 0, fmt.Errorf("cannot add module when app is initializing or initialized")
 	}
 
 	app.modules = append(app.modules, module)
 	module.OnBind()
-	return nil
+	return len(app.modules), nil
+}
+
+func (app *AppInstance) GetModule(moduleId int) AppModuleImpl {
+	if moduleId <= 0 || moduleId > len(app.modules) {
+		return nil
+	}
+
+	return app.modules[moduleId-1]
 }
 
 func (app *AppInstance) Init(arguments []string) error {
@@ -788,20 +798,6 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	}
 
 	return nil
-}
-
-// 辅助函数
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
-func startsWith(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
 
 func (app *AppInstance) setupSignal() error {

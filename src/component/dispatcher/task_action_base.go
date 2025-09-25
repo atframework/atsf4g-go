@@ -96,6 +96,13 @@ func (t *TaskActionBase) OnTimeout() {}
 
 func (t *TaskActionBase) OnComplete() {}
 
+func (t *TaskActionBase) OnCleanup() {
+	if t.currentAwaitingChannel != nil {
+		close(*t.currentAwaitingChannel)
+		t.currentAwaitingChannel = nil
+	}
+}
+
 func (t *TaskActionBase) GetTraceInheritOption(_action TaskActionImpl) *TraceInheritOption {
 	return &TraceInheritOption{}
 }

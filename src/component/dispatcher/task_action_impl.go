@@ -46,6 +46,7 @@ type TaskActionImpl interface {
 	OnFailed()
 	OnTimeout()
 	OnComplete()
+	OnCleanup()
 
 	// TODO: 链路跟踪逻辑
 	GetTraceInheritOption(TaskActionImpl) *TraceInheritOption
@@ -163,6 +164,14 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 			if actor != nil {
 				actor.releaseCurrentRunningAction(app, action, false)
 			}
+
+			if startData != nil && startData.MessageRpcContext.CancelFn != nil {
+				cancelFn := startData.MessageRpcContext.CancelFn
+				startData.MessageRpcContext.CancelFn = nil
+				cancelFn()
+			}
+
+			action.OnCleanup()
 		}
 		defer cleanupCurrentAction()
 
@@ -226,6 +235,8 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 }
 
 func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*DispatcherResumeData, *DispatcherKillData) {
+	// TODO: 已经超时或者被Killed，不允许再切出
+
 	// 暂停任务逻辑, 让出令牌
 	awaitChannel, err := action.TrySetupAwait(action, awaitOptions)
 	if err != nil || awaitChannel == nil {

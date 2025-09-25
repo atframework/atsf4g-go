@@ -6,9 +6,13 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	libatapp "github.com/atframework/libatapp-go"
+
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 
 	"github.com/gorilla/websocket"
@@ -29,20 +33,26 @@ type WebSocketSession struct {
 
 	sendQueue    chan *public_protocol_extension.CSMsg
 	errorCounter int
+
+	PrivateData interface{}
 }
+
+type (
+	WebSocketCallbackOnNewSession    = func(session *WebSocketSession) error
+	WebSocketCallbackOnRemoveSession = func(session *WebSocketSession)
+	WebSocketCallbackOnNewMessage    = func(session *WebSocketSession, message *public_protocol_extension.CSMsg) error
+)
 
 type WebSocketMessageDispatcher struct {
 	DispatcherBase
 
-	serverConfig            *private_protocol_config.WebserverCfg
-	wsConfig                *private_protocol_config.WebsocketServerCfg
-	upgrader                *websocket.Upgrader
-	upgraderReadBufferSize  uint32
-	upgraderWriteBufferSize uint32
-	upgraderLock            sync.RWMutex
+	serverConfig *private_protocol_config.WebserverCfg
+	wsConfig     *private_protocol_config.WebsocketServerCfg
+	upgrader     *websocket.Upgrader
+	upgraderLock sync.RWMutex
 
 	sessions           map[uint64]*WebSocketSession
-	sessionIdAllocator uint64
+	sessionIdAllocator atomic.Uint64
 	sessionLock        sync.Mutex
 
 	webServerHandle   *http.ServeMux
@@ -52,10 +62,23 @@ type WebSocketMessageDispatcher struct {
 	stopContext context.Context
 	stopCancel  context.CancelFunc
 
-	callbackLock    sync.RWMutex
-	onNewSession    func(session *WebSocketSession) error
-	onRemoveSession func(session *WebSocketSession)
-	onNewMessage    func(session *WebSocketSession, message *public_protocol_extension.CSMsg) error
+	onNewSession    atomic.Value
+	onRemoveSession atomic.Value
+	onNewMessage    atomic.Value
+}
+
+func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl) *WebSocketMessageDispatcher {
+	// 使用时间戳作为初始值, 避免与重启前的值冲突
+	ret := &WebSocketMessageDispatcher{
+		DispatcherBase: CreateDispatcherBase(owner),
+
+		sessions:           make(map[uint64]*WebSocketSession),
+		sessionIdAllocator: atomic.Uint64{},
+	}
+
+	ret.sessionIdAllocator.Store(uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()))
+
+	return ret
 }
 
 func (d *WebSocketMessageDispatcher) Name() string { return "WebSocketMessageDispatcher" }
@@ -84,9 +107,6 @@ func (d *WebSocketMessageDispatcher) setupUpgrader() {
 		},
 		EnableCompression: d.wsConfig.EnableCompression,
 	}
-
-	d.upgraderReadBufferSize = d.wsConfig.ReadBufferSize
-	d.upgraderWriteBufferSize = d.wsConfig.WriteBufferSize
 }
 
 func (d *WebSocketMessageDispatcher) setupListen() error {
@@ -186,11 +206,9 @@ func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
 	d.sessionLock.Lock()
 	defer d.sessionLock.Unlock()
 
-	d.callbackLock.RLock()
-	defer d.callbackLock.RUnlock()
-
-	if d.onNewSession != nil {
-		err := d.onNewSession(session)
+	onNewSession := d.onNewSession.Load()
+	if onNewSession != nil {
+		err := onNewSession.(WebSocketCallbackOnNewSession)(session)
 		if err != nil {
 			d.GetApp().GetLogger().Error("OnNewSession callback error", "error", err, "session_id", session.SessionId)
 			d.Close(session, websocket.CloseServiceRestart, "Service shutdown")
@@ -212,10 +230,9 @@ func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
 
 	delete(d.sessions, session.SessionId)
 
-	d.callbackLock.RLock()
-	defer d.callbackLock.RUnlock()
-	if d.onRemoveSession != nil {
-		d.onRemoveSession(session)
+	onRemoveSession := d.onRemoveSession.Load()
+	if onRemoveSession != nil {
+		onRemoveSession.(WebSocketCallbackOnRemoveSession)(session)
 	}
 }
 
@@ -244,20 +261,18 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 
 		session.resetErrorCounter()
 
-		d.callbackLock.RLock()
-		if d.onNewMessage != nil {
-			err = d.onNewMessage(session, msg)
+		onNewMessage := d.onNewMessage.Load()
+		if onNewMessage != nil {
+			err = onNewMessage.(WebSocketCallbackOnNewMessage)(session, msg)
 			if err != nil {
 				d.GetApp().GetLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
 			}
 		} else {
 			d.GetApp().GetLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.String())
 		}
-		d.callbackLock.RUnlock()
 
 		if err == nil {
-			task_context, _ := context.WithCancel(session.runningContext)
-			d.OnReceiveMessage(d, &RpcContext{Context: task_context}, &DispatcherRawMessage{
+			d.OnReceiveMessage(d, session.runningContext, &DispatcherRawMessage{
 				Type:     d.GetInstanceIdent(),
 				Instance: msg,
 			}, session, d.AllocSequence())
@@ -440,13 +455,15 @@ func (d *WebSocketMessageDispatcher) Stop() (bool, error) {
 		}
 	}
 
-	ret := true
-	if len(d.sessions) > 0 {
-		ret = false
-	} else {
+	if d.stopCancel != nil {
 		d.stopCancel()
 		d.stopContext = nil
 		d.stopCancel = nil
+	}
+
+	ret := true
+	if len(d.sessions) > 0 {
+		ret = false
 	}
 
 	return ret, nil
@@ -500,24 +517,32 @@ func (d *WebSocketMessageDispatcher) PickMessageRpcName(msg *DispatcherRawMessag
 }
 
 func (d *WebSocketMessageDispatcher) AllocateSessionId() uint64 {
-	d.sessionIdAllocator++
-	return d.sessionIdAllocator
+	return d.sessionIdAllocator.Add(1)
 }
 
-func (d *WebSocketMessageDispatcher) SetOnNewSession(callback func(session *WebSocketSession) error) {
-	d.callbackLock.Lock()
-	defer d.callbackLock.Unlock()
-	d.onNewSession = callback
+func (d *WebSocketMessageDispatcher) SetOnNewSession(callback WebSocketCallbackOnNewSession) {
+	if callback == nil {
+		d.onNewSession.Store(nil)
+		return
+	}
+
+	d.onNewSession.Store(callback)
 }
 
-func (d *WebSocketMessageDispatcher) SetOnRemoveSession(callback func(session *WebSocketSession)) {
-	d.callbackLock.Lock()
-	defer d.callbackLock.Unlock()
-	d.onRemoveSession = callback
+func (d *WebSocketMessageDispatcher) SetOnRemoveSession(callback WebSocketCallbackOnRemoveSession) {
+	if callback == nil {
+		d.onRemoveSession.Store(nil)
+		return
+	}
+
+	d.onRemoveSession.Store(callback)
 }
 
-func (d *WebSocketMessageDispatcher) SetOnNewMessage(callback func(session *WebSocketSession, message *public_protocol_extension.CSMsg) error) {
-	d.callbackLock.Lock()
-	defer d.callbackLock.Unlock()
-	d.onNewMessage = callback
+func (d *WebSocketMessageDispatcher) SetOnNewMessage(callback WebSocketCallbackOnNewMessage) {
+	if callback == nil {
+		d.onNewMessage.Store(nil)
+		return
+	}
+
+	d.onNewMessage.Store(callback)
 }

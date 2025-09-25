@@ -34,7 +34,7 @@ type DispatcherImpl interface {
 	OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
 	OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error)
 
-	OnReceiveMessage(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error
+	OnReceiveMessage(rd DispatcherImpl, parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error
 
 	PickMessageTaskId(msg *DispatcherRawMessage) uint64
 	PickMessageRpcName(msg *DispatcherRawMessage) string
@@ -106,7 +106,7 @@ func (dispatcher *DispatcherBase) OnCreateTaskFailed(rd DispatcherImpl, startDat
 	rd.GetApp().GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", rd.PickMessageRpcName(startData.Message))
 }
 
-func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
+func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
 	if msg == nil || msg.Instance == nil {
 		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message can not be nil")
@@ -132,6 +132,11 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, rpcContext
 		return nil
 	}
 
+	rpcContext := &RpcContext{}
+	if parentContext != nil {
+		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(parentContext)
+	}
+
 	startData := &DispatcherStartData{
 		Message:           msg,
 		PrivateData:       privateData,
@@ -142,12 +147,23 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, rpcContext
 	if err != nil {
 		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg))
 		dispatcher.OnCreateTaskFailed(rd, startData, err)
+
+		if rpcContext.CancelFn != nil {
+			cancelFn := rpcContext.CancelFn
+			rpcContext.CancelFn = nil
+			cancelFn()
+		}
 		return err
 	}
 
 	err = RunTaskAction(rd.GetApp(), action, startData)
 	if err != nil {
 		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
+		if rpcContext.CancelFn != nil {
+			cancelFn := rpcContext.CancelFn
+			rpcContext.CancelFn = nil
+			cancelFn()
+		}
 		return err
 	}
 	return nil

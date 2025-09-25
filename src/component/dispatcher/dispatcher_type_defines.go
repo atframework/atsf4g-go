@@ -6,7 +6,8 @@ import (
 )
 
 type RpcContext struct {
-	Context context.Context
+	Context  context.Context
+	CancelFn context.CancelFunc
 }
 
 type DispatcherOptions struct {
