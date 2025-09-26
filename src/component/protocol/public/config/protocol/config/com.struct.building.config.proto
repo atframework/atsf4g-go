@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.base.common.proto";
+
+package proy.config;
+
+message ExcelBuilding {
+  option (xrescode.loader) = {
+    file_path : "building.bytes"
+    indexes : {fields : "building_id" index_type : EN_INDEX_KV}
+
+    tags : "client"
+    tags : "server"
+  };
+
+  int32 building_id = 1 [ (org.xresloader.field_unique_tag) = "building_id" ];
+  string resource_prefab = 2;
+  DVector2 covered_size = 3;
+  DVector2 pathfinding_size = 4;
+  DVector2 move_unit_size = 5;
+  repeated int32 layer = 6
+      [ (org.xresloader.validator) = "ExcelLayer_layer_id" ];
+  bool rotate = 7;
+}

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.base.common.proto";
+
+package proy.config;
+
+message ExcelLayer {
+  option (xrescode.loader) = {
+    file_path : "layer.bytes"
+    indexes : {fields : "layer_id" index_type : EN_INDEX_KV}
+
+    tags : "client"
+    tags : "server"
+  };
+
+  int32 layer_id = 1 [ (org.xresloader.field_unique_tag) = "layer_id" ];
+  repeated int32 can_place = 2
+      [ (org.xresloader.validator) = "ExcelLayer_layer_id" ];
+  bool can_store = 3;
+}
