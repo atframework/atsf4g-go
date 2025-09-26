@@ -37,7 +37,7 @@ message excel_const_config {
   string i18n_system_admin = 6;
 }
 
-message ExcelOriginConstConfig {
+message excel_origin_const_config {
   option (xrescode.loader) = {
     file_path : "const.bytes"
     indexes : {fields : "key" index_type : EN_INDEX_KV}
