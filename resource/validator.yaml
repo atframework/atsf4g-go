@@ -3,3 +3,8 @@ validator:
     description: "Item.xlsx|道具描述总表|type_id 值校验"
     rules:
       - InTableColumn("Item.xlsx", "道具描述总表", 3, 2, "type_id")
+
+  - name: "ExcelLayer_layer_id"
+    description: "Layer.xlsx|层级|layer_id 值校验"
+    rules:
+      - InTableColumn("Layer.xlsx", "层级", 3, 2, "layer_id")
