@@ -71,7 +71,7 @@ message DClientUpdateCfg {
 }
 
 // 用户profile
-message DPlayerProfile {
+message DUserProfile {
   string open_id = 1;
   uint64 user_id = 2;
   string nick_name = 3;
@@ -80,27 +80,27 @@ message DPlayerProfile {
 }
 
 // 用户profile
-message DPlayerStat {
+message DUserStat {
   int64 register_time = 1;   // 注册时间
   int64 last_login_time = 2; // 注册时间
 }
 
 // 用户数据
-message DPlayerInfo {
-  DPlayerProfile player = 1;
+message DUserInfo {
+  DUserProfile player = 1;
   uint32 player_level = 2; // 玩家（主城）等级
-  DPlayerStat player_stat = 4;
+  DUserStat player_stat = 4;
 }
 
 // 用户自定义选项
-message DPlayerOptions {}
+message DUserOptions {}
 
-message DPlayerIDKey {
+message DUserIDKey {
   uint64 user_id = 1;
   uint32 zone_id = 2;
 }
 
-message DPlayerAccountIDRefer {
+message DUserAccountIDRefer {
   uint64 user_id = 1;
   uint32 zone_id = 2;
   uint64 account_id = 3;

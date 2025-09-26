@@ -17,9 +17,11 @@ type TaskActionBase struct {
 
 	disableResponse bool
 
-	currentAwaitingLock    sync.Mutex
-	currentAwaitingOption  *DispatcherAwaitOptions
-	currentAwaitingChannel *chan TaskActionAwaitChannelData
+	currentAwaiting *struct {
+		Lock    sync.Mutex
+		Option  *DispatcherAwaitOptions
+		Channel *chan TaskActionAwaitChannelData
+	}
 }
 
 func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskActionBase {
@@ -29,9 +31,15 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskA
 		actorExecutor:   actorExecutor,
 		dispatcher:      rd,
 		disableResponse: false,
-		// currentAwaitingLock:    sync.Mutex{},
-		currentAwaitingOption:  nil,
-		currentAwaitingChannel: nil,
+		currentAwaiting: &struct {
+			Lock    sync.Mutex
+			Option  *DispatcherAwaitOptions
+			Channel *chan TaskActionAwaitChannelData
+		}{
+			Lock:    sync.Mutex{},
+			Option:  nil,
+			Channel: nil,
+		},
 	}
 }
 
@@ -97,9 +105,9 @@ func (t *TaskActionBase) OnTimeout() {}
 func (t *TaskActionBase) OnComplete() {}
 
 func (t *TaskActionBase) OnCleanup() {
-	if t.currentAwaitingChannel != nil {
-		close(*t.currentAwaitingChannel)
-		t.currentAwaitingChannel = nil
+	if t.currentAwaiting.Channel != nil {
+		close(*t.currentAwaiting.Channel)
+		t.currentAwaiting.Channel = nil
 	}
 }
 
@@ -124,18 +132,18 @@ func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *Dispat
 		}
 	}
 
-	if t.currentAwaitingOption == awaitOptions {
+	if t.currentAwaiting.Option == awaitOptions {
 		return nil
 	}
 
-	if t.currentAwaitingOption != nil {
-		if t.currentAwaitingOption.Type == awaitOptions.Type && t.currentAwaitingOption.Sequence == awaitOptions.Sequence {
+	if t.currentAwaiting.Option != nil {
+		if t.currentAwaiting.Option.Type == awaitOptions.Type && t.currentAwaiting.Option.Sequence == awaitOptions.Sequence {
 			// 相同等待选项，直接复用
 			return nil
 		}
 
 		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, already awaiting %v:%v , can not await %v:%v again",
-			action.Name(), action.GetTaskId(), t.currentAwaitingOption.Type, t.currentAwaitingOption.Sequence,
+			action.Name(), action.GetTaskId(), t.currentAwaiting.Option.Type, t.currentAwaiting.Option.Sequence,
 			awaitOptions.Type, awaitOptions.Sequence,
 		)
 	}
@@ -144,48 +152,48 @@ func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *Dispat
 }
 
 func (t *TaskActionBase) TrySetupAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*chan TaskActionAwaitChannelData, error) {
-	t.currentAwaitingLock.Lock()
-	defer t.currentAwaitingLock.Unlock()
+	t.currentAwaiting.Lock.Lock()
+	defer t.currentAwaiting.Lock.Unlock()
 
 	err := t.trySetAwait(action, awaitOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	if t.currentAwaitingChannel == nil {
+	if t.currentAwaiting.Channel == nil {
 		ch := make(chan TaskActionAwaitChannelData, 1)
-		t.currentAwaitingChannel = &ch
+		t.currentAwaiting.Channel = &ch
 	}
 
-	return t.currentAwaitingChannel, nil
+	return t.currentAwaiting.Channel, nil
 }
 
 func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData) error {
-	t.currentAwaitingLock.Lock()
-	defer t.currentAwaitingLock.Unlock()
+	t.currentAwaiting.Lock.Lock()
+	defer t.currentAwaiting.Lock.Unlock()
 
 	if resumeData == nil {
 		return fmt.Errorf("task %s, %d TryFinishAwait resumeData can not be nil", action.Name(), action.GetTaskId())
 	}
 
-	if t.currentAwaitingOption == nil {
+	if t.currentAwaiting.Option == nil {
 		return fmt.Errorf("task %s, %d TryFinishAwait no current awaiting", action.Name(), action.GetTaskId())
 	}
 
-	if t.currentAwaitingOption.Type != resumeData.Message.Type || t.currentAwaitingOption.Sequence != resumeData.Sequence {
+	if t.currentAwaiting.Option.Type != resumeData.Message.Type || t.currentAwaiting.Option.Sequence != resumeData.Sequence {
 		return fmt.Errorf("task %s, %d TryFinishAwait resumeData mismatch, current awaiting %v:%v , got %v:%v",
-			action.Name(), action.GetTaskId(), t.currentAwaitingOption.Type, t.currentAwaitingOption.Sequence,
+			action.Name(), action.GetTaskId(), t.currentAwaiting.Option.Type, t.currentAwaiting.Option.Sequence,
 			resumeData.Message.Type, resumeData.Sequence,
 		)
 	}
 
-	if t.currentAwaitingChannel == nil {
+	if t.currentAwaiting.Channel == nil {
 		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}
 
 	select {
-	case *t.currentAwaitingChannel <- TaskActionAwaitChannelData{resume: resumeData}:
-		t.currentAwaitingOption = nil
+	case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{resume: resumeData}:
+		t.currentAwaiting.Option = nil
 	default:
 		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}
@@ -194,24 +202,24 @@ func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *Dispa
 }
 
 func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *DispatcherKillData) error {
-	t.currentAwaitingLock.Lock()
-	defer t.currentAwaitingLock.Unlock()
+	t.currentAwaiting.Lock.Lock()
+	defer t.currentAwaiting.Lock.Unlock()
 
 	if killData == nil {
 		return fmt.Errorf("task %s, %d TryKillAwait killData can not be nil", action.Name(), action.GetTaskId())
 	}
 
-	if t.currentAwaitingOption == nil {
+	if t.currentAwaiting.Option == nil {
 		return fmt.Errorf("task %s, %d TryKillAwait no current awaiting", action.Name(), action.GetTaskId())
 	}
 
-	if t.currentAwaitingChannel == nil {
+	if t.currentAwaiting.Channel == nil {
 		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}
 
 	select {
-	case *t.currentAwaitingChannel <- TaskActionAwaitChannelData{killed: killData}:
-		t.currentAwaitingOption = nil
+	case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{killed: killData}:
+		t.currentAwaiting.Option = nil
 	default:
 		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
 	}

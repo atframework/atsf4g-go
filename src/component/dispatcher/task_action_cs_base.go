@@ -2,6 +2,8 @@ package atframework_component_dispatcher
 
 import (
 	"fmt"
+	"log/slog"
+	"reflect"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -46,8 +48,6 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 	rd DispatcherImpl,
 	session TaskActionCSSession,
 	rpcDescriptor protoreflect.MethodDescriptor,
-	requestBody RequestType,
-	responseBody ResponseType,
 ) TaskActionCSBase[RequestType, ResponseType] {
 	var user TaskActionCSUser = nil
 	var actor *ActorExecutor = nil
@@ -58,15 +58,21 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 		actor = user.GetActorExecutor()
 	}
 
+	// 创建RequestType的零值实例
+	requestBodyType := reflect.TypeOf((*RequestType)(nil)).Elem().Elem()
+
 	return TaskActionCSBase[RequestType, ResponseType]{
 		TaskActionBase: CreateTaskActionBase(rd, actor),
 		session:        session,
 		user:           user,
 		rpcDescriptor:  rpcDescriptor,
 		requestHead:    nil,
-		requestBody:    requestBody,
-		responseBody:   responseBody,
+		requestBody:    reflect.New(requestBodyType).Interface().(RequestType),
 	}
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {
+	return t.GetDispatcher().GetApp().GetLogger()
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
@@ -130,6 +136,14 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetRequestBody() RequestTy
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) MutableResponseBody() ResponseType {
+	// 检查responseBody是否为nil
+	if reflect.ValueOf(t.responseBody).IsNil() {
+		// 使用反射创建ResponseType的新实例
+		responseType := reflect.TypeOf(t.responseBody).Elem()
+		newInstance := reflect.New(responseType)
+		t.responseBody = newInstance.Interface().(ResponseType)
+	}
+
 	return t.responseBody
 }
 

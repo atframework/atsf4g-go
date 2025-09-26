@@ -16,8 +16,6 @@ type TaskActionAwaitChannelData struct {
 }
 
 type TaskActionImpl interface {
-	MutableActorExecutorFromMessage(startData *DispatcherStartData) *ActorExecutor
-
 	Name() string
 	GetTaskId() uint64
 

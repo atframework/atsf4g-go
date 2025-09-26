@@ -4,7 +4,11 @@ import (
 	"sync"
 )
 
+type noCopy struct{}
+
 type SessionManager struct {
+	_ noCopy
+
 	sessionLock sync.RWMutex
 	sessions    map[uint64]*map[uint64]*Session
 }

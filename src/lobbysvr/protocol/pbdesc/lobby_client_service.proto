@@ -57,10 +57,10 @@ message SCLoginAuthRsp {
   DClientUpdateCfg update_info = 3; // 更新信息
   uint32 version_type = 4;          // 版本类型 @EnVersionType
 
-  string open_id = 21;     // 最终open_id
-  uint64 user_id = 22;     // 玩家数字ID
-  bool is_new_player = 23; // 是否是新玩家
-  uint32 zone_id = 24;     // 大区ID
+  string open_id = 21;   // 最终open_id
+  uint64 user_id = 22;   // 玩家数字ID
+  bool is_new_user = 23; // 是否是新玩家
+  uint32 zone_id = 24;   // 大区ID
 
   int64 ban_time = 101;   // 封号期限
   int64 start_time = 102; // 开服时间
@@ -98,10 +98,10 @@ message SCLoginRsp {
   int32 zone_id = 5;            // 大区ID
 }
 
-message SCPlayerProfileSyn { DPlayerProfile player = 1; }
+message SCUserProfileSyn { DUserProfile player = 1; }
 
 // 脏数据同步包
-message SCPlayerDirtyChgSync { repeated DItemInstance dirty_items = 1; }
+message SCUserDirtyChgSync { repeated DItemInstance dirty_items = 1; }
 
 // 心跳包，上行包
 message CSPingReq {}
@@ -110,32 +110,35 @@ message CSPingReq {}
 message SCPongRsp {}
 
 // 请求用户数据
-message CSPlayerGetInfoReq {
-  bool need_player_info = 1;    // 标记为true 回包才有会有玩家基本数据
-  bool need_player_options = 2; // 标记为true 回包才有会有玩家选项数据
+message CSUserGetInfoReq {
+  bool need_user_info = 1;    // 标记为true 回包才有会有玩家基本数据
+  bool need_user_options = 2; // 标记为true 回包才有会有玩家选项数据
 }
 
 // 用户数据返回
-message SCPlayerGetInfoRsp {
-  DPlayerInfo player_info = 1;       // 玩家数据
-  DPlayerOptions player_options = 2; // 玩家自定义选项
+message SCUserGetInfoRsp {
+  DUserInfo user_info = 1;       // 玩家数据
+  DUserOptions user_options = 2; // 玩家自定义选项
 }
 
 service LobbyClientService {
   rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Authorization"
     };
   };
 
   rpc login(CSLoginReq) returns (SCLoginRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Login"
     };
   };
 
   rpc ping(CSPingReq) returns (SCPongRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Ping/pong"
     };
   };
@@ -146,18 +149,18 @@ service LobbyClientService {
     };
   };
 
-  rpc player_get_info(CSPlayerGetInfoReq) returns (SCPlayerGetInfoRsp) {
+  rpc user_get_info(CSUserGetInfoReq) returns (SCUserGetInfoRsp) {
     option (atframework.rpc_options) = {
-      module_name : "player"
-      api_name : "Get player data"
+      module_name : "user"
+      api_name : "Get user data"
     };
   };
 
   // Use stream request to disable waiting for response
-  rpc player_dirty_chg_sync(google.protobuf.Empty)
-      returns (stream SCPlayerDirtyChgSync) {
+  rpc user_dirty_chg_sync(google.protobuf.Empty)
+      returns (stream SCUserDirtyChgSync) {
     option (atframework.rpc_options) = {
-      module_name : "player"
+      module_name : "user"
       api_name : "Push dirty data"
     };
   };

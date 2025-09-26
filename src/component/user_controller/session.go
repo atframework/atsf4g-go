@@ -1,6 +1,8 @@
 package atframework_component_user_controller
 
 import (
+	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 )
 
@@ -16,13 +18,21 @@ type SessionKey struct {
 	SessionId uint64
 }
 
+type SessionImpl interface {
+	component_dispatcher.TaskActionCSSession
+
+	GetKey() SessionKey
+}
+
 type Session struct {
 	key SessionKey
 
-	user *UserCache
+	user UserImpl
 
 	networkHandle SessionNetworkHandleImpl
 	networkClosed bool
+
+	sessionSequenceAllocator uint64
 }
 
 func CreateSessionKey(nodeId uint64, sessionId uint64) SessionKey {
@@ -34,8 +44,11 @@ func CreateSessionKey(nodeId uint64, sessionId uint64) SessionKey {
 
 func CreateSession(key SessionKey, handle SessionNetworkHandleImpl) *Session {
 	return &Session{
-		key:           key,
-		networkHandle: handle,
+		key:                      key,
+		user:                     nil,
+		networkHandle:            handle,
+		networkClosed:            false,
+		sessionSequenceAllocator: 0,
 	}
 }
 
@@ -49,5 +62,43 @@ func (s *Session) Close(reason int32, reasonMessage string) {
 		s.networkHandle.Close(reason, reasonMessage)
 	}
 
-	// TODO: 解绑User
+	// 解绑User
+	if s.user != nil {
+		s.user.UnbindSession(s)
+	}
+}
+
+func (s *Session) GetSessionId() uint64 {
+	return s.key.SessionId
+}
+
+func (s *Session) GetSessionNodeId() uint64 {
+	return s.key.NodeId
+}
+
+func (s *Session) AllocSessionSequence() uint64 {
+	s.sessionSequenceAllocator++
+	return s.sessionSequenceAllocator
+}
+
+func (s *Session) GetUser() component_dispatcher.TaskActionCSUser {
+	return s.user
+}
+
+func (s *Session) BindUser(bindUser component_dispatcher.TaskActionCSUser) {
+	if s.user == bindUser {
+		return
+	}
+
+	convertUser, ok := bindUser.(UserImpl)
+	if !ok {
+		return
+	}
+
+	if s.user != nil {
+		s.user.UnbindSession(s)
+	}
+
+	s.user = convertUser
+	convertUser.BindSession(s)
 }
