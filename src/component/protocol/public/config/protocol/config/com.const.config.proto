@@ -15,7 +15,7 @@ import "protocol/extension/v3/xresloader.proto";
 import "protocol/extension/v3/xresloader_ue.proto";
 import "protocol/extension/xrescode_extensions_v3.proto";
 
-package hello.config;
+package proy.config;
 
 // 常量类型
 enum game_const_config {
@@ -37,7 +37,7 @@ message excel_const_config {
   string i18n_system_admin = 6;
 }
 
-message excel_origin_const_config {
+message ExcelOriginConstConfig {
   option (xrescode.loader) = {
     file_path : "const.bytes"
     indexes : {fields : "key" index_type : EN_INDEX_KV}

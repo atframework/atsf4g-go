@@ -10,7 +10,7 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/
 
 import "protocol/extension/v3/xresloader.proto";
 
-package hello;
+package proy;
 
 message DItemBoxPosition {
   int32 x = 1;

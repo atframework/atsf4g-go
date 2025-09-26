@@ -19,4 +19,4 @@ import "protocol/common/com.struct.item.common.proto";
 import "protocol/pbdesc/com.const.proto";
 import "protocol/pbdesc/com.struct.proto";
 
-package hello;
+package proy;

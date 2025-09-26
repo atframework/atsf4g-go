@@ -13,7 +13,7 @@ import "google/protobuf/descriptor.proto";
 import "protocol/extension/extensions_error_code.proto";
 import "protocol/extension/com.const.extension.proto";
 
-package hello;
+package proy;
 
 option (CONST_SETTINGS) = {
   time_tolerate : 10

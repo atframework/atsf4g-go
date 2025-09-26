@@ -34,3 +34,5 @@ go.work.sum
 *.pb.go
 _generated/
 /tools/bin
+/build
+/src/component/config/generate_config

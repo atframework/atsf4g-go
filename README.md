@@ -9,14 +9,16 @@ To work with <https://github.com/atframework/atsf4g-co>.
 ### Prepare
 
 ```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-# go install "github.com/bufbuild/buf/cmd/buf@latest"
+// windows PowerShell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 
-cd tools/generate
+scoop install python
+scoop bucket add java
+scoop install gradle maven microsoft-lts-jdk
+```
+
+```bash
+cd tools/build
 go run .
-cd -
-
-# go run <project>/tools/generate/main.go <sub dir>
-
-# go generate ./...
 ```

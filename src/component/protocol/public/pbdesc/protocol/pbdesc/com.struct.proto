@@ -10,7 +10,7 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/
 
 import "protocol/pbdesc/com.const.proto";
 
-package hello;
+package proy;
 
 // 登录用户终端信息
 message DClientDeviceInfo {

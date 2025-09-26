@@ -2,3 +2,6 @@
 	path = third_party/xresloader/xres-code-generator
 	url = https://github.com/xresloader/xres-code-generator.git
 	branch = main
+[submodule "third_party/xresloader/xresconv-cli"]
+	path = third_party/xresloader/xresconv-cli
+	url = https://github.com/owent/xresconv-cli
