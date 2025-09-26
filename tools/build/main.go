@@ -5,64 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
-	"strings"
 )
-
-func findPython() (string, error) {
-	var cmd *exec.Cmd
-	// 根据操作系统选择命令
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("where", "python")
-	} else {
-		cmd = exec.Command("which", "python3")
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		// 如果没找到 python3，可以尝试 python
-		if runtime.GOOS != "windows" {
-			cmd = exec.Command("which", "python")
-			out, err = cmd.Output()
-			if err != nil {
-				return "", err
-			}
-			return strings.TrimSpace(string(out)), nil
-		}
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-func findJava() (string, error) {
-	var cmd *exec.Cmd
-	// 根据操作系统选择命令
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("where", "java")
-	} else {
-		cmd = exec.Command("which", "java")
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-func findCopy() (string, error) {
-	var cmd *exec.Cmd
-	// 根据操作系统选择命令
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("where", "xcopy")
-	} else {
-		cmd = exec.Command("which", "cp")
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
 
 func fmtColorInner(color int, str string) {
 	fmt.Printf("\033[1;%s;40m%s\033[0m\n", strconv.Itoa(color), str)
@@ -118,7 +62,7 @@ func main() {
 	// 1.初始化
 	{
 		// 检查Python
-		pythonExecutable, err := findPython()
+		pythonExecutable, err := exec.LookPath("python3")
 		if err != nil {
 			fmt.Println("Python Not Found:", err)
 			os.Exit(1)
@@ -128,7 +72,7 @@ func main() {
 	}
 	{
 		// 检查Java
-		javaExecutable, err := findJava()
+		javaExecutable, err := exec.LookPath("java")
 		if err != nil {
 			fmt.Println("Java Not Found:", err)
 			os.Exit(1)
