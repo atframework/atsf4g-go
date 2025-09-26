@@ -80,21 +80,8 @@ func main() {
 		fmtColor(FgGreen, "JavaExecutable:%s", javaExecutable)
 		os.Setenv("JavaExecutable", javaExecutable)
 	}
-	{
-		// 安装protoc
-		cmd := exec.Command("go", "install", "google.golang.org/protobuf/cmd/protoc-gen-go@latest")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Dir = projectBaseDir
-		err := cmd.Run()
-		if err != nil {
-			fmtColorRed("Run install protoc Error %s", err)
-			os.Exit(1)
-		}
-		fmtColorGreen("Run Install Protoc Success")
-	}
 
-	// 2.generate
+	// 1.generate
 	{
 		cmd := exec.Command("go", "run", ".")
 		cmd.Stdout = os.Stdout
@@ -107,7 +94,7 @@ func main() {
 		}
 		fmtColorGreen("Run generate Success")
 	}
-	// 3.build
+	// 2.build
 	buildBinPath := buildPath + "/bin"
 	os.Mkdir(buildBinPath, os.ModePerm)
 	{
