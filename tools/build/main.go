@@ -97,6 +97,7 @@ func main() {
 	buildBytesDir := path.Join(buildPath, "install", "resource", "excel")
 	excelGenBytePath := path.Join(buildPath, "_gen")
 	resourcePath := path.Join(projectBaseDir, "resource")
+	generateForPbPath := path.Join(projectBaseDir, "tools", "generate-for-pb")
 
 	os.Setenv("ProjectBasePath", projectBaseDir)
 	os.Setenv("ProjectBuildPath", buildPath)
@@ -106,6 +107,7 @@ func main() {
 	os.Setenv("XresloaderXmlTpl", path.Join(projectBaseDir, "src", "component", "protocol", "public", "xresconv.xml.tpl"))
 	os.Setenv("ExcelGenBytePath", excelGenBytePath)
 	os.Setenv("ResourcePath", resourcePath)
+	os.Setenv("GenerateForPbPath", generateForPbPath)
 
 	os.MkdirAll(buildPath, os.ModePerm)
 	os.MkdirAll(buildPbdescDir, os.ModePerm)
