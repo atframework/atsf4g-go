@@ -17,7 +17,10 @@ func main() {
 	csDispatcher := uc.WebsocketDispatcherCreateCSMessage(app)
 	app.AddModule(csDispatcher)
 
-	lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc.WebsocketDispatcherFindSessionFromMessage)
+	if err := lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc.WebsocketDispatcherFindSessionFromMessage); err != nil {
+		println("RegisterLobbyClientService fail: %s", err.Error())
+		return
+	}
 
 	err := app.Run(os.Args[1:])
 	if err != nil {

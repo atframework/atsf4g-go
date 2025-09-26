@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -159,7 +160,7 @@ func copyFile(src, dest string) error {
 func generateXresloaderXml() {
 	projectBaseDir := os.Getenv("ProjectBasePath")
 	buildPbdescDir := os.Getenv("BuildPbdescPath")
-	buildPath := os.Getenv("ProjectBuildPath")
+	buildBytesPath := os.Getenv("BuildBytesPath")
 	xresloaderXmlTpl := os.Getenv("XresloaderXmlTpl")
 	resourcePath := os.Getenv("ResourcePath")
 	excelGenBytePath := os.Getenv("ExcelGenBytePath")
@@ -173,15 +174,15 @@ func generateXresloaderXml() {
 
 	// 定义模板替换的数据
 	data := XresloaderXmlVar{
-		XRESCONV_XML_PATH:     resourcePath + "/xresconv.xml",
-		XRESCONV_EXE_PATH:     projectBaseDir + "/tools/xresloader-2.20.1.jar",
-		XRESCONV_CONFIG_PB:    buildPbdescDir + "/config.pb",
-		XRESCONV_BYTES_OUTPUT: buildPath + "/excel",
-		XRESCONV_EXECL_SRC:    resourcePath + "/ExcelTables",
+		XRESCONV_XML_PATH:     path.Join(resourcePath, "xresconv.xml"),
+		XRESCONV_EXE_PATH:     path.Join(projectBaseDir, "tools", "xresloader-2.20.1.jar"),
+		XRESCONV_CONFIG_PB:    path.Join(buildPbdescDir, "config.pb"),
+		XRESCONV_BYTES_OUTPUT: buildBytesPath,
+		XRESCONV_EXECL_SRC:    path.Join(resourcePath, "ExcelTables"),
 	}
 
 	// 输出到新的文件
-	outputFile, err := os.Create(excelGenBytePath + "/xresconv.xml")
+	outputFile, err := os.Create(path.Join(excelGenBytePath, "xresconv.xml"))
 	if err != nil {
 		log.Fatal("Error creating output file: ", err)
 		os.Exit(1)
@@ -198,7 +199,7 @@ func generateXresloaderXml() {
 	log.Println("xresconv.xml generated successfully.")
 
 	// 拷贝 validator.yaml
-	copyFile(resourcePath+"/validator.yaml", excelGenBytePath+"/validator.yaml")
+	copyFile(path.Join(resourcePath, "validator.yaml"), path.Join(excelGenBytePath, "validator.yaml"))
 }
 
 func main() {
@@ -213,7 +214,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err := os.Stat("../../third_party/xresloader/xres-code-generator/xrescode-gen.py")
+	_, err := os.Stat(path.Join("..", "..", "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Not Found xres-code-generator xrescode-gen.py\n")
 		os.Exit(1)

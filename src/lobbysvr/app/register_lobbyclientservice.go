@@ -14,7 +14,7 @@ import (
 func RegisterLobbyClientService(
 	rd cd.DispatcherImpl, findSessionFn uc.FindCSMessageSession,
 ) error {
-	svc := sp.File_protocol_pbdesc_lobby_client_service_proto.Services().ByName("proy.LobbyClientService")
+	svc := sp.File_protocol_pbdesc_lobby_client_service_proto.Services().ByName("LobbyClientService")
 	if svc == nil {
 		rd.GetApp().GetLogger().Error("lobbysvr_app.RegisterLobbyClientService no service proy.LobbyClientService")
 		return fmt.Errorf("no service proy.LobbyClientService")

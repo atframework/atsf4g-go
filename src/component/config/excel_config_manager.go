@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 	"sync"
 	"sync/atomic"
 
@@ -118,7 +119,7 @@ func GetConfigManager() *ConfigManager {
 type ExcelConfigCallback struct{}
 
 func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
-	filePath := fmt.Sprintf("%s/%s", "../excel", pbinName)
+	filePath := path.Join("..", "..", "resource", "excel", pbinName)
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
