@@ -25,7 +25,7 @@
   <list>
     <item name="常量表" cat="misc" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Const.xlsx|常量|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelOriginConstConfig</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.excel_origin_const_config</scheme>
       <scheme name="OutputFile" desc="输出文件名">const.bytes</scheme>
     </item>
     <item name="道具描述总表" cat="item" class="client server">
