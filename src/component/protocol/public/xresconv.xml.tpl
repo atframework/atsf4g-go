@@ -6,8 +6,8 @@
 
     <proto desc="协议类型，-p选项">protobuf</proto>
     <output_type desc="输出类型，-t选项，支持多个同时配置多种输出">bin</output_type>
-    <!-- <output_type desc="多种输出时可以额外定义某个节点的重命名规则" rename="/(?i)\.bin$/\.json/">json</output_type> -->
-    <!-- <output_type desc="可以通过指定class来限制输出的规则" rename="/(?i)\.bin$/\.csv/" class="client" >ue-csv</output_type> -->
+    <output_type desc="多种输出时可以额外定义某个节点的重命名规则" rename="/(?i)\.bytes$/\.json/">json</output_type>
+    <!-- <output_type desc="可以通过指定class来限制输出的规则" rename="/(?i)\.bytes$/\.csv/" class="client" >ue-csv</output_type> -->
     <!-- output_type 里的class标签对应下面item里的class标签，均可配置多个，多个用空格隔开，任意一个class匹配都会启用这个输出 -->
     <proto_file desc="协议描述文件，-f选项">{{.XRESCONV_CONFIG_PB}}</proto_file>
 
@@ -21,5 +21,6 @@
     <default_scheme name="KeyRow" desc="默认scheme模式参数-Key行号">2</default_scheme>
     <!--<default_scheme name="UeCg-CsvObjectWrapper" desc="Ue-Csv输出的包裹字符">{|}</default_scheme>-->
     <option desc="忽略仅客户端资源">--ignore-field-tags client_only</option>
+    <option desc="美化">--pretty 2</option>
   </global>
 </root>
