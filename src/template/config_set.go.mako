@@ -106,7 +106,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 	% else:
 		key := configSet${loader.get_go_pb_name()}Key_${code_index.name}{
 		% for field in code_index.fields:
-			${pb_loader.MakoToCamelName(field.name)}: data.${pb_loader.MakoToCamelName(field.name)},
+			${pb_loader.MakoToCamelName(field.name)}: ${pb_loader.MakoPbMsgGetPbFieldGoType(field)}(data.${pb_loader.MakoToCamelName(field.name)}),
 		% endfor
 		}
 		if _, ok := configSet.configIndexContainer_${code_index.name}[key]; ok {
