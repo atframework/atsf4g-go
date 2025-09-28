@@ -182,7 +182,7 @@ type AppInstance struct {
 
 func CreateAppInstance() AppImpl {
 	ret := &AppInstance{
-		mode:          AppModeCustom,
+		mode:          AppModeHelp,
 		stopTimepoint: time.Time{},
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
@@ -656,6 +656,10 @@ func (app *AppInstance) RunCommand(arguments []string) error {
 }
 
 func (app *AppInstance) sendLastCommand() error {
+	if len(app.lastCommand) == 0 {
+		app.GetLogger().Error("No command to send")
+		return fmt.Errorf("no command to send")
+	}
 	// TODO: 发送远程指令
 	return nil
 }
@@ -794,6 +798,12 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 		case "run":
 			app.mode = AppModeCustom
 			app.lastCommand = args[1:]
+		case "help":
+			app.mode = AppModeHelp
+		case "version":
+			app.mode = AppModeInfo
+		default:
+			return fmt.Errorf("unknown command: %s", args[0])
 		}
 	}
 

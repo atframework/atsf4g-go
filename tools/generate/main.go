@@ -10,39 +10,16 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 
 	atframe_utils "github.com/atframework/atframe-utils-go"
+	project_settings "github.com/atframework/atsf4g-go/tools/project-settings"
 )
 
 func guessBinDir() string {
-	if _, filename, _, ok := runtime.Caller(0); ok {
-		if _, err := os.Stat(filename); err == nil {
-			return filepath.Join(filepath.Dir(filepath.Dir(filename)), "bin")
-		}
-	}
-
-	exePath, err := os.Executable()
-	if err != nil {
-		return exePath
-	}
-
-	cwdDir, _ := os.Getwd()
-	baseDir := cwdDir
-	previousDir := baseDir + "_"
-	for i := 0; previousDir != baseDir && previousDir != ""; i++ {
-		if _, err := os.Stat(filepath.Join(baseDir, "tools", "generate", "go.mod")); err == nil {
-			return filepath.Join(baseDir, "tools", "bin")
-		}
-
-		previousDir = baseDir
-		baseDir = filepath.Dir(baseDir)
-	}
-
-	return cwdDir
+	return filepath.Join(project_settings.GetProjectToolsDir(), "bin")
 }
 
 func generateAtfwGo(scanDirs []string) {

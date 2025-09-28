@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	project_settings "github.com/atframework/atsf4g-go/tools/project-settings"
 )
 
 func fmtColorInner(color int, str string) {
@@ -89,15 +91,15 @@ func main() {
 	// 执行多个构建流程
 
 	// 路径设置
-	projectBaseDir, _ := filepath.Abs("../../")
+	projectBaseDir := project_settings.GetProjectRootDir()
 
-	buildPath := path.Join(projectBaseDir, "build")
+	buildPath := project_settings.GetProjectBuildDir()
 	xresloaderPath := path.Join(projectBaseDir, "third_party", "xresloader")
-	buildPbdescDir := path.Join(buildPath, "install", "resource", "pbdesc")
-	buildBytesDir := path.Join(buildPath, "install", "resource", "excel")
-	excelGenBytePath := path.Join(buildPath, "_gen")
-	resourcePath := path.Join(projectBaseDir, "resource")
-	generateForPbPath := path.Join(projectBaseDir, "tools", "generate-for-pb")
+	buildPbdescDir := path.Join(project_settings.GetProjectResourceTargetDir(), "pbdesc")
+	buildBytesDir := path.Join(project_settings.GetProjectResourceTargetDir(), "excel")
+	excelGenBytePath := project_settings.GetProjectGenDir()
+	resourcePath := project_settings.GetProjectResourceSourceDir()
+	generateForPbPath := path.Join(project_settings.GetProjectToolsDir(), "generate-for-pb")
 
 	os.Setenv("ProjectBasePath", projectBaseDir)
 	os.Setenv("ProjectBuildPath", buildPath)
