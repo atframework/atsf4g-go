@@ -142,7 +142,7 @@ func main() {
 		fmtColorGreen("Run generate success")
 	}
 
-	// 2.build
+	// 3.build
 	exitCode := 0
 	if buildService(projectBaseDir, buildPath, path.Join("src", "lobbysvr"), "lobbysvr") != nil {
 		exitCode = 1
