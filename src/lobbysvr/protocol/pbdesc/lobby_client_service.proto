@@ -93,12 +93,12 @@ message CSLoginReq {
 message SCLoginRsp {
   int32 last_sequence = 1;      // 上次收包的seq(不算MCSLogin)
   int64 heartbeat_interval = 2; // 心跳包间隔
-  bool is_new_player = 3;       // 是否是新玩家
+  bool is_new_user = 3;         // 是否是新玩家
   int32 version_type = 4;       // 版本类型 @EnVersionType
   int32 zone_id = 5;            // 大区ID
 }
 
-message SCUserProfileSyn { DUserProfile player = 1; }
+message SCUserProfileSyn { DUserProfile user = 1; }
 
 // 脏数据同步包
 message SCUserDirtyChgSync { repeated DItemInstance dirty_items = 1; }
@@ -124,21 +124,18 @@ message SCUserGetInfoRsp {
 service LobbyClientService {
   rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
       api_name : "Authorization"
     };
   };
 
   rpc login(CSLoginReq) returns (SCLoginRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
       api_name : "Login"
     };
   };
 
   rpc ping(CSPingReq) returns (SCPongRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
       api_name : "Ping/pong"
     };
   };
