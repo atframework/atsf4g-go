@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 var (
@@ -17,6 +18,14 @@ var (
 	projectResourceTargetDir string
 	projectResourceSourceDir string
 )
+
+func binName(name string) string {
+	if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(name), ".exe") {
+		return name + ".exe"
+	}
+
+	return name
+}
 
 func findProjectRootDir() string {
 	if _, filename, _, ok := runtime.Caller(0); ok {

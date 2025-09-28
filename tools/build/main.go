@@ -97,47 +97,37 @@ func main() {
 	xresloaderPath := path.Join(projectBaseDir, "third_party", "xresloader")
 	buildPbdescDir := path.Join(project_settings.GetProjectResourceTargetDir(), "pbdesc")
 	buildBytesDir := path.Join(project_settings.GetProjectResourceTargetDir(), "excel")
-	excelGenBytePath := project_settings.GetProjectGenDir()
+	projectGenDir := project_settings.GetProjectGenDir()
 	resourcePath := project_settings.GetProjectResourceSourceDir()
 	generateForPbPath := path.Join(project_settings.GetProjectToolsDir(), "generate-for-pb")
+	pythonBinPath, err := project_settings.GetPythonPath()
+	if err != nil {
+		fmtColor(FgRed, "Get Python Path Failed: %v", err)
+		os.Exit(1)
+	}
+	fmtColor(FgGreen, "PYTHON_BIN_PATH:%s", pythonBinPath)
 
-	os.Setenv("ProjectBasePath", projectBaseDir)
-	os.Setenv("ProjectBuildPath", buildPath)
-	os.Setenv("XresloaderPath", xresloaderPath)
+	javaBinPath, err := project_settings.GetJavaPath()
+	if err != nil {
+		fmtColor(FgRed, "Get Java Path Failed: %v", err)
+		os.Exit(1)
+	}
+	fmtColor(FgGreen, "JAVA_BIN_PATH:%s", javaBinPath)
+
+	os.Setenv("PROJECT_XRESLOADER_PATH", xresloaderPath)
 	os.Setenv("BuildPbdescPath", buildPbdescDir)
 	os.Setenv("BuildBytesPath", buildBytesDir)
 	os.Setenv("XresloaderXmlTpl", path.Join(projectBaseDir, "src", "component", "protocol", "public", "xresconv.xml.tpl"))
-	os.Setenv("ExcelGenBytePath", excelGenBytePath)
+	os.Setenv("PROJECT_BUILD_GEN_PATH", projectGenDir)
 	os.Setenv("ResourcePath", resourcePath)
 	os.Setenv("GenerateForPbPath", generateForPbPath)
+	os.Setenv("PYTHON_BIN_PATH", pythonBinPath)
+	os.Setenv("JAVA_BIN_PATH", javaBinPath)
 
 	os.MkdirAll(buildPath, os.ModePerm)
 	os.MkdirAll(buildPbdescDir, os.ModePerm)
 	os.MkdirAll(buildBytesDir, os.ModePerm)
-	os.MkdirAll(excelGenBytePath, os.ModePerm)
-
-	// 1.初始化
-	{
-		// 检查Python
-		pythonExecutable, err := exec.LookPath("python3")
-		if err != nil {
-			fmt.Println("Python Not Found:", err)
-			os.Exit(1)
-		}
-		fmtColor(FgGreen, "PythonExecutable:%s", pythonExecutable)
-		os.Setenv("PythonExecutable", pythonExecutable)
-	}
-	{
-		// 检查Java
-		javaExecutable, err := exec.LookPath("java")
-		if err != nil {
-			fmt.Println("Java Not Found:", err)
-			os.Exit(1)
-		}
-		fmtColor(FgGreen, "JavaExecutable:%s", javaExecutable)
-		os.Setenv("JavaExecutable", javaExecutable)
-	}
-
+	os.MkdirAll(projectGenDir, os.ModePerm)
 	// 1.generate
 	{
 		cmd := exec.Command("go", "run", ".")

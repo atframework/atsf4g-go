@@ -7,11 +7,11 @@ import (
 )
 
 func main() {
-	PythonExecutable := os.Getenv("PythonExecutable")
-	XresloaderPath := os.Getenv("XresloaderPath")
+	PYTHON_BIN_PATH := os.Getenv("PYTHON_BIN_PATH")
+	XresloaderPath := os.Getenv("PROJECT_XRESLOADER_PATH")
 	BuildPbdescPath := os.Getenv("BuildPbdescPath")
 
-	cmd := exec.Command(PythonExecutable, path.Join(XresloaderPath, "xres-code-generator", "xrescode-gen.py"),
+	cmd := exec.Command(PYTHON_BIN_PATH, path.Join(XresloaderPath, "xres-code-generator", "xrescode-gen.py"),
 		"-i", path.Join("..", "..", "..", "template"),
 		"-p", path.Join(BuildPbdescPath, "config.pb"),
 		"-o", path.Join("..", "generate_config"),
