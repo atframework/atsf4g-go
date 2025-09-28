@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
+
+import "protocol/extension/v3/xresloader.proto";
+
+package proy;
+
+enum EnLayerType {
+  EN_LAYER_TYPE_UNKNOW = 0;
+  EN_LAYER_TYPE_GROUND = 1 [ (org.xresloader.enum_alias) = "地表层" ];
+  EN_LAYER_TYPE_FLOOR = 2 [ (org.xresloader.enum_alias) = "地板层" ];
+}
