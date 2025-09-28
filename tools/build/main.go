@@ -57,6 +57,9 @@ func main() {
 	if buildService(project_settings.GetProjectRootDir(), project_settings.GetProjectBuildDir(), path.Join("src", "lobbysvr"), "lobbysvr") != nil {
 		exitCode = 1
 	}
+	if buildService(project_settings.GetProjectRootDir(), project_settings.GetProjectBuildDir(), path.Join("src", "robot"), "robot") != nil {
+		exitCode = 1
+	}
 
 	// 3.CI....
 
