@@ -126,7 +126,7 @@ func generateXresloaderXml(projectGenDir string) {
 	// 定义模板替换的数据
 	data := XresloaderXmlVar{
 		XRESCONV_XML_PATH:     path.Join(resourcePath, "xresconv.xml"),
-		XRESCONV_EXE_PATH:     path.Join(projectBaseDir, "tools", "xresloader-2.20.1.jar"),
+		XRESCONV_EXE_PATH:     path.Join(projectBaseDir, "tools", "bin", project_settings.GetXresloaderBinName()),
 		XRESCONV_CONFIG_PB:    path.Join(buildPbdescDir, "config.pb"),
 		XRESCONV_BYTES_OUTPUT: buildBytesPath,
 		XRESCONV_EXECL_SRC:    path.Join(resourcePath, "ExcelTables"),
@@ -155,7 +155,7 @@ func generateXresloaderXml(projectGenDir string) {
 
 func installAtdtool() {
 	// 拷贝工具
-	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "atdtool"), path.Join(project_settings.GetProjectInstallTargetDir(), "atdtool"))
+	project_settings.CopyDir(path.Join(project_settings.GetAtdtoolDownloadPath()), path.Join(project_settings.GetProjectInstallTargetDir(), "atdtool"))
 	// 拷贝配置文件
 	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "cloud-native"), path.Join(project_settings.GetProjectInstallTargetDir(), "deploy"))
 }
@@ -193,6 +193,42 @@ func main() {
 
 		log.Println("Tools bin dir:", toolsBinDir)
 		generateXresloaderXml(project_settings.GetProjectGenDir())
+	}
+
+	// 下载组件
+	{
+		// Xresloader
+		binPath := path.Join(project_settings.GetProjectToolsDir(), "bin", project_settings.GetXresloaderBinName())
+		if !atframe_utils.FileExists(binPath) {
+			project_settings.FmtColorGreen("Download xresloader")
+			data := atframe_utils.MustHTTPGet("https://github.com/owent/xresloader/releases/download/v2.20.1/xresloader-2.20.1.jar")
+			out, err := os.Create(binPath)
+			if err != nil {
+				log.Fatalf("create file: %v", err)
+			}
+			defer out.Close()
+			if _, err := out.Write(data); err != nil {
+				log.Fatalf("write file: %v", err)
+			}
+		}
+	}
+	{
+		// atdtool win64
+		binPath := path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool.exe")
+		if !atframe_utils.FileExists(binPath) {
+			project_settings.FmtColorGreen("Download atdtool.exe")
+			data := atframe_utils.MustHTTPGet("https://github.com/atframework/atdtool/releases/download/v1.0.0/atdtool-windows-amd64.zip")
+			atframe_utils.UnzipToDir(data, project_settings.GetAtdtoolDownloadPath())
+		}
+	}
+	{
+		// atdtool linux
+		binPath := path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool")
+		if !atframe_utils.FileExists(binPath) {
+			project_settings.FmtColorGreen("Download atdtool")
+			data := atframe_utils.MustHTTPGet("https://github.com/atframework/atdtool/releases/download/v1.0.0/atdtool-linux-amd64.tar.gz")
+			atframe_utils.UntarGzToDir(data, project_settings.GetAtdtoolDownloadPath())
+		}
 	}
 
 	generateAtfwGo(scanDirs)

@@ -109,11 +109,11 @@ func ensureProtoc(version string, binDir string) string {
 	protocPath := filepath.Join(targetDir, binName("protoc"))
 	protocFallbackPath := filepath.Join(targetDir, "bin", binName("protoc"))
 
-	if fileExists(protocPath) {
+	if FileExists(protocPath) {
 		return protocPath
 	}
 
-	if fileExists(protocFallbackPath) {
+	if FileExists(protocFallbackPath) {
 		return protocFallbackPath
 	}
 
@@ -121,16 +121,16 @@ func ensureProtoc(version string, binDir string) string {
 	mustMkdirAll(targetDir)
 
 	// 下载到内存（也可落盘后再解压）
-	data := mustHTTPGet(assetURL)
+	data := MustHTTPGet(assetURL)
 
 	// 解压
 	if isZip {
-		unzipToDir(data, targetDir)
+		UnzipToDir(data, targetDir)
 	} else {
-		untarGzToDir(data, targetDir)
+		UntarGzToDir(data, targetDir)
 	}
 
-	if !fileExists(protocPath) && fileExists(protocFallbackPath) {
+	if !FileExists(protocPath) && FileExists(protocFallbackPath) {
 		os.Rename(protocFallbackPath, protocPath)
 	}
 
@@ -143,7 +143,7 @@ func ensureProtoc(version string, binDir string) string {
 	}
 
 	// 简单存在性检查
-	if !fileExists(protocPath) {
+	if !FileExists(protocPath) {
 		log.Fatalf("protoc not found after extraction at: %s", protocPath)
 	}
 	return protocPath
@@ -179,7 +179,7 @@ func protocAssetURL(version, osName, arch string) (string, bool, error) {
 	return "", false, fmt.Errorf("unsupported platform %s/%s or asset not mapped", osName, arch)
 }
 
-func mustHTTPGet(url string) []byte {
+func MustHTTPGet(url string) []byte {
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -196,7 +196,7 @@ func mustHTTPGet(url string) []byte {
 	return buf.Bytes()
 }
 
-func unzipToDir(data []byte, dest string) {
+func UnzipToDir(data []byte, dest string) {
 	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		log.Fatalf("read zip: %v", err)
@@ -231,7 +231,7 @@ func unzipToDir(data []byte, dest string) {
 	}
 }
 
-func untarGzToDir(data []byte, dest string) {
+func UntarGzToDir(data []byte, dest string) {
 	gzr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		log.Fatalf("read gzip: %v", err)
@@ -324,7 +324,7 @@ func mustMkdirAll(p string) {
 	}
 }
 
-func fileExists(p string) bool {
+func FileExists(p string) bool {
 	fi, err := os.Stat(p)
 	return err == nil && !fi.IsDir()
 }

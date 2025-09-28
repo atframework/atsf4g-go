@@ -11,5 +11,5 @@ for svr in ${servers}; do
     continue
   fi
   echo $svr
-  ../../atdtool/atdtool template ./$svr/ -o ../../$svr --values ../values/default
+  ../../atdtool/bin/atdtool template ./$svr/ -o ../../$svr --values ../values/default
 done

@@ -155,3 +155,11 @@ func GetProjectResourceSourceDir() string {
 	}
 	return projectResourceSourceDir
 }
+
+func GetXresloaderBinName() string {
+	return "xresloader-2.20.1.jar"
+}
+
+func GetAtdtoolDownloadPath() string {
+	return path.Join(GetProjectToolsDir(), "bin", "atdtool")
+}
