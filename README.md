@@ -16,6 +16,7 @@ Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 scoop install python
 scoop bucket add java
 scoop install gradle maven microsoft-lts-jdk
+scoop install helm
 ```
 
 ```bash

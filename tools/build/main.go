@@ -138,7 +138,7 @@ func main() {
 		os.Setenv("JavaExecutable", javaExecutable)
 	}
 
-	// 1.generate
+	// 2.generate
 	{
 		cmd := exec.Command("go", "run", ".")
 		cmd.Stdout = os.Stdout
@@ -152,7 +152,7 @@ func main() {
 		fmtColorGreen("Run generate success")
 	}
 
-	// 2.build
+	// 3.build
 	exitCode := 0
 	if buildService(projectBaseDir, buildPath, path.Join("src", "lobbysvr"), "lobbysvr") != nil {
 		exitCode = 1

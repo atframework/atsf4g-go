@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -110,30 +109,6 @@ type XresloaderXmlVar struct {
 	XRESCONV_EXECL_SRC    string
 }
 
-func copyFile(src, dest string) error {
-	// 打开源文件
-	sourceFile, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer sourceFile.Close()
-
-	// 创建目标文件
-	destinationFile, err := os.Create(dest)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer destinationFile.Close()
-
-	// 使用 io.Copy 拷贝文件内容
-	_, err = io.Copy(destinationFile, sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to copy file contents: %w", err)
-	}
-
-	return nil
-}
-
 func generateXresloaderXml() {
 	projectBaseDir := os.Getenv("ProjectBasePath")
 	buildPbdescDir := os.Getenv("BuildPbdescPath")
@@ -176,7 +151,14 @@ func generateXresloaderXml() {
 	log.Println("xresconv.xml generated successfully.")
 
 	// 拷贝 validator.yaml
-	copyFile(path.Join(resourcePath, "validator.yaml"), path.Join(excelGenBytePath, "validator.yaml"))
+	project_settings.CopyFile(path.Join(resourcePath, "validator.yaml"), path.Join(excelGenBytePath, "validator.yaml"))
+}
+
+func installAtdtool() {
+	// 拷贝工具
+	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "atdtool"), path.Join(project_settings.GetProjectInstallTargetDir(), "atdtool"))
+	// 拷贝配置文件
+	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "cloud-native"), path.Join(project_settings.GetProjectInstallTargetDir(), "deploy"))
 }
 
 func main() {
@@ -206,6 +188,7 @@ func main() {
 
 	generateXresloaderXml()
 	generateAtfwGo(scanDirs)
+	installAtdtool()
 }
 
 func runGoGenerate(target string) error {

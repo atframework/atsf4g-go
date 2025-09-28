@@ -1,0 +1,2 @@
+lobbysvr:
+  test: {{ .Values.test }}
