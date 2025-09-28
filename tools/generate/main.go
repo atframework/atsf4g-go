@@ -111,10 +111,10 @@ type XresloaderXmlVar struct {
 
 func generateXresloaderXml(projectGenDir string) {
 	projectBaseDir := project_settings.GetProjectRootDir()
-	buildPbdescDir := os.Getenv("BuildPbdescPath")
-	buildBytesPath := os.Getenv("BuildBytesPath")
-	xresloaderXmlTpl := os.Getenv("XresloaderXmlTpl")
-	resourcePath := os.Getenv("ResourcePath")
+	buildPbdescDir := os.Getenv("PROJECT_BUILD_PBDESC_PATH")
+	buildBytesPath := os.Getenv("PROJECT_BUILD_BYTES_PATH")
+	xresloaderXmlTpl := os.Getenv("PROJECT_XRESLOADER_XML_TPL")
+	resourcePath := project_settings.GetProjectResourceSourceDir()
 
 	// 解析模板
 	tmpl, err := template.ParseFiles(xresloaderXmlTpl)
@@ -161,38 +161,10 @@ func installAtdtool() {
 }
 
 func main() {
-	// 路径设置
-	projectBaseDir := project_settings.GetProjectRootDir()
-
-	buildPath := project_settings.GetProjectBuildDir()
-	buildPbdescDir := path.Join(project_settings.GetProjectResourceTargetDir(), "pbdesc")
-	resourcePath := project_settings.GetProjectResourceSourceDir()
-	generateForPbPath := path.Join(project_settings.GetProjectToolsDir(), "generate-for-pb")
-	projectGenDir := project_settings.GetProjectGenDir()
-	pythonBinPath, err := project_settings.GetPythonPath()
+	err := project_settings.PathSetup()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Get Python Path Failed: %v\n", err)
 		os.Exit(1)
 	}
-	javaBinPath, err := project_settings.GetJavaPath()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Get Java Path Failed: %v\n", err)
-		os.Exit(1)
-	}
-	xresloaderPath := path.Join(projectBaseDir, "third_party", "xresloader")
-
-	os.Setenv("BuildPbdescPath", buildPbdescDir)
-	os.Setenv("ResourcePath", resourcePath)
-	os.Setenv("GenerateForPbPath", generateForPbPath)
-	os.Setenv("PYTHON_BIN_PATH", pythonBinPath)
-	os.Setenv("JAVA_BIN_PATH", javaBinPath)
-	os.Setenv("PROJECT_XRESLOADER_PATH", xresloaderPath)
-	os.Setenv("PROJECT_BUILD_GEN_PATH", projectGenDir)
-
-	os.MkdirAll(buildPath, os.ModePerm)
-	os.MkdirAll(buildPbdescDir, os.ModePerm)
-	os.MkdirAll(resourcePath, os.ModePerm)
-	os.MkdirAll(projectGenDir, os.ModePerm)
 
 	scanDirs := []string{"../../"}
 	runAllTools := true
@@ -213,14 +185,14 @@ func main() {
 	os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	if runAllTools {
-		_, err := os.Stat(path.Join(projectBaseDir, "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
+		_, err := os.Stat(path.Join(project_settings.GetProjectRootDir(), "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Not Found xres-code-generator xrescode-gen.py\n")
 			os.Exit(1)
 		}
 
 		log.Println("Tools bin dir:", toolsBinDir)
-		generateXresloaderXml(projectGenDir)
+		generateXresloaderXml(project_settings.GetProjectGenDir())
 	}
 
 	generateAtfwGo(scanDirs)
