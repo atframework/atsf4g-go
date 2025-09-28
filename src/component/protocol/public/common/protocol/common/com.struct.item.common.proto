@@ -38,8 +38,6 @@ message DItemBasic {
   int64 count = 2;
   int64 guid = 3; // 唯一ID(如果有)
   DItemPosition position = 4;
-  // 所属沙箱Scope（赛季信息等）
-  // DIsolationScope scope = 5;
 }
 
 // 道具数据实例
@@ -64,8 +62,6 @@ message DItemOffset {
 message DItemScopeOffset {
   DItemOffset item_offset = 1
       [ (org.xresloader.validator) = "ExcelItemType_type_id" ];
-  // 所属沙箱Scope（赛季信息等）
-  // DIsolationScope scope = 2;
 }
 
 message DItemUseAction {
