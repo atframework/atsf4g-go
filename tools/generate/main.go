@@ -150,7 +150,7 @@ func generateXresloaderXml(projectGenDir string) {
 	log.Println("xresconv.xml generated successfully.")
 
 	// 拷贝 validator.yaml
-	project_settings.CopyFile(path.Join(resourcePath, "validator.yaml"), path.Join(excelGenBytePath, "validator.yaml"))
+	project_settings.CopyFile(path.Join(resourcePath, "validator.yaml"), path.Join(projectGenDir, "validator.yaml"))
 }
 
 func installAtdtool() {
