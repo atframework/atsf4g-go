@@ -23,8 +23,6 @@ func (t *TaskActionLoginAuth) AllowNoActor() bool {
 func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherStartData) error {
 	t.GetDispatcher().GetApp().GetLogger().Info("TaskActionLoginAuth Run",
 		slog.Uint64("task_id", t.GetTaskId()),
-		slog.Uint64("user_id", t.GetUser().GetUserId()),
-		slog.Uint64("zone_id", t.GetUser().GetZoneId()),
 		slog.Uint64("session_id", t.GetSession().GetSessionId()),
 	)
 	return nil
