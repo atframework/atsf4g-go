@@ -12,19 +12,20 @@ import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/extension/v3/xresloader.proto";
 
 import "protocol/common/com.struct.base.common.proto";
+import "protocol/common/com.struct.layer.common.proto";
 
 package proy.config;
 
 message MapPresetItem {
   int32 building_id = 1;
   DVector2 position = 2;
-  int32 layer = 3 [ (org.xresloader.validator) = "ExcelLayer_layer_id" ];
+  EnLayerType layer = 3;
 }
 
 message ExcelMapPreset {
   option (xrescode.loader) = {
     file_path : "mappreset.bytes"
-    indexes : {fields : "mappreset_id" index_type : EN_INDEX_KV}
+    indexes : { fields : "mappreset_id" index_type : EN_INDEX_IV }
 
     tags : "client"
     tags : "server"
