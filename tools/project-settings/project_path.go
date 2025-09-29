@@ -16,6 +16,7 @@ var (
 	projectInstallSourceDir  string
 	projectResourceTargetDir string
 	projectResourceSourceDir string
+	projectSourceDir         string
 )
 
 func findProjectRootDir() string {
@@ -154,6 +155,13 @@ func GetProjectResourceSourceDir() string {
 		projectResourceSourceDir = findProjectDir(GetProjectRootDir(), "PROJECT_INSTALL_RESOURCE_SOURCE_DIR", "resource")
 	}
 	return projectResourceSourceDir
+}
+
+func GetProjectSourceDir() string {
+	if projectSourceDir == "" {
+		projectSourceDir = findProjectDir(GetProjectRootDir(), "PROJECT_SOURCE_DIR", "src")
+	}
+	return projectSourceDir
 }
 
 func GetXresloaderBinName() string {

@@ -51,7 +51,7 @@ func main() {
 				Head: &public_protocol_extension.CSMsgHead{
 					RpcType: &public_protocol_extension.CSMsgHead_RpcRequest{
 						RpcRequest: &public_protocol_extension.RpcRequestMeta{
-							RpcName: "LobbyClientService.login_auth",
+							RpcName: "proy.LobbyClientService.login_auth",
 						},
 					},
 				},

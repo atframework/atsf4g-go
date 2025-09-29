@@ -21,6 +21,7 @@ type ConfigManager struct {
 	loadingConfigGroup        *generate_config.ConfigGroup
 	currentConfigGroupRwMutex sync.RWMutex
 
+	init         bool
 	reloading    atomic.Bool
 	reloadFinish atomic.Bool
 }
@@ -39,6 +40,9 @@ func (configManagerInst *ConfigManager) Name() string {
 
 // 同步接口
 func (configManagerInst *ConfigManager) Reload() error {
+	if configManagerInst.init == false {
+		return nil
+	}
 	return configManagerInst.reloadImpl(nil)
 }
 
@@ -77,6 +81,7 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 
 	configManagerInst.loadingConfigGroup = newConfigGroup
 	configManagerInst.reloadFinish.Store(true)
+	configManagerInst.init = true
 	return nil
 }
 

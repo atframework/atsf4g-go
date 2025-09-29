@@ -22,7 +22,6 @@ func guessBinDir() string {
 }
 
 func generateAtfwGo(scanDirs []string) {
-	pendingGoTidy := make(map[string]bool)
 	runCache := make(map[string]bool)
 
 	// 扫描所有 generate.atfw.go 文件
@@ -85,13 +84,27 @@ func generateAtfwGo(scanDirs []string) {
 		if err := runGoGenerate(file.path); err != nil {
 			fmt.Fprintf(os.Stderr, "Run go generate failed: %v\n", err)
 			os.Exit(2)
-		} else {
-			goModDir := findFirstGoMod(filepath.Dir(file.path))
-			if goModDir != "" {
-				pendingGoTidy[goModDir] = true
-			}
 		}
 	}
+}
+
+func runGoModTidy(scanDir string) {
+	pendingGoTidy := make(map[string]bool)
+
+	filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		goModDir := findFirstGoMod(filepath.Dir(path))
+		if goModDir != "" {
+			pendingGoTidy[goModDir] = true
+		}
+		return nil
+	})
 
 	for dir := range pendingGoTidy {
 		if err := runGoTidy(dir); err != nil {
@@ -232,6 +245,7 @@ func main() {
 	}
 
 	generateAtfwGo(scanDirs)
+	runGoModTidy(project_settings.GetProjectSourceDir())
 	installAtdtool()
 }
 
