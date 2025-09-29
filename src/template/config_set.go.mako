@@ -60,7 +60,11 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack config_callb
 %endfor
 	configSet.callBack = callBack
 % for code_index in loader.code.indexes:
-	configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name})
+	% if code_index.is_vector():
+		configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name}, 0)
+	% else:
+		configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name})
+	% endif
 % endfor
 	for _, fileName := range configSet.fileList {
 		content, err := configSet.callBack.LoadFile(fileName)
@@ -106,7 +110,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 	% else:
 		key := configSet${loader.get_go_pb_name()}Key_${code_index.name}{
 		% for field in code_index.fields:
-			${pb_loader.MakoToCamelName(field.name)}: data.${pb_loader.MakoToCamelName(field.name)},
+			${pb_loader.MakoToCamelName(field.name)}: ${pb_loader.MakoPbMsgGetPbFieldGoType(field)}(data.${pb_loader.MakoToCamelName(field.name)}),
 		% endfor
 		}
 		if _, ok := configSet.configIndexContainer_${code_index.name}[key]; ok {

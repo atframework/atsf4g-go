@@ -16,18 +16,21 @@ import "protocol/common/com.struct.layer.common.proto";
 
 package proy.config;
 
-message ExcelLayer {
+message MapPresetItem {
+  int32 building_id = 1;
+  DVector2 position = 2;
+  EnLayerType layer = 3;
+}
+
+message ExcelMapPreset {
   option (xrescode.loader) = {
-    file_path : "layer.bytes"
-    indexes : {fields : "layer_id" index_type : EN_INDEX_KV}
+    file_path : "mappreset.bytes"
+    indexes : { fields : "mappreset_id" index_type : EN_INDEX_IV }
 
     tags : "client"
     tags : "server"
   };
 
-  EnLayerType layer_id = 1 [
-    (org.xresloader.field_unique_tag) = "layer_id"
-  ];
-  repeated EnLayerType can_place = 2;
-  bool can_store = 3;
+  int32 mappreset_id = 1 [ (org.xresloader.field_unique_tag) = "mappreset_id" ];
+  repeated MapPresetItem items = 2;
 }

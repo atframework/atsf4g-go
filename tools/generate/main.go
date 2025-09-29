@@ -23,7 +23,6 @@ func guessBinDir() string {
 }
 
 func generateAtfwGo(scanDirs []string) {
-	pendingGoTidy := make(map[string]bool)
 	runCache := make(map[string]bool)
 
 	// 扫描所有 generate.atfw.go 文件
@@ -92,13 +91,27 @@ func generateAtfwGo(scanDirs []string) {
 		if err := runGoGenerate(file.path); err != nil {
 			fmt.Fprintf(os.Stderr, "Run go generate failed: %v\n", err)
 			os.Exit(2)
-		} else {
-			goModDir := findFirstGoMod(filepath.Dir(file.path))
-			if goModDir != "" {
-				pendingGoTidy[goModDir] = true
-			}
 		}
 	}
+}
+
+func runGoModTidy(scanDir string) {
+	pendingGoTidy := make(map[string]bool)
+
+	filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		goModDir := findFirstGoMod(filepath.Dir(path))
+		if goModDir != "" {
+			pendingGoTidy[goModDir] = true
+		}
+		return nil
+	})
 
 	for dir := range pendingGoTidy {
 		if err := runGoTidy(dir); err != nil {
@@ -119,9 +132,9 @@ type XresloaderXmlVar struct {
 func generateXresloaderXml(projectGenDir string) {
 	projectBaseDir := project_settings.GetProjectRootDir()
 	buildPbdescDir := os.Getenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH")
-	buildBytesPath := os.Getenv("BuildBytesPath")
-	xresloaderXmlTpl := os.Getenv("XresloaderXmlTpl")
-	resourcePath := os.Getenv("ResourcePath")
+	buildBytesPath := os.Getenv("PROJECT_RESOURCE_TARGET_BYTES_PATH")
+	xresloaderXmlTpl := os.Getenv("PROJECT_XRESLOADER_XML_TPL")
+	resourcePath := project_settings.GetProjectResourceSourceDir()
 
 	// 解析模板
 	tmpl, err := template.ParseFiles(xresloaderXmlTpl)
@@ -133,7 +146,7 @@ func generateXresloaderXml(projectGenDir string) {
 	// 定义模板替换的数据
 	data := XresloaderXmlVar{
 		XRESCONV_XML_PATH:     path.Join(resourcePath, "xresconv.xml"),
-		XRESCONV_EXE_PATH:     path.Join(projectBaseDir, "tools", "xresloader-2.20.1.jar"),
+		XRESCONV_EXE_PATH:     path.Join(projectBaseDir, "tools", "bin", project_settings.GetXresloaderBinName()),
 		XRESCONV_CONFIG_PB:    path.Join(buildPbdescDir, "public-config.pb"),
 		XRESCONV_BYTES_OUTPUT: buildBytesPath,
 		XRESCONV_EXECL_SRC:    path.Join(resourcePath, "ExcelTables"),
@@ -162,47 +175,16 @@ func generateXresloaderXml(projectGenDir string) {
 
 func installAtdtool() {
 	// 拷贝工具
-	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "atdtool"), path.Join(project_settings.GetProjectInstallTargetDir(), "atdtool"))
+	project_settings.CopyDir(path.Join(project_settings.GetAtdtoolDownloadPath()), path.Join(project_settings.GetProjectInstallTargetDir(), "atdtool"))
 	// 拷贝配置文件
 	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "cloud-native"), path.Join(project_settings.GetProjectInstallTargetDir(), "deploy"))
 }
 
 func main() {
-	// 路径设置
-	projectBaseDir := project_settings.GetProjectRootDir()
-
-	buildPath := project_settings.GetProjectBuildDir()
-	buildPbdescDir := path.Join(project_settings.GetProjectResourceTargetDir(), "pbdesc")
-	resourcePath := project_settings.GetProjectResourceSourceDir()
-	generateForPbPath := path.Join(project_settings.GetProjectToolsDir(), "generate-for-pb")
-	projectGenDir := project_settings.GetProjectGenDir()
-	projectToolsDir := project_settings.GetProjectToolsDir()
-	pythonBinPath, err := project_settings.GetPythonPath()
+	err := project_settings.PathSetup()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Get Python Path Failed: %v\n", err)
 		os.Exit(1)
 	}
-	javaBinPath, err := project_settings.GetJavaPath()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Get Java Path Failed: %v\n", err)
-		os.Exit(1)
-	}
-	xresloaderPath := path.Join(projectBaseDir, "third_party", "xresloader")
-
-	os.Setenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH", buildPbdescDir)
-	os.Setenv("ResourcePath", resourcePath)
-	os.Setenv("PROJECT_TOOLS_GENERATE_FOR_PB_PATH", generateForPbPath)
-	os.Setenv("PYTHON_BIN_PATH", pythonBinPath)
-	os.Setenv("JAVA_BIN_PATH", javaBinPath)
-	os.Setenv("PROJECT_XRESLOADER_PATH", xresloaderPath)
-	os.Setenv("PROJECT_BUILD_GEN_PATH", projectGenDir)
-	os.Setenv("PROJECT_TOOLS_DIR", projectToolsDir)
-	os.Setenv("PROJECT_ROOT_DIR", projectBaseDir)
-
-	os.MkdirAll(buildPath, os.ModePerm)
-	os.MkdirAll(buildPbdescDir, os.ModePerm)
-	os.MkdirAll(resourcePath, os.ModePerm)
-	os.MkdirAll(projectGenDir, os.ModePerm)
 
 	scanDirs := []string{"../../"}
 	runAllTools := true
@@ -223,17 +205,54 @@ func main() {
 	os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	if runAllTools {
-		_, err := os.Stat(path.Join(projectBaseDir, "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
+		_, err := os.Stat(path.Join(project_settings.GetProjectRootDir(), "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Not Found xres-code-generator xrescode-gen.py\n")
 			os.Exit(1)
 		}
 
 		log.Println("Tools bin dir:", toolsBinDir)
-		generateXresloaderXml(projectGenDir)
+		generateXresloaderXml(project_settings.GetProjectGenDir())
+	}
+
+	// 下载组件
+	{
+		// Xresloader
+		binPath := path.Join(project_settings.GetProjectToolsDir(), "bin", project_settings.GetXresloaderBinName())
+		if !atframe_utils.FileExists(binPath) {
+			project_settings.FmtColorGreen("Download xresloader")
+			data := atframe_utils.MustHTTPGet("https://github.com/owent/xresloader/releases/download/v2.20.1/xresloader-2.20.1.jar")
+			out, err := os.Create(binPath)
+			if err != nil {
+				log.Fatalf("create file: %v", err)
+			}
+			defer out.Close()
+			if _, err := out.Write(data); err != nil {
+				log.Fatalf("write file: %v", err)
+			}
+		}
+	}
+	{
+		// atdtool win64
+		binPath := path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool.exe")
+		if !atframe_utils.FileExists(binPath) {
+			project_settings.FmtColorGreen("Download atdtool.exe")
+			data := atframe_utils.MustHTTPGet("https://github.com/atframework/atdtool/releases/download/v1.0.0/atdtool-windows-amd64.zip")
+			atframe_utils.UnzipToDir(data, project_settings.GetAtdtoolDownloadPath())
+		}
+	}
+	{
+		// atdtool linux
+		binPath := path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool")
+		if !atframe_utils.FileExists(binPath) {
+			project_settings.FmtColorGreen("Download atdtool")
+			data := atframe_utils.MustHTTPGet("https://github.com/atframework/atdtool/releases/download/v1.0.0/atdtool-linux-amd64.tar.gz")
+			atframe_utils.UntarGzToDir(data, project_settings.GetAtdtoolDownloadPath())
+		}
 	}
 
 	generateAtfwGo(scanDirs)
+	runGoModTidy(project_settings.GetProjectSourceDir())
 	installAtdtool()
 }
 

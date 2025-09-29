@@ -128,13 +128,13 @@ func (d *WebSocketMessageDispatcher) setupListen() error {
 		})
 	}
 
-	if d.webServerInstance != nil && d.webServerAddress != d.serverConfig.Host+":"+string(d.serverConfig.Port) {
+	if d.webServerInstance != nil && d.webServerAddress != d.serverConfig.Host+":"+fmt.Sprintf("%d", d.serverConfig.Port) {
 		d.webServerInstance.Close()
 		d.webServerInstance = nil
 	}
 
 	if d.webServerInstance == nil {
-		d.webServerAddress = d.serverConfig.Host + ":" + string(d.serverConfig.Port)
+		d.webServerAddress = d.serverConfig.Host + ":" + fmt.Sprintf("%d", d.serverConfig.Port)
 		d.webServerInstance = &http.Server{
 			Addr:         d.webServerAddress,
 			Handler:      d.webServerHandle,
