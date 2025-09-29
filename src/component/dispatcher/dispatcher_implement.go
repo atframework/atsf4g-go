@@ -30,6 +30,7 @@ type DispatcherImpl interface {
 	IsClosing(rd DispatcherImpl) bool
 
 	AllocSequence() uint64
+	GetNow() time.Time
 
 	OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
 	OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error)
@@ -96,6 +97,11 @@ func (dispatcher *DispatcherBase) IsClosing(_rd DispatcherImpl) bool {
 
 func (dispatcher *DispatcherBase) AllocSequence() uint64 {
 	return dispatcher.sequenceAllocator.Add(1)
+}
+
+func (dispatcher *DispatcherBase) GetNow() time.Time {
+	// TODO: 使用逻辑时间戳 Timestamp
+	return time.Now()
 }
 
 func (dispatcher *DispatcherBase) OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {

@@ -9,11 +9,11 @@ import (
 func main() {
 	PYTHON_BIN_PATH := os.Getenv("PYTHON_BIN_PATH")
 	XresloaderPath := os.Getenv("PROJECT_XRESLOADER_PATH")
-	BuildPbdescPath := os.Getenv("BuildPbdescPath")
+	BuildPbdescPath := os.Getenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH")
 
 	cmd := exec.Command(PYTHON_BIN_PATH, path.Join(XresloaderPath, "xres-code-generator", "xrescode-gen.py"),
 		"-i", path.Join("..", "..", "..", "template"),
-		"-p", path.Join(BuildPbdescPath, "config.pb"),
+		"-p", path.Join(BuildPbdescPath, "public-config.pb"),
 		"-o", path.Join("..", "generate_config"),
 		"-g", path.Join(XresloaderPath, "xres-code-generator", "template", "config_group.go.mako:config_group.go"),
 		"-l", path.Join(XresloaderPath, "xres-code-generator", "template", "config_set.go.mako:${\"config_set_{0}.go\".format(loader.get_go_pb_name())}"),

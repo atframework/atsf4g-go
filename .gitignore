@@ -29,6 +29,11 @@ go.work.sum
 .idea/
 .vscode/
 
+__pycache__/
+*.pyc
+*.pyo
+.mako-*
+
 *.pb.go
 _generated/
 /tools/bin

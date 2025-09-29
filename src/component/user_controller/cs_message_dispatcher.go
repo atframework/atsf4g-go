@@ -21,6 +21,10 @@ type SessionNetworkWebsocketHandle struct {
 	cacheRemoteAddr string
 }
 
+func (h *SessionNetworkWebsocketHandle) GetDispatcher() component_dispatcher.DispatcherImpl {
+	return h.dispatcher
+}
+
 func (h *SessionNetworkWebsocketHandle) SendMessage(msg *public_protocol_extension.CSMsg) error {
 	// Implement the logic to send a message over the WebSocket
 	return h.dispatcher.WriteMessage(h.networkSession, msg)

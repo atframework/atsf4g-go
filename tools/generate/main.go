@@ -1,3 +1,4 @@
+// Copyright 2025 atframework
 package main
 
 import (
@@ -32,6 +33,12 @@ func generateAtfwGo(scanDirs []string) {
 	}
 	var matches []matchPath
 	for _, scanDir := range scanDirs {
+		// Ensure the scan path exists before walking; filepath.WalkDir can handle files,
+		// but report a clear error early if the path does not exist.
+		if _, serr := os.Stat(scanDir); serr != nil {
+			fmt.Fprintf(os.Stderr, "Scan path does not exist: %s\n", scanDir)
+			continue
+		}
 		err := filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -111,7 +118,7 @@ type XresloaderXmlVar struct {
 
 func generateXresloaderXml(projectGenDir string) {
 	projectBaseDir := project_settings.GetProjectRootDir()
-	buildPbdescDir := os.Getenv("BuildPbdescPath")
+	buildPbdescDir := os.Getenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH")
 	buildBytesPath := os.Getenv("BuildBytesPath")
 	xresloaderXmlTpl := os.Getenv("XresloaderXmlTpl")
 	resourcePath := os.Getenv("ResourcePath")
@@ -127,7 +134,7 @@ func generateXresloaderXml(projectGenDir string) {
 	data := XresloaderXmlVar{
 		XRESCONV_XML_PATH:     path.Join(resourcePath, "xresconv.xml"),
 		XRESCONV_EXE_PATH:     path.Join(projectBaseDir, "tools", "xresloader-2.20.1.jar"),
-		XRESCONV_CONFIG_PB:    path.Join(buildPbdescDir, "config.pb"),
+		XRESCONV_CONFIG_PB:    path.Join(buildPbdescDir, "public-config.pb"),
 		XRESCONV_BYTES_OUTPUT: buildBytesPath,
 		XRESCONV_EXECL_SRC:    path.Join(resourcePath, "ExcelTables"),
 	}
@@ -169,6 +176,7 @@ func main() {
 	resourcePath := project_settings.GetProjectResourceSourceDir()
 	generateForPbPath := path.Join(project_settings.GetProjectToolsDir(), "generate-for-pb")
 	projectGenDir := project_settings.GetProjectGenDir()
+	projectToolsDir := project_settings.GetProjectToolsDir()
 	pythonBinPath, err := project_settings.GetPythonPath()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Get Python Path Failed: %v\n", err)
@@ -181,13 +189,15 @@ func main() {
 	}
 	xresloaderPath := path.Join(projectBaseDir, "third_party", "xresloader")
 
-	os.Setenv("BuildPbdescPath", buildPbdescDir)
+	os.Setenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH", buildPbdescDir)
 	os.Setenv("ResourcePath", resourcePath)
-	os.Setenv("GenerateForPbPath", generateForPbPath)
+	os.Setenv("PROJECT_TOOLS_GENERATE_FOR_PB_PATH", generateForPbPath)
 	os.Setenv("PYTHON_BIN_PATH", pythonBinPath)
 	os.Setenv("JAVA_BIN_PATH", javaBinPath)
 	os.Setenv("PROJECT_XRESLOADER_PATH", xresloaderPath)
 	os.Setenv("PROJECT_BUILD_GEN_PATH", projectGenDir)
+	os.Setenv("PROJECT_TOOLS_DIR", projectToolsDir)
+	os.Setenv("PROJECT_ROOT_DIR", projectBaseDir)
 
 	os.MkdirAll(buildPath, os.ModePerm)
 	os.MkdirAll(buildPbdescDir, os.ModePerm)

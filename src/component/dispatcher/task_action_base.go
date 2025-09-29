@@ -3,6 +3,7 @@ package atframework_component_dispatcher
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 )
@@ -10,7 +11,10 @@ import (
 type TaskActionBase struct {
 	taskId uint64
 
-	responseCode int32
+	responseCode   int32
+	prepareHookRun bool
+	rpcContext     *RpcContext
+	startTime      time.Time
 
 	actorExecutor *ActorExecutor
 	dispatcher    DispatcherImpl
@@ -28,6 +32,9 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskA
 	return TaskActionBase{
 		taskId:          rd.AllocSequence(),
 		responseCode:    0,
+		prepareHookRun:  false,
+		rpcContext:      nil,
+		startTime:       rd.GetNow(),
 		actorExecutor:   actorExecutor,
 		dispatcher:      rd,
 		disableResponse: false,
@@ -47,6 +54,14 @@ func (t *TaskActionBase) GetTaskId() uint64 {
 	return t.taskId
 }
 
+func (t *TaskActionBase) GetTaskStartTime() time.Time {
+	return t.startTime
+}
+
+func (t *TaskActionBase) GetNow() time.Time {
+	return t.dispatcher.GetNow()
+}
+
 func (t *TaskActionBase) CheckPermission(action TaskActionImpl) (int32, error) {
 	if !action.AllowNoActor() && action.GetActorExecutor() == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
@@ -54,7 +69,20 @@ func (t *TaskActionBase) CheckPermission(action TaskActionImpl) (int32, error) {
 	return 0, nil
 }
 
+func (t *TaskActionBase) PrepareHookRun(action TaskActionImpl, startData *DispatcherStartData) {
+	if t.prepareHookRun {
+		return
+	}
+	t.prepareHookRun = true
+
+	if startData != nil && t.rpcContext == nil {
+		t.rpcContext = startData.MessageRpcContext
+	}
+}
+
 func (t *TaskActionBase) HookRun(action TaskActionImpl, startData *DispatcherStartData) error {
+	t.PrepareHookRun(action, startData)
+
 	responseCode, err := action.CheckPermission(action)
 	if err != nil || responseCode < 0 {
 		action.SetResponseCode(responseCode)
@@ -117,6 +145,10 @@ func (t *TaskActionBase) GetTraceInheritOption(_action TaskActionImpl) *TraceInh
 
 func (t *TaskActionBase) GetTraceStartOption(_action TaskActionImpl) *TraceStartOption {
 	return &TraceStartOption{}
+}
+
+func (t *TaskActionBase) GetRpcContext() *RpcContext {
+	return t.rpcContext
 }
 
 func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) error {

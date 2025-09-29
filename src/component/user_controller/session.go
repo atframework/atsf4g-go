@@ -7,6 +7,8 @@ import (
 )
 
 type SessionNetworkHandleImpl interface {
+	GetDispatcher() component_dispatcher.DispatcherImpl
+
 	SendMessage(*public_protocol_extension.CSMsg) error
 	SetAuthorized(bool)
 	Close(reason int32, reasonMessage string)
@@ -101,4 +103,12 @@ func (s *Session) BindUser(bindUser component_dispatcher.TaskActionCSUser) {
 
 	s.user = convertUser
 	convertUser.BindSession(s)
+}
+
+func (s *Session) SendMessage(msg *public_protocol_extension.CSMsg) error {
+	return s.networkHandle.SendMessage(msg)
+}
+
+func (s *Session) GetNetworkHandle() SessionNetworkHandleImpl {
+	return s.networkHandle
 }

@@ -1,3 +1,4 @@
+// Copyright 2025 atframework
 package main
 
 import (
@@ -115,14 +116,15 @@ func main() {
 	fmtColor(FgGreen, "JAVA_BIN_PATH:%s", javaBinPath)
 
 	os.Setenv("PROJECT_XRESLOADER_PATH", xresloaderPath)
-	os.Setenv("BuildPbdescPath", buildPbdescDir)
+	os.Setenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH", buildPbdescDir)
 	os.Setenv("BuildBytesPath", buildBytesDir)
 	os.Setenv("XresloaderXmlTpl", path.Join(projectBaseDir, "src", "component", "protocol", "public", "xresconv.xml.tpl"))
 	os.Setenv("PROJECT_BUILD_GEN_PATH", projectGenDir)
 	os.Setenv("ResourcePath", resourcePath)
-	os.Setenv("GenerateForPbPath", generateForPbPath)
+	os.Setenv("PROJECT_TOOLS_GENERATE_FOR_PB_PATH", generateForPbPath)
 	os.Setenv("PYTHON_BIN_PATH", pythonBinPath)
 	os.Setenv("JAVA_BIN_PATH", javaBinPath)
+	os.Setenv("PROJECT_ROOT_DIR", projectBaseDir)
 
 	os.MkdirAll(buildPath, os.ModePerm)
 	os.MkdirAll(buildPbdescDir, os.ModePerm)

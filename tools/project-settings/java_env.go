@@ -1,3 +1,4 @@
+// Copyright 2025 atframework
 package atframework_tools_project_settings
 
 import (

@@ -21,6 +21,8 @@ type TaskActionCSSession interface {
 
 	GetUser() TaskActionCSUser
 	BindUser(TaskActionCSUser)
+
+	SendMessage(*public_protocol_extension.CSMsg) error
 }
 
 type TaskActionCSUser interface {
@@ -147,6 +149,69 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) MutableResponseBody() Resp
 	return t.responseBody
 }
 
+func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uint64,
+	rd DispatcherImpl, session TaskActionCSSession,
+	rpcType interface{}, body proto.Message,
+) (*public_protocol_extension.CSMsg, error) {
+	responseMsg := &public_protocol_extension.CSMsg{
+		Head: &public_protocol_extension.CSMsgHead{
+			// 复制请求头的一些信息
+			ErrorCode:       responseCode,
+			Timestamp:       timestamp.Unix(),
+			ClientSequence:  clientSequence,
+			ServerSequence:  rd.AllocSequence(),
+			SessionSequence: 0,
+			SessionId:       0,
+			SessionNodeId:   0,
+			SessionNodeName: "",
+			RpcType:         nil,
+		},
+	}
+
+	switch v := rpcType.(type) {
+	case *public_protocol_extension.RpcResponseMeta:
+		responseMsg.Head.RpcType = &public_protocol_extension.CSMsgHead_RpcResponse{
+			RpcResponse: v,
+		}
+	case *public_protocol_extension.RpcRequestMeta:
+		responseMsg.Head.RpcType = &public_protocol_extension.CSMsgHead_RpcRequest{
+			RpcRequest: v,
+		}
+	case *public_protocol_extension.RpcStreamMeta:
+		responseMsg.Head.RpcType = &public_protocol_extension.CSMsgHead_RpcStream{
+			RpcStream: v,
+		}
+	default:
+		return nil, fmt.Errorf("invalid RpcType for CSMsg: %T", rpcType)
+	}
+
+	if session != nil {
+		responseMsg.Head.SessionSequence = session.AllocSessionSequence()
+		responseMsg.Head.SessionId = session.GetSessionId()
+		responseMsg.Head.SessionNodeId = session.GetSessionNodeId()
+		// TODO: 是否需要 SessionNodeName?
+		// responseMsg.Head.SessionNodeName = FindNodeById(t.session.GetSessionNodeId()).Name()
+	}
+
+	// 序列化响应体 - 需要检查是否为零值
+	var responseBodyBytes []byte
+	var err error
+
+	// 由于 ResponseType 是泛型，我们不能直接与 nil 比较
+	// 需要使用反射或者其他方式检查，这里先尝试序列化
+	if responseBodyBytes, err = proto.Marshal(body); err != nil {
+		rd.GetApp().GetLogger().Error("Failed to marshal response body",
+			"session_id", responseMsg.Head.SessionId,
+			"client_sequence", responseMsg.Head.ClientSequence,
+			"response_code", responseCode,
+			"error", err.Error())
+		return nil, fmt.Errorf("failed to marshal response body: %w", err)
+	}
+	responseMsg.BodyBin = responseBodyBytes
+
+	return responseMsg, nil
+}
+
 // SendResponse 实现响应发送逻辑
 func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	if t.IsResponseDisabled() || t.IsStreamRpc() {
@@ -160,58 +225,42 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 
 	// 构造响应消息
 	// TODO: 使用全局时间戳 Timestamp
-	now := time.Now()
-	responseMsg := &public_protocol_extension.CSMsg{
-		Head: &public_protocol_extension.CSMsgHead{
-			// 复制请求头的一些信息
-			ErrorCode:       t.GetResponseCode(),
-			Timestamp:       now.Unix(),
-			ClientSequence:  clientSequence,
-			ServerSequence:  t.GetDispatcher().AllocSequence(),
-			SessionSequence: 0,
-			SessionId:       0,
-			SessionNodeId:   0,
-			SessionNodeName: "",
-			RpcType: &public_protocol_extension.CSMsgHead_RpcResponse{
-				RpcResponse: &public_protocol_extension.RpcResponseMeta{
-					// TODO: 配置模块加载
-					Version:         "0.1.0",
-					RpcName:         string(t.rpcDescriptor.FullName()),
-					TypeUrl:         string(t.rpcDescriptor.Output().FullName()),
-					CallerNodeId:    t.GetDispatcher().GetApp().GetAppId(),
-					CallerNodeName:  t.GetDispatcher().GetApp().GetAppName(),
-					CallerTimestamp: timestamppb.New(now),
-				},
-			},
+	now := t.GetNow()
+	responseMsg, err := CreateCSMessage(t.GetResponseCode(), now, clientSequence, t.GetDispatcher(), t.session,
+		&public_protocol_extension.RpcResponseMeta{
+			// TODO: 配置模块加载
+			Version:         "0.1.0",
+			RpcName:         string(t.rpcDescriptor.FullName()),
+			TypeUrl:         string(t.rpcDescriptor.Output().FullName()),
+			CallerNodeId:    t.GetDispatcher().GetApp().GetAppId(),
+			CallerNodeName:  t.GetDispatcher().GetApp().GetAppName(),
+			CallerTimestamp: timestamppb.New(now),
 		},
+		t.responseBody)
+	if err != nil {
+		return err
 	}
 
-	if t.session != nil {
-		responseMsg.Head.SessionSequence = t.session.AllocSessionSequence()
-		responseMsg.Head.SessionId = t.session.GetSessionId()
-		responseMsg.Head.SessionNodeId = t.session.GetSessionNodeId()
-		// TODO: 是否需要 SessionNodeName
-		// responseMsg.Head.SessionNodeName = FindNodeById(t.session.GetSessionNodeId()).Name()
-	}
-
-	// 序列化响应体 - 需要检查是否为零值
-	var responseBodyBytes []byte
-	var err error
-
-	// 由于 ResponseType 是泛型，我们不能直接与 nil 比较
-	// 需要使用反射或者其他方式检查，这里先尝试序列化
-	if responseBodyBytes, err = proto.Marshal(t.responseBody); err != nil {
-		return fmt.Errorf("failed to marshal response body: %w", err)
-	}
-	responseMsg.BodyBin = responseBodyBytes
-
-	// TODO: 实际发送逻辑需要根据具体的网络层实现
-	// 这里只是示例框架，实际应该通过 dispatcher 或 app 来发送
+	// 实际发送逻辑需要根据具体的网络层实现
 	if t.GetDispatcher() != nil && t.GetDispatcher().GetApp() != nil {
 		t.GetDispatcher().GetApp().GetLogger().Info("Sending CS response",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", t.GetResponseCode())
+		err = t.session.SendMessage(responseMsg)
+		if err != nil {
+			t.GetDispatcher().GetApp().GetLogger().Error("Failed to send CS response",
+				"session_id", responseMsg.Head.SessionId,
+				"client_sequence", responseMsg.Head.ClientSequence,
+				"response_code", t.GetResponseCode(),
+				"error", err.Error())
+
+			t.GetDispatcher().OnSendMessageFailed(t.GetDispatcher(), t.GetRpcContext(), &DispatcherRawMessage{
+				Type:     t.GetDispatcher().GetInstanceIdent(),
+				Instance: responseMsg,
+			}, responseMsg.Head.ServerSequence, err)
+			return err
+		}
 	}
 
 	return nil
@@ -230,6 +279,8 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) AllowNoActor() bool {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionImpl, startData *DispatcherStartData) error {
+	t.PrepareHookRun(action, startData)
+
 	csMsg, ok := startData.Message.Instance.(*public_protocol_extension.CSMsg)
 	if !ok {
 		return fmt.Errorf("TaskActionCSBase: invalid message type %v", startData.Message.Type)

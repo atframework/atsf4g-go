@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -18,6 +19,8 @@ type TaskActionAwaitChannelData struct {
 type TaskActionImpl interface {
 	Name() string
 	GetTaskId() uint64
+	GetTaskStartTime() time.Time
+	GetNow() time.Time
 
 	// 最终业务流程执行
 	Run(*DispatcherStartData) error
@@ -49,6 +52,7 @@ type TaskActionImpl interface {
 	// TODO: 链路跟踪逻辑
 	GetTraceInheritOption(TaskActionImpl) *TraceInheritOption
 	GetTraceStartOption(TaskActionImpl) *TraceStartOption
+	GetRpcContext() *RpcContext
 
 	// 回包控制
 	DisableResponse()

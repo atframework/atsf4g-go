@@ -1,3 +1,4 @@
+// Copyright 2025 atframework
 package atframework_tools_project_settings
 
 import (
@@ -11,8 +12,10 @@ import (
 )
 
 var (
+	projectPackageName       string = "proy"
 	projectRootDir           string
 	projectBuildDir          string
+	projectTemplateDir       string
 	projectGenDir            string
 	projectToolsDir          string
 	projectInstallTargetDir  string
@@ -27,6 +30,10 @@ func binName(name string) string {
 	}
 
 	return name
+}
+
+func GetProjectPackageName() string {
+	return projectPackageName
 }
 
 func CopyFile(src, dest string) error {
@@ -144,6 +151,13 @@ func GetProjectBuildDir() string {
 		projectBuildDir = findProjectDir(GetProjectRootDir(), "PROJECT_BUILD_DIR", "build")
 	}
 	return projectBuildDir
+}
+
+func GetProjectTemplateDir() string {
+	if projectTemplateDir == "" {
+		projectTemplateDir = findProjectDir(GetProjectRootDir(), "PROJECT_TEMPLATE_DIR", filepath.Join("src", "template"))
+	}
+	return projectTemplateDir
 }
 
 func GetProjectGenDir() string {
