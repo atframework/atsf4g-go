@@ -60,7 +60,11 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack config_callb
 %endfor
 	configSet.callBack = callBack
 % for code_index in loader.code.indexes:
-	configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name})
+	% if code_index.is_vector():
+		configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name}, 0)
+	% else:
+		configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name})
+	% endif
 % endfor
 	for _, fileName := range configSet.fileList {
 		content, err := configSet.callBack.LoadFile(fileName)
