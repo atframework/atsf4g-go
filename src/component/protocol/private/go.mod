@@ -8,9 +8,18 @@ replace github.com/atframework/libatapp-go/protocol => ../../../../atframework/l
 
 replace github.com/atframework/atsf4g-go/component-protocol-public => ../public
 
+replace github.com/xresloader/xresloader => ../../../../third_party/xresloader/protocols/core
+
+replace github.com/xresloader/xres-code-generator => ../../../../third_party/xresloader/protocols/code
+
 require (
 	github.com/atframework/libatapp-go/protocol v0.0.0-00010101000000-000000000000
 	google.golang.org/protobuf v1.36.9
 )
 
-require github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+require (
+	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
+)
+
+require github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect

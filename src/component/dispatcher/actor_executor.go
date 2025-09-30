@@ -26,8 +26,8 @@ type ActorExecutor struct {
 	Instance interface{}
 }
 
-func CreateActorExecutor(actorInstance interface{}) ActorExecutor {
-	return ActorExecutor{
+func CreateActorExecutor(actorInstance interface{}) *ActorExecutor {
+	return &ActorExecutor{
 		currentRunningAction: atomic.Value{},
 		actionStatus:         ActorExecutorStatusFree,
 		pendingActions:       list.List{},

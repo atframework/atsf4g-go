@@ -1,0 +1,65 @@
+syntax = "proto3";
+// 后台数据结构定义
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+
+import "protocol/pbdesc/com.struct.proto";
+
+package proy;
+
+message client_session_index {
+  uint64 node_id = 1;
+  uint64 session_id = 2;
+}
+
+message account_information {
+  uint32 account_type = 1;   // @see EnAccountTypeID
+  string access = 11;        // 可能有的属性（【上一次的】校验码）
+  DUserProfile profile = 31; // 用户账号属性
+  uint32 channel_id = 36;    // 渠道号
+  int32 version_type = 37;   // 上一次的登入版本类型 @EnVersionType
+}
+
+// 账号异常数据
+message account_except {
+  int64 last_except_time = 1;  // 上一次异常时间
+  uint32 except_con_times = 2; // 短时间内异常计数
+
+  uint32 except_sum_times = 21; // 总异常计数
+}
+
+// 登入数据记录
+message login_record {
+  int32 gamesvr_index = 1;   // 上一次登入放入gamesvr的索引
+  int64 gamesvr_version = 2; // Gamesvr组版本号
+}
+
+message user_data {
+  uint32 user_level = 1;       // 玩家等级
+  uint64 session_sequence = 2; // 玩家的全局递增发包序号
+}
+
+message user_options {
+  DUserOptions custom_options = 1; // 用户自定义选项
+}
+
+message user_async_job_debug_message {
+  string content = 1;
+  string title = 2;
+}
+
+message user_async_jobs_data {
+  message history_job_meta {
+    int32 job_type = 1;
+    string action_uuid = 2;
+    int64 timeout = 3;
+  }
+  repeated history_job_meta history = 1; // 上一轮处理的UUID列表
+  int64 next_task_active_time = 2;       // 下一次异步任务的启动时间
+}

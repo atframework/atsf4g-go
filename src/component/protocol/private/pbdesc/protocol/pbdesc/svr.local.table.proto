@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+import "protocol/pbdesc/com.struct.proto";
+import "protocol/pbdesc/svr.struct.proto";
+
+package proy;
+
+message database_table_login {
+  string open_id = 1;
+  uint64 user_id = 2;
+  uint32 zone_id = 3;
+  uint64 router_server_id = 4; // 路由系统 - 登入进程id
+  uint64 router_version = 5;   // 路由系统 - 登入进程变更版本号
+
+  // 资源冲突检测
+  string expect_table_user_db_version = 6;
+  google.protobuf.Timestamp expect_table_user_db_timeout = 7;
+
+  // 登入信息
+  int64 login_time = 12;         // 上次登入时间
+  string login_code = 13;        // 认证码
+  int64 login_code_expired = 14; // 认证码到期时间
+  int64 logout_time = 15;        // 登出时间
+
+  // 限制登入信息
+  int64 ban_time = 21; // 封号期限
+
+  // 业务层登入注册信息
+  int64 business_register_time = 31; // 业务层注册时间
+  int64 business_login_time = 32;    // 业务层登入时间
+  int64 business_logout_time = 33;   // 业务层登出时间
+
+  account_information account = 41; // 账号信息
+  login_record last_login = 42;     // 上次登入的信息
+  account_except except = 43;       // 账户异常数据
+
+  // 统计数据
+  uint32 stat_login_total_times = 51;   // 总登入次数
+  uint32 stat_login_success_times = 52; // 成功登入次数
+  uint32 stat_login_failed_times = 53;  // 失败登入次数
+}
+
+message database_table_user_async_jobs_blob_data {
+  // action的 唯一ID，用于容灾
+  string action_uuid = 1;
+  int64 timepoint_ms = 2;
+
+  // 如果失败了，内置的剩余重试次数
+  int32 left_retry_times = 3;
+
+  oneof action {
+    user_async_job_debug_message debug_message = 101; // 调试消息
+  }
+}
+
+message database_table_user_async_jobs_cache_blob_data {
+  user_async_jobs_data async_jobs = 1; // 异步任务缓存
+
+  message retry_job_data {
+    int32 job_type = 1;
+    database_table_user_async_jobs_blob_data job_data = 2;
+  };
+  repeated retry_job_data retry_jobs = 11;
+}
+
+message database_table_user {
+  string open_id = 1;
+  uint64 user_id = 2;
+  uint32 zone_id = 3;
+
+  account_information account_data = 11; // 账号信息
+  user_data user_data = 12;              // 玩家数据
+  uint32 data_version = 13;              // 数据版本号
+
+  user_options options = 21; // 玩家选项
+
+  // 以下是服务器内部数据
+  // 异步任务缓存
+  database_table_user_async_jobs_cache_blob_data async_job_blob_data = 101;
+}
+
+message database_table_distribute_transaction {
+  uint32 zone_id = 1;
+  bytes transaction_uuid = 2;
+
+  google.protobuf.Any blob_data = 11;
+}

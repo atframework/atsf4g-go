@@ -27,11 +27,13 @@ type TaskActionCSSession interface {
 
 type TaskActionCSUser interface {
 	GetUserId() uint64
-	GetZoneId() uint64
+	GetZoneId() uint32
 
 	GetSession() TaskActionCSSession
 
 	GetActorExecutor() *ActorExecutor
+
+	SendAllSyncData() error
 }
 
 type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] struct {
@@ -301,7 +303,15 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	// 清空 CSMsg 的 BodyBin，因为已经解析到了 requestBody
 	csMsg.BodyBin = []byte{}
 
-	return t.TaskActionBase.HookRun(action, startData)
+	err := t.TaskActionBase.HookRun(action, startData)
+
+	// 脏数据自动推送
+	user := t.GetUser()
+	if user != nil {
+		user.SendAllSyncData()
+	}
+
+	return err
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetTypeName() string {

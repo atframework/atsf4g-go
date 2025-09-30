@@ -13,7 +13,7 @@ import (
 
 type TaskActionAwaitChannelData struct {
 	resume *DispatcherResumeData
-	killed *DispatcherKillData
+	killed *DispatcherErrorResult
 }
 
 type TaskActionImpl interface {
@@ -62,7 +62,7 @@ type TaskActionImpl interface {
 	// 切出等待管理
 	TrySetupAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*chan TaskActionAwaitChannelData, error)
 	TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData) error
-	TryKillAwait(action TaskActionImpl, killData *DispatcherKillData) error
+	TryKillAwait(action TaskActionImpl, killData *DispatcherErrorResult) error
 }
 
 func popRunActorActions(app_action *libatapp.AppActionData) error {
@@ -236,14 +236,14 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 	}
 }
 
-func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*DispatcherResumeData, *DispatcherKillData) {
+func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*DispatcherResumeData, *DispatcherErrorResult) {
 	// TODO: 已经超时或者被Killed，不允许再切出
 
 	// 暂停任务逻辑, 让出令牌
 	awaitChannel, err := action.TrySetupAwait(action, awaitOptions)
 	if err != nil || awaitChannel == nil {
 		app.GetLogger().Error("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-		return nil, &DispatcherKillData{Error: err, ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
+		return nil, &DispatcherErrorResult{Error: err, ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
 	actor := action.GetActorExecutor()
 	if actor != nil {
@@ -264,7 +264,7 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 	if !ok {
 		// Channel was closed unexpectedly
 		app.GetLogger().Error("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
-		return nil, &DispatcherKillData{Error: errors.New("await channel closed"), ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
+		return nil, &DispatcherErrorResult{Error: errors.New("await channel closed"), ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
 
 	return awaitResult.resume, awaitResult.killed
@@ -282,7 +282,7 @@ func ResumeTaskAction(app libatapp.AppImpl, action TaskActionImpl, resumeData *D
 	return nil
 }
 
-func KillTaskAction(app libatapp.AppImpl, action TaskActionImpl, killData *DispatcherKillData) error {
+func KillTaskAction(app libatapp.AppImpl, action TaskActionImpl, killData *DispatcherErrorResult) error {
 	// TODO: TaskManager移除超时和等待数据
 
 	err := action.TryKillAwait(action, killData)

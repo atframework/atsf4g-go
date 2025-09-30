@@ -103,6 +103,10 @@ func (s *Session) BindUser(bindUser component_dispatcher.TaskActionCSUser) {
 
 	s.user = convertUser
 	convertUser.BindSession(s)
+
+	if s.user != nil {
+		s.networkHandle.SetAuthorized(true)
+	}
 }
 
 func (s *Session) SendMessage(msg *public_protocol_extension.CSMsg) error {

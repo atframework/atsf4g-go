@@ -12,19 +12,39 @@ type UserImpl interface {
 }
 
 type UserCache struct {
-	zoneId uint64
+	zoneId uint32
 	userId uint64
+	openId string
 
 	session *Session
 
 	actorExecutor *component_dispatcher.ActorExecutor
 }
 
+func CreateUserCache(zoneId uint32, userId uint64, openId string) UserCache {
+	return UserCache{
+		zoneId:        zoneId,
+		userId:        userId,
+		openId:        openId,
+		actorExecutor: nil,
+	}
+}
+
+func (u *UserCache) Init(actorInstance interface{}) {
+	if u.actorExecutor == nil && actorInstance != nil {
+		u.actorExecutor = component_dispatcher.CreateActorExecutor(actorInstance)
+	}
+}
+
+func (u *UserCache) GetOpenId() string {
+	return u.openId
+}
+
 func (u *UserCache) GetUserId() uint64 {
 	return u.userId
 }
 
-func (u *UserCache) GetZoneId() uint64 {
+func (u *UserCache) GetZoneId() uint32 {
 	return u.zoneId
 }
 
@@ -34,6 +54,10 @@ func (u *UserCache) GetSession() component_dispatcher.TaskActionCSSession {
 
 func (u *UserCache) GetActorExecutor() *component_dispatcher.ActorExecutor {
 	return u.actorExecutor
+}
+
+func (u *UserCache) SendAllSyncData() error {
+	return nil
 }
 
 func (u *UserCache) BindSession(session *Session) {

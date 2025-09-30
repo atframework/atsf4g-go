@@ -234,7 +234,7 @@ func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *Dispa
 	return nil
 }
 
-func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *DispatcherKillData) error {
+func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *DispatcherErrorResult) error {
 	t.currentAwaiting.Lock.Lock()
 	defer t.currentAwaiting.Lock.Unlock()
 
