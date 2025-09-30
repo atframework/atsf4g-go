@@ -1,6 +1,6 @@
 // Copyright 2025 atframework
 
-package lobbysvr_logic_action
+package lobbysvr_logic_user
 
 
 import (

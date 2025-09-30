@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Generate all",
+      "label": "Generate:all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -13,7 +13,7 @@
       "group": "build"
     },
     {
-      "label": "Build all",
+      "label": "Build:all",
       "type": "shell",
       "command": "go",
       "args": ["build", "."],
@@ -24,7 +24,29 @@
       "group": "build"
     },
     {
-      "label": "Generate RPC and tasks",
+      "label": "Generate:Private protocols",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", ".", "${workspaceFolder}/src/component/protocol/private"],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Generate:Public protocols",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", ".", "${workspaceFolder}/src/component/protocol/public"],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Generate:RPC and task configures",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -35,7 +57,18 @@
       "group": "build"
     },
     {
-      "label": "Build lobbysvr",
+      "label": "Generate:RPC and task codes",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", ".", "${workspaceFolder}/tools/generate-for-pb"],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Build:lobbysvr",
       "type": "shell",
       "command": "go",
       "args": [
@@ -51,7 +84,7 @@
       "group": "build"
     },
     {
-      "label": "Build robot",
+      "label": "Build:robot",
       "type": "shell",
       "command": "go",
       "args": [

@@ -11,7 +11,6 @@ import (
 
 	sp "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/pbdesc"
 
-	logic_action "github.com/atframework/atsf4g-go/service-lobbysvr/logic/action"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
@@ -27,25 +26,25 @@ func RegisterLobbyClientService(
 	uc.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "proy.LobbyClientService.login_auth",
 		func(base cd.TaskActionCSBase[*sp.CSLoginAuthReq, *sp.SCLoginAuthRsp]) cd.TaskActionImpl {
-			return &logic_action.TaskActionLoginAuth{TaskActionCSBase: base}
+			return &logic_user.TaskActionLoginAuth{TaskActionCSBase: base}
 		},
 	)
 	uc.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "proy.LobbyClientService.login",
 		func(base cd.TaskActionCSBase[*sp.CSLoginReq, *sp.SCLoginRsp]) cd.TaskActionImpl {
-			return &logic_action.TaskActionLogin{TaskActionCSBase: base}
+			return &logic_user.TaskActionLogin{TaskActionCSBase: base}
 		},
 	)
 	uc.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "proy.LobbyClientService.ping",
 		func(base cd.TaskActionCSBase[*sp.CSPingReq, *sp.SCPongRsp]) cd.TaskActionImpl {
-			return &logic_action.TaskActionPing{TaskActionCSBase: base}
+			return &logic_user.TaskActionPing{TaskActionCSBase: base}
 		},
 	)
 	uc.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "proy.LobbyClientService.access_update",
 		func(base cd.TaskActionCSBase[*sp.CSAccessUpdateReq, *sp.SCAccessUpdateRsp]) cd.TaskActionImpl {
-			return &logic_action.TaskActionAccessUpdate{TaskActionCSBase: base}
+			return &logic_user.TaskActionAccessUpdate{TaskActionCSBase: base}
 		},
 	)
 	uc.RegisterCSMessageAction(
