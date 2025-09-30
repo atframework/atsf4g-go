@@ -1,0 +1,8 @@
+# service_discovery.yaml
+# vim: set sw=2 sts=2 et:
+# encoding: utf-8
+
+enabled: true
+selector:
+  lobbysvr:
+    api_version: v1

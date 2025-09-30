@@ -1,2 +1,1 @@
-lobbysvr:
-  test: {{ .Values.test }}
+{{ include "atapp.yaml" . }}
