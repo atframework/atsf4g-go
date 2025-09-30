@@ -43,5 +43,10 @@
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelLayer</scheme>
       <scheme name="OutputFile" desc="输出文件名">layer.bytes</scheme>
     </item>
+    <item name="区块表" cat="" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|区块|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMapArea</scheme>
+      <scheme name="OutputFile" desc="输出文件名">maparea.bytes</scheme>
+    </item>
   </list>
 </root>

@@ -12,25 +12,21 @@ import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/extension/v3/xresloader.proto";
 
 import "protocol/common/com.struct.base.common.proto";
-import "protocol/common/com.struct.layer.common.proto";
 
 package proy.config;
 
-message ExcelBuilding {
+message ExcelMapArea {
   option (xrescode.loader) = {
-    file_path : "building.bytes"
-    indexes : {fields : "building_id" index_type : EN_INDEX_KV}
+    file_path : "maparea.bytes"
+    indexes : {fields : "area_id" index_type : EN_INDEX_KV}
 
     tags : "client"
     tags : "server"
   };
 
-  int32 building_id = 1 [ (org.xresloader.field_unique_tag) = "building_id" ];
-  string resource_prefab = 2;
-  DVector2 covered_size = 3;
-  DVector2 pathfinding_size = 4;
-  DVector2 move_unit_size = 5;
-  repeated EnLayerType layer = 6;
-  bool rotate = 7;
-  string name = 8;
+  int32 area_id = 1 [ (org.xresloader.field_unique_tag) = "area_id" ];
+  string area_name = 2;
+  int32 area_type = 3;
+  DVector2 start_pos =4;
+  DVector2 end_pos =5;
 }

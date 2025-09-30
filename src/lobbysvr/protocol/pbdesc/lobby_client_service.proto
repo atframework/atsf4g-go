@@ -124,24 +124,28 @@ message SCUserGetInfoRsp {
 service LobbyClientService {
   rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Authorization"
     };
   };
 
   rpc login(CSLoginReq) returns (SCLoginRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Login"
     };
   };
 
   rpc ping(CSPingReq) returns (SCPongRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Ping/pong"
     };
   };
 
   rpc access_update(CSAccessUpdateReq) returns (SCAccessUpdateRsp) {
     option (atframework.rpc_options) = {
+      module_name : "user"
       api_name : "Update access token"
     };
   };
