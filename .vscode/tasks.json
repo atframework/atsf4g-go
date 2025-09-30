@@ -1,0 +1,70 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Generate all",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "."],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Build all",
+      "type": "shell",
+      "command": "go",
+      "args": ["build", "."],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/build"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Generate RPC and tasks",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "."],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate-for-pb"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Build lobbysvr",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "build",
+        "-o",
+        "../../build/install/lobbysvr/bin/lobbysvrd${if:os==windows}.exe${end}",
+        "."
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/src/lobbysvr"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Build robot",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "build",
+        "-o",
+        "../../build/install/robot/bin/robotd${if:os==windows}.exe${end}",
+        "."
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/src/robot"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    }
+  ]
+}

@@ -64,8 +64,9 @@ func (t *TaskActionBase) GetNow() time.Time {
 
 func (t *TaskActionBase) CheckPermission(action TaskActionImpl) (int32, error) {
 	if !action.AllowNoActor() && action.GetActorExecutor() == nil {
-		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
+		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY), nil
 	}
+
 	return 0, nil
 }
 

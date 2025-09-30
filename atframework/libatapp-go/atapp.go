@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"sync"
@@ -190,7 +191,8 @@ func CreateAppInstance() AppImpl {
 		logger:        slog.Default(),
 	}
 
-	ret.flagSet = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	ret.flagSet = flag.NewFlagSet(
+		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
 	ret.flagSet.Bool("v", false, "print version and exit")
 	ret.flagSet.Bool("version", false, "print version and exit")
 	ret.flagSet.Bool("h", false, "print help and exit")

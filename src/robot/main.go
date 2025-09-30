@@ -13,18 +13,27 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var done chan interface{}
-var interrupt chan os.Signal
+var (
+	done      chan interface{}
+	interrupt chan os.Signal
+)
 
 func receiveHandler(connection *websocket.Conn) {
 	defer close(done)
 	for {
-		_, msg, err := connection.ReadMessage()
+		_, bytes, err := connection.ReadMessage()
 		if err != nil {
 			log.Println("Error in receive:", err)
 			return
 		}
-		log.Printf("Received: %s\n", msg)
+
+		msg := &public_protocol_extension.CSMsg{}
+		err = proto.Unmarshal(bytes, msg)
+		if err != nil {
+			log.Println("Error in Unmarshal:", err)
+			return
+		}
+		log.Printf("Received: %s\n", msg.String())
 	}
 }
 
@@ -63,7 +72,7 @@ func main() {
 			csBin, _ := proto.Marshal(&csMsg)
 
 			// Send an echo packet every second
-			err := conn.WriteMessage(websocket.TextMessage, csBin)
+			err := conn.WriteMessage(websocket.BinaryMessage, csBin)
 			if err != nil {
 				log.Println("Error during writing to websocket:", err)
 				return

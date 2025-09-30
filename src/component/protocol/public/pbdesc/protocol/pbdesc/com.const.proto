@@ -173,6 +173,8 @@ enum EnErrorCode {
       [(error_code.description) = "服务器系统繁忙，请稍后重试"];
   EN_ERR_SYSTEM_BAD_PACKAGE = -115
                               [(error_code.description) = "包结构错误"];
+  EN_ERR_SYSTEM_ACCESS_DENY = -116
+                              [(error_code.description) = "权限不足"];
 
   // openapi
   EN_ERR_OPENAPI_LIMIT = -201
