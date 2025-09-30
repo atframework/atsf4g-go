@@ -16,7 +16,7 @@
       "label": "Build:all",
       "type": "shell",
       "command": "go",
-      "args": ["build", "."],
+      "args": ["run", "."],
       "options": {
         "cwd": "${workspaceFolder}/tools/build"
       },
