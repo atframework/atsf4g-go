@@ -1,6 +1,8 @@
 package atframework_component_user_controller
 
 import (
+	"time"
+
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
@@ -81,4 +83,7 @@ func (u *UserCache) UnbindSession(session *Session) {
 	u.session = session
 
 	// TODO: 触发登出保存
+}
+
+func (u *UserCache) RefreshLimit(_ctx *component_dispatcher.RpcContext, _now time.Time) {
 }

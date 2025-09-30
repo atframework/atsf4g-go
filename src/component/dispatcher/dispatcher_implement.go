@@ -138,7 +138,9 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 		return nil
 	}
 
-	rpcContext := &RpcContext{}
+	rpcContext := &RpcContext{
+		Logger: rd.GetApp().GetLogger(),
+	}
 	if parentContext != nil {
 		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(parentContext)
 	}

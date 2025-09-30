@@ -34,6 +34,9 @@ type TaskActionCSUser interface {
 	GetActorExecutor() *ActorExecutor
 
 	SendAllSyncData() error
+
+	// 每次执行任务前刷新
+	RefreshLimit(*RpcContext, time.Time)
 }
 
 type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] struct {
@@ -303,10 +306,18 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	// 清空 CSMsg 的 BodyBin，因为已经解析到了 requestBody
 	csMsg.BodyBin = []byte{}
 
+	user := t.GetUser()
+	if user != nil {
+		// 每次执行任务前刷新
+		user.RefreshLimit(t.rpcContext, t.GetNow())
+	}
+
 	err := t.TaskActionBase.HookRun(action, startData)
 
 	// 脏数据自动推送
-	user := t.GetUser()
+	if user == nil {
+		user = t.GetUser()
+	}
 	if user != nil {
 		user.SendAllSyncData()
 	}

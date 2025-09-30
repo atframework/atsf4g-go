@@ -1,6 +1,10 @@
 package atframework_component_user_controller
 
-type CreateUserCallback func(zoneId uint32, userId uint64, openId string) UserImpl
+import (
+	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+)
+
+type CreateUserCallback func(ctx *component_dispatcher.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl
 
 type UserManager struct {
 	_ noCopy
@@ -15,7 +19,7 @@ func createUserManager() *UserManager {
 		users: make(map[uint32]*map[uint64]UserImpl),
 	}
 
-	ret.createUserCallback = func(zoneId uint32, userId uint64, openId string) UserImpl {
+	ret.createUserCallback = func(ctx *component_dispatcher.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
 		ret := CreateUserCache(zoneId, userId, openId)
 		return &ret
 	}

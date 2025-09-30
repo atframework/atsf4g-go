@@ -36,6 +36,31 @@ type UserItemManagerImpl interface {
 	CheckTypeIdValid(typeId int32) bool
 }
 
+type userItemManagerCreator struct {
+	userItemTypeIdRanges []userItemTypeIdRange
+	fn                   func(*User) UserItemManagerImpl
+}
+
+var userItemManagerCreators = make([]userItemManagerCreator, 0)
+
+func RegisterUserItemManagerCreator[ManagerType any](typeIdRanges []userItemTypeIdRange, creator func(*User) UserItemManagerImpl) {
+	if creator == nil {
+		panic("nil user item manager creator")
+	}
+
+	slices.SortFunc(typeIdRanges, func(a, b userItemTypeIdRange) int {
+		if a.beginTypeId != b.beginTypeId {
+			return int(a.beginTypeId - b.beginTypeId)
+		}
+		return int(a.endTypeId - b.endTypeId)
+	})
+
+	userItemManagerCreators = append(userItemManagerCreators, userItemManagerCreator{
+		userItemTypeIdRanges: typeIdRanges,
+		fn:                   creator,
+	})
+}
+
 type UserItemManagerBase struct {
 	owner *User
 

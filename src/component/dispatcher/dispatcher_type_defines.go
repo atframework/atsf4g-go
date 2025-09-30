@@ -2,10 +2,13 @@ package atframework_component_dispatcher
 
 import (
 	"context"
+	"log/slog"
 	"time"
 )
 
 type RpcContext struct {
+	Logger *slog.Logger
+
 	Context  context.Context
 	CancelFn context.CancelFunc
 }
