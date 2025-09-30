@@ -239,5 +239,11 @@ enum EnErrorCode {
   EN_ERR_LOGIN_USERID_NOT_MATCH = -417
                                   [(error_code.description) = "用户ID不匹配"];
 
+  // 道具模块错误码
+  EN_ERR_ITEM_NOT_ENOUGH = -501
+                           [(error_code.description) = "道具不足"];
+  EN_ERR_ITEM_NOT_FOUND = -502
+                          [(error_code.description) = "道具未找到"];
+
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码
 }
