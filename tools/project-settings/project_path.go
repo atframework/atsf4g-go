@@ -2,6 +2,7 @@
 package atframework_tools_project_settings
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -184,9 +185,9 @@ func GetProjectSourceDir() string {
 }
 
 func GetXresloaderBinName() string {
-	return "xresloader-2.20.1.jar"
+	return fmt.Sprintf("xresloader-%s.jar", GetXresloaderVersion())
 }
 
 func GetAtdtoolDownloadPath() string {
-	return path.Join(GetProjectToolsDir(), "bin", "atdtool")
+	return path.Join(GetProjectToolsDir(), "bin", fmt.Sprintf("atdtool_v%s", GetAtdtoolVersion()))
 }

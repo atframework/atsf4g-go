@@ -39,6 +39,8 @@ func buildService(projectBaseDir string, buildPath string, sourcePath string, ou
 
 func main() {
 	// 执行多个构建流程
+	os.Setenv("PROJECT_DISABLE_GENERATE_GO_TIDY", "true")
+
 	// 1.generate
 	{
 		cmd := exec.Command("go", "run", ".")
@@ -53,7 +55,11 @@ func main() {
 		project_settings.FmtColorGreen("Run generate success")
 	}
 
-	// 2.build
+	// 2.go mod
+	project_settings.RunGoModTidy(project_settings.GetProjectSourceDir())
+	project_settings.FmtColorGreen("Run Go Mod success")
+
+	// 3.build
 	exitCode := 0
 	if buildService(project_settings.GetProjectRootDir(), project_settings.GetProjectBuildDir(), path.Join("src", "lobbysvr"), "lobbysvr") != nil {
 		exitCode = 1
@@ -62,7 +68,9 @@ func main() {
 		exitCode = 1
 	}
 
-	// 3.CI....
+	project_settings.FmtColorGreen("Build success")
+
+	// 4.CI....
 
 	if exitCode != 0 {
 		os.Exit(exitCode)

@@ -23,7 +23,9 @@ func guessBinDir() string {
 }
 
 func generateAtfwGo(scanDirs []string) {
+	pendingGoTidy := make(map[string]bool)
 	runCache := make(map[string]bool)
+	disableGoTidy := os.Getenv("PROJECT_DISABLE_GENERATE_GO_TIDY") == "true"
 
 	// 扫描所有 generate.atfw.go 文件
 	type matchPath struct {
@@ -91,30 +93,16 @@ func generateAtfwGo(scanDirs []string) {
 		if err := runGoGenerate(file.path); err != nil {
 			fmt.Fprintf(os.Stderr, "Run go generate failed: %v\n", err)
 			os.Exit(2)
+		} else if !disableGoTidy {
+			goModDir := project_settings.FindFirstGoMod(filepath.Dir(file.path))
+			if goModDir != "" {
+				pendingGoTidy[goModDir] = true
+			}
 		}
 	}
-}
-
-func runGoModTidy(scanDir string) {
-	pendingGoTidy := make(map[string]bool)
-
-	filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		goModDir := findFirstGoMod(filepath.Dir(path))
-		if goModDir != "" {
-			pendingGoTidy[goModDir] = true
-		}
-		return nil
-	})
 
 	for dir := range pendingGoTidy {
-		if err := runGoTidy(dir); err != nil {
+		if err := project_settings.RunGoTidy(dir); err != nil {
 			fmt.Fprintf(os.Stderr, "Run go mod tidy failed: %v\n", err)
 			os.Exit(4)
 		}
@@ -221,7 +209,7 @@ func main() {
 		binPath := path.Join(project_settings.GetProjectToolsDir(), "bin", project_settings.GetXresloaderBinName())
 		if !atframe_utils.FileExists(binPath) {
 			project_settings.FmtColorGreen("Download xresloader")
-			data := atframe_utils.MustHTTPGet("https://github.com/owent/xresloader/releases/download/v2.20.1/xresloader-2.20.1.jar")
+			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/owent/xresloader/releases/download/v%s/%s", project_settings.GetXresloaderVersion(), project_settings.GetXresloaderBinName()))
 			out, err := os.Create(binPath)
 			if err != nil {
 				log.Fatalf("create file: %v", err)
@@ -234,25 +222,22 @@ func main() {
 	}
 	{
 		// atdtool win64
-		binPath := path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool.exe")
-		if !atframe_utils.FileExists(binPath) {
+		if !atframe_utils.PathExists(project_settings.GetAtdtoolDownloadPath()) {
 			project_settings.FmtColorGreen("Download atdtool.exe")
-			data := atframe_utils.MustHTTPGet("https://github.com/atframework/atdtool/releases/download/v1.0.0/atdtool-windows-amd64.zip")
+			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-windows-amd64.zip", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UnzipToDir(data, project_settings.GetAtdtoolDownloadPath())
 		}
 	}
 	{
 		// atdtool linux
-		binPath := path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool")
-		if !atframe_utils.FileExists(binPath) {
+		if !atframe_utils.PathExists(project_settings.GetAtdtoolDownloadPath()) {
 			project_settings.FmtColorGreen("Download atdtool")
-			data := atframe_utils.MustHTTPGet("https://github.com/atframework/atdtool/releases/download/v1.0.0/atdtool-linux-amd64.tar.gz")
+			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-linux-amd64.tar.gz", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UntarGzToDir(data, project_settings.GetAtdtoolDownloadPath())
 		}
 	}
 
 	generateAtfwGo(scanDirs)
-	runGoModTidy(project_settings.GetProjectSourceDir())
 	installAtdtool()
 }
 
@@ -264,29 +249,5 @@ func runGoGenerate(target string) error {
 	cmd.Dir = filepath.Dir(target)
 
 	fmt.Printf("Run go generate %s on %s\n", filepath.Base(target), cmd.Dir)
-	return cmd.Run()
-}
-
-func findFirstGoMod(baseDir string) string {
-	previousDir := baseDir + "_"
-	for i := 0; previousDir != baseDir && previousDir != ""; i++ {
-		if _, err := os.Stat(filepath.Join(baseDir, "go.mod")); err == nil {
-			return baseDir
-		}
-
-		previousDir = baseDir
-		baseDir = filepath.Dir(baseDir)
-	}
-
-	return ""
-}
-
-func runGoTidy(baseDir string) error {
-	cmd := exec.Command("go", "mod", "tidy")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Dir = baseDir
-
-	fmt.Printf("Run go mod tidy on %s\n", baseDir)
 	return cmd.Run()
 }

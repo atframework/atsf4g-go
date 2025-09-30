@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -83,6 +84,56 @@ func CopyDir(srcDir, dstDir string) error {
 		}
 	}
 	return nil
+}
+
+func FindFirstGoMod(baseDir string) string {
+	previousDir := baseDir + "_"
+	for i := 0; previousDir != baseDir && previousDir != ""; i++ {
+		if _, err := os.Stat(filepath.Join(baseDir, "go.mod")); err == nil {
+			return baseDir
+		}
+
+		previousDir = baseDir
+		baseDir = filepath.Dir(baseDir)
+	}
+
+	return ""
+}
+
+func RunGoModTidy(scanDir string) {
+	pendingGoTidy := make(map[string]bool)
+
+	filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		goModDir := FindFirstGoMod(filepath.Dir(path))
+		if goModDir != "" {
+			pendingGoTidy[goModDir] = true
+		}
+		return nil
+	})
+
+	for dir := range pendingGoTidy {
+		if err := RunGoTidy(dir); err != nil {
+			fmt.Fprintf(os.Stderr, "Run go mod tidy failed: %v\n", err)
+			os.Exit(4)
+		}
+	}
+}
+
+func RunGoTidy(baseDir string) error {
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = baseDir
+
+	fmt.Printf("Run go mod tidy on %s\n", baseDir)
+	return cmd.Run()
 }
 
 func fmtColorInner(color int, str string) {

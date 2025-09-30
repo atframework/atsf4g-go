@@ -329,6 +329,11 @@ func FileExists(p string) bool {
 	return err == nil && !fi.IsDir()
 }
 
+func PathExists(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
+}
+
 func prependPath(env []string, dir string) []string {
 	if dir == "" {
 		return env
