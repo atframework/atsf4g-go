@@ -168,6 +168,11 @@ func installAtdtool() {
 	project_settings.CopyDir(path.Join(project_settings.GetProjectInstallSourceDir(), "cloud-native"), path.Join(project_settings.GetProjectInstallTargetDir(), "deploy"))
 }
 
+func installScript() {
+	// 拷贝脚本
+	project_settings.CopyDir(project_settings.GetProjectScriptDir(), project_settings.GetProjectInstallTargetDir())
+}
+
 func main() {
 	err := project_settings.PathSetup()
 	if err != nil {
@@ -239,6 +244,7 @@ func main() {
 
 	generateAtfwGo(scanDirs)
 	installAtdtool()
+	installScript()
 }
 
 func runGoGenerate(target string) error {

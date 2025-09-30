@@ -5,6 +5,8 @@ if [[ "x$HELM_BIN" == "x" ]]; then
   HELM_BIN="$(which helm)"
 fi
 
+cd deploy/charts
+
 servers=$(ls -l | awk '/^d/ {print $NF}')
 
 for svr in ${servers}; do

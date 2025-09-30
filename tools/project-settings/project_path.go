@@ -21,6 +21,7 @@ var (
 	projectResourceTargetDir string
 	projectResourceSourceDir string
 	projectSourceDir         string
+	projectScriptDir         string
 )
 
 func GetProjectPackageName() string {
@@ -182,6 +183,13 @@ func GetProjectSourceDir() string {
 		projectSourceDir = findProjectDir(GetProjectRootDir(), "PROJECT_SOURCE_DIR", "src")
 	}
 	return projectSourceDir
+}
+
+func GetProjectScriptDir() string {
+	if projectScriptDir == "" {
+		projectScriptDir = findProjectDir(GetProjectRootDir(), "PROJECT_SCRIPT_DIR", "script")
+	}
+	return projectScriptDir
 }
 
 func GetXresloaderBinName() string {

@@ -20,6 +20,14 @@ scoop install helm
 ```
 
 ```bash
+// Build
 cd tools/build
 go run .
+```
+
+```bash
+// config
+cd build/install/
+update_dependency.bat
+generate_config.bat
 ```
