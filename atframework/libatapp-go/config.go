@@ -486,6 +486,6 @@ func LoadConfigFromYaml(configPath string, firstPath string, configPb proto.Mess
 	}
 
 	atappData := yamlData[firstPath].(map[string]interface{})
-	err = mapToProto(atappData, configPb, logger)
+	err = parseMessage(atappData, configPb, logger)
 	return
 }
