@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -71,6 +72,8 @@ type AppConfig struct {
 	// 日志配置
 	StartupLog       []string
 	StartupErrorFile string
+
+	ConfigPb atframe_protocol.AtappConfigure
 }
 
 // 消息类型
@@ -217,14 +220,6 @@ func CreateAppInstance() AppImpl {
 	ret.config.AppVersion = "1.0.0"
 	ret.config.BuildVersion = fmt.Sprintf("libatapp-go based atapp %s", ret.config.AppVersion)
 
-	// 生成默认的应用名称和标识
-	if ret.config.AppName == "" {
-		ret.config.AppName = fmt.Sprintf("%s-0x%x", ret.config.TypeName, ret.config.AppId)
-	}
-
-	// 生成哈希码
-	ret.generateHashCode()
-
 	runtime.SetFinalizer(ret, func(app *AppInstance) {
 		app.destroy()
 	})
@@ -362,6 +357,14 @@ func (app *AppInstance) Init(arguments []string) error {
 		}
 		return fmt.Errorf("load config failed: %w", err)
 	}
+
+	// 生成默认的应用名称和标识
+	if app.config.AppName == "" {
+		app.config.AppName = fmt.Sprintf("%s-0x%x", app.config.TypeName, app.config.AppId)
+	}
+
+	// 生成哈希码
+	app.generateHashCode()
 
 	if app.mode == AppModeCustom || app.mode == AppModeStop || app.mode == AppModeReload {
 		return app.sendLastCommand()
@@ -709,8 +712,9 @@ func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
 func (app *AppInstance) LoadConfig(configFile string) error {
 	if configFile != "" {
 		app.config.ConfigFile = configFile
-		// TODO: 实际的配置文件解析逻辑
+		// 实际的配置文件解析逻辑
 		app.logger.Info("Loading config from", "configFile", configFile)
+		return LoadConfigFromYaml(configFile, "atapp", &app.config.ConfigPb, app.GetLogger())
 	}
 	return nil
 }

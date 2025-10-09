@@ -56,6 +56,7 @@ func main() {
 	}
 
 	// 2.go mod
+	project_settings.RunGoModTidy(project_settings.GetProjectAtframeworkDir())
 	project_settings.RunGoModTidy(project_settings.GetProjectSourceDir())
 	project_settings.FmtColorGreen("Run Go Mod success")
 

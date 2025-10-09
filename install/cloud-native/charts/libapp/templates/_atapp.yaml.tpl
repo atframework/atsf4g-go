@@ -1,5 +1,5 @@
 {{- define "atapp.yaml" -}}
-{{- $bus_addr := "${SERVER_INSTANCE_ID}" -}}
+{{- $bus_addr := .Values.bus_addr -}}
 atapp:
   # =========== bus configure ===========
   id: {{ $bus_addr | quote }}
@@ -30,11 +30,6 @@ atapp:
     loop_times: {{ .Values.atapp.bus_loop_times_per_tick | default 2048 }}                    # max message number in one loop
     ttl: {{ .Values.atapp.bus_ttl | default 16 }}                            # max ttl when transfer messages
     backlog: {{ .Values.atapp.backlog | default 256 }}                       # tcp backlog
-    access_token_max_number: {{ .Values.atapp.access_token_max_number }}
-    access_tokens:
-{{- range $_, $access_token := .Values.atapp.access_tokens }}
-      - {{ $access_token }}
-{{- end }} {{- /* end range atapp.access_tokens */}}
     overwrite_listen_path: false       # overwrite the existing unix socket
     first_idle_timeout: 30s            # first idle timeout when have new connection(second)
     ping_interval: 8s                  # ping interval(second)

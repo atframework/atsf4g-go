@@ -22,6 +22,7 @@ var (
 	projectResourceSourceDir string
 	projectSourceDir         string
 	projectScriptDir         string
+	projectAtframeworkDir    string
 )
 
 func GetProjectPackageName() string {
@@ -183,6 +184,13 @@ func GetProjectSourceDir() string {
 		projectSourceDir = findProjectDir(GetProjectRootDir(), "PROJECT_SOURCE_DIR", "src")
 	}
 	return projectSourceDir
+}
+
+func GetProjectAtframeworkDir() string {
+	if projectAtframeworkDir == "" {
+		projectAtframeworkDir = findProjectDir(GetProjectRootDir(), "PROJECT_ATFRAMEWORK_DIR", "atframework")
+	}
+	return projectAtframeworkDir
 }
 
 func GetProjectScriptDir() string {
