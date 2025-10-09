@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +72,8 @@ func pickDuration(value string) (*durationpb.Duration, error) {
 	duration := durationpb.Duration{}
 
 	switch {
+	case unit == "" && tmVal == 0:
+		duration.Seconds = 0
 	case unit == "s" || unit == "sec" || unit == "second" || unit == "seconds":
 		duration.Seconds = tmVal
 	case unit == "ms" || unit == "millisecond" || unit == "milliseconds":
@@ -119,7 +122,7 @@ func pickSize(value string) (uint64, error) {
 	var val uint64
 
 	switch {
-	case unit == "b":
+	case unit == "b" || unit == "":
 		val = uint64(baseVal)
 	case unit == "kb":
 		val = uint64(baseVal) * 1024
@@ -151,7 +154,7 @@ func pickTimestamp(value string) (*timestamppb.Timestamp, error) {
 	return timestamppb.New(t), nil
 }
 
-func parseDefaultToYamlData(defaultValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *slog.Logger) (interface{}, error) {
+func parseStringToYamlData(defaultValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *slog.Logger) (interface{}, error) {
 	if sizeMode {
 		return defaultValue, nil
 	}
@@ -212,63 +215,100 @@ func parseDefaultToYamlData(defaultValue string, fd protoreflect.FieldDescriptor
 	return nil, fmt.Errorf("parseDefaultToYamlData unsupported field type: %v", fd.Kind())
 }
 
-// 从一个Field内读出数据 非Message 且为最底层 嵌套终点
-func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
-	// 首先需要预处理 yamlData
-	if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
-		if confMeta.DefaultValue != "" && yamlData == nil {
-			logger.Info("Use Default", slog.Any("Field Name", fd.FullName()))
-			var err error
-			yamlData, err = parseDefaultToYamlData(confMeta.DefaultValue, fd, confMeta.SizeMode, logger)
-			if err != nil {
-				return protoreflect.Value{}, err
+func convertToInt64(data interface{}) interface{} {
+	switch reflect.ValueOf(data).Kind() {
+	case reflect.Int:
+		return int64(reflect.ValueOf(data).Int()) // 转换为 int64
+	case reflect.Int32:
+		return int64(reflect.ValueOf(data).Int()) // 转换为 int64
+	case reflect.Int64:
+		return int64(reflect.ValueOf(data).Int()) // 转换为 int64
+	case reflect.Uint:
+		return int64(reflect.ValueOf(data).Uint()) // 转换为 int64
+	case reflect.Uint32:
+		return int64(reflect.ValueOf(data).Uint()) // 转换为 int64
+	case reflect.Uint64:
+		return int64(reflect.ValueOf(data).Uint()) // 转换为 int64
+	}
+	if v, ok := data.(*timestamppb.Timestamp); ok {
+		return v.Seconds*1000000000 + int64(v.Nanos)
+	}
+	if v, ok := data.(*durationpb.Duration); ok {
+		return v.Seconds*1000000000 + int64(v.Nanos)
+	}
+	return data
+}
+
+func checkMinMax(yamlData interface{}, minData interface{}, maxData interface{}) (interface{}, error) {
+	yamlDataNative := yamlData
+	minDataNative := minData
+	maxDataNative := maxData
+
+	returnNative := yamlDataNative
+
+	if yamlData != nil {
+		yamlData = convertToInt64(yamlData)
+	}
+	if minData != nil {
+		minData = convertToInt64(minData)
+	}
+	if maxData != nil {
+		maxData = convertToInt64(maxData)
+	}
+
+	// 选出最终值
+	if yamlData == nil {
+		yamlData = minData
+		returnNative = minDataNative
+	} else if minData != nil {
+		// 对比
+		yamlDataV, ok := yamlData.(int64)
+			if !ok {
+			return protoreflect.Value{}, fmt.Errorf("convertField Check yamlData expected Int64, got %T", yamlData)
 			}
+		minDataV, ok := minData.(int64)
+		if !ok {
+			return protoreflect.Value{}, fmt.Errorf("convertField Check MinValue expected Int64, got %T", minData)
 		}
 
-		if confMeta.SizeMode {
-			// 需要从String 转为 Int
-			v, ok := yamlData.(string)
-			if !ok {
-				return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", yamlData)
-			}
-			size, err := pickSize(v)
-			if err != nil {
-				return protoreflect.Value{}, err
-			}
-			return protoreflect.ValueOfUint64(size), nil
+		if minDataV > yamlDataV {
+			returnNative = minDataNative
 		}
 	}
 
 	if yamlData == nil {
+		yamlData = maxData
+		returnNative = maxDataNative
+	} else if maxData != nil {
+		// 对比
+		yamlDataV, ok := yamlData.(int64)
+		if !ok {
+			return protoreflect.Value{}, fmt.Errorf("convertField Check yamlData expected Int64, got %T", yamlData)
+		}
+		maxDataV, ok := maxData.(int64)
+		if !ok {
+			return protoreflect.Value{}, fmt.Errorf("convertField Check maxDataV expected Int64, got %T", maxData)
+		}
+
+		if yamlDataV > maxDataV {
+			returnNative = maxDataNative
+		}
+	}
+
+	return returnNative, nil
+}
+
+func convertField(yamlData interface{}, minData interface{}, maxData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
+	if yamlData == nil && minData == nil && maxData == nil {
 		return protoreflect.Value{}, nil
 	}
 
-	if fd.Kind() == protoreflect.MessageKind {
-		if fd.Message().FullName() == proto.MessageName(&durationpb.Duration{}) {
-			v, ok := yamlData.(string)
-			if !ok {
-				return protoreflect.Value{}, fmt.Errorf("duration expected string, got %T", yamlData)
-			}
-			duration, err := pickDuration(v)
+	yamlData, err := checkMinMax(yamlData, minData, maxData)
 			if err != nil {
 				return protoreflect.Value{}, err
-			}
-			return protoreflect.ValueOfMessage(duration.ProtoReflect()), nil
-		}
-		if fd.Message().FullName() == proto.MessageName(&timestamppb.Timestamp{}) {
-			v, ok := yamlData.(string)
-			if !ok {
-				return protoreflect.Value{}, fmt.Errorf("timestamp expected string, got %T", yamlData)
-			}
-			timestamp, err := pickTimestamp(v)
-			if err != nil {
-				return protoreflect.Value{}, err
-			}
-			return protoreflect.ValueOfMessage(timestamp.ProtoReflect()), nil
-		}
-		return protoreflect.Value{}, fmt.Errorf("%s expected Duration or Timestamp, got %T", fd.FullName(), yamlData)
 	}
 
+	// 更新最终值
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
 		if v, ok := yamlData.(bool); ok {
@@ -283,6 +323,9 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 		if v, ok := yamlData.(int32); ok {
 			return protoreflect.ValueOfInt32(int32(v)), nil
 		}
+		if v, ok := yamlData.(int64); ok {
+			return protoreflect.ValueOfInt64(int64(v)), nil
+		}
 		return protoreflect.Value{}, fmt.Errorf("expected int32, got %T", yamlData)
 	case protoreflect.Sint32Kind:
 		if v, ok := yamlData.(int); ok {
@@ -290,6 +333,9 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 		}
 		if v, ok := yamlData.(int32); ok {
 			return protoreflect.ValueOfInt32(int32(v)), nil
+		}
+		if v, ok := yamlData.(int64); ok {
+			return protoreflect.ValueOfInt64(int64(v)), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected int32, got %T", yamlData)
 	case protoreflect.Int64Kind:
@@ -321,6 +367,9 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 		if v, ok := yamlData.(uint32); ok {
 			return protoreflect.ValueOfUint32(uint32(v)), nil
 		}
+		if v, ok := yamlData.(int64); ok {
+			return protoreflect.ValueOfInt64(int64(v)), nil
+		}
 		return protoreflect.Value{}, fmt.Errorf("expected uint32, got %T", yamlData)
 	case protoreflect.Uint64Kind:
 		if v, ok := yamlData.(int); ok {
@@ -328,6 +377,9 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 		}
 		if v, ok := yamlData.(uint64); ok {
 			return protoreflect.ValueOfUint64(uint64(v)), nil
+		}
+		if v, ok := yamlData.(int64); ok {
+			return protoreflect.ValueOfInt64(int64(v)), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected uint64, got %T", yamlData)
 	case protoreflect.StringKind:
@@ -341,9 +393,169 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 			return protoreflect.ValueOfFloat32(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected float32, got %T", yamlData)
+
+	case protoreflect.MessageKind:
+		if v, ok := yamlData.(*timestamppb.Timestamp); ok {
+			return protoreflect.ValueOfMessage(v.ProtoReflect()), nil
+		}
+		if v, ok := yamlData.(*durationpb.Duration); ok {
+			return protoreflect.ValueOfMessage(v.ProtoReflect()), nil
+		}
+		return protoreflect.Value{}, fmt.Errorf("expected Timestamp or Duration, got %T", yamlData)
 	}
 
 	return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", fd.Kind())
+}
+
+// 从一个Field内读出数据 非Message 且为最底层 嵌套终点
+func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
+	// 获取最大最小值
+	var minValue interface{}
+	var maxValue interface{}
+
+	if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
+		// 首先覆盖默认值
+		if confMeta.DefaultValue != "" && yamlData == nil {
+			var err error
+			yamlData, err = parseStringToYamlData(confMeta.DefaultValue, fd, confMeta.SizeMode, logger)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+		}
+
+		// 取出极值
+		if confMeta.MinValue != "" {
+			var err error
+			minValue, err = parseStringToYamlData(confMeta.MinValue, fd, confMeta.SizeMode, logger)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+		}
+		if confMeta.MaxValue != "" {
+			var err error
+			maxValue, err = parseStringToYamlData(confMeta.MaxValue, fd, confMeta.SizeMode, logger)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+		}
+
+		// 转换值
+		if confMeta.SizeMode {
+			// 需要从String 转为 Int
+			if yamlData != nil {
+				// 基础
+				v, ok := yamlData.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", yamlData)
+				}
+				size, err := pickSize(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				yamlData = size
+			}
+			if minValue != nil {
+				// 最小
+				v, ok := minValue.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", minValue)
+				}
+				size, err := pickSize(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				minValue = size
+			}
+			if maxValue != nil {
+				// 最大
+				v, ok := maxValue.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", maxValue)
+				}
+				size, err := pickSize(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				maxValue = size
+			}
+		}
+	}
+
+	if fd.Kind() == protoreflect.MessageKind {
+		// 转换值
+		if fd.Message().FullName() == proto.MessageName(&durationpb.Duration{}) {
+			if yamlData != nil {
+				v, ok := yamlData.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("duration expected string, got %T", yamlData)
+				}
+				duration, err := pickDuration(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				yamlData = duration
+			}
+			if minValue != nil {
+				v, ok := minValue.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("duration expected string, got %T", minValue)
+				}
+				duration, err := pickDuration(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				minValue = duration
+			}
+			if maxValue != nil {
+				v, ok := maxValue.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("duration expected string, got %T", maxValue)
+				}
+				duration, err := pickDuration(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				maxValue = duration
+			}
+		} else if fd.Message().FullName() == proto.MessageName(&timestamppb.Timestamp{}) {
+			if yamlData != nil {
+				v, ok := yamlData.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("timestamp expected string, got %T", yamlData)
+				}
+				timestamp, err := pickTimestamp(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				yamlData = timestamp
+			}
+			if minValue != nil {
+				v, ok := minValue.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("timestamp expected string, got %T", minValue)
+				}
+				timestamp, err := pickTimestamp(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				minValue = timestamp
+			}
+			if maxValue != nil {
+				v, ok := maxValue.(string)
+				if !ok {
+					return protoreflect.Value{}, fmt.Errorf("timestamp expected string, got %T", maxValue)
+				}
+				timestamp, err := pickTimestamp(v)
+				if err != nil {
+					return protoreflect.Value{}, err
+				}
+				maxValue = timestamp
+			}
+		} else {
+			return protoreflect.Value{}, fmt.Errorf("%s expected Duration or Timestamp, got %T", fd.FullName(), yamlData)
+		}
+	}
+	return convertField(yamlData, minValue, maxValue, fd, logger)
 }
 
 func parseMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
