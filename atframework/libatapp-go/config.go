@@ -120,7 +120,7 @@ func pickSize(value string) (uint64, error) {
 
 	switch {
 	case unit == "b":
-		val = uint64(baseVal) * 1024
+		val = uint64(baseVal)
 	case unit == "kb":
 		val = uint64(baseVal) * 1024
 	case unit == "mb":
@@ -212,9 +212,9 @@ func parseDefaultToYamlData(defaultValue string, fd protoreflect.FieldDescriptor
 	return nil, fmt.Errorf("parseDefaultToYamlData unsupported field type: %v", fd.Kind())
 }
 
+// 从一个Field内读出数据 非Message 且为最底层 嵌套终点
 func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
 	// 首先需要预处理 yamlData
-	// 其次 fd 为最底层结构 不会是非 Duration 与 Timestamp 的Message
 	if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
 		if confMeta.DefaultValue != "" && yamlData == nil {
 			logger.Info("Use Default", slog.Any("Field Name", fd.FullName()))
@@ -266,6 +266,7 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 			}
 			return protoreflect.ValueOfMessage(timestamp.ProtoReflect()), nil
 		}
+		return protoreflect.Value{}, fmt.Errorf("%s expected Duration or Timestamp, got %T", fd.FullName(), yamlData)
 	}
 
 	switch fd.Kind() {
@@ -345,11 +346,26 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 	return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", fd.Kind())
 }
 
-func mapToProto(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
+func parseMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
 	len := msg.ProtoReflect().Descriptor().Fields().Len()
 	for i := 0; i < len; i++ {
 		fd := msg.ProtoReflect().Descriptor().Fields().Get(i)
 		fieldName := fd.TextName()
+		field_match := false
+
+		if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
+			if confMeta.FieldMatch != nil && confMeta.FieldMatch.FieldName != "" && confMeta.FieldMatch.FieldValue != "" {
+				// 存在跳过规则
+				if value, ok := yamlData[confMeta.FieldMatch.FieldName].(string); ok {
+					// 存在
+					if value == confMeta.FieldMatch.FieldValue {
+						field_match = true
+					} else {
+						continue
+					}
+				}
+			}
+		}
 
 		if fd.IsMap() {
 			if yamlData == nil {
@@ -383,6 +399,20 @@ func mapToProto(yamlData map[string]interface{}, msg proto.Message, logger *slog
 			innerList, ok := yamlData[fieldName].([]interface{})
 			if ok && innerList != nil {
 				for _, item := range innerList {
+					if fd.Kind() == protoreflect.MessageKind {
+						if fd.Message().FullName() != proto.MessageName(&durationpb.Duration{}) &&
+							fd.Message().FullName() != proto.MessageName(&timestamppb.Timestamp{}) {
+							// Message
+							innerMap, ok := item.(map[string]interface{})
+							if ok {
+								if err := parseMessage(innerMap, msg.ProtoReflect().Mutable(fd).List().AppendMutable().Message().Interface(), logger); err != nil {
+									return err
+								}
+							}
+							continue
+						}
+					}
+					// 非Message
 					value, err := parseField(item, fd, logger)
 					if err != nil {
 						return err
@@ -400,19 +430,26 @@ func mapToProto(yamlData map[string]interface{}, msg proto.Message, logger *slog
 				fd.Message().FullName() != proto.MessageName(&timestamppb.Timestamp{}) {
 				// 需要继续解析的字段
 				if yamlData == nil {
-					if err := mapToProto(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+					if err := parseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
 					}
 					continue
 				}
-				innerMap, ok := yamlData[fieldName].(map[string]interface{})
-				if ok {
-					if err := mapToProto(innerMap, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+				if field_match {
+					// 在同层查找
+					if err := parseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
 					}
 				} else {
-					if err := mapToProto(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+				innerMap, ok := yamlData[fieldName].(map[string]interface{})
+				if ok {
+						if err := parseMessage(innerMap, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
+					}
+				} else {
+						if err := parseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+						return err
+						}
 					}
 				}
 				continue

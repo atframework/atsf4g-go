@@ -12,11 +12,18 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
+message atapp_configure_meta_oneof_field_match {
+  string field_name = 1;
+  string field_value = 2;
+}
+
 message atapp_configure_meta {
   string default_value = 1;
   string min_value = 2;
   string max_value = 3;
   bool size_mode = 4;
+  // 如果该层内field_name字段不与field_value匹配 则跳过解析
+  atapp_configure_meta_oneof_field_match field_match = 5;
 }
 
 extend google.protobuf.FieldOptions {
@@ -145,10 +152,20 @@ message atapp_log_sink {
   atapp_log_level_range level = 2;
 
   oneof backend {
-    atapp_log_sink_file log_backend_file = 21;
-    atapp_log_sink_std log_backend_stdout = 22;
-    atapp_log_sink_std log_backend_stderr = 23;
-    atapp_log_sink_syslog log_backend_syslog = 24;
+    atapp_log_sink_file log_backend_file = 21 [ (atapp.protocol.CONFIGURE) = {
+      field_match : {field_name : "type", field_value : "file"}
+    } ];
+    atapp_log_sink_std log_backend_stdout = 22 [ (atapp.protocol.CONFIGURE) = {
+      field_match : {field_name : "type", field_value : "stdout"}
+    } ];
+    atapp_log_sink_std log_backend_stderr = 23 [ (atapp.protocol.CONFIGURE) = {
+      field_match : {field_name : "type", field_value : "stderr"}
+    } ];
+    atapp_log_sink_syslog log_backend_syslog = 24 [
+      (atapp.protocol.CONFIGURE) = {
+        field_match : {field_name : "type", field_value : "syslog"}
+      }
+    ];
   }
 
   map<string, string> unresolved_key_values = 101;
@@ -447,6 +464,8 @@ message atapp_configure {
   atapp_etcd etcd = 401;
 
   atapp_worker_pool worker_pool = 501;
+
+  atapp_log log = 601;
 }
 
 message atapp_discovery_runtime { sint32 stateful_pod_index = 1; }
