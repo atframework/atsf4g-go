@@ -28,7 +28,6 @@ message ExcelMapPreset {
     indexes : { fields : "mappreset_id" index_type : EN_INDEX_IV }
 
     tags : "client"
-    tags : "server"
   };
 
   int32 mappreset_id = 1 [ (org.xresloader.field_unique_tag) = "mappreset_id" ];
