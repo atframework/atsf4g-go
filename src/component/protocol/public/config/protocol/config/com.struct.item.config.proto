@@ -12,6 +12,7 @@ import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/extension/v3/xresloader.proto";
 
 import "protocol/common/com.struct.item.common.proto";
+import "protocol/common/com.struct.base.common.proto";
 
 package proy.config;
 
@@ -32,5 +33,8 @@ message ExcelItemType {
   int32 type_id = 1 [ (org.xresloader.field_unique_tag) = "type_id" ];
   // 仅客户端资源导出
   string name = 2 [ (org.xresloader.field_tag) = "client_only" ];
-  DItemUseAction use_action = 3;
+  int32 unlock_lv = 3 [ (org.xresloader.validator) = ">0" ];
+  EnRarityType rarity = 4;
+  int64 show_max_stacking = 5 [ (org.xresloader.validator) = ">=0" ];
+  int64 price = 6;
 }

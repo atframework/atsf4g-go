@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.base.common.proto";
+import "protocol/common/com.struct.role.common.proto";
+import "protocol/common/com.struct.item.common.proto";
+
+package proy.config;
+
+message DStarUpgradeRule {
+  int32 level = 1;
+  repeated DItemOffset cost = 2 [ (org.xresloader.field_separator) = ":" ];
+}
+
+message ExcelRole {
+  option (xrescode.loader) = {
+    file_path : "role.bytes"
+    indexes : {
+      fields : "role_id"
+      index_type : EN_INDEX_KV
+      allow_not_found : true
+    }
+
+    tags : "client"
+    tags : "server"
+  };
+
+  int32 role_id = 1 [ (org.xresloader.field_unique_tag) = "role_id" ];
+  string name = 2 [ (org.xresloader.field_tag) = "client_only" ];
+  int32 base_power = 3;
+  EnFactionType faction = 4;
+  int32 base_level = 5;
+  int32 exp_upgrade_id = 6 [ (org.xresloader.validator) = "ExcelRoleExpUpgrade_exp_upgrade_id" ];
+  EnRarityType rarity = 7;
+  int32 base_star = 8;
+  int32 max_star = 9;
+  repeated DStarUpgradeRule star_upgrade_rule = 10
+      [ (org.xresloader.field_separator) = "|" ];
+  EnElementType element = 11;
+  repeated int32 skill_ids = 12 [ (org.xresloader.validator) = "ExcelSkill_skill_id" ];
+  DAttrbute attr = 13;
+}
+
+message ExcelRoleExpUpgrade {
+  option (xrescode.loader) = {
+    file_path : "role_exp_upgrade.bytes"
+    indexes : {
+      fields : "exp_upgrade_id"
+      fields : "level"
+      index_type : EN_INDEX_KV
+      allow_not_found : true
+    }
+
+    tags : "client"
+    tags : "server"
+  };
+
+  int32 exp_upgrade_id = 1 [ (org.xresloader.field_unique_tag) = "exp_upgrade_id_level" ];
+  string level = 2 [ (org.xresloader.field_tag) = "exp_upgrade_id_level" ];
+  int32 exp = 3;
+}

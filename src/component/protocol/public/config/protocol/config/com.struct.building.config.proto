@@ -25,12 +25,18 @@ message ExcelBuilding {
     tags : "server"
   };
 
-  int32 building_id = 1 [ (org.xresloader.field_unique_tag) = "building_id" ];
+  int32 building_id = 1 [
+    (org.xresloader.field_unique_tag) = "building_id",
+    (org.xresloader.validator) = "ExcelItemType_type_id"
+  ];
   string resource_prefab = 2;
-  DVector2 covered_size = 3;
-  DVector2 pathfinding_size = 4;
-  DVector2 move_unit_size = 5;
-  repeated EnLayerType layer = 6;
-  bool rotate = 7;
-  string name = 8;
+  EnLayerType layer = 3;
+  bool rotate = 4;
+  string name = 5;
+
+  DVector2 covered_size = 11;
+  DVector2 pathfinding_size = 12;
+  DVector2 move_unit_size = 13;
+  DVector2 place_begin = 14;
+  DVector2 place_size = 15;
 }

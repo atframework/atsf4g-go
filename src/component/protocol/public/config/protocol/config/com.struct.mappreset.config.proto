@@ -17,7 +17,8 @@ import "protocol/common/com.struct.layer.common.proto";
 package proy.config;
 
 message MapPresetItem {
-  int32 building_id = 1;
+  int32 building_id = 1
+      [ (org.xresloader.validator) = "ExcelBuilding_building_id" ];
   DVector2 position = 2;
   EnLayerType layer = 3;
 }
@@ -25,11 +26,15 @@ message MapPresetItem {
 message ExcelMapPreset {
   option (xrescode.loader) = {
     file_path : "mappreset.bytes"
-    indexes : { fields : "mappreset_id" index_type : EN_INDEX_IV }
+    indexes : {fields : "mappreset_id" index_type : EN_INDEX_IV}
 
+    tags : "server"
     tags : "client"
   };
 
-  int32 mappreset_id = 1 [ (org.xresloader.field_unique_tag) = "mappreset_id" ];
+  int32 mappreset_id = 1 [
+    (org.xresloader.validator) = "ExcelMapArea_area_id",
+    (org.xresloader.field_unique_tag) = "mappreset_id"
+  ];
   repeated MapPresetItem items = 2;
 }

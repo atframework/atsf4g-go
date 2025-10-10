@@ -13,7 +13,29 @@ import "protocol/extension/v3/xresloader.proto";
 package proy;
 
 enum EnLayerType {
-  EN_LAYER_TYPE_UNKNOW = 0;
-  EN_LAYER_TYPE_GROUND = 1 [ (org.xresloader.enum_alias) = "地表层" ];
-  EN_LAYER_TYPE_FLOOR = 2 [ (org.xresloader.enum_alias) = "地板层" ];
+  EN_LAYER_TYPE_INVALID = 0;
+  EN_LAYER_TYPE_GROUND_INDOOR = 10
+      [ (org.xresloader.enum_alias) = "ground_indoor" ];
+  EN_LAYER_TYPE_GROUND_OUTDOOR = 11
+      [ (org.xresloader.enum_alias) = "ground_outdoor" ];
+  EN_LAYER_TYPE_GROUND_ROOF = 12
+      [ (org.xresloader.enum_alias) = "ground_roof" ];
+  EN_LAYER_TYPE_FLOOR_INDOOR = 40
+      [ (org.xresloader.enum_alias) = "floor_indoor" ];
+  EN_LAYER_TYPE_FLOOR_OUTDOOR = 41
+      [ (org.xresloader.enum_alias) = "floor_outdoor" ];
+  EN_LAYER_TYPE_CARPET = 70 [ (org.xresloader.enum_alias) = "carpet" ];
+  EN_LAYER_TYPE_FURNITURE_GROUND = 100
+      [ (org.xresloader.enum_alias) = "furniture_ground" ];
+  EN_LAYER_TYPE_FURNITURE_TABLE = 140
+      [ (org.xresloader.enum_alias) = "furniture_table" ];
+  EN_LAYER_TYPE_FURNITURE_CABINET = 141
+      [ (org.xresloader.enum_alias) = "furniture_cabinet" ];
+  EN_LAYER_TYPE_WALL_SEPERATOR = 400
+      [ (org.xresloader.enum_alias) = "wall_seperator" ];
+  EN_LAYER_TYPE_WALL_GROUND = 410
+      [ (org.xresloader.enum_alias) = "wall_ground" ];
+  EN_LAYER_TYPE_WALL_PAPER = 440 [ (org.xresloader.enum_alias) = "wall_paper" ];
+  EN_LAYER_TYPE_FURNITURE_CUPBOARD = 470
+      [ (org.xresloader.enum_alias) = "furniture_cupboard" ];
 }

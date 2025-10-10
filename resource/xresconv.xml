@@ -25,7 +25,7 @@
   <list>
     <item name="常量表" cat="misc" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Const.xlsx|常量|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.excel_origin_const_config</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelOriginConstConfig</scheme>
       <scheme name="OutputFile" desc="输出文件名">const.bytes</scheme>
     </item>
     <item name="道具描述总表" cat="item" class="client server">
@@ -47,6 +47,26 @@
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|区块|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelMapArea</scheme>
       <scheme name="OutputFile" desc="输出文件名">maparea.bytes</scheme>
+    </item>
+    <item name="角色表" cat="" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Role.xlsx|角色表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelRole</scheme>
+      <scheme name="OutputFile" desc="输出文件名">role.bytes</scheme>
+    </item>
+    <item name="升级经验表" cat="" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Role.xlsx|升级经验表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelRoleExpUpgrade</scheme>
+      <scheme name="OutputFile" desc="输出文件名">role_exp_upgrade.bytes</scheme>
+    </item>
+    <item name="技能表" cat="" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Skill.xlsx|技能|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelSkill</scheme>
+      <scheme name="OutputFile" desc="输出文件名">skill.bytes</scheme>
+    </item>
+    <item name="预置建筑表" cat="" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|预置建筑|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMapPreset</scheme>
+      <scheme name="OutputFile" desc="输出文件名">mappreset.bytes</scheme>
     </item>
   </list>
 </root>
