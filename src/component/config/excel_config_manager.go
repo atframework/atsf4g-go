@@ -89,7 +89,10 @@ func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_confi
 	// 加载配置逻辑
 	configManagerInst.GetApp().GetLogger().Info("Excel Loading Begin")
 	var callback ExcelConfigCallback
-	loadConfigGroup.Init(callback)
+	err := loadConfigGroup.Init(callback)
+	if err != nil {
+		return err
+	}
 	configManagerInst.GetApp().GetLogger().Info("Excel Loading End")
 	return nil
 }
@@ -142,4 +145,8 @@ func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
 
 func (callback ExcelConfigCallback) GetLogger() *slog.Logger {
 	return GetConfigManager().GetApp().GetLogger()
+}
+
+func (callback ExcelConfigCallback) OnLoaded(config_group *generate_config.ConfigGroup) error {
+	return ExcelConfigCallbackOnLoad(config_group)
 }

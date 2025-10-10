@@ -196,14 +196,9 @@ func CreateAppInstance() AppImpl {
 
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
-	ret.flagSet.Bool("v", false, "print version and exit")
 	ret.flagSet.Bool("version", false, "print version and exit")
-	ret.flagSet.Bool("h", false, "print help and exit")
 	ret.flagSet.Bool("help", false, "print help and exit")
-	ret.flagSet.String("c", "", "config file path")
-	ret.flagSet.String("conf", "", "config file path")
 	ret.flagSet.String("config", "", "config file path")
-	ret.flagSet.String("p", "", "pid file path")
 	ret.flagSet.String("pid", "", "pid file path")
 	ret.flagSet.String("startup-log", "", "startup log file")
 	ret.flagSet.String("startup-error-file", "", "startup error file")
@@ -459,7 +454,7 @@ func (app *AppInstance) Init(arguments []string) error {
 			if app.mode == AppModeStart {
 				app.writeStartupErrorFile(err)
 			}
-			return fmt.Errorf("module init failed: %w", err)
+			return fmt.Errorf("%s module init failed: %w", m.Name(), err)
 		}
 
 		m.Active()
@@ -778,13 +773,17 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 		return err
 	}
 
-	if app.flagSet.Lookup("v").Value.String() == "true" || app.flagSet.Lookup("version").Value.String() == "true" {
+	if app.flagSet.Lookup("config").Value.String() != "" {
+		app.config.ConfigFile = app.flagSet.Lookup("config").Value.String()
+	}
+
+	if app.flagSet.Lookup("version").Value.String() == "true" {
 		app.mode = AppModeInfo
 		println(app.GetBuildVersion())
 		return nil
 	}
 
-	if app.flagSet.Lookup("h").Value.String() == "true" || app.flagSet.Lookup("help").Value.String() == "true" {
+	if app.flagSet.Lookup("help").Value.String() == "true" {
 		app.mode = AppModeHelp
 		return nil
 	}

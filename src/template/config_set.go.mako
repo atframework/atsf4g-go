@@ -9,7 +9,6 @@ import time
 package atframework_component_config_generate_config
 
 import (
-	config_callback "github.com/atframework/atsf4g-go/component-config/config_callback"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	xresloader_pb_header "github.com/xresloader/xresloader/protocol/config"
 	"google.golang.org/protobuf/proto"
@@ -41,7 +40,7 @@ type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} map[configSet$
 
 type ConfigSet${loader.get_go_pb_name()} struct {
     fileList []string
-    callBack config_callback.ConfigCallback
+    callBack ConfigCallback
 
     dataList []*public_protocol_config.${loader.get_go_pb_name()}
 
@@ -54,7 +53,7 @@ type ConfigSet${loader.get_go_pb_name()} struct {
 % endfor
 }
 
-func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack config_callback.ConfigCallback) error {
+func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack ConfigCallback) error {
 %for one_file_path in loader.code.file_path:
     configSet.fileList = append(configSet.fileList, "${one_file_path}")
 %endfor

@@ -15,8 +15,9 @@ func main() {
 		"-i", path.Join("..", "..", "..", "template"),
 		"-p", path.Join(PROJECT_RESOURCE_TARGET_PBDESC_PATH, "public-config.pb"),
 		"-o", path.Join("..", "generate_config"),
-		"-g", path.Join(XresloaderPath, "xres-code-generator", "template", "config_group.go.mako:config_group.go"),
-		"-l", path.Join(XresloaderPath, "xres-code-generator", "template", "config_set.go.mako:${\"config_set_{0}.go\".format(loader.get_go_pb_name())}"),
+		"-g", "config_group.go.mako:config_group.go",
+		"-l", "config_set.go.mako:${\"config_set_{0}.go\".format(loader.get_go_pb_name())}",
+		"-c", "custom_config_group:config_custom_group_field.go.mako",
 		"-t", "server")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

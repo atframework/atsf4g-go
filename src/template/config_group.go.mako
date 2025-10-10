@@ -9,8 +9,15 @@ import time
 package atframework_component_config_generate_config
 
 import (
-	config_callback "github.com/atframework/atsf4g-go/component-config/config_callback"
+	"log/slog"
+	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
 )
+
+type ConfigCallback interface {
+	LoadFile(string) ([]byte, error)
+	GetLogger() *slog.Logger
+	OnLoaded(*ConfigGroup) error
+}
 
 type ConfigGroup struct {
 % for pb_msg in pb_set.generate_message:
@@ -26,12 +33,16 @@ type ConfigGroup struct {
 % endfor
 }
 
-func (configGroup *ConfigGroup) Init(callback config_callback.ConfigCallback) {
+func (configGroup *ConfigGroup) Init(callback ConfigCallback) (err error) {
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
-	configGroup.${loader.get_go_pb_name()}.Init(callback)
+	if err = configGroup.${loader.get_go_pb_name()}.Init(callback); err != nil {
+		return
+	}
 	% endfor
 % endfor
+	err = callback.OnLoaded(configGroup)
+	return
 }
 
 % for pb_msg in pb_set.generate_message:
@@ -42,6 +53,12 @@ func Get_${loader.get_go_pb_name()}_By_${code_index.name}(configGroup *ConfigGro
 	return configGroup.${loader.get_go_pb_name()}.GetBy_${code_index.name}(${code_index.get_go_key_params()})
 }
 func Get_${loader.get_go_pb_name()}_AllOf_${code_index.name}(configGroup *ConfigGroup) *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
+	return configGroup.${loader.get_go_pb_name()}.GetAllOf_${code_index.name}()
+}
+func (configGroup *ConfigGroup) Get_${loader.get_go_pb_name()}_By_${code_index.name}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+	return configGroup.${loader.get_go_pb_name()}.GetBy_${code_index.name}(${code_index.get_go_key_params()})
+}
+func (configGroup *ConfigGroup) Get_${loader.get_go_pb_name()}_AllOf_${code_index.name}() *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
 	return configGroup.${loader.get_go_pb_name()}.GetAllOf_${code_index.name}()
 }
 

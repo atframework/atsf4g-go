@@ -147,11 +147,141 @@ func pickTimestamp(value string) (*timestamppb.Timestamp, error) {
 	// 解析日期时间
 	t, err := time.Parse(time.RFC3339, value)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse timestamp: %v", err)
+		t, err = time.Parse(time.DateTime, value)
+		if err != nil {
+			t, err = time.Parse("2006-01-02 15:04:05Z07:00", value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse timestamp: %v", err)
+			}
+		}
 	}
 
 	// 转换为 protobuf Timestamp
 	return timestamppb.New(t), nil
+}
+
+// 定义字符映射常量
+const (
+	SPLITCHAR = 1 << iota
+	STRINGSYM
+	TRANSLATE
+	CMDSPLIT
+)
+
+// 字符映射数组，最大256个字符
+var mapValue [256]int
+var transValue [256]rune
+
+func initCharSet() {
+	// 如果已初始化则跳过
+	if mapValue[' ']&SPLITCHAR != 0 {
+		return
+	}
+
+	// 设置字符集
+	mapValue[' '] = SPLITCHAR
+	mapValue['\t'] = SPLITCHAR
+	mapValue['\r'] = SPLITCHAR
+	mapValue['\n'] = SPLITCHAR
+
+	// 设置字符串开闭符
+	mapValue['\''] = STRINGSYM
+	mapValue['"'] = STRINGSYM
+
+	// 设置转义字符
+	mapValue['\\'] = TRANSLATE
+
+	// 设置命令分隔符
+	mapValue[' '] |= CMDSPLIT
+	mapValue[','] = CMDSPLIT
+	mapValue[';'] = CMDSPLIT
+
+	// 初始化转义字符
+	for i := 0; i < 256; i++ {
+		transValue[i] = rune(i)
+	}
+
+	// 常见转义字符设置
+	transValue['0'] = '\x00'
+	transValue['a'] = '\a'
+	transValue['b'] = '\b'
+	transValue['f'] = '\f'
+	transValue['r'] = '\r'
+	transValue['n'] = '\n'
+	transValue['t'] = '\t'
+	transValue['v'] = '\v'
+	transValue['\\'] = '\\'
+	transValue['\''] = '\''
+	transValue['"'] = '"'
+}
+
+// getSegment 函数：解析字符串并返回下一个段落
+func getSegment(beginStr string) (string, string) {
+	initCharSet()
+
+	var val strings.Builder
+	var flag rune
+
+	// 去除分隔符前缀
+	beginStr = strings.TrimLeftFunc(beginStr, func(r rune) bool {
+		return (mapValue[r]&SPLITCHAR != 0)
+	})
+
+	i := 0
+	for i < len(beginStr) {
+		ch := rune(beginStr[i])
+
+		if mapValue[ch]&SPLITCHAR != 0 {
+			break
+		}
+
+		if mapValue[ch]&STRINGSYM != 0 {
+			flag = ch
+			i++
+
+			// 处理转义字符
+			for i < len(beginStr) {
+				ch = rune(beginStr[i])
+				if ch == flag {
+					break
+				}
+				if mapValue[ch]&TRANSLATE != 0 && i+1 < len(beginStr) {
+					i++
+					ch = transValue[rune(beginStr[i])]
+				}
+				val.WriteRune(ch)
+				i++
+			}
+			i++ // 跳过结束的 flag 字符
+			break
+		} else {
+			val.WriteRune(ch)
+			i++
+		}
+	}
+
+	i = max(i, len(val.String()))
+	// 去除分隔符后缀
+	beginStr = strings.TrimLeftFunc(beginStr[i:], func(r rune) bool {
+		return (mapValue[r]&SPLITCHAR != 0)
+	})
+
+	return val.String(), beginStr
+}
+
+func splitStringToArray(start string) (result []string) {
+	result = make([]string, 0)
+	for len(start) > 0 {
+		splitedVal, next := getSegment(start)
+		splitedVal = strings.TrimSpace(splitedVal)
+		if splitedVal == "" {
+			start = next
+			continue
+		}
+		result = append(result, splitedVal)
+		start = next
+	}
+	return
 }
 
 func parseStringToYamlData(defaultValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *slog.Logger) (interface{}, error) {
@@ -263,9 +393,9 @@ func checkMinMax(yamlData interface{}, minData interface{}, maxData interface{})
 	} else if minData != nil {
 		// 对比
 		yamlDataV, ok := yamlData.(int64)
-			if !ok {
+		if !ok {
 			return protoreflect.Value{}, fmt.Errorf("convertField Check yamlData expected Int64, got %T", yamlData)
-			}
+		}
 		minDataV, ok := minData.(int64)
 		if !ok {
 			return protoreflect.Value{}, fmt.Errorf("convertField Check MinValue expected Int64, got %T", minData)
@@ -304,19 +434,20 @@ func convertField(yamlData interface{}, minData interface{}, maxData interface{}
 	}
 
 	yamlData, err := checkMinMax(yamlData, minData, maxData)
-			if err != nil {
-				return protoreflect.Value{}, err
+	if err != nil {
+		return protoreflect.Value{}, err
 	}
 
 	// 更新最终值
-	switch fd.Kind() {
-	case protoreflect.BoolKind:
+	switch {
+	case fd.Kind() == protoreflect.BoolKind:
 		if v, ok := yamlData.(bool); ok {
 			return protoreflect.ValueOfBool(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected bool, got %T", yamlData)
 
-	case protoreflect.Int32Kind:
+	case fd.Kind() == protoreflect.Int32Kind || fd.Kind() == protoreflect.Sint32Kind || fd.Kind() == protoreflect.Int64Kind ||
+		fd.Kind() == protoreflect.Sint64Kind || fd.Kind() == protoreflect.Uint32Kind || fd.Kind() == protoreflect.Uint64Kind:
 		if v, ok := yamlData.(int); ok {
 			return protoreflect.ValueOfInt32(int32(v)), nil
 		}
@@ -326,75 +457,44 @@ func convertField(yamlData interface{}, minData interface{}, maxData interface{}
 		if v, ok := yamlData.(int64); ok {
 			return protoreflect.ValueOfInt64(int64(v)), nil
 		}
-		return protoreflect.Value{}, fmt.Errorf("expected int32, got %T", yamlData)
-	case protoreflect.Sint32Kind:
-		if v, ok := yamlData.(int); ok {
-			return protoreflect.ValueOfInt32(int32(v)), nil
-		}
-		if v, ok := yamlData.(int32); ok {
-			return protoreflect.ValueOfInt32(int32(v)), nil
-		}
-		if v, ok := yamlData.(int64); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		return protoreflect.Value{}, fmt.Errorf("expected int32, got %T", yamlData)
-	case protoreflect.Int64Kind:
-		if v, ok := yamlData.(int); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		if v, ok := yamlData.(int32); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		if v, ok := yamlData.(int64); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		return protoreflect.Value{}, fmt.Errorf("expected Int64, got %T", yamlData)
-	case protoreflect.Sint64Kind:
-		if v, ok := yamlData.(int); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		if v, ok := yamlData.(int32); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		if v, ok := yamlData.(int64); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		return protoreflect.Value{}, fmt.Errorf("expected Int64, got %T", yamlData)
-	case protoreflect.Uint32Kind:
-		if v, ok := yamlData.(int); ok {
+		if v, ok := yamlData.(uint); ok {
 			return protoreflect.ValueOfUint32(uint32(v)), nil
 		}
 		if v, ok := yamlData.(uint32); ok {
 			return protoreflect.ValueOfUint32(uint32(v)), nil
 		}
-		if v, ok := yamlData.(int64); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
-		}
-		return protoreflect.Value{}, fmt.Errorf("expected uint32, got %T", yamlData)
-	case protoreflect.Uint64Kind:
-		if v, ok := yamlData.(int); ok {
-			return protoreflect.ValueOfUint64(uint64(v)), nil
-		}
 		if v, ok := yamlData.(uint64); ok {
 			return protoreflect.ValueOfUint64(uint64(v)), nil
 		}
-		if v, ok := yamlData.(int64); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
+		if v, ok := yamlData.(bool); ok {
+			if v {
+				return protoreflect.ValueOfInt32(1), nil
+			} else {
+				return protoreflect.ValueOfInt32(0), nil
+			}
 		}
-		return protoreflect.Value{}, fmt.Errorf("expected uint64, got %T", yamlData)
-	case protoreflect.StringKind:
+		if v, ok := yamlData.(string); ok {
+			value, _, err := pickNumber(v, false)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfInt64(value), nil
+		}
+		return protoreflect.Value{}, fmt.Errorf("expected Int64, got %T", yamlData)
+
+	case fd.Kind() == protoreflect.StringKind:
 		if v, ok := yamlData.(string); ok {
 			return protoreflect.ValueOfString(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected string, got %T", yamlData)
 
-	case protoreflect.FloatKind:
+	case fd.Kind() == protoreflect.FloatKind:
 		if v, ok := yamlData.(float32); ok {
 			return protoreflect.ValueOfFloat32(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected float32, got %T", yamlData)
 
-	case protoreflect.MessageKind:
+	case fd.Kind() == protoreflect.MessageKind:
 		if v, ok := yamlData.(*timestamppb.Timestamp); ok {
 			return protoreflect.ValueOfMessage(v.ProtoReflect()), nil
 		}
@@ -558,7 +658,7 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 	return convertField(yamlData, minValue, maxValue, fd, logger)
 }
 
-func parseMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
+func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
 	len := msg.ProtoReflect().Descriptor().Fields().Len()
 	for i := 0; i < len; i++ {
 		fd := msg.ProtoReflect().Descriptor().Fields().Get(i)
@@ -608,30 +708,45 @@ func parseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 			if yamlData == nil {
 				continue
 			}
-			innerList, ok := yamlData[fieldName].([]interface{})
-			if ok && innerList != nil {
-				for _, item := range innerList {
-					if fd.Kind() == protoreflect.MessageKind {
-						if fd.Message().FullName() != proto.MessageName(&durationpb.Duration{}) &&
-							fd.Message().FullName() != proto.MessageName(&timestamppb.Timestamp{}) {
-							// Message
-							innerMap, ok := item.(map[string]interface{})
-							if ok {
-								if err := parseMessage(innerMap, msg.ProtoReflect().Mutable(fd).List().AppendMutable().Message().Interface(), logger); err != nil {
-									return err
-								}
+			innerData, ok := yamlData[fieldName]
+			if !ok || innerData == nil {
+				continue
+			}
+			innerList, ok := innerData.([]interface{})
+			if !ok {
+				// 可能是string的Array 切割
+				innerString, ok := innerData.(string)
+				if !ok {
+					// 分割 innerString
+					continue
+				}
+				stringSlice := splitStringToArray(innerString)
+				for _, v := range stringSlice {
+					innerList = append(innerList, v)
+				}
+			}
+
+			for _, item := range innerList {
+				if fd.Kind() == protoreflect.MessageKind {
+					if fd.Message().FullName() != proto.MessageName(&durationpb.Duration{}) &&
+						fd.Message().FullName() != proto.MessageName(&timestamppb.Timestamp{}) {
+						// Message
+						innerMap, ok := item.(map[string]interface{})
+						if ok {
+							if err := ParseMessage(innerMap, msg.ProtoReflect().Mutable(fd).List().AppendMutable().Message().Interface(), logger); err != nil {
+								return err
 							}
-							continue
 						}
+						continue
 					}
-					// 非Message
-					value, err := parseField(item, fd, logger)
-					if err != nil {
-						return err
-					}
-					if value.IsValid() {
-						msg.ProtoReflect().Mutable(fd).List().Append(value)
-					}
+				}
+				// 非Message
+				value, err := parseField(item, fd, logger)
+				if err != nil {
+					return err
+				}
+				if value.IsValid() {
+					msg.ProtoReflect().Mutable(fd).List().Append(value)
 				}
 			}
 			continue
@@ -642,25 +757,25 @@ func parseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 				fd.Message().FullName() != proto.MessageName(&timestamppb.Timestamp{}) {
 				// 需要继续解析的字段
 				if yamlData == nil {
-					if err := parseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+					if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
 					}
 					continue
 				}
 				if field_match {
 					// 在同层查找
-					if err := parseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+					if err := ParseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
 					}
 				} else {
-				innerMap, ok := yamlData[fieldName].(map[string]interface{})
-				if ok {
-						if err := parseMessage(innerMap, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
-						return err
-					}
-				} else {
-						if err := parseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
-						return err
+					innerMap, ok := yamlData[fieldName].(map[string]interface{})
+					if ok {
+						if err := ParseMessage(innerMap, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+							return err
+						}
+					} else {
+						if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+							return err
 						}
 					}
 				}
@@ -698,6 +813,6 @@ func LoadConfigFromYaml(configPath string, firstPath string, configPb proto.Mess
 	}
 
 	atappData := yamlData[firstPath].(map[string]interface{})
-	err = parseMessage(atappData, configPb, logger)
+	err = ParseMessage(atappData, configPb, logger)
 	return
 }
