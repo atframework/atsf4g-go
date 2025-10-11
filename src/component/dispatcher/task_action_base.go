@@ -2,6 +2,7 @@ package atframework_component_dispatcher
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -30,7 +31,7 @@ type TaskActionBase struct {
 
 func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskActionBase {
 	return TaskActionBase{
-		taskId:          rd.AllocSequence(),
+		taskId:          rd.AllocTaskId(),
 		responseCode:    0,
 		prepareHookRun:  false,
 		rpcContext:      nil,
@@ -258,4 +259,13 @@ func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *RpcResult
 	}
 
 	return nil
+}
+
+func (t *TaskActionBase) GetLogger() *slog.Logger {
+	d := t.GetDispatcher()
+	if d == nil {
+		return slog.Default()
+	}
+
+	return d.GetLogger()
 }

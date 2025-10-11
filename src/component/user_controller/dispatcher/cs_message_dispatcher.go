@@ -11,7 +11,9 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+
+	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	uc_act "github.com/atframework/atsf4g-go/component-user_controller/action"
 )
 
 type SessionNetworkWebsocketHandle struct {
@@ -60,8 +62,8 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *cd.WebSocketMes
 
 	d.SetOnNewSession(func(ctx *cd.RpcContext, session *cd.WebSocketSession) error {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
-		sessionKey := CreateSessionKey(owner.GetAppId(), session.SessionId)
-		session.PrivateData = GlobalSessionManager.CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
+		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
+		session.PrivateData = uc.GlobalSessionManager.CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
 			dispatcher:     d,
 			networkSession: session,
 		})
@@ -71,10 +73,9 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *cd.WebSocketMes
 
 	d.SetOnRemoveSession(func(ctx *cd.RpcContext, session *cd.WebSocketSession) {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
-		sessionKey := CreateSessionKey(owner.GetAppId(), session.SessionId)
+		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
 
-		// TODO: 接入gateway层reason
-		GlobalSessionManager.RemoveSession(ctx, &sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_SESSION_NOT_FOUND), "closed by client")
+		uc_act.RemoveSessionAndMaybeLogoutUser(d, ctx, &sessionKey)
 	})
 
 	return d
@@ -83,7 +84,7 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *cd.WebSocketMes
 func WebsocketDispatcherFindSessionFromMessage(
 	rd cd.DispatcherImpl, msg *cd.DispatcherRawMessage,
 	privateData interface{},
-) *Session {
+) *uc.Session {
 	if privateData != nil {
 		switch privateData.(type) {
 		case *cd.WebSocketSession:
@@ -92,7 +93,7 @@ func WebsocketDispatcherFindSessionFromMessage(
 				return nil
 			}
 
-			return s.(*Session)
+			return s.(*uc.Session)
 		}
 	}
 
@@ -102,7 +103,7 @@ func WebsocketDispatcherFindSessionFromMessage(
 type FindCSMessageSession = func(
 	rd cd.DispatcherImpl, msg *cd.DispatcherRawMessage,
 	privateData interface{},
-) *Session
+) *uc.Session
 
 func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Message](
 	rd cd.DispatcherImpl, findSessionFn FindCSMessageSession,

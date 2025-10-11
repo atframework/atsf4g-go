@@ -15,7 +15,7 @@ import (
 	"fmt"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
 
 	sp "${protocol_go_module}"
 
@@ -37,7 +37,7 @@ import (
 )
 
 func RegisterLobbyClientService(
-	rd cd.DispatcherImpl, findSessionFn uc.FindCSMessageSession,
+	rd cd.DispatcherImpl, findSessionFn uc_d.FindCSMessageSession,
 ) error {
 	svc := sp.File_${ service.file.get_name().replace("/", "_").replace("\\", "_").replace(".", "_") }.Services().ByName("${service.get_name()}")
 	if svc == nil {
@@ -54,7 +54,7 @@ func RegisterLobbyClientService(
 			sub_module_path = sub_module_path + "/action"
 			sub_module_name = sub_module_path.replace("/", "_").replace("\\", "_").replace(".", "_")
 %>\
-	uc.RegisterCSMessageAction(
+	uc_d.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "${ rpc.get_full_name() }",
 		func(base cd.TaskActionCSBase[*sp.${ rpc.get_request().get_name() }, *sp.${ rpc.get_response().get_name() }]) cd.TaskActionImpl {
 			return &${sub_module_name}.TaskAction${ rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL) }{TaskActionCSBase: base}

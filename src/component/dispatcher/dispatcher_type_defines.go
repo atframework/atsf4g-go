@@ -7,7 +7,7 @@ import (
 )
 
 type RpcContext struct {
-	Logger *slog.Logger
+	logger *slog.Logger
 
 	Context  context.Context
 	CancelFn context.CancelFunc

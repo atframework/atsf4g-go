@@ -1,7 +1,6 @@
 package lobbysvr_data
 
 import (
-	"log/slog"
 	"reflect"
 	"slices"
 	"time"
@@ -78,26 +77,15 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 		prev := ret.itemManagerList[i-1]
 		curr := ret.itemManagerList[i]
 		if prev.idRange.endTypeId >= curr.idRange.beginTypeId {
-			if ctx.Logger != nil {
-				ctx.Logger.Error("user item manager type id range conflict",
-					"prev_manager", reflect.TypeOf(prev.manager).String(),
-					"curr_manager", reflect.TypeOf(curr.manager).String(),
-					"prev_range", prev.idRange,
-					"prev_begin", prev.idRange.beginTypeId,
-					"prev_end", prev.idRange.endTypeId,
-					"curr_begin", curr.idRange.beginTypeId,
-					"curr_end", curr.idRange.endTypeId,
-				)
-			} else {
-				slog.Error("user item manager type id range conflict",
-					"prev_manager", reflect.TypeOf(prev.manager).String(),
-					"curr_manager", reflect.TypeOf(curr.manager).String(),
-					"prev_range", prev.idRange,
-					"prev_begin", prev.idRange.beginTypeId,
-					"prev_end", prev.idRange.endTypeId,
-					"curr_begin", curr.idRange.beginTypeId,
-					"curr_end", curr.idRange.endTypeId)
-			}
+			ctx.GetLogger().Error("user item manager type id range conflict",
+				"prev_manager", reflect.TypeOf(prev.manager).String(),
+				"curr_manager", reflect.TypeOf(curr.manager).String(),
+				"prev_range", prev.idRange,
+				"prev_begin", prev.idRange.beginTypeId,
+				"prev_end", prev.idRange.endTypeId,
+				"curr_begin", curr.idRange.beginTypeId,
+				"curr_end", curr.idRange.endTypeId,
+			)
 		}
 	}
 

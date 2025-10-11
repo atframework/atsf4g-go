@@ -30,8 +30,10 @@ type DispatcherImpl interface {
 	GetInstanceIdent() uint64
 	IsClosing(rd DispatcherImpl) bool
 
+	AllocTaskId() uint64
 	AllocSequence() uint64
 	GetNow() time.Time
+	GetLogger() *slog.Logger
 
 	OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
 	OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error)
@@ -49,6 +51,14 @@ type DispatcherImpl interface {
 
 	PushFrontMessageFilter(handle MessageFilterHandler)
 	PushBackMessageFilter(handle MessageFilterHandler)
+}
+
+func (ctx *RpcContext) GetLogger() *slog.Logger {
+	if ctx.logger != nil {
+		return ctx.logger
+	}
+
+	return slog.Default()
 }
 
 type taskActionCreatorData struct {
@@ -96,6 +106,21 @@ func (dispatcher *DispatcherBase) IsClosing(_rd DispatcherImpl) bool {
 	return dispatcher.GetApp().IsClosing()
 }
 
+var taskIdAllocator = atomic.Uint64{}
+
+func (dispatcher *DispatcherBase) AllocTaskId() uint64 {
+	ret := taskIdAllocator.Add(1)
+	if ret <= 1 {
+		taskIdAllocator.Store(
+			// 使用时间戳作为初始值, 避免与重启前的值冲突
+			uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()),
+		)
+		ret = taskIdAllocator.Add(1)
+	}
+
+	return ret
+}
+
 func (dispatcher *DispatcherBase) AllocSequence() uint64 {
 	return dispatcher.sequenceAllocator.Add(1)
 }
@@ -105,28 +130,37 @@ func (dispatcher *DispatcherBase) GetNow() time.Time {
 	return time.Now()
 }
 
+func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {
+	app := dispatcher.GetApp()
+	if app == nil {
+		return slog.Default()
+	}
+
+	return app.GetLogger()
+}
+
 func (dispatcher *DispatcherBase) CreateRpcContext() *RpcContext {
 	return &RpcContext{
-		Logger: dispatcher.GetApp().GetLogger(),
+		logger: dispatcher.GetLogger(),
 	}
 }
 
 func (dispatcher *DispatcherBase) OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
-	rd.GetApp().GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
+	rd.GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
 }
 
 func (dispatcher *DispatcherBase) OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error) {
-	rd.GetApp().GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", rd.PickMessageRpcName(startData.Message))
+	rd.GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", rd.PickMessageRpcName(startData.Message))
 }
 
 func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
 	if msg == nil || msg.Instance == nil {
-		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
+		dispatcher.GetLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message can not be nil")
 	}
 
 	if msg.Type != rd.GetInstanceIdent() {
-		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage message type mismatch", "expect", rd.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
+		dispatcher.GetLogger().Error("OnReceiveMessage message type mismatch", "expect", rd.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message type mismatch, expect %d, got %d", rd.GetInstanceIdent(), msg.Type)
 	}
 
@@ -158,7 +192,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 
 	action, err := rd.CreateTask(rd, startData)
 	if err != nil {
-		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg))
+		dispatcher.GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg))
 		dispatcher.OnCreateTaskFailed(rd, startData, err)
 
 		if rpcContext.CancelFn != nil {
@@ -171,7 +205,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 
 	err = RunTaskAction(rd.GetApp(), action, startData)
 	if err != nil {
-		dispatcher.GetApp().GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
+		dispatcher.GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
 		if rpcContext.CancelFn != nil {
 			cancelFn := rpcContext.CancelFn
 			rpcContext.CancelFn = nil
@@ -216,7 +250,7 @@ func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.
 	rpcShortName := rpcFullName[strings.LastIndex(rpcFullName, ".")+1:]
 	methodDescriptor := serviceDescriptor.Methods().ByName(protoreflect.Name(rpcShortName))
 	if methodDescriptor == nil {
-		dispatcher.GetApp().GetLogger().Error("RegisterAction method not found", "method", rpcShortName, "service", serviceFullName)
+		dispatcher.GetLogger().Error("RegisterAction method not found", "method", rpcShortName, "service", serviceFullName)
 		return fmt.Errorf("RegisterAction method %s not found in service %s", rpcShortName, serviceFullName)
 	}
 
@@ -326,10 +360,11 @@ func (der *RpcResult) GetErrorString() string {
 
 func (der *RpcResult) WriteLogContext(c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
 	if der.IsOK() {
-		if ctx != nil && ctx.Logger != nil {
-			ctx.Logger.Log(c, level, msg, args...)
+		if ctx != nil {
+			ctx.GetLogger().Log(c, level, msg, args...)
+		} else {
+			slog.Log(c, level, msg, args...)
 		}
-		slog.Log(c, level, msg, args...)
 		return
 	}
 
@@ -340,12 +375,11 @@ func (der *RpcResult) WriteLogContext(c context.Context, level slog.Level, ctx *
 		args = append(args, slog.Int64("response_code", int64(der.ResponseCode)), slog.String("response_message", der.GetResponseMessage()))
 	}
 
-	if ctx != nil && ctx.Logger != nil {
-		ctx.Logger.Log(c, level, msg, args...)
-		return
+	if ctx != nil {
+		ctx.GetLogger().Log(c, level, msg, args...)
+	} else {
+		slog.Log(c, level, msg, args...)
 	}
-
-	slog.Log(c, level, msg, args...)
 }
 
 func (der *RpcResult) WriteLog(level slog.Level, ctx *RpcContext, msg string, args ...any) {

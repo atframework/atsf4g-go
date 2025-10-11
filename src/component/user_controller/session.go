@@ -2,13 +2,12 @@ package atframework_component_user_controller
 
 import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 )
 
 type SessionNetworkHandleImpl interface {
-	GetDispatcher() component_dispatcher.DispatcherImpl
+	GetDispatcher() cd.DispatcherImpl
 
 	SendMessage(*public_protocol_extension.CSMsg) error
 	SetAuthorized(bool)
@@ -22,7 +21,7 @@ type SessionKey struct {
 }
 
 type SessionImpl interface {
-	component_dispatcher.TaskActionCSSession
+	cd.TaskActionCSSession
 
 	GetKey() *SessionKey
 }
@@ -84,12 +83,20 @@ func (s *Session) AllocSessionSequence() uint64 {
 	return s.sessionSequenceAllocator
 }
 
-func (s *Session) GetUser() component_dispatcher.TaskActionCSUser {
+func (s *Session) GetUser() cd.TaskActionCSUser {
 	return s.user
 }
 
-func (s *Session) BindUser(ctx *cd.RpcContext, bindUser component_dispatcher.TaskActionCSUser) {
+func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	if s.user == bindUser {
+		return
+	}
+
+	if bindUser == nil {
+		if s.user != nil {
+			s.user.UnbindSession(s.user, ctx, s)
+		}
+		s.user = nil
 		return
 	}
 
@@ -102,11 +109,24 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser component_dispatcher.Tas
 		s.user.UnbindSession(convertUser, ctx, s)
 	}
 
+	// 覆盖旧绑定
 	s.user = convertUser
 	convertUser.BindSession(convertUser, ctx, s)
 
 	if s.user != nil {
 		s.networkHandle.SetAuthorized(true)
+	}
+}
+
+func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
+	if bindUser != nil && s.user != bindUser {
+		return
+	}
+
+	user := s.user
+	s.user = nil
+	if user != nil {
+		user.UnbindSession(user, ctx, s)
 	}
 }
 

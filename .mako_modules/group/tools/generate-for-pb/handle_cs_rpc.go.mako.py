@@ -5,7 +5,7 @@ STOP_RENDERING = runtime.STOP_RENDERING
 __M_dict_builtin = dict
 __M_locals_builtin = locals
 _magic_number = 10
-_modified_time = 1760156296.547742
+_modified_time = 1760205104.1450393
 _enable_loop = True
 _template_filename = 'D:/workspace/git/github/atsf4g-go/src/template/handle_cs_rpc.go.mako'
 _template_uri = 'handle_cs_rpc.go.mako'
@@ -23,15 +23,15 @@ def render_body(context,**pageargs):
     __M_caller = context.caller_stack._push_frame()
     try:
         __M_locals = __M_dict_builtin(pageargs=pageargs)
-        set = context.get('set', UNDEFINED)
+        PbConvertRule = context.get('PbConvertRule', UNDEFINED)
         service_go_package_prefix = context.get('service_go_package_prefix', UNDEFINED)
-        rpcs = context.get('rpcs', UNDEFINED)
-        service_go_module = context.get('service_go_module', UNDEFINED)
         output_render_path = context.get('output_render_path', UNDEFINED)
+        protocol_go_module = context.get('protocol_go_module', UNDEFINED)
         generator = context.get('generator', UNDEFINED)
         service = context.get('service', UNDEFINED)
-        PbConvertRule = context.get('PbConvertRule', UNDEFINED)
-        protocol_go_module = context.get('protocol_go_module', UNDEFINED)
+        set = context.get('set', UNDEFINED)
+        rpcs = context.get('rpcs', UNDEFINED)
+        service_go_module = context.get('service_go_module', UNDEFINED)
         __M_writer = context.writer()
 
         module_name = service.get_extension_field("service_options", lambda x: x.module_name, service.get_name_lower_rule())
@@ -49,7 +49,7 @@ def render_body(context,**pageargs):
         __M_writer(", please don't edit it\r\n\r\npackage ")
         __M_writer(str( service_go_package_prefix ))
         __M_writer(str( os.path.dirname(output_render_path).replace("/", "_").replace("\\", "_") ))
-        __M_writer('\r\n\r\nimport (\r\n\t"fmt"\r\n\r\n\tcd "github.com/atframework/atsf4g-go/component-dispatcher"\r\n\tuc "github.com/atframework/atsf4g-go/component-user_controller"\r\n\r\n\tsp "')
+        __M_writer('\r\n\r\nimport (\r\n\t"fmt"\r\n\r\n\tcd "github.com/atframework/atsf4g-go/component-dispatcher"\r\n\tuc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"\r\n\r\n\tsp "')
         __M_writer(str(protocol_go_module))
         __M_writer('"\r\n\r\n')
         for rpc in rpcs.values():
@@ -67,7 +67,7 @@ def render_body(context,**pageargs):
             
             
             __M_locals_builtin_stored = __M_locals_builtin()
-            __M_locals.update(__M_dict_builtin([(__M_key, __M_locals_builtin_stored[__M_key]) for __M_key in ['sub_module_name','sub_module_path'] if __M_key in __M_locals_builtin_stored]))
+            __M_locals.update(__M_dict_builtin([(__M_key, __M_locals_builtin_stored[__M_key]) for __M_key in ['sub_module_path','sub_module_name'] if __M_key in __M_locals_builtin_stored]))
             __M_writer('\t')
             __M_writer(str(sub_module_name))
             __M_writer(' "')
@@ -75,7 +75,7 @@ def render_body(context,**pageargs):
             __M_writer('/')
             __M_writer(str(sub_module_path))
             __M_writer('"\r\n')
-        __M_writer(')\r\n\r\nfunc RegisterLobbyClientService(\r\n\trd cd.DispatcherImpl, findSessionFn uc.FindCSMessageSession,\r\n) error {\r\n\tsvc := sp.File_')
+        __M_writer(')\r\n\r\nfunc RegisterLobbyClientService(\r\n\trd cd.DispatcherImpl, findSessionFn uc_d.FindCSMessageSession,\r\n) error {\r\n\tsvc := sp.File_')
         __M_writer(str( service.file.get_name().replace("/", "_").replace("\\", "_").replace(".", "_") ))
         __M_writer('.Services().ByName("')
         __M_writer(str(service.get_name()))
@@ -96,8 +96,8 @@ def render_body(context,**pageargs):
                 
                 
                 __M_locals_builtin_stored = __M_locals_builtin()
-                __M_locals.update(__M_dict_builtin([(__M_key, __M_locals_builtin_stored[__M_key]) for __M_key in ['sub_module_name','sub_module_path'] if __M_key in __M_locals_builtin_stored]))
-                __M_writer('\tuc.RegisterCSMessageAction(\r\n\t\trd, findSessionFn, svc, "')
+                __M_locals.update(__M_dict_builtin([(__M_key, __M_locals_builtin_stored[__M_key]) for __M_key in ['sub_module_path','sub_module_name'] if __M_key in __M_locals_builtin_stored]))
+                __M_writer('\tuc_d.RegisterCSMessageAction(\r\n\t\trd, findSessionFn, svc, "')
                 __M_writer(str( rpc.get_full_name() ))
                 __M_writer('",\r\n\t\tfunc(base cd.TaskActionCSBase[*sp.')
                 __M_writer(str( rpc.get_request().get_name() ))
