@@ -14,11 +14,13 @@ import "google/protobuf/empty.proto";
 
 import "protocol/extension/atframework.proto";
 
-import "protocol/pbdesc/lobbysvr.com.protocol.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.user.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.building.proto";
 
 package proy;
 
 service LobbyClientService {
+  /////////////////////////// user /////////////////////////////
   rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
     option (atframework.rpc_options) = {
       module_name : "user"
@@ -62,4 +64,28 @@ service LobbyClientService {
       api_name : "Push dirty data"
     };
   };
+  /////////////////////////// user /////////////////////////////
+
+  /////////////////////////// building /////////////////////////////
+  rpc building_place(CSBuildingPlaceReq) returns (CSBuildingPlaceRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "building"
+      api_name : "放置建筑"
+    };
+  };
+
+  rpc building_store(CSBuildingStoreReq) returns (CSBuildingStoreRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "building"
+      api_name : "回收建筑"
+    };
+  };
+
+  rpc building_move(CSBuildingMoveReq) returns (CSBuildingMoveRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "building"
+      api_name : "移动建筑"
+    };
+  };
+  /////////////////////////// building /////////////////////////////
 }

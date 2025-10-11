@@ -8,9 +8,6 @@ option cc_enable_arenas = true;
 
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
 
-import "protocol/extension/xrescode_extensions_v3.proto";
-import "protocol/extension/v3/xresloader.proto";
-
 package proy;
 
 message DAttrbute {

@@ -10,10 +10,6 @@ option cc_generic_services = true;
 
 option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
 
-import "google/protobuf/empty.proto";
-
-import "protocol/extension/atframework.proto";
-
 import "protocol/common/com.struct.item.common.proto";
 
 import "protocol/pbdesc/com.const.proto";
