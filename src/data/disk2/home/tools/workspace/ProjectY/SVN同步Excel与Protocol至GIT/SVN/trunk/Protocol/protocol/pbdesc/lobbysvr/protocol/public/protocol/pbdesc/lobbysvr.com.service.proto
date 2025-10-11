@@ -1,0 +1,65 @@
+syntax = "proto3";
+// 前后台通信协议定义
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+option cc_generic_services = true;
+
+option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
+
+import "google/protobuf/empty.proto";
+
+import "protocol/extension/atframework.proto";
+
+import "protocol/pbdesc/lobbysvr.com.protocol.proto";
+
+package proy;
+
+service LobbyClientService {
+  rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "Authorization"
+    };
+  };
+
+  rpc login(CSLoginReq) returns (SCLoginRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "Login"
+    };
+  };
+
+  rpc ping(CSPingReq) returns (SCPongRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "Ping/pong"
+    };
+  };
+
+  rpc access_update(CSAccessUpdateReq) returns (SCAccessUpdateRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "Update access token"
+    };
+  };
+
+  rpc user_get_info(CSUserGetInfoReq) returns (SCUserGetInfoRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "Get user data"
+    };
+  };
+
+  // Use stream request to disable waiting for response
+  rpc user_dirty_chg_sync(google.protobuf.Empty)
+      returns (stream SCUserDirtyChgSync) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "Push dirty data"
+    };
+  };
+}
