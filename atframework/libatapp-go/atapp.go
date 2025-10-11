@@ -191,7 +191,7 @@ func CreateAppInstance() AppImpl {
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
-		logger:        slog.Default(),
+		logger:        slog.New(&logFileHandler{}),
 	}
 
 	ret.flagSet = flag.NewFlagSet(
