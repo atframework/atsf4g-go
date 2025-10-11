@@ -8,8 +8,6 @@ option cc_enable_arenas = true;
 
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
 
-import "google/protobuf/timestamp.proto";
-
 package proy;
 
 message database_table_service_configure_data {

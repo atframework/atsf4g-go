@@ -62,8 +62,8 @@ type UserModuleManagerBase struct {
 	owner *User
 }
 
-func CreateUserModuleManagerBase(owner *User) UserModuleManagerBase {
-	return UserModuleManagerBase{
+func CreateUserModuleManagerBase(owner *User) *UserModuleManagerBase {
+	return &UserModuleManagerBase{
 		owner: owner,
 	}
 }

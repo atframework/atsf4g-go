@@ -20,7 +20,4 @@ require (
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 )
 
-require (
-	github.com/xresloader/xres-code-generator v0.0.0-00010101000000-000000000000 // indirect
-	github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect
-)
+require github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect

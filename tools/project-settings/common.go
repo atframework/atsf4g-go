@@ -27,6 +27,22 @@ func ServiceBinName(name string) string {
 	return binName(name)
 }
 
+func RmDirFile(path string) error {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		path := filepath.Join(path, entry.Name())
+		err := os.RemoveAll(path) // 删除文件或子目录
+		if err != nil {
+			return fmt.Errorf("failed to remove %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
 func CopyFile(src, dest string) error {
 	// 打开源文件
 	sourceFile, err := os.Open(src)
