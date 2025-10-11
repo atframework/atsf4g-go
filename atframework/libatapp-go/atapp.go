@@ -19,6 +19,7 @@ import (
 
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"github.com/panjf2000/ants/v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // App 应用模式
@@ -170,6 +171,10 @@ type AppInstance struct {
 	// 信号处理
 	signalChan chan os.Signal
 
+	// 日志缓存数据
+	logFrameInfoCache sync.Map
+	logStackCache     sync.Map
+
 	// 日志
 	logger *slog.Logger
 
@@ -191,8 +196,9 @@ func CreateAppInstance() AppImpl {
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
-		logger:        slog.New(&logFileHandler{}),
 	}
+
+	ret.InitLog()
 
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
@@ -274,6 +280,31 @@ func (app *AppInstance) SetFlag(flag AppFlag, value bool) bool {
 			return old&uint64(flag) != 0
 		}
 	}
+}
+
+func (app *AppInstance) InitLog() error {
+	handler := logHandlerImpl{
+		writers: []logHandlerWriter{
+			{
+				out: &lumberjack.Logger{
+					Filename:   "./a.log",
+					MaxSize:    500, // megabytes
+					MaxBackups: 3,
+					MaxAge:     28,   //days
+					Compress:   true, // disabled by default
+				},
+				enableStackTrace: true,
+			},
+			{
+				out: os.Stdout,
+			},
+		},
+		frameInfoCache: &app.logFrameInfoCache,
+		stackCache:     &app.logStackCache,
+	}
+
+	app.logger = slog.New(&handler)
+	return nil
 }
 
 func (app *AppInstance) IsInited() bool  { return app.CheckFlag(AppFlagInitialized) }

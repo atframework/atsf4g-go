@@ -3,6 +3,7 @@ package libatapp
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"runtime"
@@ -11,27 +12,34 @@ import (
 	"time"
 )
 
-type logFileHandler struct {
+type logHandlerWriter struct {
+	out io.Writer
+
 	level            slog.Level
 	enableStackTrace bool
 	stackTraceLevel  slog.Level
-
-	frameInfoCache sync.Map // pc -> runtime.Frame
-	stackCache     sync.Map // stackKey -> string
 }
 
-type logFileInfo struct {
-	file string
-	line int
+type logHandlerImpl struct {
+	writers []logHandlerWriter
+
+	frameInfoCache *sync.Map // pc -> runtime.Frame
+	stackCache     *sync.Map // stackKey -> string
 }
 
-func (h *logFileHandler) getFrameInfo(pc uintptr) *logFileInfo {
+type frameInfo struct {
+	function string
+	file     string
+	line     int
+}
+
+func (h *logHandlerImpl) getFrameInfo(pc uintptr) *frameInfo {
 	if f, ok := h.frameInfoCache.Load(pc); ok {
-		return f.(*logFileInfo)
+		return f.(*frameInfo)
 	}
 	frames := runtime.CallersFrames([]uintptr{pc})
 	frame, _ := frames.Next()
-	info := logFileInfo{
+	info := frameInfo{
 		file: filepath.Base(frame.File),
 		line: frame.Line,
 	}
@@ -40,24 +48,20 @@ func (h *logFileHandler) getFrameInfo(pc uintptr) *logFileInfo {
 }
 
 // 获取完整堆栈（缓存）
-func (h *logFileHandler) getStack(pc uintptr) string {
+func (h *logHandlerImpl) getStack(pc uintptr) string {
 	if s, ok := h.stackCache.Load(pc); ok {
 		return s.(string)
 	}
 
 	buf := make([]uintptr, 32)
-	n := runtime.Callers(5, buf)
+	n := runtime.Callers(6, buf)
 
 	frames := runtime.CallersFrames(buf[:n])
 
-	type frameInfo struct {
-		fn, file string
-		line     int
-	}
 	var stack []frameInfo
 	for {
 		f, more := frames.Next()
-		stack = append(stack, frameInfo{fn: f.Function, file: filepath.Base(f.File), line: f.Line})
+		stack = append(stack, frameInfo{function: f.Function, file: filepath.Base(f.File), line: f.Line})
 		if !more {
 			break
 		}
@@ -69,7 +73,7 @@ func (h *logFileHandler) getStack(pc uintptr) string {
 
 	var sb strings.Builder
 	for _, f := range stack {
-		sb.WriteString(fmt.Sprintf("  at %s (%s:%d)\n", f.fn, f.file, f.line))
+		sb.WriteString(fmt.Sprintf("  at %s (%s:%d)\n", f.function, f.file, f.line))
 	}
 
 	stackStr := sb.String()
@@ -77,11 +81,20 @@ func (h *logFileHandler) getStack(pc uintptr) string {
 	return stackStr
 }
 
-func (h *logFileHandler) Enabled(_ context.Context, level slog.Level) bool {
+func (h *logHandlerWriter) Enabled(level slog.Level) bool {
 	return level >= h.level
 }
 
-func (h *logFileHandler) Handle(_ context.Context, r slog.Record) error {
+func (h *logHandlerImpl) Enabled(_ context.Context, level slog.Level) bool {
+	for k, _ := range h.writers {
+		if h.writers[k].Enabled(level) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	// 时间
 	ts := r.Time.Format(time.DateTime)
 
@@ -102,28 +115,29 @@ func (h *logFileHandler) Handle(_ context.Context, r slog.Record) error {
 		return true
 	})
 
-	if h.enableStackTrace && r.Level >= h.stackTraceLevel && r.PC != 0 {
-		sb.WriteString("\nStacktrace:\n")
-		sb.WriteString(h.getStack(r.PC))
+	var stackTrace []byte
+	for k, _ := range h.writers {
+		// 写入基础日志
+		h.writers[k].out.Write([]byte(sb.String()))
+		if r.PC != 0 && h.writers[k].enableStackTrace && r.Level >= h.writers[k].stackTraceLevel {
+			// 需要StackTrace
+			if len(stackTrace) == 0 {
+				// 生成
+				stackTrace = []byte(h.getStack(r.PC))
+			}
+			// 写入StackTrace
+			h.writers[k].out.Write([]byte("\nStacktrace:\n"))
+			h.writers[k].out.Write(stackTrace)
+		}
+		h.writers[k].out.Write([]byte("\n"))
 	}
-
-	fmt.Println(sb.String())
 	return nil
 }
 
-func (h *logFileHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *logHandlerImpl) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return h // 简化实现，不处理
 }
 
-func (h *logFileHandler) WithGroup(name string) slog.Handler {
+func (h *logHandlerImpl) WithGroup(name string) slog.Handler {
 	return h // 简化实现，不处理
-}
-
-func (h *logFileHandler) SetLevel(level slog.Level) {
-	h.level = level
-}
-
-func (h *logFileHandler) SetStackTrace(enable bool, level slog.Level) {
-	h.enableStackTrace = enable
-	h.stackTraceLevel = level
 }
