@@ -5,7 +5,7 @@ STOP_RENDERING = runtime.STOP_RENDERING
 __M_dict_builtin = dict
 __M_locals_builtin = locals
 _magic_number = 10
-_modified_time = 1760156296.547742
+_modified_time = 1760155656.9754713
 _enable_loop = True
 _template_filename = 'D:/workspace/git/github/atsf4g-go/src/template/handle_cs_rpc.go.mako'
 _template_uri = 'handle_cs_rpc.go.mako'
@@ -23,15 +23,15 @@ def render_body(context,**pageargs):
     __M_caller = context.caller_stack._push_frame()
     try:
         __M_locals = __M_dict_builtin(pageargs=pageargs)
-        set = context.get('set', UNDEFINED)
+        PbConvertRule = context.get('PbConvertRule', UNDEFINED)
         service_go_package_prefix = context.get('service_go_package_prefix', UNDEFINED)
-        rpcs = context.get('rpcs', UNDEFINED)
+        protocol_go_module = context.get('protocol_go_module', UNDEFINED)
         service_go_module = context.get('service_go_module', UNDEFINED)
-        output_render_path = context.get('output_render_path', UNDEFINED)
         generator = context.get('generator', UNDEFINED)
         service = context.get('service', UNDEFINED)
-        PbConvertRule = context.get('PbConvertRule', UNDEFINED)
-        protocol_go_module = context.get('protocol_go_module', UNDEFINED)
+        rpcs = context.get('rpcs', UNDEFINED)
+        set = context.get('set', UNDEFINED)
+        output_render_path = context.get('output_render_path', UNDEFINED)
         __M_writer = context.writer()
 
         module_name = service.get_extension_field("service_options", lambda x: x.module_name, service.get_name_lower_rule())
@@ -56,10 +56,7 @@ def render_body(context,**pageargs):
 
             if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
                     continue
-            sub_module_path = 'logic/' + rpc.get_extension_field("rpc_options", lambda x: x.module_name, "")
-            if sub_module_path.endswith("/"):
-                    sub_module_path = sub_module_path[:-1]
-            sub_module_path = sub_module_path + "/action"
+            sub_module_path = 'logic/' + rpc.get_extension_field("rpc_options", lambda x: x.module_name, "action")
             sub_module_name = sub_module_path.replace("/", "_").replace("\\", "_").replace(".", "_")
             if sub_module_name in imported_sub_modules:
                     continue
@@ -89,9 +86,6 @@ def render_body(context,**pageargs):
             if not rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
 
                 sub_module_path = 'logic/' + rpc.get_extension_field("rpc_options", lambda x: x.module_name, "action")
-                if sub_module_path.endswith("/"):
-                        sub_module_path = sub_module_path[:-1]
-                sub_module_path = sub_module_path + "/action"
                 sub_module_name = sub_module_path.replace("/", "_").replace("\\", "_").replace(".", "_")
                 
                 
@@ -116,6 +110,6 @@ def render_body(context,**pageargs):
 
 """
 __M_BEGIN_METADATA
-{"filename": "D:/workspace/git/github/atsf4g-go/src/template/handle_cs_rpc.go.mako", "uri": "handle_cs_rpc.go.mako", "source_encoding": "utf-8", "line_map": {"16": 2, "17": 3, "18": 4, "19": 5, "20": 6, "21": 7, "22": 0, "36": 6, "37": 7, "38": 8, "39": 9, "40": 10, "43": 9, "44": 9, "45": 9, "46": 10, "47": 10, "48": 10, "49": 10, "50": 12, "51": 12, "52": 12, "53": 20, "54": 20, "55": 22, "56": 23, "57": 24, "58": 25, "59": 26, "60": 27, "61": 28, "62": 29, "63": 30, "64": 31, "65": 32, "66": 33, "67": 34, "68": 35, "71": 35, "72": 35, "73": 35, "74": 35, "75": 35, "76": 35, "77": 35, "78": 37, "79": 42, "80": 42, "81": 42, "82": 42, "83": 44, "84": 44, "85": 45, "86": 45, "87": 48, "89": 49, "90": 50, "91": 51, "92": 52, "93": 53, "94": 54, "95": 55, "96": 56, "97": 57, "100": 57, "101": 58, "102": 58, "103": 59, "104": 59, "105": 59, "106": 59, "107": 60, "108": 60, "109": 60, "110": 60, "111": 65, "117": 111}}
+{"filename": "D:/workspace/git/github/atsf4g-go/src/template/handle_cs_rpc.go.mako", "uri": "handle_cs_rpc.go.mako", "source_encoding": "utf-8", "line_map": {"16": 2, "17": 3, "18": 4, "19": 5, "20": 6, "21": 7, "22": 0, "36": 6, "37": 7, "38": 8, "39": 9, "40": 10, "43": 9, "44": 9, "45": 9, "46": 10, "47": 10, "48": 10, "49": 10, "50": 12, "51": 12, "52": 12, "53": 20, "54": 20, "55": 22, "56": 23, "57": 24, "58": 25, "59": 26, "60": 27, "61": 28, "62": 29, "63": 30, "64": 31, "65": 32, "68": 32, "69": 32, "70": 32, "71": 32, "72": 32, "73": 32, "74": 32, "75": 34, "76": 39, "77": 39, "78": 39, "79": 39, "80": 41, "81": 41, "82": 42, "83": 42, "84": 45, "86": 46, "87": 47, "88": 48, "89": 49, "90": 50, "91": 51, "94": 51, "95": 52, "96": 52, "97": 53, "98": 53, "99": 53, "100": 53, "101": 54, "102": 54, "103": 54, "104": 54, "105": 59, "111": 105}}
 __M_END_METADATA
 """

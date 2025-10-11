@@ -19,15 +19,15 @@ type UserModuleManagerImpl interface {
 	// 每分钟刷新
 	RefreshLimitMinute(*cd.RpcContext)
 
-	InitFromDB(*private_protocol_pbdesc.DatabaseTableUser) error
-	DumpToDB(*private_protocol_pbdesc.DatabaseTableUser) error
+	InitFromDB(*cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	DumpToDB(*cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 
 	CreateInit(ctx *cd.RpcContext, versionType uint32)
 	LoginInit(*cd.RpcContext)
 
 	OnLogin(*cd.RpcContext)
 	OnLogout(*cd.RpcContext)
-	OnSaved(*cd.RpcContext)
+	OnSaved(*cd.RpcContext, int64)
 	OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Session)
 
 	SyncDirtyCache()
@@ -81,12 +81,18 @@ func (m *UserModuleManagerBase) RefreshLimitSecond(_ctx *cd.RpcContext) {
 func (m *UserModuleManagerBase) RefreshLimitMinute(_ctx *cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) InitFromDB(_dbUser *private_protocol_pbdesc.DatabaseTableUser) error {
-	return nil
+func (m *UserModuleManagerBase) InitFromDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	return cd.RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
 }
 
-func (m *UserModuleManagerBase) DumpToDB(_dbUser *private_protocol_pbdesc.DatabaseTableUser) error {
-	return nil
+func (m *UserModuleManagerBase) DumpToDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	return cd.RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
 }
 
 func (m *UserModuleManagerBase) CreateInit(_ctx *cd.RpcContext, _versionType uint32) {
@@ -101,7 +107,7 @@ func (m *UserModuleManagerBase) OnLogin(_ctx *cd.RpcContext) {
 func (m *UserModuleManagerBase) OnLogout(_ctx *cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) OnSaved(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) OnSaved(_ctx *cd.RpcContext, _version int64) {
 }
 
 func (m *UserModuleManagerBase) OnUpdateSession(_ctx *cd.RpcContext, _from *uc.Session, _to *uc.Session) {

@@ -23,7 +23,7 @@ type SessionKey struct {
 type SessionImpl interface {
 	component_dispatcher.TaskActionCSSession
 
-	GetKey() SessionKey
+	GetKey() *SessionKey
 }
 
 type Session struct {
@@ -54,8 +54,8 @@ func CreateSession(key SessionKey, handle SessionNetworkHandleImpl) *Session {
 	}
 }
 
-func (s *Session) GetKey() SessionKey {
-	return s.key
+func (s *Session) GetKey() *SessionKey {
+	return &s.key
 }
 
 func (s *Session) Close(reason int32, reasonMessage string) {

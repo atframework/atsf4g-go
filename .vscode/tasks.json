@@ -46,6 +46,17 @@
       "group": "build"
     },
     {
+      "label": "Generate:Excel and configure",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", ".", "${workspaceFolder}/src/component/config"],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
       "label": "Generate:RPC and task configures",
       "type": "shell",
       "command": "go",

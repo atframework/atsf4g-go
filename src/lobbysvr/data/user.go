@@ -7,10 +7,11 @@ import (
 	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 )
 
-type Result = cd.DispatcherErrorResult
+type Result = cd.RpcResult
 
 type userItemManagerWrapper struct {
 	idRange userItemTypeIdRange
@@ -105,6 +106,9 @@ func init() {
 }
 
 func (u *User) RefreshLimit(ctx *cd.RpcContext, now time.Time) {
+	// Base action
+	u.UserCache.RefreshLimit(ctx, now)
+
 	nowUnix := now.Unix()
 	minuteCheckpoint := nowUnix / 60
 	refreshSecond := nowUnix != u.refreshLimitSecondChenckpoint
@@ -127,6 +131,92 @@ func (u *User) RefreshLimit(ctx *cd.RpcContext, now time.Time) {
 	}
 }
 
+func (u *User) InitFromDB(self uc.UserImpl, ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	result := u.UserCache.InitFromDB(self, ctx, srcTb)
+	if result.IsError() {
+		return result
+	}
+
+	for _, mgr := range u.moduleManagerMap {
+		result = mgr.InitFromDB(ctx, srcTb)
+		if result.IsError() {
+			return result
+		}
+	}
+
+	return cd.RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
+}
+
+func (u *User) DumpToDB(self uc.UserImpl, ctx *cd.RpcContext, dstDb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	result := u.UserCache.DumpToDB(self, ctx, dstDb)
+	if result.IsError() {
+		return result
+	}
+
+	for _, mgr := range u.moduleManagerMap {
+		result = mgr.DumpToDB(ctx, dstDb)
+		if result.IsError() {
+			return result
+		}
+	}
+
+	return cd.RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
+}
+
+func (u *User) CreateInit(self uc.UserImpl, ctx *cd.RpcContext, versionType uint32) {
+	u.UserCache.CreateInit(self, ctx, versionType)
+
+	for _, mgr := range u.moduleManagerMap {
+		mgr.CreateInit(ctx, versionType)
+	}
+}
+
+func (u *User) LoginInit(self uc.UserImpl, ctx *cd.RpcContext) {
+	u.UserCache.LoginInit(self, ctx)
+
+	for _, mgr := range u.moduleManagerMap {
+		mgr.LoginInit(ctx)
+	}
+}
+
+func (u *User) OnLogin(self uc.UserImpl, ctx *cd.RpcContext) {
+	u.UserCache.OnLogin(self, ctx)
+
+	for _, mgr := range u.moduleManagerMap {
+		mgr.OnLogin(ctx)
+	}
+}
+
+func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
+	u.UserCache.OnLogout(self, ctx)
+
+	for _, mgr := range u.moduleManagerMap {
+		mgr.OnLogout(ctx)
+	}
+}
+
+func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version int64) {
+	u.UserCache.OnSaved(self, ctx, version)
+
+	for _, mgr := range u.moduleManagerMap {
+		mgr.OnSaved(ctx, version)
+	}
+}
+
+func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Session, to *uc.Session) {
+	u.UserCache.OnUpdateSession(self, ctx, from, to)
+
+	for _, mgr := range u.moduleManagerMap {
+		mgr.OnUpdateSession(ctx, from, to)
+	}
+}
+
 func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {
 	if u.moduleManagerMap == nil {
 		return nil
@@ -140,12 +230,25 @@ func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {
 	return mgr
 }
 
-func GetModuleManager[ManagerType any](u *User) UserModuleManagerImpl {
+func GetModuleManager[ManagerType any](u *User) ManagerType {
 	if u == nil {
-		return nil
+		var zero ManagerType
+		return zero
 	}
 
-	return u.GetModuleManager(reflect.TypeOf((*ManagerType)(nil)).Elem())
+	ret := u.GetModuleManager(reflect.TypeOf((*ManagerType)(nil)).Elem())
+	if ret == nil {
+		var zero ManagerType
+		return zero
+	}
+
+	convertRet, ok := ret.(ManagerType)
+	if !ok {
+		var zero ManagerType
+		return zero
+	}
+
+	return convertRet
 }
 
 func (u *User) registerModuleManager(typeInst reflect.Type, mgr UserModuleManagerImpl) {

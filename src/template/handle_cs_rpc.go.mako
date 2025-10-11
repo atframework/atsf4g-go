@@ -23,7 +23,10 @@ import (
 <%
 	if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
 		continue
-	sub_module_path = 'logic/' + rpc.get_extension_field("rpc_options", lambda x: x.module_name, "action")
+	sub_module_path = 'logic/' + rpc.get_extension_field("rpc_options", lambda x: x.module_name, "")
+	if sub_module_path.endswith("/"):
+		sub_module_path = sub_module_path[:-1]
+	sub_module_path = sub_module_path + "/action"
 	sub_module_name = sub_module_path.replace("/", "_").replace("\\", "_").replace(".", "_")
 	if sub_module_name in imported_sub_modules:
 		continue
@@ -46,6 +49,9 @@ func RegisterLobbyClientService(
 %   if not rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
 <%
 			sub_module_path = 'logic/' + rpc.get_extension_field("rpc_options", lambda x: x.module_name, "action")
+			if sub_module_path.endswith("/"):
+				sub_module_path = sub_module_path[:-1]
+			sub_module_path = sub_module_path + "/action"
 			sub_module_name = sub_module_path.replace("/", "_").replace("\\", "_").replace(".", "_")
 %>\
 	uc.RegisterCSMessageAction(

@@ -16,6 +16,7 @@ import (
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 )
 
 type MessageFilterHandler func(rd DispatcherImpl, msg *DispatcherRawMessage) bool
@@ -247,4 +248,134 @@ func (dispatcher *DispatcherBase) PushFrontMessageFilter(handle MessageFilterHan
 
 func (dispatcher *DispatcherBase) PushBackMessageFilter(handle MessageFilterHandler) {
 	dispatcher.messageFilters = append(dispatcher.messageFilters, handle)
+}
+
+func CreateRpcResultOk() RpcResult {
+	return RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
+}
+
+func CreateRpcResultOkResponse(responseCode int32) RpcResult {
+	return RpcResult{
+		Error:        nil,
+		ResponseCode: responseCode,
+	}
+}
+
+func CreateRpcResultError(err error, responseCode int32) RpcResult {
+	return RpcResult{
+		Error:        err,
+		ResponseCode: responseCode,
+	}
+}
+
+func (der *RpcResult) IsOK() bool {
+	return der.Error == nil && der.ResponseCode >= 0
+}
+
+func (der *RpcResult) IsError() bool {
+	return der.Error != nil || der.ResponseCode < 0
+}
+
+func (der *RpcResult) GetResponseCode() int32 {
+	if der.IsOK() {
+		return der.ResponseCode
+	}
+	if der.ResponseCode < 0 {
+		return der.ResponseCode
+	}
+
+	return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_UNKNOWN)
+}
+
+func (der *RpcResult) GetResponseMessage() string {
+	code := der.GetResponseCode()
+	if code >= 0 {
+		return ""
+	}
+
+	name, ok := public_protocol_pbdesc.EnErrorCode_name[code]
+	if !ok {
+		return "UnknownError"
+	}
+
+	ec := public_protocol_pbdesc.EnErrorCode(code)
+	if desc := proto.GetExtension(ec.Descriptor().Options(), public_protocol_extension.E_Description); desc != nil {
+		descStr, ok := desc.(string)
+		if ok && descStr != "" {
+			return fmt.Sprintf("%s(%s)", descStr, name)
+		}
+	}
+
+	return name
+}
+
+func (der *RpcResult) GetErrorString() string {
+	if der.Error != nil {
+		return der.Error.Error()
+	}
+
+	return der.GetResponseMessage()
+}
+
+func (der *RpcResult) WriteLogContext(c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
+	if der.IsOK() {
+		if ctx != nil && ctx.Logger != nil {
+			ctx.Logger.Log(c, level, msg, args...)
+		}
+		slog.Log(c, level, msg, args...)
+		return
+	}
+
+	if der.Error != nil {
+		args = append(args, slog.String("error", der.Error.Error()))
+	}
+	if der.ResponseCode < 0 {
+		args = append(args, slog.Int64("response_code", int64(der.ResponseCode)), slog.String("response_message", der.GetResponseMessage()))
+	}
+
+	if ctx != nil && ctx.Logger != nil {
+		ctx.Logger.Log(c, level, msg, args...)
+		return
+	}
+
+	slog.Log(c, level, msg, args...)
+}
+
+func (der *RpcResult) WriteLog(level slog.Level, ctx *RpcContext, msg string, args ...any) {
+	der.WriteLogContext(context.Background(), level, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogErrorContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+	der.WriteLogContext(c, slog.LevelError, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogError(ctx *RpcContext, msg string, args ...any) {
+	der.WriteLog(slog.LevelError, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogWarnContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+	der.WriteLogContext(c, slog.LevelWarn, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogWarn(ctx *RpcContext, msg string, args ...any) {
+	der.WriteLog(slog.LevelWarn, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogInfoContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+	der.WriteLogContext(c, slog.LevelInfo, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogInfo(ctx *RpcContext, msg string, args ...any) {
+	der.WriteLog(slog.LevelInfo, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogDebugContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+	der.WriteLogContext(c, slog.LevelDebug, ctx, msg, args...)
+}
+
+func (der *RpcResult) LogDebug(ctx *RpcContext, msg string, args ...any) {
+	der.WriteLog(slog.LevelDebug, ctx, msg, args...)
 }

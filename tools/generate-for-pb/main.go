@@ -117,7 +117,7 @@ func writeFinalSettings(outputFile *os.File, rules *map[string]string) error {
 	err = tmpl.Execute(output, map[string]interface{}{
 		"project_root_dir":           strings.ReplaceAll(project_settings.GetProjectRootDir(), "\\", "/"),
 		"project_build_dir":          strings.ReplaceAll(project_settings.GetProjectBuildDir(), "\\", "/"),
-		"protocol_input_pb_file":     pbFiles[0],
+		"protocol_input_pb_file":     strings.ReplaceAll(pbFiles[0], "\\", "/"),
 		"protocol_external_pb_files": pbFiles[1:],
 		"custom_variables":           map[string]string{},
 		"rules":                      rules,

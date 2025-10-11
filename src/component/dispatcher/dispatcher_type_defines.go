@@ -38,7 +38,7 @@ type DispatcherStartData struct {
 	MessageRpcContext *RpcContext
 }
 
-type DispatcherErrorResult struct {
+type RpcResult struct {
 	Error        error
 	ResponseCode int32
 }
