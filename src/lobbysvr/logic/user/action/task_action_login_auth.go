@@ -1,13 +1,11 @@
-package lobbysvr_logic_user
+package lobbysvr_logic_user_action
 
 import (
 	"log/slog"
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
-
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
-
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskActionLoginAuth struct {

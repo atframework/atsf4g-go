@@ -9,11 +9,13 @@ rpc_camel_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAM
 
 package ${ service_go_package_prefix }${ os.path.dirname(output_render_path).replace("/", "_").replace("\\", "_") }
 
-
 import (
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	"fmt"
 
-	service_protocol "${ protocol_go_module }"
+	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskAction${ rpc_camel_name } struct {
@@ -26,6 +28,24 @@ func (t *TaskAction${ rpc_camel_name }) Name() string {
 
 func (t *TaskAction${ rpc_camel_name }) Run(_startData *component_dispatcher.DispatcherStartData) error {
 	// TODO: implement your logic here, remove this comment after you have done
+	user, ok := t.GetUser().(*data.User)
+	if !ok || user == nil {
+		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND))
+		return fmt.Errorf("user not found")
+	}
+
+	// reqBody := t.GetRequestBody() // TODO
+% if rpc.is_request_stream() or rpc.is_response_stream():
+  	// Stream request or stream response, just ignore auto response
+	t.DisableResponse()
+% else:
+	// rspBody := t.MutableResponseBody() // TODO
+%   if rpc.get_extension_field('rpc_options', lambda x: x.allow_no_wait, False):
+	if t.IsStreamRpc() {
+		t.DisableResponse()
+	}
+%   endif
+% endif
+
 	return nil
 }
-
