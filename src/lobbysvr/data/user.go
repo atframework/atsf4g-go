@@ -21,6 +21,7 @@ type userItemManagerWrapper struct {
 type User struct {
 	uc.UserCache
 
+	isInited                      bool
 	refreshLimitSecondChenckpoint int64
 	refreshLimitMinuteChenckpoint int64
 
@@ -34,8 +35,13 @@ func (u *User) Init() {
 	// TODO: 初始化各类Manager
 }
 
+func (u *User) IsWriteable() bool {
+	return u.isInited
+}
+
 func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
+		isInited:         false,
 		UserCache:        uc.CreateUserCache(zoneId, userId, openId),
 		moduleManagerMap: make(map[reflect.Type]UserModuleManagerImpl),
 		itemManagerList:  make([]userItemManagerWrapper, 0),
@@ -186,6 +192,8 @@ func (u *User) LoginInit(self uc.UserImpl, ctx *cd.RpcContext) {
 }
 
 func (u *User) OnLogin(self uc.UserImpl, ctx *cd.RpcContext) {
+	u.isInited = true
+
 	u.UserCache.OnLogin(self, ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -199,6 +207,8 @@ func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnLogout(ctx)
 	}
+
+	u.isInited = false
 }
 
 func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version int64) {

@@ -1,5 +1,5 @@
 // Copyright 2025 atframework
-package atframework_tools_project_settings
+package libatframe_utils_template
 
 import (
 	"bytes"

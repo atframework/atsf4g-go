@@ -1,6 +1,6 @@
 module github.com/atframework/atsf4g-go/tools/generate-for-pb
 
-go 1.25.0
+go 1.25.1
 
 replace github.com/atframework/atsf4g-go/tools/project-settings => ../project-settings
 
@@ -26,5 +26,6 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904 // indirect
+	golang.org/x/sys v0.37.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )

@@ -8,20 +8,20 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 )
 
 type SessionNetworkWebsocketHandle struct {
-	dispatcher     *component_dispatcher.WebSocketMessageDispatcher
-	networkSession *component_dispatcher.WebSocketSession
+	dispatcher     *cd.WebSocketMessageDispatcher
+	networkSession *cd.WebSocketSession
 
 	cacheRemoteAddr string
 }
 
-func (h *SessionNetworkWebsocketHandle) GetDispatcher() component_dispatcher.DispatcherImpl {
+func (h *SessionNetworkWebsocketHandle) GetDispatcher() cd.DispatcherImpl {
 	return h.dispatcher
 }
 
@@ -35,9 +35,9 @@ func (h *SessionNetworkWebsocketHandle) SetAuthorized(authorized bool) {
 	h.networkSession.Authorized = authorized
 }
 
-func (h *SessionNetworkWebsocketHandle) Close(reason int32, reasonMessage string) {
+func (h *SessionNetworkWebsocketHandle) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) {
 	// Implement the logic to close the WebSocket session
-	h.dispatcher.Close(h.networkSession, int(reason), reasonMessage)
+	h.dispatcher.Close(ctx, h.networkSession, int(reason), reasonMessage)
 }
 
 func (h *SessionNetworkWebsocketHandle) GetRemoteAddr() string {
@@ -52,16 +52,16 @@ func (h *SessionNetworkWebsocketHandle) GetRemoteAddr() string {
 	return h.cacheRemoteAddr
 }
 
-func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *component_dispatcher.WebSocketMessageDispatcher {
-	d := component_dispatcher.CreateCSMessageWebsocketDispatcher(owner)
+func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *cd.WebSocketMessageDispatcher {
+	d := cd.CreateCSMessageWebsocketDispatcher(owner)
 	if d == nil {
 		return nil
 	}
 
-	d.SetOnNewSession(func(session *component_dispatcher.WebSocketSession) error {
+	d.SetOnNewSession(func(ctx *cd.RpcContext, session *cd.WebSocketSession) error {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
 		sessionKey := CreateSessionKey(owner.GetAppId(), session.SessionId)
-		session.PrivateData = GlobalSessionManager.CreateSession(sessionKey, &SessionNetworkWebsocketHandle{
+		session.PrivateData = GlobalSessionManager.CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
 			dispatcher:     d,
 			networkSession: session,
 		})
@@ -69,25 +69,25 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *component_dispa
 		return nil
 	})
 
-	d.SetOnRemoveSession(func(session *component_dispatcher.WebSocketSession) {
+	d.SetOnRemoveSession(func(ctx *cd.RpcContext, session *cd.WebSocketSession) {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
 		sessionKey := CreateSessionKey(owner.GetAppId(), session.SessionId)
 
 		// TODO: 接入gateway层reason
-		GlobalSessionManager.RemoveSession(&sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_SESSION_NOT_FOUND), "closed by client")
+		GlobalSessionManager.RemoveSession(ctx, &sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_SESSION_NOT_FOUND), "closed by client")
 	})
 
 	return d
 }
 
 func WebsocketDispatcherFindSessionFromMessage(
-	rd component_dispatcher.DispatcherImpl, msg *component_dispatcher.DispatcherRawMessage,
+	rd cd.DispatcherImpl, msg *cd.DispatcherRawMessage,
 	privateData interface{},
 ) *Session {
 	if privateData != nil {
 		switch privateData.(type) {
-		case *component_dispatcher.WebSocketSession:
-			s := privateData.(*component_dispatcher.WebSocketSession).PrivateData
+		case *cd.WebSocketSession:
+			s := privateData.(*cd.WebSocketSession).PrivateData
 			if s == nil {
 				return nil
 			}
@@ -100,14 +100,14 @@ func WebsocketDispatcherFindSessionFromMessage(
 }
 
 type FindCSMessageSession = func(
-	rd component_dispatcher.DispatcherImpl, msg *component_dispatcher.DispatcherRawMessage,
+	rd cd.DispatcherImpl, msg *cd.DispatcherRawMessage,
 	privateData interface{},
 ) *Session
 
 func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Message](
-	rd component_dispatcher.DispatcherImpl, findSessionFn FindCSMessageSession,
+	rd cd.DispatcherImpl, findSessionFn FindCSMessageSession,
 	serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string,
-	createFn func(component_dispatcher.TaskActionCSBase[RequestType, ResponseType]) component_dispatcher.TaskActionImpl,
+	createFn func(cd.TaskActionCSBase[RequestType, ResponseType]) cd.TaskActionImpl,
 ) error {
 	if serviceDescriptor == nil {
 		rd.GetApp().GetLogger().Error("service descriptor is nil", "rpc_name", rpcFullName)
@@ -126,7 +126,7 @@ func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Messa
 		return fmt.Errorf("method descriptor not found in service")
 	}
 
-	creator := func(rd component_dispatcher.DispatcherImpl, startData *component_dispatcher.DispatcherStartData) (component_dispatcher.TaskActionImpl, error) {
+	creator := func(rd cd.DispatcherImpl, startData *cd.DispatcherStartData) (cd.TaskActionImpl, error) {
 		session := findSessionFn(rd, startData.Message, startData.PrivateData)
 		if session == nil {
 			rd.GetApp().GetLogger().Warn("session not found for CS message", "rpc_name", rpcFullName)
@@ -134,7 +134,7 @@ func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Messa
 		}
 
 		// 创建实际类型
-		return createFn(component_dispatcher.CreateTaskActionCSBase[RequestType, ResponseType](rd, session, methodDesc)), nil
+		return createFn(cd.CreateTaskActionCSBase[RequestType, ResponseType](rd, session, methodDesc)), nil
 	}
 
 	return rd.RegisterAction(serviceDescriptor, rpcFullName, creator)

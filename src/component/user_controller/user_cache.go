@@ -13,8 +13,10 @@ import (
 type UserImpl interface {
 	cd.TaskActionCSUser
 
-	BindSession(session *Session)
-	UnbindSession(session *Session)
+	BindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
+	UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
+
+	IsWriteable() bool
 
 	InitFromDB(self UserImpl, ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 	DumpToDB(self UserImpl, ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
@@ -125,27 +127,46 @@ func (u *UserCache) SendAllSyncData() error {
 	return nil
 }
 
-func (u *UserCache) BindSession(session *Session) {
+func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
 	if u.session == session {
 		return
 	}
 
 	if session == nil {
-		u.UnbindSession(u.session)
+		u.UnbindSession(self, ctx, u.session)
 		return
 	}
 
+	old_session := u.session
 	u.session = session
+
+	u.OnUpdateSession(self, ctx, old_session, session)
 }
 
-func (u *UserCache) UnbindSession(session *Session) {
-	if u.session != session {
+func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
+	if u.session == nil {
 		return
 	}
 
-	u.session = session
+	if session != nil && u.session != session {
+		return
+	}
+
+	old_session := u.session
+	u.session = nil
+
+	u.OnUpdateSession(self, ctx, old_session, nil)
 
 	// TODO: 触发登出保存
+	if self.IsWriteable() {
+		self.OnLogout(self, ctx)
+
+		// TODO: 触发登出保存
+	}
+}
+
+func (u *UserCache) IsWriteable() bool {
+	return false
 }
 
 func (u *UserCache) RefreshLimit(_ctx *cd.RpcContext, _now time.Time) {

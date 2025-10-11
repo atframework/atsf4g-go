@@ -3,13 +3,18 @@ package atframework_component_service_shared_collection
 import (
 	config "github.com/atframework/atsf4g-go/component-config"
 	libatapp "github.com/atframework/libatapp-go"
+
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
 func CreateServiceApplication() libatapp.AppImpl {
 	app := libatapp.CreateAppInstance()
-	// TODO: 内置公共逻辑层模块
+
+	// 内置公共逻辑层模块
 	configManager := config.GetConfigManager()
 	configManager.AppModuleBase = libatapp.CreateAppModuleBase(app)
-	app.AddModule(configManager)
+	libatapp.AtappAddModule(app, configManager)
+
+	libatapp.AtappAddModule(app, cd.CreateNoMessageDispatcher(app))
 	return app
 }

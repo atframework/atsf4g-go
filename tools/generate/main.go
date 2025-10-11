@@ -37,7 +37,7 @@ func generateAtfwGo(scanDirs []string) {
 		// Ensure the scan path exists before walking; filepath.WalkDir can handle files,
 		// but report a clear error early if the path does not exist.
 		if _, serr := os.Stat(scanDir); serr != nil {
-			fmt.Fprintf(os.Stderr, "Scan path does not exist: %s\n", scanDir)
+			project_settings.FmtColorFprintRed(os.Stderr, "Scan path does not exist: %s\n", scanDir)
 			continue
 		}
 		err := filepath.WalkDir(scanDir, func(path string, d os.DirEntry, err error) error {
@@ -74,7 +74,7 @@ func generateAtfwGo(scanDirs []string) {
 		})
 
 		if err != nil || len(matches) == 0 {
-			fmt.Fprintf(os.Stderr, "Scan generate.atfw.go failed: %v\n", err)
+			project_settings.FmtColorFprintRed(os.Stderr, "Scan generate.atfw.go failed: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -91,7 +91,7 @@ func generateAtfwGo(scanDirs []string) {
 	for _, file := range matches {
 		// 执行 go generate
 		if err := runGoGenerate(file.path); err != nil {
-			fmt.Fprintf(os.Stderr, "Run go generate failed: %v\n", err)
+			project_settings.FmtColorFprintRed(os.Stderr, "Run go generate failed: %v\n", err)
 			os.Exit(2)
 		} else if !disableGoTidy {
 			goModDir := project_settings.FindFirstGoMod(filepath.Dir(file.path))
@@ -103,7 +103,7 @@ func generateAtfwGo(scanDirs []string) {
 
 	for dir := range pendingGoTidy {
 		if err := project_settings.RunGoTidy(dir); err != nil {
-			fmt.Fprintf(os.Stderr, "Run go mod tidy failed: %v\n", err)
+			project_settings.FmtColorFprintRed(os.Stderr, "Run go mod tidy failed: %v\n", err)
 			os.Exit(4)
 		}
 	}
@@ -155,7 +155,7 @@ func generateXresloaderXml(projectGenDir string) {
 		os.Exit(1)
 	}
 
-	log.Println("xresconv.xml generated successfully.")
+	project_settings.FmtColorPrintGreen("xresconv.xml generated successfully.")
 
 	// 拷贝 validator.yaml
 	project_settings.CopyFile(path.Join(resourcePath, "validator.yaml"), path.Join(projectGenDir, "validator.yaml"))
@@ -188,7 +188,7 @@ func main() {
 
 	toolsBinDir := guessBinDir()
 	if toolsBinDir == "" {
-		fmt.Fprintf(os.Stderr, "Cannot guess tools bin dir\n")
+		project_settings.FmtColorFprintRed(os.Stderr, "Cannot guess tools bin dir\n")
 		os.Exit(1)
 	}
 
@@ -200,11 +200,11 @@ func main() {
 	if runAllTools {
 		_, err := os.Stat(path.Join(project_settings.GetProjectRootDir(), "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Not Found xres-code-generator xrescode-gen.py\n")
+			project_settings.FmtColorFprintRed(os.Stderr, "Not Found xres-code-generator xrescode-gen.py\n")
 			os.Exit(1)
 		}
 
-		log.Println("Tools bin dir:", toolsBinDir)
+		project_settings.FmtColorPrintYellow("Tools bin dir:", toolsBinDir)
 		generateXresloaderXml(project_settings.GetProjectGenDir())
 	}
 
@@ -213,7 +213,7 @@ func main() {
 		// Xresloader
 		binPath := path.Join(project_settings.GetProjectToolsDir(), "bin", project_settings.GetXresloaderBinName())
 		if !atframe_utils.FileExists(binPath) {
-			project_settings.FmtColorGreen("Download xresloader")
+			project_settings.FmtColorPrintGreen("Download xresloader")
 			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/owent/xresloader/releases/download/v%s/%s", project_settings.GetXresloaderVersion(), project_settings.GetXresloaderBinName()))
 			out, err := os.Create(binPath)
 			if err != nil {
@@ -228,7 +228,7 @@ func main() {
 	{
 		// atdtool win64
 		if !atframe_utils.PathExists(project_settings.GetAtdtoolDownloadPath()) {
-			project_settings.FmtColorGreen("Download atdtool.exe")
+			project_settings.FmtColorPrintGreen("Download atdtool.exe")
 			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-windows-amd64.zip", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UnzipToDir(data, project_settings.GetAtdtoolDownloadPath())
 		}
@@ -236,7 +236,7 @@ func main() {
 	{
 		// atdtool linux
 		if !atframe_utils.PathExists(project_settings.GetAtdtoolDownloadPath()) {
-			project_settings.FmtColorGreen("Download atdtool")
+			project_settings.FmtColorPrintGreen("Download atdtool")
 			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-linux-amd64.tar.gz", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UntarGzToDir(data, project_settings.GetAtdtoolDownloadPath())
 		}
@@ -254,6 +254,6 @@ func runGoGenerate(target string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Dir = filepath.Dir(target)
 
-	fmt.Printf("Run go generate %s on %s\n", filepath.Base(target), cmd.Dir)
+	project_settings.FmtColorPrintYellow("Run go generate %s on %s\n", filepath.Base(target), cmd.Dir)
 	return cmd.Run()
 }

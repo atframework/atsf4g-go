@@ -2,6 +2,8 @@ package atframework_component_user_controller
 
 import (
 	"sync"
+
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
 type noCopy struct{}
@@ -38,7 +40,7 @@ func (sm *SessionManager) GetSession(key *SessionKey) *Session {
 	return nil
 }
 
-func (sm *SessionManager) CreateSession(key SessionKey, handle SessionNetworkHandleImpl) *Session {
+func (sm *SessionManager) CreateSession(ctx *cd.RpcContext, key SessionKey, handle SessionNetworkHandleImpl) *Session {
 	if handle == nil {
 		return nil
 	}
@@ -69,7 +71,7 @@ func (sm *SessionManager) CreateSession(key SessionKey, handle SessionNetworkHan
 	return session
 }
 
-func (sm *SessionManager) RemoveSession(key *SessionKey, reason int32, reasonMessage string) {
+func (sm *SessionManager) RemoveSession(ctx *cd.RpcContext, key *SessionKey, reason int32, reasonMessage string) {
 	if key == nil {
 		return
 	}
@@ -79,7 +81,7 @@ func (sm *SessionManager) RemoveSession(key *SessionKey, reason int32, reasonMes
 		return
 	}
 
-	session.Close(reason, reasonMessage)
+	session.Close(ctx, reason, reasonMessage)
 
 	sm.sessionLock.Lock()
 	defer sm.sessionLock.Unlock()

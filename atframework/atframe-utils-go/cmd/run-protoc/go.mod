@@ -1,6 +1,6 @@
 module github.com/atframework/atframe-utils-go/cmd/run-protoc
 
-go 1.25.0
+go 1.25.1
 
 replace github.com/atframework/atframe-utils-go => ../..
 

@@ -1,6 +1,8 @@
 module github.com/atframework/atsf4g-go/component-user_controller
 
-go 1.25.0
+go 1.25.1
+
+replace github.com/atframework/atframe-utils-go => ../../../atframework/atframe-utils-go
 
 replace github.com/atframework/libatapp-go => ../../../atframework/libatapp-go
 
@@ -17,6 +19,7 @@ replace github.com/xresloader/xres-code-generator => ../../../third_party/xreslo
 replace github.com/atframework/atsf4g-go/component-dispatcher => ../dispatcher
 
 require (
+	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000

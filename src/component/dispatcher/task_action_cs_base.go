@@ -20,7 +20,7 @@ type TaskActionCSSession interface {
 	AllocSessionSequence() uint64
 
 	GetUser() TaskActionCSUser
-	BindUser(TaskActionCSUser)
+	BindUser(ctx *RpcContext, user TaskActionCSUser)
 
 	SendMessage(*public_protocol_extension.CSMsg) error
 }

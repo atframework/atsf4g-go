@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"sync"
@@ -107,9 +108,9 @@ type AppImpl interface {
 	GetAppVersion() string
 	GetBuildVersion() string
 
-	AddModule(module AppModuleImpl) (int, error)
+	AddModule(typeInst reflect.Type, module AppModuleImpl) error
 
-	GetModule(moduleId int) AppModuleImpl
+	GetModule(typeInst reflect.Type) AppModuleImpl
 
 	// 消息相关
 	SendMessage(targetId uint64, msgType int32, data []byte) error
@@ -153,7 +154,8 @@ type AppInstance struct {
 	lastCommand    []string
 
 	// 模块管理
-	modules []AppModuleImpl
+	modules   []AppModuleImpl
+	moduleMap map[reflect.Type]AppModuleImpl
 
 	// 生命周期控制
 	appContext    context.Context
@@ -192,6 +194,7 @@ type AppInstance struct {
 func CreateAppInstance() AppImpl {
 	ret := &AppInstance{
 		mode:          AppModeHelp,
+		moduleMap:     make(map[reflect.Type]AppModuleImpl),
 		stopTimepoint: time.Time{},
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
@@ -312,23 +315,52 @@ func (app *AppInstance) IsRunning() bool { return app.CheckFlag(AppFlagRunning) 
 func (app *AppInstance) IsClosing() bool { return app.CheckFlag(AppFlagStopping) }
 func (app *AppInstance) IsClosed() bool  { return app.CheckFlag(AppFlagStopped) }
 
-func (app *AppInstance) AddModule(module AppModuleImpl) (int, error) {
+func (app *AppInstance) AddModule(typeInst reflect.Type, module AppModuleImpl) error {
 	flags := app.getFlags()
 	if checkFlag(flags, AppFlagInitialized) || checkFlag(flags, AppFlagInitializing) {
-		return 0, fmt.Errorf("cannot add module when app is initializing or initialized")
+		return fmt.Errorf("cannot add module when app is initializing or initialized")
 	}
 
 	app.modules = append(app.modules, module)
+	app.moduleMap[typeInst] = module
 	module.OnBind()
-	return len(app.modules), nil
+	return nil
 }
 
-func (app *AppInstance) GetModule(moduleId int) AppModuleImpl {
-	if moduleId <= 0 || moduleId > len(app.modules) {
+func AtappAddModule[ModuleType AppModuleImpl](app AppImpl, module ModuleType) error {
+	if app == nil {
+		return fmt.Errorf("app is nil")
+	}
+
+	var zero ModuleType
+	return app.AddModule(reflect.TypeOf(zero).Elem(), module)
+}
+
+func (app *AppInstance) GetModule(typeInst reflect.Type) AppModuleImpl {
+	mod, ok := app.moduleMap[typeInst]
+	if !ok {
 		return nil
 	}
 
-	return app.modules[moduleId-1]
+	return mod
+}
+
+func AtappGetModule[ModuleType AppModuleImpl](app AppImpl) ModuleType {
+	var zero ModuleType
+	if app == nil {
+		return zero
+	}
+
+	ret := app.GetModule(reflect.TypeOf(zero).Elem())
+	if ret == nil {
+		return zero
+	}
+
+	convertRet, ok := ret.(ModuleType)
+	if !ok {
+		return zero
+	}
+	return convertRet
 }
 
 func (app *AppInstance) Init(arguments []string) error {

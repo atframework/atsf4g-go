@@ -105,6 +105,12 @@ func (dispatcher *DispatcherBase) GetNow() time.Time {
 	return time.Now()
 }
 
+func (dispatcher *DispatcherBase) CreateRpcContext() *RpcContext {
+	return &RpcContext{
+		Logger: dispatcher.GetApp().GetLogger(),
+	}
+}
+
 func (dispatcher *DispatcherBase) OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
 	rd.GetApp().GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
 }
@@ -139,9 +145,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 		return nil
 	}
 
-	rpcContext := &RpcContext{
-		Logger: rd.GetApp().GetLogger(),
-	}
+	rpcContext := dispatcher.CreateRpcContext()
 	if parentContext != nil {
 		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(parentContext)
 	}
@@ -264,10 +268,10 @@ func CreateRpcResultOkResponse(responseCode int32) RpcResult {
 	}
 }
 
-func CreateRpcResultError(err error, responseCode int32) RpcResult {
+func CreateRpcResultError(err error, responseCode public_protocol_pbdesc.EnErrorCode) RpcResult {
 	return RpcResult{
 		Error:        err,
-		ResponseCode: responseCode,
+		ResponseCode: int32(responseCode),
 	}
 }
 

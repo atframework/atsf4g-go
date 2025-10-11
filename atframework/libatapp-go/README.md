@@ -33,7 +33,7 @@ package main
 import (
     "fmt"
     "log"
-    atapp "atframe.work/libapp-go"
+    atapp "github.com/atframework/libatapp-go"
 )
 
 // Custom module example
@@ -77,7 +77,7 @@ func main() {
     
     // Add custom module
     module := &MyModule{name: "MyCustomModule"}
-    app.AddModule(module)
+    atapp.AtappAddModule[*MyModule](app, module)
     
     // Set custom event handler
     app.SetEventHandler("custom_event", func(app *atapp.AppInstance, args ...interface{}) int {

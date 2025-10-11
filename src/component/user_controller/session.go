@@ -1,6 +1,7 @@
 package atframework_component_user_controller
 
 import (
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
@@ -11,7 +12,7 @@ type SessionNetworkHandleImpl interface {
 
 	SendMessage(*public_protocol_extension.CSMsg) error
 	SetAuthorized(bool)
-	Close(reason int32, reasonMessage string)
+	Close(ctx *cd.RpcContext, reason int32, reasonMessage string)
 	GetRemoteAddr() string
 }
 
@@ -58,15 +59,15 @@ func (s *Session) GetKey() *SessionKey {
 	return &s.key
 }
 
-func (s *Session) Close(reason int32, reasonMessage string) {
+func (s *Session) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) {
 	if !s.networkClosed {
 		s.networkClosed = true
-		s.networkHandle.Close(reason, reasonMessage)
+		s.networkHandle.Close(ctx, reason, reasonMessage)
 	}
 
 	// 解绑User
 	if s.user != nil {
-		s.user.UnbindSession(s)
+		s.user.UnbindSession(s.user, ctx, s)
 	}
 }
 
@@ -87,7 +88,7 @@ func (s *Session) GetUser() component_dispatcher.TaskActionCSUser {
 	return s.user
 }
 
-func (s *Session) BindUser(bindUser component_dispatcher.TaskActionCSUser) {
+func (s *Session) BindUser(ctx *cd.RpcContext, bindUser component_dispatcher.TaskActionCSUser) {
 	if s.user == bindUser {
 		return
 	}
@@ -98,11 +99,11 @@ func (s *Session) BindUser(bindUser component_dispatcher.TaskActionCSUser) {
 	}
 
 	if s.user != nil {
-		s.user.UnbindSession(s)
+		s.user.UnbindSession(convertUser, ctx, s)
 	}
 
 	s.user = convertUser
-	convertUser.BindSession(s)
+	convertUser.BindSession(convertUser, ctx, s)
 
 	if s.user != nil {
 		s.networkHandle.SetAuthorized(true)

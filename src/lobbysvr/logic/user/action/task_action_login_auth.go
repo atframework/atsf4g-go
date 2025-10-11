@@ -26,6 +26,6 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		slog.Uint64("session_id", t.GetSession().GetSessionId()),
 	)
 	// TODO: 临时信任session，后续加入token验证和User绑定
-	t.GetSession().BindUser(&data.User{})
+	t.GetSession().BindUser(t.GetRpcContext(), &data.User{})
 	return nil
 }

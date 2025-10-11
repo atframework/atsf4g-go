@@ -27,7 +27,7 @@ func BenchmarkModuleAdd(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		module := NewExampleModule("benchmark")
-		app.AddModule(module)
+		AtappAddModule(app, module)
 	}
 }
 

@@ -1,6 +1,6 @@
 module github.com/atframework/atsf4g-go/component-protocol-private
 
-go 1.25.0
+go 1.25.1
 
 replace github.com/atframework/atframe-utils-go => ../../../../atframework/atframe-utils-go
 

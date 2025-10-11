@@ -31,9 +31,10 @@ replace github.com/atframework/atsf4g-go/component-protocol-public => ../compone
 
 replace github.com/xresloader/xres-code-generator => ../../third_party/xresloader/protocols/code
 
-require github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000 // indirect
+require github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 
 require (
+	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000 // indirect
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/panjf2000/ants/v2 v2.11.3 // indirect

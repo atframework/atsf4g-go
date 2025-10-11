@@ -152,24 +152,104 @@ func RunGoTidy(baseDir string) error {
 	return cmd.Run()
 }
 
-func fmtColorInner(color int, str string) {
-	fmt.Printf("\033[1;%s;40m%s\033[0m\n", strconv.Itoa(color), str)
+func fmtColorInner(color int, str string) string {
+	return fmt.Sprintf("\033[1;%s;40m%s\033[0m\n", strconv.Itoa(color), str)
 }
 
-func FmtColor(color int, format string, a ...any) {
-	fmtColorInner(color, fmt.Sprintf(format, a...))
+func FmtColor(color int, format string, a ...any) string {
+	return fmtColorInner(color, fmt.Sprintf(format, a...))
 }
 
-func FmtColorRed(format string, a ...any) {
-	fmtColorInner(FgRed, fmt.Sprintf(format, a...))
+func FmtColorRed(format string, a ...any) string {
+	return fmtColorInner(FgRed, fmt.Sprintf(format, a...))
 }
 
-func FmtColorGreen(format string, a ...any) {
-	fmtColorInner(FgGreen, fmt.Sprintf(format, a...))
+func FmtColorGreen(format string, a ...any) string {
+	return fmtColorInner(FgGreen, fmt.Sprintf(format, a...))
 }
 
-func FmtColorCyan(format string, a ...any) {
-	fmtColorInner(FgCyan, fmt.Sprintf(format, a...))
+func FmtColorYellow(format string, a ...any) string {
+	return fmtColorInner(FgYellow, fmt.Sprintf(format, a...))
+}
+
+func FmtColorBlue(format string, a ...any) string {
+	return fmtColorInner(FgBlue, fmt.Sprintf(format, a...))
+}
+
+func FmtColorMagenta(format string, a ...any) string {
+	return fmtColorInner(FgMagenta, fmt.Sprintf(format, a...))
+}
+
+func FmtColorCyan(format string, a ...any) string {
+	return fmtColorInner(FgCyan, fmt.Sprintf(format, a...))
+}
+
+func FmtColorWhite(format string, a ...any) string {
+	return fmtColorInner(FgWhite, fmt.Sprintf(format, a...))
+}
+
+func FmtColorPrint(color int, format string, a ...any) {
+	fmt.Print(FmtColor(color, format, a...))
+}
+
+func FmtColorPrintRed(format string, a ...any) {
+	fmt.Print(FmtColorRed(format, a...))
+}
+
+func FmtColorPrintGreen(format string, a ...any) {
+	fmt.Print(FmtColorGreen(format, a...))
+}
+
+func FmtColorPrintYellow(format string, a ...any) {
+	fmt.Print(FmtColorYellow(format, a...))
+}
+
+func FmtColorPrintBlue(format string, a ...any) {
+	fmt.Print(FmtColorBlue(format, a...))
+}
+
+func FmtColorPrintMagenta(format string, a ...any) {
+	fmt.Print(FmtColorMagenta(format, a...))
+}
+
+func FmtColorPrintCyan(format string, a ...any) {
+	fmt.Print(FmtColorCyan(format, a...))
+}
+
+func FmtColorPrintWhite(format string, a ...any) {
+	fmt.Print(FmtColorWhite(format, a...))
+}
+
+func FmtColorFprint(w io.Writer, color int, format string, a ...any) {
+	fmt.Fprint(w, FmtColor(color, format, a...))
+}
+
+func FmtColorFprintRed(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorRed(format, a...))
+}
+
+func FmtColorFprintGreen(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorGreen(format, a...))
+}
+
+func FmtColorFprintYellow(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorYellow(format, a...))
+}
+
+func FmtColorFprintBlue(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorBlue(format, a...))
+}
+
+func FmtColorFprintMagenta(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorMagenta(format, a...))
+}
+
+func FmtColorFprintCyan(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorCyan(format, a...))
+}
+
+func FmtColorFprintWhite(w io.Writer, format string, a ...any) {
+	fmt.Fprint(w, FmtColorWhite(format, a...))
 }
 
 const (

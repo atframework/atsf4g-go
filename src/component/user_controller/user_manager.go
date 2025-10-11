@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	atfw_utils_fs "github.com/atframework/atframe-utils-go/file_system"
+
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
@@ -70,7 +72,52 @@ func UserManagerFindUserAs[T UserImpl](um *UserManager, zoneID uint32, userID ui
 }
 
 // TODO: 临时的数据读取
-func UserLoadFromFile(u UserImpl) cd.RpcResult {
+func UserLoadFromFile(ctx *cd.RpcContext, u UserImpl, loginCode string) cd.RpcResult {
+	userTbFilePath := fmt.Sprintf("../data/%d-%d.user.db", u.GetZoneId(), u.GetUserId())
+	loginTbFilePath := fmt.Sprintf("../data/%d-%d.login.db", u.GetZoneId(), u.GetUserId())
+	if _, serr := os.Stat(userTbFilePath); serr != nil {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
+	}
+
+	if _, serr := os.Stat(loginTbFilePath); serr != nil {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
+	}
+
+	ldata, err := atfw_utils_fs.ReadAllContent(loginTbFilePath)
+	if err != nil {
+		return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	loginTb := &private_protocol_pbdesc.DatabaseTableLogin{}
+	if err = proto.Unmarshal(ldata, loginTb); err != nil {
+		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal login db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
+	}
+
+	if loginTb.LoginCode != "" && loginTb.LoginCode != loginCode {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+	}
+
+	udata, err := atfw_utils_fs.ReadAllContent(userTbFilePath)
+	if err != nil {
+		return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	userTb := &private_protocol_pbdesc.DatabaseTableUser{}
+	if err = proto.Unmarshal(udata, userTb); err != nil {
+		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
+	}
+
+	if loginTb.RouterVersion <= 0 {
+		loginTb.RouterVersion = 1
+	}
+	u.LoadLoginInfo(u, loginTb, int64(loginTb.RouterVersion))
+
+	result := u.InitFromDB(u, ctx, userTb)
+	if result.IsError() {
+		result.LogError(ctx, "init user from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+		return result
+	}
+
 	return cd.CreateRpcResultOk()
 }
 
@@ -212,7 +259,7 @@ func (um *UserManager) ScheduleImmediateSave(ctx *cd.RpcContext, zoneID uint32, 
 		if cs_session != nil {
 			session, ok := cs_session.(*Session)
 			if ok && session != nil {
-				GlobalSessionManager.RemoveSession(session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_SESSION_KICKOFF_BY_SERVER), "scheduled save and kick off")
+				GlobalSessionManager.RemoveSession(ctx, session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_SESSION_KICKOFF_BY_SERVER), "scheduled save and kick off")
 			}
 		}
 	}

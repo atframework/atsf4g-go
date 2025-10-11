@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 
+	atapp "github.com/atframework/libatapp-go"
+
 	ssc "github.com/atframework/atsf4g-go/component-service_shared_collection"
 
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
@@ -15,7 +17,7 @@ func main() {
 
 	// CS消息WebSocket分发器
 	csDispatcher := uc.WebsocketDispatcherCreateCSMessage(app)
-	app.AddModule(csDispatcher)
+	atapp.AtappAddModule(app, csDispatcher)
 
 	if err := lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc.WebsocketDispatcherFindSessionFromMessage); err != nil {
 		println("RegisterLobbyClientService fail: %s", err.Error())

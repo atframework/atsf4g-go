@@ -93,11 +93,11 @@ func TestAppBasicFunctionality(t *testing.T) {
 	module1 := NewExampleModule("Module1")
 	module2 := NewExampleModule("Module2")
 
-	if _, err := app.AddModule(module1); err != nil {
+	if err := AtappAddModule(app, module1); err != nil {
 		t.Fatalf("Failed to add module1: %v", err)
 	}
 
-	if _, err := app.AddModule(module2); err != nil {
+	if err := AtappAddModule(app, module2); err != nil {
 		t.Fatalf("Failed to add module2: %v", err)
 	}
 
