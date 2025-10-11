@@ -69,3 +69,6 @@ _generated/
 /tools/bin
 /build
 /src/component/config/generate_config
+
+/src/lobbysvr/app/*
+/src/lobbysvr/rpc/lobbyclientservice/*

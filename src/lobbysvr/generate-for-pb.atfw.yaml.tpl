@@ -4,7 +4,7 @@
     output_directory: "{{ .project_current_configure_dir }}"
     custom_variables:
       "service_go_package_prefix": "lobbysvr_"
-      "protocol_go_module": "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/pbdesc"
+      "protocol_go_module": "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
       "service_go_module": "github.com/atframework/atsf4g-go/service-lobbysvr"
 {{- with .custom_variables }}
     {{- range $key, $value := .custom_variables }}
@@ -30,7 +30,7 @@
     output_directory: "{{ .project_current_configure_dir }}"
     custom_variables:
       "service_go_package_prefix": "lobbysvr_"
-      "protocol_go_module": "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/pbdesc"
+      "protocol_go_module": "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
       "service_go_module": "github.com/atframework/atsf4g-go/service-lobbysvr"
 {{- with .custom_variables }}
     {{- range $key, $value := .custom_variables }}

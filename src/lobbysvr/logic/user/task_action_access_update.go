@@ -6,7 +6,7 @@ package lobbysvr_logic_user
 import (
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
 
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/pbdesc"
+	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskActionAccessUpdate struct {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
 )
