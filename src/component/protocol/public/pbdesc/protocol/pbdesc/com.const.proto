@@ -135,6 +135,7 @@ enum EnCloseReasonType {
   // 0x30000 - 0x40000 是自定义网络层不可重连，逻辑层可重连关闭原因
   EN_CRT_SESSION_NOT_FOUND = 196609; // session不存在
   EN_CRT_SPEED_WARNING = 196610;     // 游戏速度异常
+  EN_CRT_RESET_BY_PEER = 196611;     // 客户端主动关闭或丢失连接
 
   // 0x40000 == 262144
   // 0x40000 - 0x50000 是自定义网络层不可重连，逻辑层不可重连关闭原因

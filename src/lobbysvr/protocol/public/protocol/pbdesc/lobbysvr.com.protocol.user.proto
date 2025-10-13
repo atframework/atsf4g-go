@@ -17,7 +17,6 @@ import "protocol/pbdesc/com.struct.proto";
 
 package proy;
 
-
 /////////////////////////////////////////////////////
 // 到loginsvr的CS协议
 /////////////////////////////////////////////////////
@@ -82,7 +81,8 @@ message CSLoginReq {
   string login_code = 1; // loginsvr下发的登录码
   string open_id = 2;
   uint64 user_id = 3;       // 玩家数字ID
-  DAccountData account = 4; // 平台信息
+  uint32 zone_id = 4;       // 玩家ZoneID
+  DAccountData account = 5; // 平台信息
   DClientDeviceInfo client_info = 11;
 }
 
