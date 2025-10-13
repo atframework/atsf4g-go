@@ -96,7 +96,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 
 			cb_actor.actionLock.Lock()
 			if err != nil {
-				app_action.App.GetLogger().Error("Actor task action run failed",
+				app_action.App.GetDefaultLogger().Error("Actor task action run failed",
 					slog.String("task_name", actor_action.action.Name()), slog.Uint64("task_id", actor_action.action.GetTaskId()), slog.Any("error", err))
 			}
 		}
@@ -111,7 +111,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 		err := app_action.App.PushAction(popRunActorActions, nil, cb_actor)
 		if err != nil {
 			cb_actor.actionStatus = ActorExecutorStatusFree
-			app_action.App.GetLogger().Error("Push actor task action failed", slog.Any("error", err))
+			app_action.App.GetDefaultLogger().Error("Push actor task action failed", slog.Any("error", err))
 			return err
 		}
 	}
@@ -130,7 +130,7 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 		if pendingLen > 100000 {
 			action.SetResponseCode(-2)
 			action.SendResponse()
-			app.GetLogger().Error("Actor pending actions too many", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
+			app.GetDefaultLogger().Error("Actor pending actions too many", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 			return fmt.Errorf("actor pending actions too many")
 		}
 
@@ -147,7 +147,7 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 		err := app.PushAction(popRunActorActions, nil, actor)
 		if err != nil {
 			actor.actionStatus = ActorExecutorStatusFree
-			app.GetLogger().Error("Push actor task action failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+			app.GetDefaultLogger().Error("Push actor task action failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 			return err
 		}
 	}
@@ -185,7 +185,7 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 				action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_UNKNOWN))
 			}
 
-			app.GetLogger().Error("TaskAction run failed",
+			app.GetDefaultLogger().Error("TaskAction run failed",
 				slog.String("task_name", action.Name()),
 				slog.Uint64("task_id", action.GetTaskId()),
 				slog.Any("error", err), slog.Int("response_code", int(action.GetResponseCode())))
@@ -198,7 +198,7 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 
 		} else {
 			if action.GetResponseCode() < 0 {
-				app.GetLogger().Error("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
+				app.GetDefaultLogger().Error("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 
 				// 超时错误码
 				if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) {
@@ -206,7 +206,7 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 				}
 				action.OnFailed()
 			} else {
-				app.GetLogger().Debug("TaskAction run success", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
+				app.GetDefaultLogger().Debug("TaskAction run success", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
 
 				action.OnSuccess()
 			}
@@ -217,7 +217,7 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 		if !action.IsResponseDisabled() {
 			err = action.SendResponse()
 			if err != nil {
-				app.GetLogger().Error("TaskAction send response failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+				app.GetDefaultLogger().Error("TaskAction send response failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 			}
 		}
 
@@ -242,7 +242,7 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 	// 暂停任务逻辑, 让出令牌
 	awaitChannel, err := action.TrySetupAwait(action, awaitOptions)
 	if err != nil || awaitChannel == nil {
-		app.GetLogger().Error("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		app.GetDefaultLogger().Error("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return nil, &RpcResult{Error: err, ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
 	actor := action.GetActorExecutor()
@@ -263,7 +263,7 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 
 	if !ok {
 		// Channel was closed unexpectedly
-		app.GetLogger().Error("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
+		app.GetDefaultLogger().Error("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
 		return nil, &RpcResult{Error: errors.New("await channel closed"), ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
 
@@ -275,7 +275,7 @@ func ResumeTaskAction(app libatapp.AppImpl, action TaskActionImpl, resumeData *D
 
 	err := action.TryFinishAwait(action, resumeData)
 	if err != nil {
-		app.GetLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		app.GetDefaultLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return err
 	}
 
@@ -287,7 +287,7 @@ func KillTaskAction(app libatapp.AppImpl, action TaskActionImpl, killData *RpcRe
 
 	err := action.TryKillAwait(action, killData)
 	if err != nil {
-		app.GetLogger().Error("task KillTaskAction TryKillAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		app.GetDefaultLogger().Error("task KillTaskAction TryKillAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return err
 	}
 	return nil

@@ -139,7 +139,8 @@ type AppImpl interface {
 	GetAppContext() context.Context
 
 	// Logger
-	GetLogger() *slog.Logger
+	GetDefaultLogger() *slog.Logger
+	GetLogger(index int) *slog.Logger
 }
 
 type AppInstance struct {
@@ -178,7 +179,7 @@ type AppInstance struct {
 	logStackCache     sync.Map
 
 	// 日志
-	logger *slog.Logger
+	loggers []*slog.Logger
 
 	// 协程池
 	workerPool *ants.PoolWithFunc
@@ -199,9 +200,18 @@ func CreateAppInstance() AppImpl {
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
+		loggers:       make([]*slog.Logger, 0),
 	}
 
-	ret.InitLog()
+	ret.loggers = append(ret.loggers, slog.New(&logHandlerImpl{
+		writers: []logHandlerWriter{
+			{
+				out: os.Stdout,
+			},
+		},
+		frameInfoCache: &ret.logFrameInfoCache,
+		stackCache:     &ret.logStackCache,
+	}))
 
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
@@ -285,28 +295,68 @@ func (app *AppInstance) SetFlag(flag AppFlag, value bool) bool {
 	}
 }
 
-func (app *AppInstance) InitLog() error {
-	handler := logHandlerImpl{
-		writers: []logHandlerWriter{
-			{
-				out: &lumberjack.Logger{
-					Filename:   "./a.log",
-					MaxSize:    500, // megabytes
-					MaxBackups: 3,
-					MaxAge:     28,   //days
-					Compress:   true, // disabled by default
-				},
-				enableStackTrace: true,
-			},
-			{
-				out: os.Stdout,
-			},
-		},
-		frameInfoCache: &app.logFrameInfoCache,
-		stackCache:     &app.logStackCache,
+func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
+	globalLevel := ConvertLogLevel(config.Level)
+
+	for i := range config.Category {
+		index := config.Category[i].Index
+
+		handler := logHandlerImpl{
+			writers:        make([]logHandlerWriter, 0),
+			frameInfoCache: &app.logFrameInfoCache,
+			stackCache:     &app.logStackCache,
+		}
+
+		for sinkIndex := range config.Category[i].Sink {
+			writer := logHandlerWriter{}
+			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max))
+			writer.maxLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min)
+
+			if config.Category[i].Sink[sinkIndex].Type == "file" {
+				writer.out = &lumberjack.Logger{
+					Filename:   config.Category[i].Sink[sinkIndex].GetLogBackendFile().File,
+					MaxSize:    int(config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Size), // megabytes
+					MaxBackups: int(config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Number),
+					MaxAge:     3,     //days
+					Compress:   false, // disabled by default
+				}
+				if config.Category[i].Stacktrace.Min != "disable" {
+					writer.enableStackTrace = true
+					writer.stackTraceLevel = ConvertLogLevel(config.Category[i].Stacktrace.Min)
+				}
+				handler.writers = append(handler.writers, writer)
+			}
+
+			if config.Category[i].Sink[sinkIndex].Type == "stdout" {
+				writer.out = os.Stdout
+				handler.writers = append(handler.writers, writer)
+			}
+
+			if config.Category[i].Sink[sinkIndex].Type == "stderr" {
+				writer.out = os.Stderr
+				handler.writers = append(handler.writers, writer)
+			}
+		}
+
+		if len(app.loggers) <= int(index) {
+			app.loggers = append(app.loggers, make([]*slog.Logger, int(index)+1-len(app.loggers))...)
+		}
+		app.loggers[index] = slog.New(&handler)
 	}
 
-	app.logger = slog.New(&handler)
+	for i := range app.loggers {
+		if app.loggers[i] == nil {
+			app.loggers[i] = slog.New(&logHandlerImpl{
+				writers: []logHandlerWriter{
+					{
+						out: os.Stdout,
+					},
+				},
+				frameInfoCache: &app.logFrameInfoCache,
+				stackCache:     &app.logStackCache,
+			})
+		}
+	}
 	return nil
 }
 
@@ -449,7 +499,7 @@ func (app *AppInstance) Init(arguments []string) error {
 	app.workerPool, err = ants.NewPoolWithFunc(20480, func(args interface{}) {
 		sender, ok := args.(*AppActionSender)
 		if !ok {
-			app.logger.Error("routine pool args type error, shouldn't happen!")
+			app.GetDefaultLogger().Error("routine pool args type error, shouldn't happen!")
 			return
 		}
 		app.processAction(sender)
@@ -574,15 +624,15 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 
 	select {
 	case <-app.appContext.Done():
-		app.logger.Info("Start to stop...")
+		app.GetDefaultLogger().Info("Start to stop...")
 	case sig := <-app.signalChan:
 		if sig == syscall.SIGTERM || sig == syscall.SIGQUIT {
-			app.logger.Info("Received signal, stopping...", slog.Any("signal", sig))
+			app.GetDefaultLogger().Info("Received signal, stopping...", slog.Any("signal", sig))
 			app.Stop()
 		}
 	case <-tickTimer.C:
 		if err := app.tick(); err != nil {
-			app.logger.Error("Tick error", slog.Any("err", err))
+			app.GetDefaultLogger().Error("Tick error", slog.Any("err", err))
 		}
 	}
 
@@ -638,7 +688,7 @@ func (app *AppInstance) closeAllModules(forceTimeout bool) (bool, error) {
 
 		moduleClosed, err := m.Stop()
 		if err != nil {
-			app.logger.Error("Module %s stop failed: %v", m.Name(), err)
+			app.GetDefaultLogger().Error("Module %s stop failed: %v", m.Name(), err)
 			m.Unactive()
 		} else if !moduleClosed {
 			if forceTimeout {
@@ -671,7 +721,7 @@ func (app *AppInstance) close() (bool, error) {
 
 		moduleClosed, err := m.Stop()
 		if err != nil {
-			app.logger.Error("Module %s stop failed: %v", m.Name(), err)
+			app.GetDefaultLogger().Error("Module %s stop failed: %v", m.Name(), err)
 			m.Unactive()
 		} else if !moduleClosed {
 			allClosed = false
@@ -720,7 +770,7 @@ func (app *AppInstance) RunCommand(arguments []string) error {
 
 func (app *AppInstance) sendLastCommand() error {
 	if len(app.lastCommand) == 0 {
-		app.GetLogger().Error("No command to send")
+		app.GetDefaultLogger().Error("No command to send")
 		return fmt.Errorf("no command to send")
 	}
 	// TODO: 发送远程指令
@@ -767,20 +817,24 @@ func (app *AppInstance) GetBuildVersion() string { return app.config.BuildVersio
 func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
 
 // 配置管理
-func (app *AppInstance) LoadConfig(configFile string) error {
+func (app *AppInstance) LoadConfig(configFile string) (err error) {
 	if configFile != "" {
 		app.config.ConfigFile = configFile
 		// 实际的配置文件解析逻辑
-		app.logger.Info("Loading config from", "configFile", configFile)
-		return LoadConfigFromYaml(configFile, "atapp", &app.config.ConfigPb, app.GetLogger())
+		app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
+		err = LoadConfigFromYaml(configFile, "atapp", &app.config.ConfigPb, app.GetDefaultLogger())
+		if err != nil {
+			return
+		}
+		err = app.InitLog(app.config.ConfigPb.Log)
 	}
-	return nil
+	return
 }
 
 // 消息相关
 func (app *AppInstance) SendMessage(targetId uint64, msgType int32, data []byte) error {
 	// TODO: 实现消息发送逻辑
-	app.logger.Debug("Sending message",
+	app.GetDefaultLogger().Debug("Sending message",
 		"targetId", targetId,
 		"type", msgType,
 		"size", len(data),
@@ -790,7 +844,7 @@ func (app *AppInstance) SendMessage(targetId uint64, msgType int32, data []byte)
 
 func (app *AppInstance) SendMessageByName(targetName string, msgType int32, data []byte) error {
 	// TODO: 实现按名称发送消息逻辑
-	app.logger.Debug("Sending message",
+	app.GetDefaultLogger().Debug("Sending message",
 		"targetName", targetName,
 		"type", msgType,
 		"size", len(data),
@@ -820,8 +874,15 @@ func (app *AppInstance) GetAppContext() context.Context {
 	return app.appContext
 }
 
-func (app *AppInstance) GetLogger() *slog.Logger {
-	return app.logger
+func (app *AppInstance) GetDefaultLogger() *slog.Logger {
+	return app.loggers[0]
+}
+
+func (app *AppInstance) GetLogger(index int) *slog.Logger {
+	if len(app.loggers) <= index {
+		return app.GetDefaultLogger()
+	}
+	return app.loggers[index]
 }
 
 // 内部辅助方法
@@ -837,7 +898,10 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	}
 
 	if app.flagSet.Lookup("config").Value.String() != "" {
+		app.GetDefaultLogger().Info("Found Config")
 		app.config.ConfigFile = app.flagSet.Lookup("config").Value.String()
+	} else {
+		app.GetDefaultLogger().Info("Not Found Config")
 	}
 
 	if app.flagSet.Lookup("version").Value.String() == "true" {
@@ -887,7 +951,7 @@ func (app *AppInstance) setupStartupLog() error {
 	// TODO: 根据配置设置启动流程日志
 	if len(app.config.StartupLog) > 0 {
 		for _, logFile := range app.config.StartupLog {
-			app.logger.Info("Setting up startup log", "file", logFile)
+			app.GetDefaultLogger().Info("Setting up startup log", "file", logFile)
 		}
 	}
 	return nil
@@ -1005,7 +1069,7 @@ func (cm *CommandManager) ExecuteCommand(app *AppInstance, command string, args 
 		if exists {
 			return handler(app, command, args)
 		} else {
-			app.logger.Error("Error command executed: %s %v", command, args)
+			app.GetDefaultLogger().Error("Error command executed: %s %v", command, args)
 			return nil
 		}
 	}
@@ -1041,7 +1105,7 @@ func (app *AppInstance) setupCommandManager() {
 		return app.handleReloadCommand(args)
 	})
 	cm.RegisterCommand("@OnError", func(app *AppInstance, command string, args []string) error {
-		app.logger.Error("Error command executed: %s %v", command, args)
+		app.GetDefaultLogger().Error("Error command executed: %s %v", command, args)
 		return nil
 	})
 
@@ -1050,17 +1114,17 @@ func (app *AppInstance) setupCommandManager() {
 
 // 默认命令处理器
 func (app *AppInstance) handleStartCommand(_args []string) error {
-	app.logger.Info("======================== App start ========================")
+	app.GetDefaultLogger().Info("======================== App start ========================")
 	return nil
 }
 
 func (app *AppInstance) handleStopCommand(_args []string) error {
-	app.logger.Info("======================== App received stop command ========================")
+	app.GetDefaultLogger().Info("======================== App received stop command ========================")
 	return app.Stop()
 }
 
 func (app *AppInstance) handleReloadCommand(_args []string) error {
-	app.logger.Info("======================== App received reload command ========================")
+	app.GetDefaultLogger().Info("======================== App received reload command ========================")
 	return app.Reload()
 }
 
@@ -1077,7 +1141,7 @@ func (app *AppInstance) MakeAction(callback func(action *AppActionData) error, m
 func (app *AppInstance) PushAction(callback func(action *AppActionData) error, message_data []byte, private_data interface{}) error {
 	sender := app.MakeAction(callback, message_data, private_data)
 	if err := app.workerPool.Invoke(sender); err != nil {
-		app.logger.Error("failed to invoke action", "err", err)
+		app.GetDefaultLogger().Error("failed to invoke action", "err", err)
 		return err
 	}
 
@@ -1087,7 +1151,7 @@ func (app *AppInstance) PushAction(callback func(action *AppActionData) error, m
 func (app *AppInstance) processAction(sender *AppActionSender) {
 	err := sender.callback(&sender.data)
 	if err != nil {
-		app.logger.Error("Action callback error", slog.Any("err", err))
+		app.GetDefaultLogger().Error("Action callback error", slog.Any("err", err))
 	}
 
 	sender.reset()

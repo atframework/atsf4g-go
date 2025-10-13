@@ -80,7 +80,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack ConfigCallba
 			proto.Unmarshal(dataBlocks.DataBlock[index], excelItemType)
 			configSet.mergeData(excelItemType)
 		}
-		configSet.callBack.GetLogger().Info("[EXCEL] ${loader.get_go_pb_name()} load success", "row_size", len(configSet.dataList))
+		configSet.callBack.GetDefaultLogger().Info("[EXCEL] ${loader.get_go_pb_name()} load success", "row_size", len(configSet.dataList))
 	}
     return nil
 }
@@ -95,7 +95,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 		% for field in code_index.fields:
 		key := data.${pb_loader.MakoToCamelName(field.name)}
 		if key < 0 {
-			configSet.callBack.GetLogger().Error("[EXCEL] merge_data() with key=<${code_index.get_key_fmt_list()}> for %s < 0, return",
+			configSet.callBack.GetDefaultLogger().Error("[EXCEL] merge_data() with key=<${code_index.get_key_fmt_list()}> for %s < 0, return",
 		% for field in code_index.fields:
 				data.${pb_loader.MakoToCamelName(field.name)},
 		% endfor
@@ -113,7 +113,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 		% endfor
 		}
 		if _, ok := configSet.configIndexContainer_${code_index.name}[key]; ok {
-			configSet.callBack.GetLogger().Error("[EXCEL] merge_data() with key=<${code_index.get_key_fmt_list()}> for %s is already exists, we will cover it with the newer value",
+			configSet.callBack.GetDefaultLogger().Error("[EXCEL] merge_data() with key=<${code_index.get_key_fmt_list()}> for %s is already exists, we will cover it with the newer value",
 		% for field in code_index.fields:
 				data.${pb_loader.MakoToCamelName(field.name)},
 		% endfor
@@ -136,7 +136,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy_${code_index.name}($
 		% for field in code_index.fields:
 	key := ${pb_loader.MakoToCamelName(field.name)}
 	if key < 0 {
-		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy_${code_index.name} with key=<${code_index.get_key_fmt_list()}> for %s < 0",
+		configSet.callBack.GetDefaultLogger().Error("[EXCEL] () GetBy_${code_index.name} with key=<${code_index.get_key_fmt_list()}> for %s < 0",
 			% for field in code_index.fields:
 			${pb_loader.MakoToCamelName(field.name)},
 			% endfor
@@ -144,7 +144,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy_${code_index.name}($
 		return nil
 	}
 	if int(key) >= len(configSet.configIndexContainer_${code_index.name}) {
-		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy_${code_index.name} with key=<${code_index.get_key_fmt_list()}> for %s >= Container Size<${"%d"}>",
+		configSet.callBack.GetDefaultLogger().Error("[EXCEL] () GetBy_${code_index.name} with key=<${code_index.get_key_fmt_list()}> for %s >= Container Size<${"%d"}>",
 			% for field in code_index.fields:
 			${pb_loader.MakoToCamelName(field.name)},
 			% endfor

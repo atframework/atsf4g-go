@@ -141,7 +141,7 @@ func UserLoadFromFile(ctx *cd.RpcContext, u UserImpl, loginCode string) cd.RpcRe
 		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	ctx.GetLogger().Info("load user from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+	ctx.GetDefaultLogger().Info("load user from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 
 	if loginTb.RouterVersion <= 0 {
 		loginTb.RouterVersion = 1

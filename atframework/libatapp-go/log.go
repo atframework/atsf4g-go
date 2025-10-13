@@ -15,7 +15,9 @@ import (
 type logHandlerWriter struct {
 	out io.Writer
 
-	level            slog.Level
+	minLevel slog.Level
+	maxLevel slog.Level
+
 	enableStackTrace bool
 	stackTraceLevel  slog.Level
 }
@@ -82,7 +84,7 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 }
 
 func (h *logHandlerWriter) Enabled(level slog.Level) bool {
-	return level >= h.level
+	return level >= h.minLevel && level <= h.maxLevel
 }
 
 func (h *logHandlerImpl) Enabled(_ context.Context, level slog.Level) bool {
@@ -116,7 +118,10 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	})
 
 	var stackTrace []byte
-	for k, _ := range h.writers {
+	for k := range h.writers {
+		if !h.writers[k].Enabled(r.Level) {
+			continue
+		}
 		// 写入基础日志
 		h.writers[k].out.Write([]byte(sb.String()))
 		if r.PC != 0 && h.writers[k].enableStackTrace && r.Level >= h.writers[k].stackTraceLevel {
@@ -140,4 +145,21 @@ func (h *logHandlerImpl) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 func (h *logHandlerImpl) WithGroup(name string) slog.Handler {
 	return h // 简化实现，不处理
+}
+
+func ConvertLogLevel(level string) slog.Level {
+	switch {
+	case level == "debug" || level == "DEBUG":
+		return slog.LevelDebug
+	case level == "info" || level == "INFO":
+		return slog.LevelInfo
+	case level == "warn" || level == "warning" || level == "WARN" || level == "WARNING":
+		return slog.LevelWarn
+	case level == "error" || level == "ERROR":
+		return slog.LevelError
+	case level == "fatal" || level == "FATAL":
+		return slog.LevelError
+	}
+
+	return slog.LevelInfo
 }

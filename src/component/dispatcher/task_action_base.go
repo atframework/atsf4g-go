@@ -261,11 +261,11 @@ func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *RpcResult
 	return nil
 }
 
-func (t *TaskActionBase) GetLogger() *slog.Logger {
+func (t *TaskActionBase) GetDefaultLogger() *slog.Logger {
 	d := t.GetDispatcher()
 	if d == nil {
 		return slog.Default()
 	}
 
-	return d.GetLogger()
+	return d.GetDefaultLogger()
 }

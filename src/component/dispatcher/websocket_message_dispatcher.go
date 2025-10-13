@@ -184,7 +184,7 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 	conn, err := d.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
-		d.GetApp().GetLogger().Error("WebSocket upgrade failed", "error", err)
+		d.GetApp().GetDefaultLogger().Error("WebSocket upgrade failed", "error", err)
 		return
 	}
 	conn.SetReadLimit(int64(d.wsConfig.MaxMessageSize))
@@ -210,7 +210,7 @@ func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
 	if onNewSession != nil {
 		err := onNewSession.(WebSocketCallbackOnNewSession)(d.CreateRpcContext(), session)
 		if err != nil {
-			d.GetApp().GetLogger().Error("OnNewSession callback error", "error", err, "session_id", session.SessionId)
+			d.GetApp().GetDefaultLogger().Error("OnNewSession callback error", "error", err, "session_id", session.SessionId)
 			d.Close(d.CreateRpcContext(), session, websocket.CloseServiceRestart, "Service shutdown")
 
 			if session.runningCancel != nil {
@@ -244,18 +244,18 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 		if err != nil {
 			d.increaseErrorCounter(session)
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				d.GetApp().GetLogger().Error("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
+				d.GetApp().GetDefaultLogger().Error("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
 			}
 			break
 		}
 
-		d.GetApp().GetLogger().Debug("Websocket session read message", "session_id", session.SessionId, "message_size", len(messageData))
+		d.GetApp().GetDefaultLogger().Debug("Websocket session read message", "session_id", session.SessionId, "message_size", len(messageData))
 
 		msg := &public_protocol_extension.CSMsg{}
 		err = proto.Unmarshal(messageData, msg)
 		if err != nil {
 			d.increaseErrorCounter(session)
-			d.GetApp().GetLogger().Error("Failed to unmarshal message", "error", err, "session_id", session.SessionId)
+			d.GetApp().GetDefaultLogger().Error("Failed to unmarshal message", "error", err, "session_id", session.SessionId)
 			continue
 		}
 
@@ -265,10 +265,10 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 		if onNewMessage != nil {
 			err = onNewMessage.(WebSocketCallbackOnNewMessage)(session, msg)
 			if err != nil {
-				d.GetApp().GetLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
+				d.GetApp().GetDefaultLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
 			}
 		} else {
-			d.GetApp().GetLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.String())
+			d.GetApp().GetDefaultLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.String())
 		}
 
 		if err == nil {
@@ -347,7 +347,7 @@ func (d *WebSocketMessageDispatcher) WriteMessage(session *WebSocketSession, mes
 		return nil
 	default:
 		d.increaseErrorCounter(session)
-		d.GetApp().GetLogger().Error("Send queue full, dropping message", "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().Error("Send queue full, dropping message", "session_id", session.SessionId)
 		return fmt.Errorf("send queue full")
 	}
 }
@@ -356,26 +356,26 @@ func (d *WebSocketMessageDispatcher) writeMessageToConnection(session *WebSocket
 	messageData, err := proto.Marshal(message)
 	if err != nil {
 		d.increaseErrorCounter(session)
-		d.GetApp().GetLogger().Error("Failed to marshal message", "error", err, "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().Error("Failed to marshal message", "error", err, "session_id", session.SessionId)
 		return err
 	}
 
 	err = session.Connection.WriteMessage(websocket.BinaryMessage, messageData)
 	if err != nil {
 		d.increaseErrorCounter(session)
-		d.GetApp().GetLogger().Error("Failed to write message", "error", err, "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().Error("Failed to write message", "error", err, "session_id", session.SessionId)
 		return err
 	}
 
 	session.resetErrorCounter()
 
-	d.GetApp().GetLogger().Debug("Websocket session sent message", "session_id", session.SessionId, "message_size", len(messageData))
+	d.GetApp().GetDefaultLogger().Debug("Websocket session sent message", "session_id", session.SessionId, "message_size", len(messageData))
 	return nil
 }
 
 func (d *WebSocketMessageDispatcher) Close(_ctx *RpcContext, session *WebSocketSession, closeCode int, text string) {
 	if !session.sentCloseMessage {
-		d.GetApp().GetLogger().Info("Closing WebSocket session", "session_id", session.SessionId, "reason", text)
+		d.GetApp().GetDefaultLogger().Info("Closing WebSocket session", "session_id", session.SessionId, "reason", text)
 
 		session.sentCloseMessage = true
 		session.Connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCode, text))

@@ -79,7 +79,7 @@ def render_body(context,**pageargs):
         __M_writer(str( service.file.get_name().replace("/", "_").replace("\\", "_").replace(".", "_") ))
         __M_writer('.Services().ByName("')
         __M_writer(str(service.get_name()))
-        __M_writer('")\r\n\tif svc == nil {\r\n\t\trd.GetApp().GetLogger().Error("lobbysvr_app.RegisterLobbyClientService no service ')
+        __M_writer('")\r\n\tif svc == nil {\r\n\t\trd.GetApp().GetDefaultLogger().Error("lobbysvr_app.RegisterLobbyClientService no service ')
         __M_writer(str(service.get_full_name()))
         __M_writer('")\r\n\t\treturn fmt.Errorf("no service ')
         __M_writer(str(service.get_full_name()))

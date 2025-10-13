@@ -57,7 +57,7 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 		if resultChan != nil {
 			resultChan <- fmt.Errorf("Reload not Finish")
 		}
-		configManagerInst.GetApp().GetLogger().Info("Reload not Finish")
+		configManagerInst.GetApp().GetDefaultLogger().Info("Reload not Finish")
 		return fmt.Errorf("Reload not Finish")
 	}
 
@@ -87,13 +87,13 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 
 func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_config.ConfigGroup) error {
 	// 加载配置逻辑
-	configManagerInst.GetApp().GetLogger().Info("Excel Loading Begin")
+	configManagerInst.GetApp().GetDefaultLogger().Info("Excel Loading Begin")
 	var callback ExcelConfigCallback
 	err := loadConfigGroup.Init(callback)
 	if err != nil {
 		return err
 	}
-	configManagerInst.GetApp().GetLogger().Info("Excel Loading End")
+	configManagerInst.GetApp().GetDefaultLogger().Info("Excel Loading End")
 	return nil
 }
 
@@ -131,20 +131,20 @@ func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
-		GetConfigManager().GetApp().GetLogger().Error("File Not Found", "filePath", filePath)
+		GetConfigManager().GetApp().GetDefaultLogger().Error("File Not Found", "filePath", filePath)
 		return nil, fmt.Errorf("file not found %s", filePath)
 	}
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		GetConfigManager().GetApp().GetLogger().Error("File Read Failed", "error", err)
+		GetConfigManager().GetApp().GetDefaultLogger().Error("File Read Failed", "error", err)
 		return nil, err
 	}
 	return content, nil
 }
 
-func (callback ExcelConfigCallback) GetLogger() *slog.Logger {
-	return GetConfigManager().GetApp().GetLogger()
+func (callback ExcelConfigCallback) GetDefaultLogger() *slog.Logger {
+	return GetConfigManager().GetApp().GetDefaultLogger()
 }
 
 func (callback ExcelConfigCallback) OnLoaded(config_group *generate_config.ConfigGroup) error {

@@ -345,28 +345,40 @@ func parseStringToYamlData(defaultValue string, fd protoreflect.FieldDescriptor,
 	return nil, fmt.Errorf("parseDefaultToYamlData unsupported field type: %v", fd.Kind())
 }
 
-func convertToInt64(data interface{}) interface{} {
+func convertToInt64(data interface{}) (int64, error) {
 	switch reflect.ValueOf(data).Kind() {
 	case reflect.Int:
-		return int64(reflect.ValueOf(data).Int()) // 转换为 int64
+		return int64(reflect.ValueOf(data).Int()), nil // 转换为 int64
 	case reflect.Int32:
-		return int64(reflect.ValueOf(data).Int()) // 转换为 int64
+		return int64(reflect.ValueOf(data).Int()), nil // 转换为 int64
 	case reflect.Int64:
-		return int64(reflect.ValueOf(data).Int()) // 转换为 int64
+		return int64(reflect.ValueOf(data).Int()), nil // 转换为 int64
 	case reflect.Uint:
-		return int64(reflect.ValueOf(data).Uint()) // 转换为 int64
+		return int64(reflect.ValueOf(data).Uint()), nil // 转换为 int64
 	case reflect.Uint32:
-		return int64(reflect.ValueOf(data).Uint()) // 转换为 int64
+		return int64(reflect.ValueOf(data).Uint()), nil // 转换为 int64
 	case reflect.Uint64:
-		return int64(reflect.ValueOf(data).Uint()) // 转换为 int64
+		return int64(reflect.ValueOf(data).Uint()), nil // 转换为 int64'
+	case reflect.Bool:
+		if reflect.ValueOf(data).Bool() {
+			return 1, nil
+		} else {
+			return 0, nil
+		}
+	case reflect.String:
+		value, _, err := pickNumber(reflect.ValueOf(data).String(), false)
+		if err != nil {
+			return 0, fmt.Errorf("convertToInt64 failed pickNumber failed %v, error: %s", data, err)
+		}
+		return value, nil
 	}
 	if v, ok := data.(*timestamppb.Timestamp); ok {
-		return v.Seconds*1000000000 + int64(v.Nanos)
+		return v.Seconds*1000000000 + int64(v.Nanos), nil
 	}
 	if v, ok := data.(*durationpb.Duration); ok {
-		return v.Seconds*1000000000 + int64(v.Nanos)
+		return v.Seconds*1000000000 + int64(v.Nanos), nil
 	}
-	return data
+	return 0, fmt.Errorf("convertToInt64 failed Type not fount: %T", data)
 }
 
 func checkMinMax(yamlData interface{}, minData interface{}, maxData interface{}) (interface{}, error) {
@@ -376,14 +388,24 @@ func checkMinMax(yamlData interface{}, minData interface{}, maxData interface{})
 
 	returnNative := yamlDataNative
 
+	var err error
 	if yamlData != nil {
-		yamlData = convertToInt64(yamlData)
+		yamlData, err = convertToInt64(yamlData)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if minData != nil {
-		minData = convertToInt64(minData)
+		minData, err = convertToInt64(minData)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if maxData != nil {
-		maxData = convertToInt64(maxData)
+		maxData, err = convertToInt64(maxData)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// 选出最终值
@@ -439,62 +461,61 @@ func convertField(yamlData interface{}, minData interface{}, maxData interface{}
 	}
 
 	// 更新最终值
-	switch {
-	case fd.Kind() == protoreflect.BoolKind:
+	switch fd.Kind() {
+	case protoreflect.BoolKind:
 		if v, ok := yamlData.(bool); ok {
 			return protoreflect.ValueOfBool(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected bool, got %T", yamlData)
-
-	case fd.Kind() == protoreflect.Int32Kind || fd.Kind() == protoreflect.Sint32Kind || fd.Kind() == protoreflect.Int64Kind ||
-		fd.Kind() == protoreflect.Sint64Kind || fd.Kind() == protoreflect.Uint32Kind || fd.Kind() == protoreflect.Uint64Kind:
-		if v, ok := yamlData.(int); ok {
-			return protoreflect.ValueOfInt32(int32(v)), nil
+	case protoreflect.Int32Kind:
+		v, err := convertToInt64(yamlData)
+		if err != nil {
+			return protoreflect.Value{}, err
 		}
-		if v, ok := yamlData.(int32); ok {
-			return protoreflect.ValueOfInt32(int32(v)), nil
+		return protoreflect.ValueOfInt32(int32(v)), nil
+	case protoreflect.Sint32Kind:
+		v, err := convertToInt64(yamlData)
+		if err != nil {
+			return protoreflect.Value{}, err
 		}
-		if v, ok := yamlData.(int64); ok {
-			return protoreflect.ValueOfInt64(int64(v)), nil
+		return protoreflect.ValueOfInt32(int32(v)), nil
+	case protoreflect.Int64Kind:
+		v, err := convertToInt64(yamlData)
+		if err != nil {
+			return protoreflect.Value{}, err
 		}
-		if v, ok := yamlData.(uint); ok {
-			return protoreflect.ValueOfUint32(uint32(v)), nil
+		return protoreflect.ValueOfInt64(int64(v)), nil
+	case protoreflect.Sint64Kind:
+		v, err := convertToInt64(yamlData)
+		if err != nil {
+			return protoreflect.Value{}, err
 		}
-		if v, ok := yamlData.(uint32); ok {
-			return protoreflect.ValueOfUint32(uint32(v)), nil
+		return protoreflect.ValueOfInt64(int64(v)), nil
+	case protoreflect.Uint32Kind:
+		v, err := convertToInt64(yamlData)
+		if err != nil {
+			return protoreflect.Value{}, err
 		}
-		if v, ok := yamlData.(uint64); ok {
-			return protoreflect.ValueOfUint64(uint64(v)), nil
+		return protoreflect.ValueOfUint32(uint32(v)), nil
+	case protoreflect.Uint64Kind:
+		v, err := convertToInt64(yamlData)
+		if err != nil {
+			return protoreflect.Value{}, err
 		}
-		if v, ok := yamlData.(bool); ok {
-			if v {
-				return protoreflect.ValueOfInt32(1), nil
-			} else {
-				return protoreflect.ValueOfInt32(0), nil
-			}
-		}
-		if v, ok := yamlData.(string); ok {
-			value, _, err := pickNumber(v, false)
-			if err != nil {
-				return protoreflect.Value{}, err
-			}
-			return protoreflect.ValueOfInt64(value), nil
-		}
-		return protoreflect.Value{}, fmt.Errorf("expected Int64, got %T", yamlData)
-
-	case fd.Kind() == protoreflect.StringKind:
+		return protoreflect.ValueOfUint64(uint64(v)), nil
+	case protoreflect.StringKind:
 		if v, ok := yamlData.(string); ok {
 			return protoreflect.ValueOfString(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected string, got %T", yamlData)
 
-	case fd.Kind() == protoreflect.FloatKind:
+	case protoreflect.FloatKind:
 		if v, ok := yamlData.(float32); ok {
 			return protoreflect.ValueOfFloat32(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected float32, got %T", yamlData)
 
-	case fd.Kind() == protoreflect.MessageKind:
+	case protoreflect.MessageKind:
 		if v, ok := yamlData.(*timestamppb.Timestamp); ok {
 			return protoreflect.ValueOfMessage(v.ProtoReflect()), nil
 		}

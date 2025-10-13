@@ -78,8 +78,8 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {
-	return t.GetDispatcher().GetApp().GetLogger()
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetDefaultLogger() *slog.Logger {
+	return t.GetDispatcher().GetApp().GetDefaultLogger()
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
@@ -205,7 +205,7 @@ func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uin
 	// 由于 ResponseType 是泛型，我们不能直接与 nil 比较
 	// 需要使用反射或者其他方式检查，这里先尝试序列化
 	if responseBodyBytes, err = proto.Marshal(body); err != nil {
-		rd.GetApp().GetLogger().Error("Failed to marshal response body",
+		rd.GetApp().GetDefaultLogger().Error("Failed to marshal response body",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", responseCode,
@@ -248,13 +248,13 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 
 	// 实际发送逻辑需要根据具体的网络层实现
 	if t.GetDispatcher() != nil && t.GetDispatcher().GetApp() != nil {
-		t.GetDispatcher().GetApp().GetLogger().Info("Sending CS response",
+		t.GetDispatcher().GetApp().GetDefaultLogger().Info("Sending CS response",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", t.GetResponseCode())
 		err = t.session.SendMessage(responseMsg)
 		if err != nil {
-			t.GetDispatcher().GetApp().GetLogger().Error("Failed to send CS response",
+			t.GetDispatcher().GetApp().GetDefaultLogger().Error("Failed to send CS response",
 				"session_id", responseMsg.Head.SessionId,
 				"client_sequence", responseMsg.Head.ClientSequence,
 				"response_code", t.GetResponseCode(),

@@ -22,7 +22,7 @@ func (t *TaskActionUserLogout) Name() string {
 }
 
 func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
-	t.GetLogger().Info("TaskActionUserLogout Run", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
+	t.GetDefaultLogger().Info("TaskActionUserLogout Run", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
 		"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
 
 	userWritable := t.user.IsWriteable()
@@ -31,7 +31,7 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 	uc.GlobalSessionManager.RemoveSession(t.GetRpcContext(), t.session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 
 	// TODO: 等待当前任务执行完毕
-	
+
 	if userWritable {
 		uc.GlobalUserManager.Remove(t.GetRpcContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
 	}
@@ -75,7 +75,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx *cd.RpcContext, s
 
 	err := cd.RunTaskAction(rd.GetApp(), logoutTask, startData)
 	if err != nil {
-		rd.GetApp().GetLogger().Error("TaskActionUserLogout RunTaskAction failed", "error", err,
+		rd.GetApp().GetDefaultLogger().Error("TaskActionUserLogout RunTaskAction failed", "error", err,
 			"zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId(), "session_id", sessionKey.SessionId, "session_node_id", sessionKey.NodeId)
 
 		session.UnbindUser(ctx, userImpl)
