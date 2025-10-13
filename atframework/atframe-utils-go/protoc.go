@@ -21,7 +21,7 @@ import (
 // 固定 protoc 版本，建议与你的 protoc-gen-go 版本兼容
 const (
 	protocVersion             = "32.1"
-	protocGoPluginVersion     = "1.36.9"
+	protocGoPluginVersion     = "v1.36.9"
 	protocGoGrpcPluginVersion = "v1.5.1"
 )
 
@@ -29,6 +29,10 @@ const (
 
 func EnsureProtocExecutable(binDir string) string {
 	return ensureProtoc(protocVersion, binDir)
+}
+
+func EnsureProtocGenGo() {
+	ensureGoInstall("protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go@"+protocGoPluginVersion)
 }
 
 func RunProcScanFiles(cwd string, binDir string, outDir string, includePaths []string, protoDirs []string, extFlags []string) error {
@@ -52,8 +56,7 @@ func RunProc(cwd string, binDir string, outDir string, includePaths []string, pr
 	protocBin := ensureProtoc(protocVersion, binDir)
 
 	// 2) 确保 go 插件（不存在则 go install）
-	ensureGoInstall("protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go@{"+protocGoPluginVersion+"}")
-	// ensureGoInstall("protoc-gen-go-grpc", "google.golang.org/grpc/cmd/protoc-gen-go-grpc@{"+protocGoGrpcPluginVersion+"}")
+	EnsureProtocGenGo()
 
 	// 3) 构造参数并执行
 	includeArgs := []string{}
