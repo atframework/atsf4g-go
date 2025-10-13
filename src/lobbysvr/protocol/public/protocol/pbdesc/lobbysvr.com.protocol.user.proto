@@ -88,11 +88,11 @@ message CSLoginReq {
 
 // 登录返回
 message SCLoginRsp {
-  int32 last_sequence = 1;      // 上次收包的seq(不算MCSLogin)
+  uint64 last_sequence = 1;     // 上次收包的seq(不算MCSLogin)
   int64 heartbeat_interval = 2; // 心跳包间隔
   bool is_new_user = 3;         // 是否是新玩家
-  int32 version_type = 4;       // 版本类型 @EnVersionType
-  int32 zone_id = 5;            // 大区ID
+  uint32 version_type = 4;      // 版本类型 @EnVersionType
+  uint32 zone_id = 5;           // 大区ID
 }
 
 message SCUserProfileSyn { DUserProfile user = 1; }
