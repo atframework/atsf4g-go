@@ -47,6 +47,25 @@ func (um *UserManager) SetCreateUserCallback(callback CreateUserCallback) {
 	}
 }
 
+func (um *UserManager) replace(u UserImpl) {
+	if u == nil {
+		return
+	}
+
+	um.userLock.RLock()
+	defer um.userLock.RUnlock()
+
+	uidMap, ok := um.users[u.GetZoneId()]
+	if !ok {
+		m := &map[uint64]UserImpl{}
+		(*m)[u.GetUserId()] = u
+		um.users[u.GetZoneId()] = m
+		return
+	}
+
+	(*uidMap)[u.GetUserId()] = u
+}
+
 func (um *UserManager) Find(zoneID uint32, userID uint64) UserImpl {
 	um.userLock.RLock()
 	defer um.userLock.RUnlock()
@@ -110,20 +129,84 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 	um *UserManager, zoneID uint32, userID uint64, openID string,
 	loginTb *private_protocol_pbdesc.DatabaseTableLogin,
 	loginTbVersion uint64,
-	lockLoginTaskId uint64,
-) UserImpl {
+	tryLockUserResource func(user T) cd.RpcResult,
+	unlockUserResource func(user T),
+) (T, cd.RpcResult) {
+	var zero T
 	if um == nil || zoneID <= 0 || userID <= 0 || loginTb == nil {
-		return nil
+		return zero, cd.CreateRpcResultError(fmt.Errorf("invalid param"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
 	// TODO: 托管给路由系统，执行数据库读取
+	u := um.Find(zoneID, userID)
 
-	if loginTb.RouterVersion <= 0 {
-		loginTb.RouterVersion = 1
+	defer func() {
+		if u != nil && unlockUserResource != nil {
+			unlockUserResource(u.(T))
+		}
+	}()
+
+	var ret T
+	if u == nil {
+		u = um.createUserCallback(ctx, zoneID, userID, openID)
+		if u == nil {
+			return zero, cd.CreateRpcResultError(fmt.Errorf("invalcan not create userid param"), public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_CREATE_PLAYER_FAILED)
+		}
+		convertRet, ok := u.(T)
+		if !ok {
+			return zero, cd.CreateRpcResultError(fmt.Errorf("user type mismatch, zone_id: %d, user_id: %d, type: %T", zoneID, userID, u), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		ret = convertRet
+
+		if tryLockUserResource != nil {
+			result := tryLockUserResource(u.(T))
+			if result.IsError() {
+				unlockUserResource = nil
+				return zero, result
+			}
+		}
+
+		um.replace(u)
+	} else {
+		convertRet, ok := u.(T)
+		if !ok {
+			return zero, cd.CreateRpcResultError(fmt.Errorf("user type mismatch, zone_id: %d, user_id: %d, type: %T", zoneID, userID, u), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		ret = convertRet
+
+		if tryLockUserResource != nil {
+			result := tryLockUserResource(u.(T))
+			if result.IsError() {
+				unlockUserResource = nil
+				return zero, result
+			}
+		}
 	}
-	// u.LoadLoginInfo(u, loginTb, loginTb.RouterVersion)
 
-	return nil
+	result := UserLoadUserTableFromFile(ctx, u, loginTb, loginTbVersion)
+	if result.IsError() {
+		return zero, result
+	}
+
+	// 路由系统外逻辑
+
+	// 创建初始化
+	if u.GetLoginVersion() <= 0 {
+		// 新用户初始化逻辑
+		u.CreateInit(u, ctx, uint32(public_protocol_pbdesc.EnVersionType_EN_VERSION_DEFAULT))
+
+		// 设置版本号
+		u.GetLoginInfo().RouterVersion = 1
+		// 更新Login Table版本号
+		u.LoadLoginInfo(u, u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
+
+		result = um.internalSave(ctx, u)
+		if result.IsError() {
+			return zero, result
+		}
+	}
+
+	return ret, cd.CreateRpcResultOk()
 }
 
 // TODO: 临时的鉴权数据读取
@@ -354,8 +437,11 @@ func (um *UserManager) internalSave(ctx *cd.RpcContext, userImpl UserImpl) cd.Rp
 
 	if routerVersion > userImpl.GetLoginInfo().RouterVersion {
 		userImpl.GetLoginInfo().RouterVersion = routerVersion
+
+		// 更新Login Table版本号
+		userImpl.LoadLoginInfo(userImpl, userImpl.GetLoginInfo(), routerVersion)
 	}
-	userImpl.OnSaved(userImpl, ctx, int64(routerVersion))
+	userImpl.OnSaved(userImpl, ctx, routerVersion)
 
 	result.LogInfo(ctx, "save user to db success", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
 	return cd.CreateRpcResultOk()

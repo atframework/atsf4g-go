@@ -3,18 +3,20 @@
 package lobbysvr_logic_user_action
 
 import (
+	"fmt"
 	"log/slog"
 	"strconv"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	"google.golang.org/protobuf/proto"
 )
 
 type TaskActionLogin struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
+	cd.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
 
 	isNewPlayer bool
 }
@@ -27,7 +29,7 @@ func (t *TaskActionLogin) AllowNoActor() bool {
 	return true
 }
 
-func (t *TaskActionLogin) Run(_startData *component_dispatcher.DispatcherStartData) error {
+func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	t.GetDispatcher().GetApp().GetDefaultLogger().Info("TaskActionLoginAuth Run",
 		slog.Uint64("task_id", t.GetTaskId()),
 		slog.Uint64("session_id", t.GetSession().GetSessionId()),
@@ -71,11 +73,7 @@ func (t *TaskActionLogin) Run(_startData *component_dispatcher.DispatcherStartDa
 	}
 
 	// 已登入用户的登入互斥
-	defer func() {
-		if user != nil {
-			user.UnlockLoginTask(t.GetTaskId())
-		}
-	}()
+	t.SetUser(user)
 
 	// 登入鉴权
 	_, loginCode := uc.UserGetAuthDataFromFile(t.GetRpcContext(), zoneId, userId)
@@ -93,8 +91,60 @@ func (t *TaskActionLogin) Run(_startData *component_dispatcher.DispatcherStartDa
 		return nil
 	}
 
-	// TODO: 临时信任session，后续加入token验证和User绑定
-	t.GetSession().BindUser(t.GetRpcContext(), &data.User{})
+	loginTb, result := uc.UserLoadLoginTableFromFile(t.GetRpcContext(), zoneId, userId)
+	if result.IsError() {
+		if result.GetResponseCode() < 0 {
+			t.SetResponseCode(result.GetResponseCode())
+		} else {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_CREATE_PLAYER_FAILED)
+		}
+		if result.Error != nil {
+			result.LogError(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
+		} else {
+			result.LogWarn(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
+		}
+		return nil
+	}
+	loginTbVersion := loginTb.RouterVersion
+
+	user, result = uc.UserManagerCreateUserAs(
+		t.GetRpcContext(), uc.GlobalUserManager, zoneId, userId, request_body.GetOpenId(),
+		loginTb, loginTbVersion, func(user *data.User) cd.RpcResult {
+			if user == nil {
+				return cd.CreateRpcResultError(
+					fmt.Errorf("user is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+			}
+
+			if !user.TryLockLoginTask(t.GetTaskId()) {
+				return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
+			}
+
+			t.SetUser(user)
+			return cd.CreateRpcResultOk()
+		},
+		// 不需要这里解锁，整个task执行完后会解锁的
+		nil)
+	if result.IsError() {
+		if result.GetResponseCode() < 0 {
+			t.SetResponseCode(result.GetResponseCode())
+		} else {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_CREATE_PLAYER_FAILED)
+		}
+		result.LogError(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
+		return nil
+	}
+
+	t.isNewPlayer = user.GetLoginVersion() <= 1
+
+	// 数据复制
+	proto.Reset(user.MutableClientInfo())
+	proto.Merge(user.MutableClientInfo(), request_body.GetClientInfo())
+
+	// session绑定
+	t.GetSession().BindUser(t.GetRpcContext(), user)
+
+	// 登入初始化
+	user.LoginInit(user, t.GetRpcContext())
 
 	return nil
 }
@@ -140,16 +190,41 @@ func (t *TaskActionLogin) replaceSession(user *data.User, session *uc.Session) b
 func (t *TaskActionLogin) OnSuccess() {
 	response_body := t.MutableResponseBody()
 
-	user := t.GetUser()
-	if user == nil {
+	userImpl := t.GetUser()
+	if userImpl == nil {
+		return
+	}
+
+	user, ok := userImpl.(*data.User)
+	if !ok || user == nil {
 		return
 	}
 
 	response_body.ZoneId = user.GetZoneId()
-	response_body.VersionType = uint32(public_protocol_pbdesc.EnVersionType_EN_VERSION_DEFAULT)
+	response_body.VersionType = uint32(user.GetAccountInfo().GetVersionType())
 
 	// TODO: 配置
 	response_body.HeartbeatInterval = 120
 
 	response_body.IsNewUser = t.isNewPlayer
+
+	// 事件和刷新
+	user.RefreshLimit(t.GetRpcContext(), t.GetNow())
+
+	// 登入过程中产生的脏数据不需要推送
+	user.CleanupClientDirtyCache()
+}
+
+func (t *TaskActionLogin) OnComplete() {
+	userImpl := t.GetUser()
+	if userImpl == nil {
+		return
+	}
+
+	user, ok := userImpl.(*data.User)
+	if !ok || user == nil {
+		return
+	}
+
+	user.UnlockLoginTask(t.GetTaskId())
 }

@@ -6,8 +6,10 @@ import (
 	"sync"
 	"time"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 )
 
@@ -27,6 +29,8 @@ type User struct {
 	refreshLimitSecondChenckpoint int64
 	refreshLimitMinuteChenckpoint int64
 
+	client_info_ uc.UserDirtyWrapper[public_protocol_pbdesc.DClientDeviceInfo]
+
 	moduleManagerMap map[reflect.Type]UserModuleManagerImpl
 	itemManagerList  []userItemManagerWrapper
 }
@@ -43,10 +47,11 @@ func (u *User) IsWriteable() bool {
 
 func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
+		UserCache: uc.CreateUserCache(zoneId, userId, openId),
+
 		loginTaskLock:    sync.Mutex{},
 		loginTaskId:      0,
 		isLoginInited:    false,
-		UserCache:        uc.CreateUserCache(zoneId, userId, openId),
 		moduleManagerMap: make(map[reflect.Type]UserModuleManagerImpl),
 		itemManagerList:  make([]userItemManagerWrapper, 0),
 	}
@@ -204,6 +209,8 @@ func (u *User) LoginInit(self uc.UserImpl, ctx *cd.RpcContext) {
 	for _, mgr := range u.moduleManagerMap {
 		mgr.LoginInit(ctx)
 	}
+
+	u.OnLogin(u, ctx)
 }
 
 func (u *User) OnLogin(self uc.UserImpl, ctx *cd.RpcContext) {
@@ -226,8 +233,10 @@ func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
 	u.isLoginInited = false
 }
 
-func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version int64) {
+func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version uint64) {
 	u.UserCache.OnSaved(self, ctx, version)
+
+	u.client_info_.ClearDirty(version)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnSaved(ctx, version)
@@ -240,6 +249,31 @@ func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Se
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnUpdateSession(ctx, from, to)
 	}
+}
+
+func (u *User) SyncClientDirtyCache() {
+	u.UserCache.SyncClientDirtyCache()
+
+	// TODO: 脏数据推送handle
+	for _, mgr := range u.moduleManagerMap {
+		mgr.SyncClientDirtyCache()
+	}
+}
+
+func (u *User) CleanupClientDirtyCache() {
+	u.UserCache.CleanupClientDirtyCache()
+
+	// TODO: 脏数据推送handle
+	for _, mgr := range u.moduleManagerMap {
+		mgr.CleanupClientDirtyCache()
+	}
+}
+
+func (u *User) SendAllSyncData() error {
+	u.SyncClientDirtyCache()
+
+	u.CleanupClientDirtyCache()
+	return nil
 }
 
 func (u *User) UpdateHeartbeat(ctx *cd.RpcContext) {
@@ -312,4 +346,12 @@ func (u *User) GetItemManager(typeId int32) UserItemManagerImpl {
 	}
 
 	return u.itemManagerList[index].manager
+}
+
+func (u *User) GetClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
+	return u.client_info_.Get()
+}
+
+func (u *User) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
+	return u.client_info_.Mutable(u.GetCurrentDbDataVersion())
 }

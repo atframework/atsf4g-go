@@ -27,11 +27,11 @@ type UserModuleManagerImpl interface {
 
 	OnLogin(*cd.RpcContext)
 	OnLogout(*cd.RpcContext)
-	OnSaved(*cd.RpcContext, int64)
+	OnSaved(*cd.RpcContext, uint64)
 	OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Session)
 
-	SyncDirtyCache()
-	CleanupDirtyCache()
+	SyncClientDirtyCache()
+	CleanupClientDirtyCache()
 }
 
 var userModuleManagerCreators = make(map[reflect.Type]struct {
@@ -107,14 +107,14 @@ func (m *UserModuleManagerBase) OnLogin(_ctx *cd.RpcContext) {
 func (m *UserModuleManagerBase) OnLogout(_ctx *cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) OnSaved(_ctx *cd.RpcContext, _version int64) {
+func (m *UserModuleManagerBase) OnSaved(_ctx *cd.RpcContext, _version uint64) {
 }
 
 func (m *UserModuleManagerBase) OnUpdateSession(_ctx *cd.RpcContext, _from *uc.Session, _to *uc.Session) {
 }
 
-func (m *UserModuleManagerBase) SyncDirtyCache() {
+func (m *UserModuleManagerBase) SyncClientDirtyCache() {
 }
 
-func (m *UserModuleManagerBase) CleanupDirtyCache() {
+func (m *UserModuleManagerBase) CleanupClientDirtyCache() {
 }

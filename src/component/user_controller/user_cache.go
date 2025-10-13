@@ -10,6 +10,10 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
+const (
+	UserDataCurrentVersion uint64 = 1
+)
+
 type UserImpl interface {
 	cd.TaskActionCSUser
 
@@ -26,24 +30,27 @@ type UserImpl interface {
 
 	OnLogin(self UserImpl, ctx *cd.RpcContext)
 	OnLogout(self UserImpl, ctx *cd.RpcContext)
-	OnSaved(self UserImpl, ctx *cd.RpcContext, version int64)
+	OnSaved(self UserImpl, ctx *cd.RpcContext, version uint64)
 	OnUpdateSession(self UserImpl, ctx *cd.RpcContext, from *Session, to *Session)
 
 	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
 	GetLoginVersion() uint64
 	LoadLoginInfo(self UserImpl, loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
+
+	SyncClientDirtyCache()
+	CleanupClientDirtyCache()
 }
 
 type UserDirtyWrapper[T any] struct {
 	value        T
-	dirtyVersion int64
+	dirtyVersion uint64
 }
 
 func (u *UserDirtyWrapper[T]) Get() *T {
 	return &u.value
 }
 
-func (u *UserDirtyWrapper[T]) Mutable(version int64) *T {
+func (u *UserDirtyWrapper[T]) Mutable(version uint64) *T {
 	if version > u.dirtyVersion {
 		u.dirtyVersion = version
 	}
@@ -55,13 +62,13 @@ func (u *UserDirtyWrapper[T]) IsDirty() bool {
 	return u.dirtyVersion > 0
 }
 
-func (u *UserDirtyWrapper[T]) ClearDirty(version int64) {
+func (u *UserDirtyWrapper[T]) ClearDirty(version uint64) {
 	if version >= u.dirtyVersion {
 		u.dirtyVersion = 0
 	}
 }
 
-func (u *UserDirtyWrapper[T]) SetDirty(version int64) {
+func (u *UserDirtyWrapper[T]) SetDirty(version uint64) {
 	if version > u.dirtyVersion {
 		u.dirtyVersion = version
 	}
@@ -79,6 +86,8 @@ type UserCache struct {
 	loginInfo    *private_protocol_pbdesc.DatabaseTableLogin
 	loginVersion uint64
 
+	dataVersion uint64
+
 	account_info_ UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]
 	user_data_    UserDirtyWrapper[private_protocol_pbdesc.UserData]
 	user_options_ UserDirtyWrapper[private_protocol_pbdesc.UserOptions]
@@ -90,6 +99,18 @@ func CreateUserCache(zoneId uint32, userId uint64, openId string) UserCache {
 		userId:        userId,
 		openId:        openId,
 		actorExecutor: nil,
+		loginInfo:     nil,
+		loginVersion:  0,
+		dataVersion:   0,
+		account_info_: UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]{
+			value: private_protocol_pbdesc.AccountInformation{
+				Profile: &public_protocol_pbdesc.DUserProfile{
+					OpenId: openId,
+					UserId: userId,
+				},
+			},
+			dirtyVersion: 0,
+		},
 	}
 }
 
@@ -183,7 +204,9 @@ func (u *UserCache) IsWriteable() bool {
 func (u *UserCache) RefreshLimit(_ctx *cd.RpcContext, _now time.Time) {
 }
 
-func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, _srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	u.dataVersion = srcTb.DataVersion
+
 	return cd.CreateRpcResultOk()
 }
 
@@ -195,6 +218,12 @@ func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private
 		}
 	}
 
+	dstTb.OpenId = u.GetOpenId()
+	dstTb.UserId = u.GetUserId()
+	dstTb.ZoneId = u.GetZoneId()
+	// always use current version
+	dstTb.DataVersion = UserDataCurrentVersion
+
 	dstTb.AccountData = u.account_info_.Get()
 	dstTb.UserData = u.user_data_.Get()
 	dstTb.Options = u.user_options_.Get()
@@ -202,7 +231,8 @@ func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private
 	return cd.CreateRpcResultOk()
 }
 
-func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, _versionType uint32) {
+func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, versionType uint32) {
+	u.MutableAccountInfo().VersionType = int32(versionType)
 }
 
 func (u *UserCache) LoginInit(_self UserImpl, _ctx *cd.RpcContext) {
@@ -214,7 +244,7 @@ func (u *UserCache) OnLogin(_self UserImpl, _ctx *cd.RpcContext) {
 func (u *UserCache) OnLogout(_self UserImpl, _ctx *cd.RpcContext) {
 }
 
-func (u *UserCache) OnSaved(_self UserImpl, _ctx *cd.RpcContext, version int64) {
+func (u *UserCache) OnSaved(_self UserImpl, _ctx *cd.RpcContext, version uint64) {
 	u.account_info_.ClearDirty(version)
 	u.user_data_.ClearDirty(version)
 	u.user_options_.ClearDirty(version)
@@ -251,4 +281,38 @@ func (u *UserCache) LoadLoginInfo(_self UserImpl, info *private_protocol_pbdesc.
 
 	u.loginInfo = info
 	u.loginVersion = version
+}
+
+func (u *UserCache) SyncClientDirtyCache() {
+}
+
+func (u *UserCache) CleanupClientDirtyCache() {
+}
+
+func (u *UserCache) GetCurrentDbDataVersion() uint64 {
+	return u.loginInfo.RouterVersion
+}
+
+func (u *UserCache) GetAccountInfo() *private_protocol_pbdesc.AccountInformation {
+	return u.account_info_.Get()
+}
+
+func (u *UserCache) MutableAccountInfo() *private_protocol_pbdesc.AccountInformation {
+	return u.account_info_.Mutable(u.GetCurrentDbDataVersion())
+}
+
+func (u *UserCache) GetUserData() *private_protocol_pbdesc.UserData {
+	return u.user_data_.Get()
+}
+
+func (u *UserCache) MutableUserData() *private_protocol_pbdesc.UserData {
+	return u.user_data_.Mutable(u.GetCurrentDbDataVersion())
+}
+
+func (u *UserCache) GetUserOptions() *private_protocol_pbdesc.UserOptions {
+	return u.user_options_.Get()
+}
+
+func (u *UserCache) MutableUserOptions() *private_protocol_pbdesc.UserOptions {
+	return u.user_options_.Mutable(u.GetCurrentDbDataVersion())
 }
