@@ -60,6 +60,8 @@ __pycache__/
 *.pyc
 *.pyo
 .mako-*
+.mako_modules
+.jinja2_modules
 
 *.pb.go
 _generated/
