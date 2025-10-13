@@ -213,8 +213,8 @@ enum EnErrorCode {
                          [(error_code.description) = "版本错误或需要更新"];
   EN_ERR_LOGIN_PROTO_VERSION = -404
                                [(error_code.description) = "协议版本错误"];
-  EN_ERR_LOGIN_VERIFY = -405
-                        [(error_code.description) = "校验不通过"];
+  EN_ERR_LOGIN_AUTHORIZE = -405
+                           [(error_code.description) = "认证失败"];
   EN_ERR_LOGIN_ALREADY_ONLINE =
       -406
       [(error_code.description) = "仍然在线且踢下线失败"];
