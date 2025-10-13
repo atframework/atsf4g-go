@@ -208,10 +208,10 @@ func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
 
 	onNewSession := d.onNewSession.Load()
 	if onNewSession != nil {
-		err := onNewSession.(WebSocketCallbackOnNewSession)(d.CreateRpcContext(), session)
+		err := onNewSession.(WebSocketCallbackOnNewSession)(d.CreateRpcContext(d), session)
 		if err != nil {
 			d.GetApp().GetDefaultLogger().Error("OnNewSession callback error", "error", err, "session_id", session.SessionId)
-			d.Close(d.CreateRpcContext(), session, websocket.CloseServiceRestart, "Service shutdown")
+			d.Close(d.CreateRpcContext(d), session, websocket.CloseServiceRestart, "Service shutdown")
 
 			if session.runningCancel != nil {
 				session.runningCancel()
@@ -232,12 +232,12 @@ func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
 
 	onRemoveSession := d.onRemoveSession.Load()
 	if onRemoveSession != nil {
-		onRemoveSession.(WebSocketCallbackOnRemoveSession)(d.CreateRpcContext(), session)
+		onRemoveSession.(WebSocketCallbackOnRemoveSession)(d.CreateRpcContext(d), session)
 	}
 }
 
 func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession) {
-	defer d.Close(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closed by peer")
+	defer d.Close(d.CreateRpcContext(d), session, websocket.CloseGoingAway, "Session closed by peer")
 
 	for {
 		_, messageData, err := session.Connection.ReadMessage()
@@ -300,11 +300,11 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 		if session.Authorized || authTimeoutContext == nil {
 			select {
 			case <-session.runningContext.Done():
-				d.Close(d.CreateRpcContext(), session, websocket.CloseServiceRestart, "Service shutdown")
+				d.Close(d.CreateRpcContext(d), session, websocket.CloseServiceRestart, "Service shutdown")
 				break
 			case writeMessage, ok := <-session.sendQueue:
 				if !ok {
-					d.Close(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+					d.Close(d.CreateRpcContext(d), session, websocket.CloseGoingAway, "Session closing")
 					break
 				}
 				d.writeMessageToConnection(session, writeMessage)
@@ -313,17 +313,17 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 			select {
 			case <-authTimeoutContext.Done():
 				if !session.Authorized {
-					d.Close(d.CreateRpcContext(), session, websocket.CloseNormalClosure, "Authentication timeout")
+					d.Close(d.CreateRpcContext(d), session, websocket.CloseNormalClosure, "Authentication timeout")
 				}
 				authTimeoutContext = nil
 				cleanTimeout()
 
 			case <-session.runningContext.Done():
-				d.Close(d.CreateRpcContext(), session, websocket.CloseServiceRestart, "Service shutdown")
+				d.Close(d.CreateRpcContext(d), session, websocket.CloseServiceRestart, "Service shutdown")
 				break
 			case writeMessage, ok := <-session.sendQueue:
 				if !ok {
-					d.Close(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+					d.Close(d.CreateRpcContext(d), session, websocket.CloseGoingAway, "Session closing")
 					break
 				}
 				d.writeMessageToConnection(session, writeMessage)
@@ -392,7 +392,7 @@ func (d *WebSocketMessageDispatcher) increaseErrorCounter(session *WebSocketSess
 	session.errorCounter++
 
 	if session.errorCounter > 10 {
-		d.Close(d.CreateRpcContext(), session, websocket.ClosePolicyViolation, "Too many errors")
+		d.Close(d.CreateRpcContext(d), session, websocket.ClosePolicyViolation, "Too many errors")
 	}
 }
 

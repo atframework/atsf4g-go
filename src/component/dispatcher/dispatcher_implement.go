@@ -54,11 +54,19 @@ type DispatcherImpl interface {
 }
 
 func (ctx *RpcContext) GetDefaultLogger() *slog.Logger {
-	if ctx.logger != nil {
-		return ctx.logger
+	if ctx.app != nil {
+		return ctx.app.GetDefaultLogger()
 	}
 
 	return slog.Default()
+}
+
+func (ctx *RpcContext) GetNow() time.Time {
+	if ctx.dispatcher != nil {
+		return ctx.dispatcher.GetNow()
+	}
+
+	return time.Now()
 }
 
 type taskActionCreatorData struct {
@@ -139,9 +147,10 @@ func (dispatcher *DispatcherBase) GetDefaultLogger() *slog.Logger {
 	return app.GetDefaultLogger()
 }
 
-func (dispatcher *DispatcherBase) CreateRpcContext() *RpcContext {
+func (dispatcher *DispatcherBase) CreateRpcContext(rd DispatcherImpl) *RpcContext {
 	return &RpcContext{
-		logger: dispatcher.GetDefaultLogger(),
+		app:        dispatcher.GetApp(),
+		dispatcher: rd,
 	}
 }
 
@@ -179,7 +188,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 		return nil
 	}
 
-	rpcContext := dispatcher.CreateRpcContext()
+	rpcContext := dispatcher.CreateRpcContext(rd)
 	if parentContext != nil {
 		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(parentContext)
 	}

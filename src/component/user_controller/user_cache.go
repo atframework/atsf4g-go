@@ -30,8 +30,8 @@ type UserImpl interface {
 	OnUpdateSession(self UserImpl, ctx *cd.RpcContext, from *Session, to *Session)
 
 	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
-	GetLoginVersion() int64
-	LoadLoginInfo(self UserImpl, loginTB *private_protocol_pbdesc.DatabaseTableLogin, version int64)
+	GetLoginVersion() uint64
+	LoadLoginInfo(self UserImpl, loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
 }
 
 type UserDirtyWrapper[T any] struct {
@@ -77,7 +77,7 @@ type UserCache struct {
 	actorExecutor *cd.ActorExecutor
 
 	loginInfo    *private_protocol_pbdesc.DatabaseTableLogin
-	loginVersion int64
+	loginVersion uint64
 
 	account_info_ UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]
 	user_data_    UserDirtyWrapper[private_protocol_pbdesc.UserData]
@@ -138,9 +138,16 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 	}
 
 	old_session := u.session
+
+	// 覆盖旧绑定,必须先设置成员变量再触发关联绑定，以解决重入问题
 	u.session = session
+	session.BindUser(ctx, self)
 
 	u.OnUpdateSession(self, ctx, old_session, session)
+
+	if old_session != nil {
+		old_session.UnbindUser(ctx, self)
+	}
 }
 
 func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
@@ -156,6 +163,10 @@ func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Se
 	u.session = nil
 
 	u.OnUpdateSession(self, ctx, old_session, nil)
+
+	if old_session != nil {
+		old_session.UnbindUser(ctx, self)
+	}
 
 	// TODO: 触发登出保存
 	if self.IsWriteable() {
@@ -229,11 +240,11 @@ func (u *UserCache) GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin {
 	return u.loginInfo
 }
 
-func (u *UserCache) GetLoginVersion() int64 {
+func (u *UserCache) GetLoginVersion() uint64 {
 	return u.loginVersion
 }
 
-func (u *UserCache) LoadLoginInfo(_self UserImpl, info *private_protocol_pbdesc.DatabaseTableLogin, version int64) {
+func (u *UserCache) LoadLoginInfo(_self UserImpl, info *private_protocol_pbdesc.DatabaseTableLogin, version uint64) {
 	if info == nil {
 		return
 	}

@@ -24,7 +24,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Private protocols",
+      "label": "Generate:Protocol:Private",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/private"],
@@ -35,7 +35,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Public protocols",
+      "label": "Generate:Protocol:Public",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/public"],
@@ -50,6 +50,17 @@
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/config"],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
+      "label": "Generate:Protocol:lobbysvr",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", ".", "${workspaceFolder}/src/lobbysvr"],
       "options": {
         "cwd": "${workspaceFolder}/tools/generate"
       },

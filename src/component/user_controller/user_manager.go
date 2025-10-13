@@ -1,6 +1,7 @@
 package atframework_component_user_controller
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"sync"
@@ -105,30 +106,125 @@ func UserManagerFindUserAs[T UserImpl](um *UserManager, zoneID uint32, userID ui
 	return casted
 }
 
-// TODO: 临时的数据读取
-func UserLoadFromFile(ctx *cd.RpcContext, u UserImpl, loginCode string) cd.RpcResult {
-	userTbFilePath := fmt.Sprintf("../data/%d-%d.user.db", u.GetZoneId(), u.GetUserId())
-	loginTbFilePath := fmt.Sprintf("../data/%d-%d.login.db", u.GetZoneId(), u.GetUserId())
-	if _, serr := os.Stat(userTbFilePath); serr != nil {
-		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
+func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
+	um *UserManager, zoneID uint32, userID uint64, openID string,
+	loginTb *private_protocol_pbdesc.DatabaseTableLogin,
+	loginTbVersion uint64,
+	lockLoginTaskId uint64,
+) UserImpl {
+	if um == nil || zoneID <= 0 || userID <= 0 || loginTb == nil {
+		return nil
 	}
 
+	// TODO: 托管给路由系统，执行数据库读取
+
+	if loginTb.RouterVersion <= 0 {
+		loginTb.RouterVersion = 1
+	}
+	// u.LoadLoginInfo(u, loginTb, loginTb.RouterVersion)
+
+	return nil
+}
+
+// TODO: 临时的鉴权数据读取
+func UserGetAuthDataFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64) (string, string) {
+	accessFilePath := fmt.Sprintf("../data/%d-%d.access.db", zoneID, userID)
+	if _, serr := os.Stat(accessFilePath); serr != nil {
+		return "", ""
+	}
+
+	af, err := os.Open(accessFilePath)
+	if err != nil {
+		return "", ""
+	}
+	defer af.Close()
+
+	var accessSecret string
+	var loginCode string
+	scanner := bufio.NewScanner(af)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if len(text) == 0 {
+			continue
+		}
+
+		if loginCode == "" {
+			loginCode = text
+			continue
+		}
+
+		accessSecret = text
+		break
+	}
+
+	return accessSecret, loginCode
+}
+
+// TODO: 临时的鉴权数据更新
+func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, accessSecret string, loginCode string) error {
+	dataDir := "../data"
+	accessFilePath := fmt.Sprintf("../data/%d-%d.access.db", zoneID, userID)
+
+	if _, serr := os.Stat(dataDir); serr != nil {
+		os.MkdirAll(dataDir, 0o755)
+	}
+
+	af, err := os.Create(accessFilePath)
+	if err != nil {
+		return err
+	}
+	defer af.Close()
+
+	writer := bufio.NewWriter(af)
+
+	_, err = writer.WriteString(loginCode + "\n")
+	if err != nil {
+		return err
+	}
+
+	_, err = writer.WriteString(accessSecret + "\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TODO: 临时的数据读取
+func UserLoadLoginTableFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64) (*private_protocol_pbdesc.DatabaseTableLogin, cd.RpcResult) {
+	loginTbFilePath := fmt.Sprintf("../data/%d-%d.login.db", zoneID, userID)
+
 	if _, serr := os.Stat(loginTbFilePath); serr != nil {
-		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
 	}
 
 	ldata, err := atfw_utils_fs.ReadAllContent(loginTbFilePath)
 	if err != nil {
-		return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return nil, cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	loginTb := &private_protocol_pbdesc.DatabaseTableLogin{}
 	if err = proto.Unmarshal(ldata, loginTb); err != nil {
-		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal login db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
+		return nil, cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal login db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	if loginTb.LoginCode != "" && loginTb.LoginCode != loginCode {
-		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+	ctx.GetDefaultLogger().Info("load login table from db success", "zone_id", zoneID, "user_id", userID)
+	return loginTb, cd.CreateRpcResultOk()
+}
+
+// TODO: 临时的数据读取
+func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_protocol_pbdesc.DatabaseTableLogin, loginTbVersion uint64) cd.RpcResult {
+	if u == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("user should not be nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	if loginTb == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	userTbFilePath := fmt.Sprintf("../data/%d-%d.user.db", u.GetZoneId(), u.GetUserId())
+	if _, serr := os.Stat(userTbFilePath); serr != nil {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
 	}
 
 	udata, err := atfw_utils_fs.ReadAllContent(userTbFilePath)
@@ -141,13 +237,12 @@ func UserLoadFromFile(ctx *cd.RpcContext, u UserImpl, loginCode string) cd.RpcRe
 		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	ctx.GetDefaultLogger().Info("load user from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+	ctx.GetDefaultLogger().Info("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 
-	if loginTb.RouterVersion <= 0 {
-		loginTb.RouterVersion = 1
-	}
-	u.LoadLoginInfo(u, loginTb, int64(loginTb.RouterVersion))
+	// Login Table
+	u.LoadLoginInfo(u, loginTb, loginTbVersion)
 
+	// Init from DB
 	result := u.InitFromDB(u, ctx, userTb)
 	if result.IsError() {
 		result.LogError(ctx, "init user from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
@@ -169,7 +264,7 @@ func (um *UserManager) internalSave(ctx *cd.RpcContext, userImpl UserImpl) cd.Rp
 
 	// TODO: 临时的保存数据
 	if _, serr := os.Stat("../data"); serr != nil {
-		os.Mkdir("../data", 0o755)
+		os.MkdirAll("../data", 0o755)
 	}
 
 	var result cd.RpcResult

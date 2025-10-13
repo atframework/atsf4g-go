@@ -3,6 +3,7 @@ package lobbysvr_data
 import (
 	"reflect"
 	"slices"
+	"sync"
 	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -20,7 +21,9 @@ type userItemManagerWrapper struct {
 type User struct {
 	uc.UserCache
 
-	isInited                      bool
+	loginTaskLock                 sync.Mutex
+	loginTaskId                   uint64
+	isLoginInited                 bool
 	refreshLimitSecondChenckpoint int64
 	refreshLimitMinuteChenckpoint int64
 
@@ -35,12 +38,14 @@ func (u *User) Init() {
 }
 
 func (u *User) IsWriteable() bool {
-	return u.isInited
+	return u.isLoginInited
 }
 
 func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
-		isInited:         false,
+		loginTaskLock:    sync.Mutex{},
+		loginTaskId:      0,
+		isLoginInited:    false,
 		UserCache:        uc.CreateUserCache(zoneId, userId, openId),
 		moduleManagerMap: make(map[reflect.Type]UserModuleManagerImpl),
 		itemManagerList:  make([]userItemManagerWrapper, 0),
@@ -97,6 +102,28 @@ func init() {
 		ret := createUser(ctx, zoneId, userId, openId)
 		return ret
 	})
+}
+
+func (u *User) TryLockLoginTask(taskId uint64) bool {
+	if !u.loginTaskLock.TryLock() {
+		return false
+	}
+
+	u.loginTaskId = taskId
+	return true
+}
+
+func (u *User) UnlockLoginTask(taskId uint64) {
+	if u.loginTaskId != taskId {
+		return
+	}
+
+	u.loginTaskId = 0
+	u.loginTaskLock.Unlock()
+}
+
+func (u *User) GetLoginTaskId() uint64 {
+	return u.loginTaskId
 }
 
 func (u *User) RefreshLimit(ctx *cd.RpcContext, now time.Time) {
@@ -180,7 +207,7 @@ func (u *User) LoginInit(self uc.UserImpl, ctx *cd.RpcContext) {
 }
 
 func (u *User) OnLogin(self uc.UserImpl, ctx *cd.RpcContext) {
-	u.isInited = true
+	u.isLoginInited = true
 
 	u.UserCache.OnLogin(self, ctx)
 
@@ -196,7 +223,7 @@ func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
 		mgr.OnLogout(ctx)
 	}
 
-	u.isInited = false
+	u.isLoginInited = false
 }
 
 func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version int64) {
@@ -213,6 +240,14 @@ func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Se
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnUpdateSession(ctx, from, to)
 	}
+}
+
+func (u *User) UpdateHeartbeat(ctx *cd.RpcContext) {
+	// TODO: 加速器检查
+
+	// 续期LoginCode,
+	// TODO: 有效期来自配置
+	u.GetLoginInfo().LoginCodeExpired = ctx.GetNow().Unix() + int64(20*60)
 }
 
 func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {

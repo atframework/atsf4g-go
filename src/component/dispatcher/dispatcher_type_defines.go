@@ -2,12 +2,14 @@ package atframework_component_dispatcher
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	libatapp "github.com/atframework/libatapp-go"
 )
 
 type RpcContext struct {
-	logger *slog.Logger
+	app        libatapp.AppImpl
+	dispatcher DispatcherImpl
 
 	Context  context.Context
 	CancelFn context.CancelFunc

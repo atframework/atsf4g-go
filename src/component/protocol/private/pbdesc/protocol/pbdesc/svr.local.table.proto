@@ -23,7 +23,7 @@ message database_table_login {
   uint64 router_version = 5;   // 路由系统 - 登入进程变更版本号
 
   // 资源冲突检测
-  string expect_table_user_db_version = 6;
+  uint64 expect_table_user_db_version = 6;
   google.protobuf.Timestamp expect_table_user_db_timeout = 7;
 
   // 登入信息
@@ -80,7 +80,7 @@ message database_table_user {
 
   account_information account_data = 11; // 账号信息
   user_data user_data = 12;              // 玩家数据
-  uint32 data_version = 13;              // 数据版本号
+  uint64 data_version = 13;              // 数据版本号
 
   user_options options = 21; // 玩家选项
 

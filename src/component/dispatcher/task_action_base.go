@@ -60,6 +60,10 @@ func (t *TaskActionBase) GetTaskStartTime() time.Time {
 }
 
 func (t *TaskActionBase) GetNow() time.Time {
+	if t.rpcContext != nil {
+		return t.rpcContext.GetNow()
+	}
+
 	return t.dispatcher.GetNow()
 }
 
@@ -112,6 +116,10 @@ func (t *TaskActionBase) GetResponseCode() int32 {
 
 func (t *TaskActionBase) SetResponseCode(code int32) {
 	t.responseCode = code
+}
+
+func (t *TaskActionBase) SetResponseError(code public_protocol_pbdesc.EnErrorCode) {
+	t.responseCode = int32(code)
 }
 
 func (t *TaskActionBase) DisableResponse() {

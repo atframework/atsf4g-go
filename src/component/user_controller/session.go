@@ -105,16 +105,19 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 		return
 	}
 
-	if s.user != nil {
-		s.user.UnbindSession(convertUser, ctx, s)
-	}
+	oldUser := s.user
 
-	// 覆盖旧绑定
+	// 覆盖旧绑定,必须先设置成员变量再触发关联绑定，以解决重入问题
 	s.user = convertUser
 	convertUser.BindSession(convertUser, ctx, s)
 
 	if s.user != nil {
 		s.networkHandle.SetAuthorized(true)
+	}
+
+	// 关联解绑
+	if oldUser != nil {
+		oldUser.UnbindSession(oldUser, ctx, s)
 	}
 }
 
@@ -123,10 +126,13 @@ func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 		return
 	}
 
-	user := s.user
+	oldUser := s.user
+
 	s.user = nil
-	if user != nil {
-		user.UnbindSession(user, ctx, s)
+
+	// 关联解绑
+	if oldUser != nil {
+		oldUser.UnbindSession(oldUser, ctx, s)
 	}
 }
 
