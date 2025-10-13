@@ -192,6 +192,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	atframe_utils.EnsureProtocGenGo()
 	protocBin := atframe_utils.EnsureProtocExecutable(toolsBinDir)
 	// 将protocBin的上级目录加入PATH
 	binDir := filepath.Dir(protocBin)

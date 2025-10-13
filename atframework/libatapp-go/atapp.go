@@ -20,7 +20,6 @@ import (
 
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"github.com/panjf2000/ants/v2"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // App 应用模式
@@ -206,7 +205,7 @@ func CreateAppInstance() AppImpl {
 	ret.loggers = append(ret.loggers, slog.New(&logHandlerImpl{
 		writers: []logHandlerWriter{
 			{
-				out: os.Stdout,
+				out: NewlogStdoutWriter(),
 			},
 		},
 		frameInfoCache: &ret.logFrameInfoCache,
@@ -313,27 +312,31 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
 			writer.maxLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min)
 
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
-				writer.out = &lumberjack.Logger{
-					Filename:   config.Category[i].Sink[sinkIndex].GetLogBackendFile().File,
-					MaxSize:    int(config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Size), // megabytes
-					MaxBackups: int(config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Number),
-					MaxAge:     3,     //days
-					Compress:   false, // disabled by default
+				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)
+				bufferWriter, err := NewlogBufferedRotatingWriter(
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().File,
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Size,
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Number,
+					time.Duration(flushInterval))
+				if err != nil {
+					return err
 				}
+				writer.out = bufferWriter
 				if config.Category[i].Stacktrace.Min != "disable" {
 					writer.enableStackTrace = true
 					writer.stackTraceLevel = ConvertLogLevel(config.Category[i].Stacktrace.Min)
 				}
+				writer.autoFlushLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].GetLogBackendFile().AutoFlush)
 				handler.writers = append(handler.writers, writer)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stdout" {
-				writer.out = os.Stdout
+				writer.out = NewlogStdoutWriter()
 				handler.writers = append(handler.writers, writer)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stderr" {
-				writer.out = os.Stderr
+				writer.out = NewlogStderrWriter()
 				handler.writers = append(handler.writers, writer)
 			}
 		}
@@ -349,7 +352,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
 			app.loggers[i] = slog.New(&logHandlerImpl{
 				writers: []logHandlerWriter{
 					{
-						out: os.Stdout,
+						out: NewlogStdoutWriter(),
 					},
 				},
 				frameInfoCache: &app.logFrameInfoCache,
