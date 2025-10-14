@@ -24,7 +24,7 @@ message account_information {
   string access = 11;        // 可能有的属性（【上一次的】校验码）
   DUserProfile profile = 31; // 用户账号属性
   uint32 channel_id = 36;    // 渠道号
-  int32 version_type = 37;   // 上一次的登入版本类型 @EnVersionType
+  uint32 version_type = 37;  // 上一次的登入版本类型 @EnVersionType
 }
 
 // 账号异常数据
@@ -65,6 +65,4 @@ message user_async_jobs_data {
   int64 next_task_active_time = 2;       // 下一次异步任务的启动时间
 }
 
-message user_building_data {
-  repeated DMapAreaData map_area_data = 1;
-}
+message user_building_data { repeated DMapAreaData map_area_data = 1; }

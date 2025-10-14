@@ -26,6 +26,11 @@ func (t *TaskActionPing) Run(_startData *component_dispatcher.DispatcherStartDat
 		return fmt.Errorf("user not found")
 	}
 
+	request_body := t.GetRequestBody()
+	response_body := t.MutableResponseBody()
+
+	response_body.Timepoint = request_body.GetTimepoint()
+
 	user.UpdateHeartbeat(t.GetRpcContext())
 
 	// TODO: 加速器检测踢出

@@ -232,7 +232,7 @@ func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private
 }
 
 func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, versionType uint32) {
-	u.MutableAccountInfo().VersionType = int32(versionType)
+	u.MutableAccountInfo().VersionType = versionType
 }
 
 func (u *UserCache) LoginInit(_self UserImpl, _ctx *cd.RpcContext) {

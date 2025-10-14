@@ -59,6 +59,7 @@ func RegisterUserModuleManagerCreator[ManagerType any](creator func(*User) UserM
 }
 
 type UserModuleManagerBase struct {
+	_     noCopy
 	owner *User
 }
 

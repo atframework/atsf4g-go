@@ -24,6 +24,21 @@
       "group": "build"
     },
     {
+      "label": "Generate:Protocol:libatapp",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "run",
+        ".",
+        "${workspaceFolder}/atframework/libatapp-go/protocol"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/generate"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
       "label": "Generate:Protocol:Private",
       "type": "shell",
       "command": "go",

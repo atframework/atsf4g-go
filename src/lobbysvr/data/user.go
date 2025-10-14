@@ -13,6 +13,8 @@ import (
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 )
 
+type noCopy struct{}
+
 type Result = cd.RpcResult
 
 type userItemManagerWrapper struct {

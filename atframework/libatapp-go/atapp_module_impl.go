@@ -54,6 +54,7 @@ type AppModuleImpl interface {
 }
 
 type AppModuleBase struct {
+	_       noCopy
 	owner   AppImpl
 	actived bool
 	enabled bool

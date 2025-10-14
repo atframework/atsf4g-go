@@ -62,6 +62,8 @@ func RegisterUserItemManagerCreator[ManagerType any](typeIdRanges []userItemType
 }
 
 type UserItemManagerBase struct {
+	_ noCopy
+
 	owner *User
 
 	userItemTypeIdRanges []userItemTypeIdRange

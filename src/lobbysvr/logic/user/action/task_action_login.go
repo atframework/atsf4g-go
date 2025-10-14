@@ -160,7 +160,7 @@ func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
 		return false
 	}
 
-	if user.IsWriteable() {
+	if user.IsWriteable() && user.GetSession() != t.GetSession() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_ALREADY_ONLINE)
 		t.GetDefaultLogger().Warn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
