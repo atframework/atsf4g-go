@@ -322,10 +322,13 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
 				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)
 				bufferWriter, err := NewlogBufferedRotatingWriter(
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Path,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().File,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Size,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Number,
-					time.Duration(flushInterval))
+					time.Duration(flushInterval),
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().HardLink,
+					false)
 				if err != nil {
 					return nil, err
 				}

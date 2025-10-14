@@ -69,9 +69,11 @@ atapp:
             rotate:
               number: 10
               size: 20MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.error.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
+            hard_link: true
           - type: file
             level:
               min: fatal
@@ -79,9 +81,11 @@ atapp:
             rotate:
               number: 10
               size: 20MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.all.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.all.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
+            hard_link: true
       - name: local_db
         index: 1
         prefix: "[%F %T.%f]: "
@@ -96,7 +100,8 @@ atapp:
             rotate:
               number: 10
               size: 10MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.localdb.%N.info.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.localdb.%N.info.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
           - type: file
@@ -106,6 +111,7 @@ atapp:
             rotate:
               number: 10
               size: 10MB
+            path: "{{ .Values.server_log_dir }}"
             file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.localdb.%N.error.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
@@ -123,7 +129,8 @@ atapp:
             rotate:
               number: 10
               size: 10MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.globaldb.%N.info.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.globaldb.%N.info.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
           - type: file
@@ -133,7 +140,8 @@ atapp:
             rotate:
               number: 10
               size: 10MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.globaldb.%N.error.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.globaldb.%N.error.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
       - name: proto_stat
@@ -150,7 +158,8 @@ atapp:
             rotate:
               number: 10
               size: 20MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.pstat.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.pstat.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
       - name: pay
@@ -167,7 +176,8 @@ atapp:
             rotate:
               number: 10
               size: 20MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.pay.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.pay.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
       - name: metric
@@ -184,7 +194,8 @@ atapp:
             rotate:
               number: 10
               size: 50MB
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.metric.log"
+            path: "{{ .Values.server_log_dir }}"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.metric.log"
             auto_flush: fatal
             flush_interval: 1s        # flush log interval
   # =========== timer ===========
@@ -225,7 +236,8 @@ atapp:
               rotate:
                 number: 10
                 size: 10485760 # 10MB
-              file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.etcd.log"
+              path: "{{ .Values.server_log_dir }}"
+              file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.etcd.log"
               auto_flush: info
               flush_interval: 1s # 1s (unit: s,m,h,d)
 {{- end -}} {{- /* end if */}}
