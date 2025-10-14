@@ -74,7 +74,7 @@ type AppConfig struct {
 	StartupLog       []string
 	StartupErrorFile string
 
-	ConfigPb atframe_protocol.AtappConfigure
+	ConfigPb *atframe_protocol.AtappConfigure
 }
 
 // 消息类型
@@ -142,6 +142,11 @@ type AppImpl interface {
 	GetLogger(index int) *slog.Logger
 }
 
+type AppLog struct {
+	loggers []*slog.Logger
+	writers []logWriter
+}
+
 type AppInstance struct {
 	// 基础配置
 	config AppConfig
@@ -178,7 +183,7 @@ type AppInstance struct {
 	logStackCache     sync.Map
 
 	// 日志
-	loggers []*slog.Logger
+	logger *AppLog
 
 	// 协程池
 	workerPool *ants.PoolWithFunc
@@ -199,10 +204,12 @@ func CreateAppInstance() AppImpl {
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
-		loggers:       make([]*slog.Logger, 0),
+		logger: &AppLog{
+			loggers: make([]*slog.Logger, 0),
+		},
 	}
 
-	ret.loggers = append(ret.loggers, slog.New(&logHandlerImpl{
+	ret.logger.loggers = append(ret.logger.loggers, slog.New(&logHandlerImpl{
 		writers: []logHandlerWriter{
 			{
 				out: NewlogStdoutWriter(),
@@ -294,8 +301,9 @@ func (app *AppInstance) SetFlag(flag AppFlag, value bool) bool {
 	}
 }
 
-func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
+func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, error) {
 	globalLevel := ConvertLogLevel(config.Level)
+	appLog := new(AppLog)
 
 	for i := range config.Category {
 		index := config.Category[i].Index
@@ -319,7 +327,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Number,
 					time.Duration(flushInterval))
 				if err != nil {
-					return err
+					return nil, err
 				}
 				writer.out = bufferWriter
 				if config.Category[i].Stacktrace.Min != "disable" {
@@ -328,28 +336,31 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
 				}
 				writer.autoFlushLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].GetLogBackendFile().AutoFlush)
 				handler.writers = append(handler.writers, writer)
+				appLog.writers = append(appLog.writers, writer.out)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stdout" {
 				writer.out = NewlogStdoutWriter()
 				handler.writers = append(handler.writers, writer)
+				appLog.writers = append(appLog.writers, writer.out)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stderr" {
 				writer.out = NewlogStderrWriter()
 				handler.writers = append(handler.writers, writer)
+				appLog.writers = append(appLog.writers, writer.out)
 			}
 		}
 
-		if len(app.loggers) <= int(index) {
-			app.loggers = append(app.loggers, make([]*slog.Logger, int(index)+1-len(app.loggers))...)
+		if len(appLog.loggers) <= int(index) {
+			appLog.loggers = append(appLog.loggers, make([]*slog.Logger, int(index)+1-len(appLog.loggers))...)
 		}
-		app.loggers[index] = slog.New(&handler)
+		appLog.loggers[index] = slog.New(&handler)
 	}
 
-	for i := range app.loggers {
-		if app.loggers[i] == nil {
-			app.loggers[i] = slog.New(&logHandlerImpl{
+	for i := range appLog.loggers {
+		if appLog.loggers[i] == nil {
+			appLog.loggers[i] = slog.New(&logHandlerImpl{
 				writers: []logHandlerWriter{
 					{
 						out: NewlogStdoutWriter(),
@@ -360,7 +371,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) error {
 			})
 		}
 	}
-	return nil
+	return appLog, nil
 }
 
 func (app *AppInstance) IsInited() bool  { return app.CheckFlag(AppFlagInitialized) }
@@ -822,14 +833,25 @@ func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
 // 配置管理
 func (app *AppInstance) LoadConfig(configFile string) (err error) {
 	if configFile != "" {
+		// 先生成再替换
 		app.config.ConfigFile = configFile
 		// 实际的配置文件解析逻辑
 		app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
-		err = LoadConfigFromYaml(configFile, "atapp", &app.config.ConfigPb, app.GetDefaultLogger())
+		var configPb atframe_protocol.AtappConfigure
+		err = LoadConfigFromYaml(configFile, "atapp", &configPb, app.GetDefaultLogger())
 		if err != nil {
 			return
 		}
-		err = app.InitLog(app.config.ConfigPb.Log)
+		var appLog *AppLog
+		appLog, err = app.InitLog(configPb.Log)
+		if err != nil {
+			return
+		}
+		oldLogger := app.logger
+		app.logger = appLog
+		for i := range oldLogger.writers {
+			oldLogger.writers[i].Close()
+		}
 	}
 	return
 }
@@ -878,14 +900,15 @@ func (app *AppInstance) GetAppContext() context.Context {
 }
 
 func (app *AppInstance) GetDefaultLogger() *slog.Logger {
-	return app.loggers[0]
+	return app.logger.loggers[0]
 }
 
 func (app *AppInstance) GetLogger(index int) *slog.Logger {
-	if len(app.loggers) <= index {
-		return app.GetDefaultLogger()
+	log := app.logger
+	if len(log.loggers) <= index {
+		return log.loggers[index]
 	}
-	return app.loggers[index]
+	return log.loggers[0]
 }
 
 // 内部辅助方法

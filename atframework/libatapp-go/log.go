@@ -55,7 +55,7 @@ func (b *logBuffer) Len() int {
 type logWriter interface {
 	io.Writer
 	// 在Reload后切换日志时需要Close
-	Close() error
+	Close()
 	// 某些带缓存的Writer 需要手动Flush
 	Flush() error
 }
