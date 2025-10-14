@@ -101,10 +101,10 @@ message SCUserProfileSyn { DUserProfile user = 1; }
 message SCUserDirtyChgSync { repeated DItemInstance dirty_items = 1; }
 
 // 心跳包，上行包
-message CSPingReq {}
+message CSPingReq { int64 timepoint = 1; }
 
 // 心跳包，下行包
-message SCPongRsp {}
+message SCPongRsp { int64 timepoint = 1; }
 
 // 请求用户数据
 message CSUserGetInfoReq {
