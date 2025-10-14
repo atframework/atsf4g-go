@@ -15,11 +15,11 @@ import "protocol/common/com.struct.base.common.proto";
 
 package proy.config;
 
-message ExcelItemType {
+message ExcelItem {
   option (xrescode.loader) = {
-    file_path : "item_type.bytes"
+    file_path : "item.bytes"
     indexes : {
-      fields : "type_id"
+      fields : "item_id"
       index_type : EN_INDEX_KV
       allow_not_found : true
     }
@@ -29,11 +29,12 @@ message ExcelItemType {
   };
 
   // 唯一性检查
-  int32 type_id = 1 [ (org.xresloader.field_unique_tag) = "type_id" ];
+  int32 item_id = 1 [ (org.xresloader.field_unique_tag) = "item_id" ];
   // 仅客户端资源导出
   string name = 2 [ (org.xresloader.field_tag) = "client_only" ];
-  int32 unlock_lv = 3 [ (org.xresloader.validator) = ">0" ];
-  EnRarityType rarity = 4;
-  int64 show_max_stacking = 5 [ (org.xresloader.validator) = ">=0" ];
-  int64 price = 6;
+  EnItemType item_type = 3;
+  int32 unlock_lv = 4 [ (org.xresloader.validator) = ">0" ];
+  EnRarityType rarity = 5;
+  int64 show_max_stacking = 6 [ (org.xresloader.validator) = ">=0" ];
+  int64 price = 7;
 }

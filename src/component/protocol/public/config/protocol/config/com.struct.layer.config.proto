@@ -29,4 +29,5 @@ message ExcelLayer {
   ];
   repeated EnLayerType can_place = 2;
   bool can_store = 3;
+  int32 order = 4;
 }

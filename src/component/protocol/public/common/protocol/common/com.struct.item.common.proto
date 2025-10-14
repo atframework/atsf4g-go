@@ -34,7 +34,7 @@ message DItemPosition {
 }
 
 message DItemBasic {
-  int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItemType_type_id" ];
+  int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItem_item_id" ];
   int64 count = 2;
   int64 guid = 3; // 唯一ID(如果有)
   DItemPosition position = 4;
@@ -50,7 +50,7 @@ message DItemInstance {
 
 // 道具数据(增量,用于奖励等)
 message DItemOffset {
-  int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItemType_type_id" ];
+  int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItem_item_id" ];
   int64 count = 2;
 
   // 有效期，0表示永久生效
@@ -61,7 +61,7 @@ message DItemOffset {
 // 道具数据(增量,限定Scope,用于奖励等)
 message DItemScopeOffset {
   DItemOffset item_offset = 1
-      [ (org.xresloader.validator) = "ExcelItemType_type_id" ];
+      [ (org.xresloader.validator) = "ExcelItem_item_id" ];
 }
 
 message DItemUseAction {

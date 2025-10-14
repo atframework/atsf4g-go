@@ -27,7 +27,7 @@ message ExcelBuilding {
 
   int32 building_id = 1 [
     (org.xresloader.field_unique_tag) = "building_id",
-    (org.xresloader.validator) = "ExcelItemType_type_id"
+    (org.xresloader.validator) = "ExcelItem_item_id"
   ];
   string resource_prefab = 2;
   EnLayerType layer = 3;
