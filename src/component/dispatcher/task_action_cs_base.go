@@ -10,6 +10,8 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 )
@@ -58,10 +60,10 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 ) TaskActionCSBase[RequestType, ResponseType] {
 	var user TaskActionCSUser = nil
 	var actor *ActorExecutor = nil
-	if session != nil {
+	if !lu.IsNil(session) {
 		user = session.GetUser()
 	}
-	if user != nil {
+	if !lu.IsNil(user) {
 		actor = user.GetActorExecutor()
 	}
 
@@ -83,7 +85,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetDefaultLogger() *slog.L
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
-	if user == nil {
+	if lu.IsNil(t.user) {
 		t.user = nil
 		return
 	}
@@ -92,10 +94,14 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSU
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() TaskActionCSUser {
-	if t.user == nil {
-		if t.session != nil {
+	if lu.IsNil(t.user) {
+		if !lu.IsNil(t.session) {
 			t.user = t.session.GetUser()
 		}
+	}
+
+	if lu.IsNil(t.user) {
+		return nil
 	}
 
 	return t.user
@@ -106,8 +112,8 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetSession() TaskActionCSS
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) SetSession(session TaskActionCSSession) {
-	if session == nil {
-		if t.session != nil {
+	if lu.IsNil(session) {
+		if !lu.IsNil(t.session) {
 			if t.user == t.session.GetUser() {
 				t.user = nil
 			}
@@ -123,7 +129,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SetSession(session TaskAct
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) IsStreamRpc() bool {
-	if t.rpcDescriptor == nil {
+	if lu.IsNil(t.rpcDescriptor) {
 		return false
 	}
 
@@ -131,7 +137,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) IsStreamRpc() bool {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetRequestHead() *public_protocol_extension.CSMsgHead {
-	if t.requestHead == nil {
+	if lu.IsNil(t.requestHead) {
 		return &public_protocol_extension.CSMsgHead{}
 	}
 
@@ -190,7 +196,7 @@ func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uin
 		return nil, fmt.Errorf("invalid RpcType for CSMsg: %T", rpcType)
 	}
 
-	if session != nil {
+	if !lu.IsNil(session) {
 		responseMsg.Head.SessionSequence = session.AllocSessionSequence()
 		responseMsg.Head.SessionId = session.GetSessionId()
 		responseMsg.Head.SessionNodeId = session.GetSessionNodeId()
@@ -224,7 +230,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	}
 
 	var clientSequence uint64 = 0
-	if t.requestHead != nil {
+	if !lu.IsNil(t.requestHead) {
 		clientSequence = t.requestHead.ClientSequence
 	}
 
@@ -247,7 +253,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	}
 
 	// 实际发送逻辑需要根据具体的网络层实现
-	if t.GetDispatcher() != nil && t.GetDispatcher().GetApp() != nil {
+	if !lu.IsNil(t.GetDispatcher()) && !lu.IsNil(t.GetDispatcher().GetApp()) {
 		t.GetDispatcher().GetApp().GetDefaultLogger().Info("Sending CS response",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
@@ -272,7 +278,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission(action TaskActionImpl) (int32, error) {
-	if !action.AllowNoActor() && t.GetUser() == nil {
+	if !action.AllowNoActor() && lu.IsNil(t.GetUser()) {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
 	}
 
@@ -307,7 +313,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	csMsg.BodyBin = []byte{}
 
 	user := t.GetUser()
-	if user != nil {
+	if !lu.IsNil(user) {
 		// 每次执行任务前刷新
 		user.RefreshLimit(t.rpcContext, t.GetNow())
 	}
@@ -315,10 +321,10 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	err := t.TaskActionBase.HookRun(action, startData)
 
 	// 脏数据自动推送
-	if user == nil {
+	if lu.IsNil(user) {
 		user = t.GetUser()
 	}
-	if user != nil {
+	if !lu.IsNil(user) {
 		user.SendAllSyncData()
 	}
 
@@ -339,7 +345,7 @@ func (t *TaskActionCSTest) Run(startData DispatcherStartData) error {
 
 	// TODO: 实现具体的业务逻辑
 	// 示例：处理设备信息
-	// if body != nil {
+	// if !lu.IsNil(body) {
 	//     // 处理设备信息...
 	// }
 

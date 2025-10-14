@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
@@ -21,10 +22,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-var (
-	done      chan interface{}
-	interrupt chan os.Signal
-)
+var interrupt chan os.Signal
 
 type User struct {
 	OpenId string
@@ -35,6 +33,7 @@ type User struct {
 	LoginCode   string
 
 	Logined bool
+	Closed  atomic.Bool
 
 	connectionSequence uint64
 	connection         *websocket.Conn
@@ -42,7 +41,11 @@ type User struct {
 }
 
 func receiveHandler(user *User) {
-	defer close(done)
+	defer func() {
+		log.Printf("User %v:%v connection closed.\n", user.ZoneId, user.UserId)
+		user.Closed.Store(true)
+	}()
+
 	for {
 		_, bytes, err := user.connection.ReadMessage()
 		if err != nil {
@@ -86,7 +89,7 @@ func receiveHandler(user *User) {
 			log.Println("Error in Unmarshal:", err)
 			return
 		}
-		log.Printf("%s\n\n", prototext.Format(csBody))
+		log.Printf("==================\n%s\n\n", prototext.Format(csBody))
 
 		processResponse(user, rpcName, csMsg, csBody)
 	}
@@ -260,7 +263,6 @@ func processResponse(user *User, rpcName string, msg *public_protocol_extension.
 }
 
 func main() {
-	done = make(chan interface{})    // Channel to indicate that the receiverHandler is done
 	interrupt = make(chan os.Signal) // Channel to listen for interrupt signal to terminate gracefully
 
 	signal.Notify(interrupt, os.Interrupt) // Notify the interrupt channel for SIGINT
@@ -286,14 +288,16 @@ func main() {
 
 	// Our main loop for the client
 	// We send our relevant packets here
+	nextMessageInterval := time.Microsecond * 100
 	for {
 		select {
-		case <-time.After(time.Second * 3):
+		case <-time.After(nextMessageInterval):
+			nextMessageInterval = time.Second * 3
 			var csBin []byte
 			csMsg, csBody := processMakeRequest(user)
 			csBin, _ = proto.Marshal(csMsg)
 			log.Printf(">>>>>>>>>>>>>>>>>>>> Sending: %s\n", csMsg.Head.GetRpcRequest().GetRpcName())
-			log.Printf("%s\n\n", prototext.Format(csBody))
+			log.Printf("==================\n%s\n\n", prototext.Format(csBody))
 
 			// Send an echo packet every second
 			err := conn.WriteMessage(websocket.BinaryMessage, csBin)
@@ -313,12 +317,8 @@ func main() {
 				return
 			}
 
-			select {
-			case <-done:
-				log.Println("Receiver Channel Closed! Exiting....")
-			case <-time.After(time.Duration(1) * time.Second):
-				log.Println("Timeout in closing receiving channel. Exiting....")
-			}
+			<-time.After(1 * time.Second)
+			log.Println("Timeout in closing receiving channel. Exiting....")
 			return
 		}
 	}

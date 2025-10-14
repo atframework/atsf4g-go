@@ -2,6 +2,8 @@ module github.com/atframework/atsf4g-go/component-service_shared_collection
 
 go 1.25.1
 
+replace github.com/atframework/atframe-utils-go => ../../../atframework/atframe-utils-go
+
 replace github.com/atframework/libatapp-go => ../../../atframework/libatapp-go
 
 replace github.com/atframework/atsf4g-go/component-config => ../config
@@ -23,6 +25,7 @@ require (
 )
 
 require (
+	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000 // indirect
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000 // indirect
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

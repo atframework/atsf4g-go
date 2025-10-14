@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -80,7 +82,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 			break
 		}
 
-		if cb_actor.getCurrentRunningAction() != nil {
+		if !lu.IsNil(cb_actor.getCurrentRunningAction()) {
 			// 当前有任务在运行，该任务会重新触发排队，跳出循环
 			break
 		}
@@ -126,7 +128,7 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 	// 如果队列过长，直接失败放弃
 	// TODO: 走接口，进配置
 	pendingLen := actor.pendingActions.Len()
-	if action != nil && run_action != nil {
+	if !lu.IsNil(action) && !lu.IsNil(run_action) {
 		if pendingLen > 100000 {
 			action.SetResponseCode(-2)
 			action.SendResponse()

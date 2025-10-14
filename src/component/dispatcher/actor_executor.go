@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -37,7 +39,7 @@ func CreateActorExecutor(actorInstance interface{}) *ActorExecutor {
 
 func (actor *ActorExecutor) getCurrentRunningAction() TaskActionImpl {
 	result := actor.currentRunningAction.Load()
-	if result == nil {
+	if lu.IsNil(result) {
 		return nil
 	}
 
@@ -45,7 +47,7 @@ func (actor *ActorExecutor) getCurrentRunningAction() TaskActionImpl {
 }
 
 func (actor *ActorExecutor) takeCurrentRunningAction(action TaskActionImpl) {
-	if action == nil {
+	if lu.IsNil(action) {
 		return
 	}
 
@@ -54,7 +56,7 @@ func (actor *ActorExecutor) takeCurrentRunningAction(action TaskActionImpl) {
 }
 
 func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, expectAction TaskActionImpl, spawnNewGoroutine bool) {
-	if expectAction == nil {
+	if lu.IsNil(expectAction) {
 		return
 	}
 

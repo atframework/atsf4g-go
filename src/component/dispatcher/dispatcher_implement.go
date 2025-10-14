@@ -9,6 +9,8 @@ import (
 	"time"
 	"unsafe"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	libatapp "github.com/atframework/libatapp-go"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -140,7 +142,7 @@ func (dispatcher *DispatcherBase) GetNow() time.Time {
 
 func (dispatcher *DispatcherBase) GetDefaultLogger() *slog.Logger {
 	app := dispatcher.GetApp()
-	if app == nil {
+	if lu.IsNil(app) {
 		return slog.Default()
 	}
 
@@ -163,7 +165,7 @@ func (dispatcher *DispatcherBase) OnCreateTaskFailed(rd DispatcherImpl, startDat
 }
 
 func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
-	if msg == nil || msg.Instance == nil {
+	if msg == nil || lu.IsNil(msg.Instance) {
 		dispatcher.GetDefaultLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message can not be nil")
 	}
@@ -226,7 +228,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 }
 
 func (dispatcher *DispatcherBase) CreateTask(rd DispatcherImpl, startData *DispatcherStartData) (TaskActionImpl, error) {
-	if rd == nil {
+	if lu.IsNil(rd) {
 		return nil, fmt.Errorf("CreateTask dispatcher can not be nil")
 	}
 
@@ -236,7 +238,7 @@ func (dispatcher *DispatcherBase) CreateTask(rd DispatcherImpl, startData *Dispa
 	}
 
 	creator, ok := dispatcher.registeredCreator[rpcFullName]
-	if !ok || creator.creator == nil {
+	if !ok || lu.IsNil(creator.creator) {
 		return nil, fmt.Errorf("CreateTask rpc %s not registered", rpcFullName)
 	}
 
@@ -245,11 +247,11 @@ func (dispatcher *DispatcherBase) CreateTask(rd DispatcherImpl, startData *Dispa
 
 func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string, creator TaskActionCreator) error {
 	// 实现注册逻辑
-	if serviceDescriptor == nil {
+	if lu.IsNil(serviceDescriptor) {
 		return fmt.Errorf("RegisterAction ServiceDescriptor can not be nil")
 	}
 
-	if creator == nil {
+	if lu.IsNil(creator) {
 		return fmt.Errorf("RegisterAction creator can not be nil")
 	}
 
@@ -258,7 +260,7 @@ func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.
 
 	rpcShortName := rpcFullName[strings.LastIndex(rpcFullName, ".")+1:]
 	methodDescriptor := serviceDescriptor.Methods().ByName(protoreflect.Name(rpcShortName))
-	if methodDescriptor == nil {
+	if lu.IsNil(methodDescriptor) {
 		dispatcher.GetDefaultLogger().Error("RegisterAction method not found", "method", rpcShortName, "service", serviceFullName)
 		return fmt.Errorf("RegisterAction method %s not found in service %s", rpcShortName, serviceFullName)
 	}
