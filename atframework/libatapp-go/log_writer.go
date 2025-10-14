@@ -77,7 +77,7 @@ type logBufferedRotatingWriter struct {
 
 	timeRotateInterval      int
 	timeRotateCheckInterval int
-	lastCheckRotateTime     int
+	lastCheckRotateTime     int64
 	currentTimeRotateTime   time.Time
 
 	// 对于FD的读写都需要加锁
@@ -159,7 +159,7 @@ func (w *logBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, er
 			return nil, err
 		}
 	} else {
-		f, err = os.OpenFile(newFile, os.O_CREATE|os.O_WRONLY, 0644)
+		f, err = os.OpenFile(newFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			return nil, err
 		}
@@ -243,13 +243,13 @@ func (w *logBufferedRotatingWriter) needRotateFile() bool {
 	}
 	if w.timeRotateInterval != 0 {
 		now := time.Now()
-		if now.Second()/w.timeRotateCheckInterval != w.lastCheckRotateTime/w.timeRotateCheckInterval {
+		if now.Unix()/int64(w.timeRotateCheckInterval) != w.lastCheckRotateTime/int64(w.timeRotateCheckInterval) {
 			// 需要检查时间Format
 			if strings.Compare(w.currentTimeRotateTime.Format("2006-01-02"), w.currentTimeRotateTime.Format("2006-01-02")) != 0 {
 				// Format变化 Rotating
 				return true
 			}
-			w.lastCheckRotateTime = now.Second()
+			w.lastCheckRotateTime = now.Unix()
 		}
 	}
 	return false
