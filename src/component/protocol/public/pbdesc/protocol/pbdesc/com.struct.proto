@@ -34,11 +34,11 @@ message DClientDeviceInfo {
 
 message DAppleGameCenter {
   // 一个都不能少
-  string player_id = 1;      //
+  string user_id = 1;        //
   string public_key_url = 2; //
   string signature = 3;      //
   string encoded_signed_data =
-      4;                // 由player_id and salt and bundle_id and timestamp生成
+      4;                // 由user_id and salt and bundle_id and timestamp生成
   string salt = 5;      //
   string bundle_id = 6; //
   int64 timestamp = 7;  //
@@ -85,9 +85,9 @@ message DUserStat {
 
 // 用户数据
 message DUserInfo {
-  DUserProfile player = 1;
-  uint32 player_level = 2; // 玩家（主城）等级
-  DUserStat player_stat = 4;
+  DUserProfile profile = 1;
+  uint32 user_level = 2; // 玩家（主城）等级
+  DUserStat user_stat = 4;
 }
 
 // 用户自定义选项
