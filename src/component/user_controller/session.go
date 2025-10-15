@@ -1,6 +1,8 @@
 package atframework_component_user_controller
 
 import (
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
@@ -45,6 +47,9 @@ func CreateSessionKey(nodeId uint64, sessionId uint64) SessionKey {
 }
 
 func CreateSession(key SessionKey, handle SessionNetworkHandleImpl) *Session {
+	if handle != nil && lu.IsNil(handle) {
+		handle = nil
+	}
 	return &Session{
 		key:                      key,
 		user:                     nil,
@@ -65,7 +70,7 @@ func (s *Session) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) 
 	}
 
 	// 解绑User
-	if s.user != nil {
+	if !lu.IsNil(s.user) {
 		s.user.UnbindSession(s.user, ctx, s)
 	}
 }
@@ -79,6 +84,14 @@ func (s *Session) GetSessionNodeId() uint64 {
 }
 
 func (s *Session) AllocSessionSequence() uint64 {
+	if !lu.IsNil(s.user) {
+		seq := s.user.AllocSessionSequence()
+		if seq > s.sessionSequenceAllocator {
+			s.sessionSequenceAllocator = seq
+		}
+		return seq
+	}
+
 	s.sessionSequenceAllocator++
 	return s.sessionSequenceAllocator
 }
@@ -92,8 +105,8 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 		return
 	}
 
-	if bindUser == nil {
-		if s.user != nil {
+	if lu.IsNil(bindUser) {
+		if !lu.IsNil(s.user) {
 			s.user.UnbindSession(s.user, ctx, s)
 		}
 		s.user = nil
@@ -111,18 +124,18 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	s.user = convertUser
 	convertUser.BindSession(convertUser, ctx, s)
 
-	if s.user != nil {
+	if !lu.IsNil(s.user) {
 		s.networkHandle.SetAuthorized(true)
 	}
 
 	// 关联解绑
-	if oldUser != nil {
+	if !lu.IsNil(oldUser) {
 		oldUser.UnbindSession(oldUser, ctx, s)
 	}
 }
 
 func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
-	if bindUser != nil && s.user != bindUser {
+	if !lu.IsNil(bindUser) && s.user != bindUser {
 		return
 	}
 
@@ -131,7 +144,7 @@ func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	s.user = nil
 
 	// 关联解绑
-	if oldUser != nil {
+	if !lu.IsNil(oldUser) {
 		oldUser.UnbindSession(oldUser, ctx, s)
 	}
 }

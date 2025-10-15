@@ -103,12 +103,28 @@ func (t *TaskActionLoginAuth) checkExistedUser(user *data.User) bool {
 		t.GetLogger().Warn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
 		return false
 	}
+	t.SetUser(user)
 
-	if user.IsWriteable() {
+	if user.IsWriteable() && user.GetSession() == t.GetSession() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_ALREADY_ONLINE)
 		t.GetLogger().Warn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
 	}
 
 	return true
+}
+
+func (t *TaskActionLoginAuth) OnComplete() {
+	userImpl := t.GetUser()
+	if userImpl == nil {
+		return
+	}
+
+	user, ok := userImpl.(*data.User)
+	if !ok || user == nil {
+		t.GetLogger().Warn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
+		return
+	}
+
+	user.UnlockLoginTask(t.GetTaskId())
 }

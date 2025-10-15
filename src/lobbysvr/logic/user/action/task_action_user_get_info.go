@@ -20,15 +20,29 @@ func (t *TaskActionUserGetInfo) Name() string {
 }
 
 func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherStartData) error {
-	// TODO: implement your logic here, remove this comment after you have done
 	user, ok := t.GetUser().(*data.User)
 	if !ok || user == nil {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND))
 		return fmt.Errorf("user not found")
 	}
 
-	// reqBody := t.GetRequestBody() // TODO
-	// rspBody := t.MutableResponseBody() // TODO
+	request_body := t.GetRequestBody()
+	response_body := t.MutableResponseBody()
+
+	if request_body.GetNeedUserInfo() {
+		response_body.UserInfo = &public_protocol_pbdesc.DUserInfo{
+			Profile:   user.GetAccountInfo().GetProfile(),
+			UserLevel: user.GetUserData().GetUserLevel(),
+			UserStat: &public_protocol_pbdesc.DUserStat{
+				RegisterTime:  user.GetLoginInfo().GetBusinessRegisterTime(),
+				LastLoginTime: user.GetLoginInfo().GetBusinessLoginTime(),
+			},
+		}
+	}
+
+	if request_body.GetNeedUserOptions() {
+		response_body.UserOptions = user.GetUserOptions().GetCustomOptions()
+	}
 
 	return nil
 }

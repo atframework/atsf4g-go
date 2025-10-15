@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"time"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -21,6 +23,7 @@ type UserImpl interface {
 
 	BindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
 	UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
+	AllocSessionSequence() uint64
 
 	IsWriteable() bool
 
@@ -81,7 +84,8 @@ type UserCache struct {
 	userId uint64
 	openId string
 
-	session *Session
+	session         *Session
+	sessionSequence uint64
 
 	actorExecutor *cd.ActorExecutor
 
@@ -100,7 +104,9 @@ type UserCache struct {
 func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
 	writer, _ := libatapp.NewlogBufferedRotatingWriter("../log",
 		openId, 1*1024*1024, 3, time.Second*3, false, true)
-	runtime.SetFinalizer(writer, writer.Close)
+	runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
+		writer.Close()
+	})
 	return UserCache{
 		zoneId:        zoneId,
 		userId:        userId,
@@ -123,9 +129,10 @@ func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId st
 }
 
 func (u *UserCache) Init(actorInstance interface{}) {
-	if u.actorExecutor == nil && actorInstance != nil {
+	if lu.IsNil(u.actorExecutor) && !lu.IsNil(actorInstance) {
 		u.actorExecutor = cd.CreateActorExecutor(actorInstance)
 	}
+	u.sessionSequence = 99
 }
 
 func (u *UserCache) GetOpenId() string {
@@ -161,7 +168,7 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 		return
 	}
 
-	if session == nil {
+	if lu.IsNil(session) {
 		u.UnbindSession(self, ctx, u.session)
 		return
 	}
@@ -174,7 +181,7 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 
 	u.OnUpdateSession(self, ctx, old_session, session)
 
-	if old_session != nil {
+	if !lu.IsNil(old_session) {
 		old_session.UnbindUser(ctx, self)
 	}
 }
@@ -184,7 +191,7 @@ func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Se
 		return
 	}
 
-	if session != nil && u.session != session {
+	if !lu.IsNil(session) && u.session != session {
 		return
 	}
 
@@ -193,7 +200,7 @@ func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Se
 
 	u.OnUpdateSession(self, ctx, old_session, nil)
 
-	if old_session != nil {
+	if !lu.IsNil(old_session) {
 		old_session.UnbindUser(ctx, self)
 	}
 
@@ -205,6 +212,11 @@ func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Se
 	}
 }
 
+func (u *UserCache) AllocSessionSequence() uint64 {
+	u.sessionSequence++
+	return u.sessionSequence
+}
+
 func (u *UserCache) IsWriteable() bool {
 	return false
 }
@@ -214,6 +226,9 @@ func (u *UserCache) RefreshLimit(_ctx *cd.RpcContext, _now time.Time) {
 
 func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	u.dataVersion = srcTb.DataVersion
+	if srcTb.GetUserData().GetSessionSequence() > u.sessionSequence {
+		u.sessionSequence = srcTb.GetUserData().GetSessionSequence()
+	}
 
 	return cd.CreateRpcResultOk()
 }
@@ -232,6 +247,8 @@ func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private
 	// always use current version
 	dstTb.DataVersion = UserDataCurrentVersion
 
+	lu.Mutable(&dstTb.UserData).SessionSequence = u.sessionSequence
+
 	dstTb.AccountData = u.account_info_.Get()
 	dstTb.UserData = u.user_data_.Get()
 	dstTb.Options = u.user_options_.Get()
@@ -243,13 +260,18 @@ func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, versionType 
 	u.MutableAccountInfo().VersionType = versionType
 }
 
-func (u *UserCache) LoginInit(_self UserImpl, _ctx *cd.RpcContext) {
+func (u *UserCache) LoginInit(_self UserImpl, ctx *cd.RpcContext) {
+	u.updateLoginData(ctx)
 }
 
 func (u *UserCache) OnLogin(_self UserImpl, _ctx *cd.RpcContext) {
 }
 
-func (u *UserCache) OnLogout(_self UserImpl, _ctx *cd.RpcContext) {
+func (u *UserCache) OnLogout(_self UserImpl, ctx *cd.RpcContext) {
+	loginInfo := lu.Mutable(&u.loginInfo)
+
+	nowSec := ctx.GetNow().Unix()
+	loginInfo.BusinessLogoutTime = nowSec
 }
 
 func (u *UserCache) OnSaved(_self UserImpl, _ctx *cd.RpcContext, version uint64) {
@@ -325,6 +347,41 @@ func (u *UserCache) MutableUserOptions() *private_protocol_pbdesc.UserOptions {
 	return u.user_options_.Mutable(u.GetCurrentDbDataVersion())
 }
 
+func (u *UserCache) GetClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
+	return lu.Mutable(&u.loginInfo).GetLastLogin().GetClientInfo()
+}
+
+func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
+	return lu.Mutable(&lu.Mutable(&lu.Mutable(&u.loginInfo).LastLogin).ClientInfo)
+}
+
 func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
 	return u.cs_actor_log_writer
+}
+
+func (u *UserCache) updateLoginData(ctx *cd.RpcContext) {
+	if u.loginInfo == nil {
+		return
+	}
+
+	// Patch login table
+	nowSec := ctx.GetNow().Unix()
+	// TODO: 有效期来自配置
+	u.loginInfo.LoginCodeExpired = nowSec + int64(20*60)
+
+	if u.loginInfo.GetBusinessRegisterTime() <= 0 {
+		u.loginInfo.BusinessRegisterTime = nowSec
+	}
+	u.loginInfo.BusinessLoginTime = nowSec
+
+	// 默认昵称
+	if u.loginInfo.GetAccount().GetProfile().GetNickName() == "" {
+		lu.Mutable(&lu.Mutable(&u.loginInfo.Account).Profile).NickName = fmt.Sprintf("User-%v-%v", u.GetZoneId(), u.GetUserId())
+	}
+
+	u.loginInfo.StatLoginSuccessTimes++
+	u.loginInfo.StatLoginTotalTimes++
+
+	// Copy to user table
+	*u.MutableAccountInfo() = *u.loginInfo.GetAccount()
 }

@@ -37,8 +37,7 @@ message account_except {
 
 // 登入数据记录
 message login_record {
-  int32 gamesvr_index = 1;   // 上一次登入放入gamesvr的索引
-  int64 gamesvr_version = 2; // Gamesvr组版本号
+  DClientDeviceInfo client_info = 1; // 终端信息
 }
 
 message user_data {

@@ -13,10 +13,13 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"github.com/panjf2000/ants/v2"
@@ -383,6 +386,10 @@ func (app *AppInstance) IsClosing() bool { return app.CheckFlag(AppFlagStopping)
 func (app *AppInstance) IsClosed() bool  { return app.CheckFlag(AppFlagStopped) }
 
 func (app *AppInstance) AddModule(typeInst reflect.Type, module AppModuleImpl) error {
+	if lu.IsNil(module) {
+		return fmt.Errorf("module is nil")
+	}
+
 	flags := app.getFlags()
 	if checkFlag(flags, AppFlagInitialized) || checkFlag(flags, AppFlagInitializing) {
 		return fmt.Errorf("cannot add module when app is initializing or initialized")
@@ -395,7 +402,7 @@ func (app *AppInstance) AddModule(typeInst reflect.Type, module AppModuleImpl) e
 }
 
 func AtappAddModule[ModuleType AppModuleImpl](app AppImpl, module ModuleType) error {
-	if app == nil {
+	if lu.IsNil(app) {
 		return fmt.Errorf("app is nil")
 	}
 
@@ -414,7 +421,7 @@ func (app *AppInstance) GetModule(typeInst reflect.Type) AppModuleImpl {
 
 func AtappGetModule[ModuleType AppModuleImpl](app AppImpl) ModuleType {
 	var zero ModuleType
-	if app == nil {
+	if lu.IsNil(app) {
 		return zero
 	}
 
@@ -484,6 +491,11 @@ func (app *AppInstance) Init(arguments []string) error {
 	}
 
 	// 生成默认的应用名称和标识
+	if app.config.TypeName == "" {
+		execName := filepath.Base(os.Args[0])
+		execName = strings.TrimSuffix(execName, ".exe")
+		app.config.TypeName = execName
+	}
 	if app.config.AppName == "" {
 		app.config.AppName = fmt.Sprintf("%s-0x%x", app.config.TypeName, app.config.AppId)
 	}

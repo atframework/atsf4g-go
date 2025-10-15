@@ -27,10 +27,8 @@ message database_table_login {
   google.protobuf.Timestamp expect_table_user_db_timeout = 7;
 
   // 登入信息
-  int64 login_time = 12;         // 上次登入时间
   string login_code = 13;        // 认证码
   int64 login_code_expired = 14; // 认证码到期时间
-  int64 logout_time = 15;        // 登出时间
 
   // 限制登入信息
   int64 ban_time = 21; // 封号期限

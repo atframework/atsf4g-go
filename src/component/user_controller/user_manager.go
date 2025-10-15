@@ -196,7 +196,7 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 		u.CreateInit(u, ctx, uint32(public_protocol_pbdesc.EnVersionType_EN_VERSION_DEFAULT))
 
 		// 设置版本号
-		u.GetLoginInfo().RouterVersion = 1
+		u.GetLoginInfo().RouterVersion = 0
 		// 更新Login Table版本号
 		u.LoadLoginInfo(u, u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
 
@@ -252,7 +252,7 @@ func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, 
 		os.MkdirAll(dataDir, 0o755)
 	}
 
-	af, err := os.OpenFile(accessFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	af, err := os.OpenFile(accessFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}
@@ -307,20 +307,41 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
+	userTb := &private_protocol_pbdesc.DatabaseTableUser{}
+
 	userTbFilePath := fmt.Sprintf("../data/%d-%d.user.db", u.GetZoneId(), u.GetUserId())
 	if _, serr := os.Stat(userTbFilePath); serr != nil {
-		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
-	}
+		// 新创建得记录初始化
+		userTb.AccountData = &private_protocol_pbdesc.AccountInformation{
+			AccountType: loginTb.GetAccount().GetAccountType(),
+			Access:      loginTb.GetAccount().GetAccess(),
+			Profile: &public_protocol_pbdesc.DUserProfile{
+				OpenId: loginTb.GetOpenId(),
+				UserId: u.GetUserId(),
+			},
+			ChannelId:   loginTb.GetAccount().GetChannelId(),
+			VersionType: loginTb.GetAccount().GetVersionType(),
+		}
+		userTb.UserData = &private_protocol_pbdesc.UserData{
+			UserLevel:       1,
+			SessionSequence: 1,
+		}
+		userTb.DataVersion = UserDataCurrentVersion
+	} else {
+		udata, err := atfw_utils_fs.ReadAllContent(userTbFilePath)
+		if err != nil {
+			ctx.GetLogger().Info("load user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath)
+			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
 
-	udata, err := atfw_utils_fs.ReadAllContent(userTbFilePath)
-	if err != nil {
-		return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		if err = proto.Unmarshal(udata, userTb); err != nil {
+			ctx.GetLogger().Info("unmarshal user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath, "error", err)
+			return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
+		}
 	}
-
-	userTb := &private_protocol_pbdesc.DatabaseTableUser{}
-	if err = proto.Unmarshal(udata, userTb); err != nil {
-		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-	}
+	userTb.OpenId = loginTb.GetOpenId()
+	userTb.ZoneId = u.GetZoneId()
+	userTb.UserId = u.GetUserId()
 
 	ctx.GetLogger().Info("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 

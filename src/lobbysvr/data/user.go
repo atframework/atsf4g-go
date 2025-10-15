@@ -7,7 +7,6 @@ import (
 	"time"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
@@ -30,8 +29,6 @@ type User struct {
 	isLoginInited                 bool
 	refreshLimitSecondChenckpoint int64
 	refreshLimitMinuteChenckpoint int64
-
-	client_info_ uc.UserDirtyWrapper[public_protocol_pbdesc.DClientDeviceInfo]
 
 	moduleManagerMap map[reflect.Type]UserModuleManagerImpl
 	itemManagerList  []userItemManagerWrapper
@@ -238,8 +235,6 @@ func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
 func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version uint64) {
 	u.UserCache.OnSaved(self, ctx, version)
 
-	u.client_info_.ClearDirty(version)
-
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnSaved(ctx, version)
 	}
@@ -348,12 +343,4 @@ func (u *User) GetItemManager(typeId int32) UserItemManagerImpl {
 	}
 
 	return u.itemManagerList[index].manager
-}
-
-func (u *User) GetClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
-	return u.client_info_.Get()
-}
-
-func (u *User) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
-	return u.client_info_.Mutable(u.GetCurrentDbDataVersion())
 }

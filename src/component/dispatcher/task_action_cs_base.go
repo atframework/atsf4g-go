@@ -86,7 +86,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
-	if lu.IsNil(t.user) {
+	if lu.IsNil(user) {
 		t.user = nil
 		return
 	}

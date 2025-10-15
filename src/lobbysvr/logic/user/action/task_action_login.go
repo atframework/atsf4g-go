@@ -7,12 +7,13 @@ import (
 	"log/slog"
 	"strconv"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
-	"google.golang.org/protobuf/proto"
 )
 
 type TaskActionLogin struct {
@@ -72,9 +73,6 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		return nil
 	}
 
-	// 已登入用户的登入互斥
-	t.SetUser(user)
-
 	// 登入鉴权
 	_, loginCode := uc.UserGetAuthDataFromFile(t.GetRpcContext(), zoneId, userId)
 	if loginCode == "" || loginCode != request_body.GetLoginCode() {
@@ -93,19 +91,30 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	loginTb, result := uc.UserLoadLoginTableFromFile(t.GetRpcContext(), zoneId, userId)
 	if result.IsError() {
-		if result.GetResponseCode() < 0 {
-			t.SetResponseCode(result.GetResponseCode())
+		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND) {
+			loginTb = &private_protocol_pbdesc.DatabaseTableLogin{
+				OpenId:         request_body.GetOpenId(),
+				UserId:         userId,
+				ZoneId:         zoneId,
+				RouterServerId: 0,
+				RouterVersion:  0,
+			}
 		} else {
-			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_CREATE_PLAYER_FAILED)
+			if result.GetResponseCode() < 0 {
+				t.SetResponseCode(result.GetResponseCode())
+			} else {
+				t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_CREATE_PLAYER_FAILED)
+			}
+			if result.Error != nil {
+				result.LogError(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
+			} else {
+				result.LogWarn(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
+			}
+			return nil
 		}
-		if result.Error != nil {
-			result.LogError(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
-		} else {
-			result.LogWarn(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
-		}
-		return nil
 	}
 	loginTbVersion := loginTb.RouterVersion
+	t.mergeLoginInfo(loginTb, userId)
 
 	user, result = uc.UserManagerCreateUserAs(
 		t.GetRpcContext(), uc.GlobalUserManager, zoneId, userId, request_body.GetOpenId(),
@@ -118,8 +127,8 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 			if !user.TryLockLoginTask(t.GetTaskId()) {
 				return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
 			}
-
 			t.SetUser(user)
+
 			return cd.CreateRpcResultOk()
 		},
 		// 不需要这里解锁，整个task执行完后会解锁的
@@ -137,8 +146,9 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	t.isNewPlayer = user.GetLoginVersion() <= 1
 
 	// 数据复制
-	proto.Reset(user.MutableClientInfo())
-	proto.Merge(user.MutableClientInfo(), request_body.GetClientInfo())
+	// proto.Reset(user.MutableClientInfo())
+	// proto.Merge(user.MutableClientInfo(), request_body.GetClientInfo())
+	*user.MutableClientInfo() = *request_body.GetClientInfo()
 
 	// session绑定
 	t.GetSession().BindUser(t.GetRpcContext(), user)
@@ -147,6 +157,22 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	user.LoginInit(user, t.GetRpcContext())
 
 	return nil
+}
+
+func (t *TaskActionLogin) mergeLoginInfo(loginTb *private_protocol_pbdesc.DatabaseTableLogin, userId uint64) {
+	request_body := t.GetRequestBody()
+
+	loginTb.LoginCode = request_body.GetLoginCode()
+	loginTb.LoginCodeExpired = t.GetNow().Unix() + int64(20*60)
+	loginTb.Account = &private_protocol_pbdesc.AccountInformation{
+		AccountType: request_body.GetAccount().GetAccountType(),
+		// Access: request_body.Account.Access,
+		Profile: &public_protocol_pbdesc.DUserProfile{
+			OpenId: request_body.GetOpenId(),
+			UserId: userId,
+		},
+		ChannelId: request_body.GetAccount().GetChannelId(),
+	}
 }
 
 func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
@@ -159,8 +185,9 @@ func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
 		t.GetLogger().Warn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
 		return false
 	}
+	t.SetUser(user)
 
-	if user.IsWriteable() && user.GetSession() != t.GetSession() {
+	if user.IsWriteable() && user.GetSession() == t.GetSession() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_ALREADY_ONLINE)
 		t.GetLogger().Warn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
@@ -223,6 +250,7 @@ func (t *TaskActionLogin) OnComplete() {
 
 	user, ok := userImpl.(*data.User)
 	if !ok || user == nil {
+		t.GetLogger().Warn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
 		return
 	}
 

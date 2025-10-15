@@ -34,12 +34,12 @@ func (t *TaskAction${ rpc_camel_name }) Run(_startData *component_dispatcher.Dis
 		return fmt.Errorf("user not found")
 	}
 
-	// reqBody := t.GetRequestBody() // TODO
+	// request_body := t.GetRequestBody() // TODO
 % if rpc.is_request_stream() or rpc.is_response_stream():
   	// Stream request or stream response, just ignore auto response
 	t.DisableResponse()
 % else:
-	// rspBody := t.MutableResponseBody() // TODO
+	// response_body := t.MutableResponseBody() // TODO
 %   if rpc.get_extension_field('rpc_options', lambda x: x.allow_no_wait, False):
 	if t.IsStreamRpc() {
 		t.DisableResponse()

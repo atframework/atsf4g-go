@@ -2,10 +2,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,12 +72,14 @@ func receiveHandler(user *User) {
 			rpcName = csMsg.Head.GetRpcStream().GetRpcName()
 			typeName = csMsg.Head.GetRpcStream().GetTypeUrl()
 		default:
-			log.Printf("<<<<<<<<<<<<<<<<<<<< Received: %s\n", csMsg.Head)
-			log.Println("Unsupport in RpcType:", csMsg.Head.GetRpcType())
+			log.Printf("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<\n")
+			log.Println(prototext.Format(csMsg.Head))
 			continue
 		}
 
-		log.Printf("<<<<<<<<<<<<<<<<<<<< Received: %s\n", rpcName)
+		titleString := fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<<", rpcName)
+		log.Printf("%s\n", titleString)
+		log.Println(prototext.Format(csMsg.Head))
 
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
 		if err != nil {
@@ -89,7 +93,8 @@ func receiveHandler(user *User) {
 			log.Println("Error in Unmarshal:", err)
 			return
 		}
-		log.Printf("==================\n%s\n\n", prototext.Format(csBody))
+		log.Println(strings.Repeat("-", len(titleString)))
+		log.Printf("%s\n\n", prototext.Format(csBody))
 
 		processResponse(user, rpcName, csMsg, csBody)
 	}
@@ -151,7 +156,7 @@ func makeLoginMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messa
 			SystemHardware: runtime.GOARCH,
 			CpuInfo: func() string {
 				if len(cpuInfo) > 0 {
-					return cpuInfo[0].String()
+					return fmt.Sprintf("%s - %gMHz", strings.TrimSpace(cpuInfo[0].ModelName), cpuInfo[0].Mhz)
 				} else {
 					return "unknown"
 				}
@@ -296,8 +301,11 @@ func main() {
 			var csBin []byte
 			csMsg, csBody := processMakeRequest(user)
 			csBin, _ = proto.Marshal(csMsg)
-			log.Printf(">>>>>>>>>>>>>>>>>>>> Sending: %s\n", csMsg.Head.GetRpcRequest().GetRpcName())
-			log.Printf("==================\n%s\n\n", prototext.Format(csBody))
+			titleString := fmt.Sprintf(">>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", csMsg.Head.GetRpcRequest().GetRpcName())
+			log.Printf("%s\n", titleString)
+			log.Println(prototext.Format(csMsg.Head))
+			log.Println(strings.Repeat("=", len(titleString)))
+			log.Printf("%s\n\n", prototext.Format(csBody))
 
 			// Send an echo packet every second
 			err := conn.WriteMessage(websocket.BinaryMessage, csBin)
