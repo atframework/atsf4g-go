@@ -40,7 +40,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	userId, err := strconv.ParseUint(request_body.GetOpenId(), 10, 64)
 	if err != nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
-		t.GetDefaultLogger().Warn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
+		t.GetLogger().Warn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
 		return nil
 	}
 	// TODO: zoneId从服务器中读取
@@ -61,14 +61,14 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	accessSecret, _ := uc.UserGetAuthDataFromFile(t.GetRpcContext(), zoneId, userId)
 	if accessSecret != "" && accessSecret != "*" && accessSecret != request_body.GetAccount().GetAccess() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
-		t.GetDefaultLogger().Warn("user already login", "zone_id", zoneId, "user_id", userId)
+		t.GetLogger().Warn("user already login", "zone_id", zoneId, "user_id", userId)
 		return nil
 	}
 
 	uuid, err := uuid.NewRandom()
 	if err != nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetDefaultLogger().Warn("generate login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
+		t.GetLogger().Warn("generate login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
 		return nil
 	}
 	loginCode := strings.Replace(uuid.String(), "-", "", -1)
@@ -79,7 +79,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	err = uc.UserUpdateAuthDataToFile(t.GetRpcContext(), zoneId, userId, accessSecret, loginCode)
 	if err != nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetDefaultLogger().Warn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
+		t.GetLogger().Warn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
 		return nil
 	}
 
@@ -100,13 +100,13 @@ func (t *TaskActionLoginAuth) checkExistedUser(user *data.User) bool {
 
 	if !user.TryLockLoginTask(t.GetTaskId()) {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
-		t.GetDefaultLogger().Warn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
+		t.GetLogger().Warn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
 		return false
 	}
 
 	if user.IsWriteable() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_ALREADY_ONLINE)
-		t.GetDefaultLogger().Warn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
+		t.GetLogger().Warn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
 	}
 

@@ -14,6 +14,7 @@ import (
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	libatapp "github.com/atframework/libatapp-go"
 )
 
 type TaskActionCSSession interface {
@@ -32,7 +33,7 @@ type TaskActionCSUser interface {
 	GetZoneId() uint32
 
 	GetSession() TaskActionCSSession
-
+	GetCsActorLogWriter() libatapp.LogWriter
 	GetActorExecutor() *ActorExecutor
 
 	SendAllSyncData() error
@@ -80,7 +81,7 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetDefaultLogger() *slog.Logger {
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {
 	return t.GetDispatcher().GetApp().GetDefaultLogger()
 }
 
@@ -158,6 +159,14 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) MutableResponseBody() Resp
 	}
 
 	return t.responseBody
+}
+
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetCsActorLogWriter() libatapp.LogWriter {
+	user := t.GetUser()
+	if lu.IsNil(user) {
+		return nil
+	}
+	return user.GetCsActorLogWriter()
 }
 
 func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uint64,

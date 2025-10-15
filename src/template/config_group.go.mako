@@ -15,7 +15,7 @@ import (
 
 type ConfigCallback interface {
 	LoadFile(string) ([]byte, error)
-	GetDefaultLogger() *slog.Logger
+	GetLogger() *slog.Logger
 	OnLoaded(*ConfigGroup) error
 }
 

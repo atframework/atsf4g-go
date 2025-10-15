@@ -49,7 +49,7 @@ func (u *User) IsWriteable() bool {
 
 func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
-		UserCache: uc.CreateUserCache(zoneId, userId, openId),
+		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId),
 
 		loginTaskLock:    sync.Mutex{},
 		loginTaskId:      0,
@@ -89,7 +89,7 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 		prev := ret.itemManagerList[i-1]
 		curr := ret.itemManagerList[i]
 		if prev.idRange.endTypeId >= curr.idRange.beginTypeId {
-			ctx.GetDefaultLogger().Error("user item manager type id range conflict",
+			ctx.GetLogger().Error("user item manager type id range conflict",
 				"prev_manager", reflect.TypeOf(prev.manager).String(),
 				"curr_manager", reflect.TypeOf(curr.manager).String(),
 				"prev_range", prev.idRange,

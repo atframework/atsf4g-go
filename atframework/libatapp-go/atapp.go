@@ -144,7 +144,7 @@ type AppImpl interface {
 
 type AppLog struct {
 	loggers []*slog.Logger
-	writers []logWriter
+	writers []LogWriter
 }
 
 type AppInstance struct {

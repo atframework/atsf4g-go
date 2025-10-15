@@ -52,7 +52,7 @@ func (b *logBuffer) Len() int {
 	return len(*b)
 }
 
-type logWriter interface {
+type LogWriter interface {
 	io.Writer
 	// 在Reload后切换日志时需要Close
 	Close()
@@ -61,7 +61,7 @@ type logWriter interface {
 }
 
 type logHandlerWriter struct {
-	out logWriter
+	out LogWriter
 
 	minLevel slog.Level
 	maxLevel slog.Level
@@ -106,7 +106,7 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 	}
 
 	buf := make([]uintptr, 32)
-	n := runtime.Callers(6, buf)
+	n := runtime.Callers(5, buf)
 
 	frames := runtime.CallersFrames(buf[:n])
 
@@ -118,7 +118,7 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 			break
 		}
 	}
-	trimCount := 2
+	trimCount := 1
 	if len(stack) > trimCount {
 		stack = stack[:len(stack)-trimCount]
 	}
@@ -162,7 +162,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	// 主信息
 	sb := newlogBuffer()
 	defer sb.Free()
-	fmt.Fprintf(sb, "[%s][%s](%s): %s", r.Level.String(), ts, file, r.Message)
+	fmt.Fprintf(sb, "[%s][%s](%s): %s", ts, r.Level.String(), file, r.Message)
 
 	// 额外字段
 	r.Attrs(func(a slog.Attr) bool {

@@ -11,34 +11,34 @@ import (
 	"time"
 )
 
-type logStdoutWriter struct {
+type LogStdoutWriter struct {
 	io.Writer
 }
 
-func (w *logStdoutWriter) Close() {
+func (w *LogStdoutWriter) Close() {
 }
 
-func (w *logStdoutWriter) Flush() error {
+func (w *LogStdoutWriter) Flush() error {
 	return nil
 }
 
-func NewlogStdoutWriter() *logStdoutWriter {
-	return &logStdoutWriter{os.Stdout}
+func NewlogStdoutWriter() *LogStdoutWriter {
+	return &LogStdoutWriter{os.Stdout}
 }
 
-type logStderrWriter struct {
+type LogStderrWriter struct {
 	io.Writer
 }
 
-func (w *logStderrWriter) Close() {
+func (w *LogStderrWriter) Close() {
 }
 
-func (w *logStderrWriter) Flush() error {
+func (w *LogStderrWriter) Flush() error {
 	return nil
 }
 
-func NewlogStderrWriter() *logStderrWriter {
-	return &logStderrWriter{os.Stdout}
+func NewlogStderrWriter() *LogStderrWriter {
+	return &LogStderrWriter{os.Stdout}
 }
 
 type noCopy struct{}
@@ -61,7 +61,7 @@ func (f *RefFD) Relese() {
 	}
 }
 
-type logBufferedRotatingWriter struct {
+type LogBufferedRotatingWriter struct {
 	path     string
 	fileName string
 	maxSize  uint64
@@ -86,8 +86,8 @@ type logBufferedRotatingWriter struct {
 }
 
 // NewlogBufferedRotatingWriter 创建新的日志 writer
-func NewlogBufferedRotatingWriter(path string, fileName string, maxSize uint64, retain uint32, flushInterval time.Duration, hardLink bool, enableTimeRotating bool) (*logBufferedRotatingWriter, error) {
-	w := &logBufferedRotatingWriter{
+func NewlogBufferedRotatingWriter(path string, fileName string, maxSize uint64, retain uint32, flushInterval time.Duration, hardLink bool, enableTimeRotating bool) (*LogBufferedRotatingWriter, error) {
+	w := &LogBufferedRotatingWriter{
 		path:          path,
 		fileName:      fileName,
 		maxSize:       maxSize,
@@ -102,7 +102,7 @@ func NewlogBufferedRotatingWriter(path string, fileName string, maxSize uint64, 
 	return w, nil
 }
 
-func (w *logBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, error) {
+func (w *LogBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, error) {
 	// 读锁
 	w.fileMu.RLock()
 	if w.currentFile != nil {
@@ -192,21 +192,21 @@ func (w *logBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, er
 	return ref.Copy(), nil
 }
 
-func (w *logBufferedRotatingWriter) getFilename(index uint32, now time.Time) string {
+func (w *LogBufferedRotatingWriter) getFilename(index uint32, now time.Time) string {
 	if w.timeRotateInterval == 0 {
 		return fmt.Sprintf("%s.%d", filepath.Join(w.path, w.fileName), index)
 	}
 	return fmt.Sprintf("%s.%d", filepath.Join(w.path, now.Format("2006-01-02"), w.fileName), index)
 }
 
-func (w *logBufferedRotatingWriter) getLinkFilename(now time.Time) string {
+func (w *LogBufferedRotatingWriter) getLinkFilename(now time.Time) string {
 	if w.timeRotateInterval == 0 {
 		return filepath.Join(w.path, w.fileName)
 	}
 	return filepath.Join(w.path, now.Format("2006-01-02"), w.fileName)
 }
 
-func (w *logBufferedRotatingWriter) rotateFile() error {
+func (w *LogBufferedRotatingWriter) rotateFile() error {
 	// 仅用于对比是否需要再次 rotate 防止多次进入
 	currentFile := w.currentFile
 	// 写锁
@@ -231,13 +231,13 @@ func (w *logBufferedRotatingWriter) rotateFile() error {
 	return nil
 }
 
-func (w *logBufferedRotatingWriter) mayRotateFile() {
+func (w *LogBufferedRotatingWriter) mayRotateFile() {
 	if w.needRotateFile() {
 		w.rotateFile()
 	}
 }
 
-func (w *logBufferedRotatingWriter) needRotateFile() bool {
+func (w *LogBufferedRotatingWriter) needRotateFile() bool {
 	if w.currentSize >= w.maxSize {
 		return true
 	}
@@ -255,7 +255,7 @@ func (w *logBufferedRotatingWriter) needRotateFile() bool {
 	return false
 }
 
-func (w *logBufferedRotatingWriter) Write(p []byte) (int, error) {
+func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	w.mayRotateFile()
 	// 这里可能被滚动过
 	// 或者第一次进入
@@ -278,12 +278,12 @@ func (w *logBufferedRotatingWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (w *logBufferedRotatingWriter) updateFlushTime(now time.Time) {
+func (w *LogBufferedRotatingWriter) updateFlushTime(now time.Time) {
 	w.nextFlushTime = now.Add(w.flushInterval)
 }
 
 // Flush 手动刷新缓冲区
-func (w *logBufferedRotatingWriter) Flush() error {
+func (w *LogBufferedRotatingWriter) Flush() error {
 	f, err := w.openLogFile(true)
 	if err != nil {
 		return err
@@ -296,10 +296,12 @@ func (w *logBufferedRotatingWriter) Flush() error {
 }
 
 // 关闭打开的文件
-func (w *logBufferedRotatingWriter) Close() {
+func (w *LogBufferedRotatingWriter) Close() {
 	w.fileMu.Lock()
 	defer w.fileMu.Unlock()
-	w.currentFile.Relese()
-	w.currentFile = nil
+	if w.currentFile != nil {
+		w.currentFile.Relese()
+		w.currentFile = nil
+	}
 	w.currentSize = 0
 }

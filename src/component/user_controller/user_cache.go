@@ -2,12 +2,14 @@ package atframework_component_user_controller
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	libatapp "github.com/atframework/libatapp-go"
 )
 
 const (
@@ -91,9 +93,14 @@ type UserCache struct {
 	account_info_ UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]
 	user_data_    UserDirtyWrapper[private_protocol_pbdesc.UserData]
 	user_options_ UserDirtyWrapper[private_protocol_pbdesc.UserOptions]
+
+	cs_actor_log_writer libatapp.LogWriter
 }
 
-func CreateUserCache(zoneId uint32, userId uint64, openId string) UserCache {
+func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
+	writer, _ := libatapp.NewlogBufferedRotatingWriter("../log",
+		openId, 1*1024*1024, 3, time.Second*3, false, true)
+	runtime.SetFinalizer(writer, writer.Close)
 	return UserCache{
 		zoneId:        zoneId,
 		userId:        userId,
@@ -111,6 +118,7 @@ func CreateUserCache(zoneId uint32, userId uint64, openId string) UserCache {
 			},
 			dirtyVersion: 0,
 		},
+		cs_actor_log_writer: writer,
 	}
 }
 
@@ -315,4 +323,8 @@ func (u *UserCache) GetUserOptions() *private_protocol_pbdesc.UserOptions {
 
 func (u *UserCache) MutableUserOptions() *private_protocol_pbdesc.UserOptions {
 	return u.user_options_.Mutable(u.GetCurrentDbDataVersion())
+}
+
+func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
+	return u.cs_actor_log_writer
 }

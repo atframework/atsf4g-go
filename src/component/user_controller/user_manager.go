@@ -32,7 +32,7 @@ func createUserManager() *UserManager {
 	}
 
 	ret.createUserCallback = func(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
-		ret := CreateUserCache(zoneId, userId, openId)
+		ret := CreateUserCache(ctx, zoneId, userId, openId)
 		return &ret
 	}
 
@@ -252,7 +252,7 @@ func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, 
 		os.MkdirAll(dataDir, 0o755)
 	}
 
-	af, err := os.Create(accessFilePath)
+	af, err := os.OpenFile(accessFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -269,6 +269,8 @@ func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, 
 	if err != nil {
 		return err
 	}
+
+	writer.Flush()
 
 	return nil
 }
@@ -291,7 +293,7 @@ func UserLoadLoginTableFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64
 		return nil, cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal login db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	ctx.GetDefaultLogger().Info("load login table from db success", "zone_id", zoneID, "user_id", userID)
+	ctx.GetLogger().Info("load login table from db success", "zone_id", zoneID, "user_id", userID)
 	return loginTb, cd.CreateRpcResultOk()
 }
 
@@ -320,7 +322,7 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 		return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	ctx.GetDefaultLogger().Info("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+	ctx.GetLogger().Info("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 
 	// Login Table
 	u.LoadLoginInfo(u, loginTb, loginTbVersion)

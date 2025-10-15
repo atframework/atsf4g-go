@@ -22,7 +22,7 @@ func (t *TaskActionUserLogout) Name() string {
 }
 
 func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
-	t.GetDefaultLogger().Info("TaskActionUserLogout Run", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
+	t.GetLogger().Info("TaskActionUserLogout Run", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
 		"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
 
 	userWritable := t.user.IsWriteable()

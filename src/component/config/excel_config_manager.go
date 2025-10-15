@@ -131,19 +131,19 @@ func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
-		GetConfigManager().GetApp().GetDefaultLogger().Error("File Not Found", "filePath", filePath)
+		callback.GetLogger().Error("File Not Found", "filePath", filePath)
 		return nil, fmt.Errorf("file not found %s", filePath)
 	}
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		GetConfigManager().GetApp().GetDefaultLogger().Error("File Read Failed", "error", err)
+		callback.GetLogger().Error("File Read Failed", "error", err)
 		return nil, err
 	}
 	return content, nil
 }
 
-func (callback ExcelConfigCallback) GetDefaultLogger() *slog.Logger {
+func (callback ExcelConfigCallback) GetLogger() *slog.Logger {
 	return GetConfigManager().GetApp().GetDefaultLogger()
 }
 
