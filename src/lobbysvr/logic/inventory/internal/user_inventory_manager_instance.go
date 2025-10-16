@@ -3,8 +3,6 @@ package lobbysvr_logic_item
 import (
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
-	impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
-
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 )
@@ -16,21 +14,12 @@ type UserInventoryManager struct {
 	data.UserItemManagerBase
 }
 
-func CreateUserInventoryManager(owner *data.User) impl.UserInventoryManager {
+func CreateUserInventoryManager(owner *data.User) *UserInventoryManager {
 	return &UserInventoryManager{
 		owner:                 owner,
 		UserModuleManagerBase: *data.CreateUserModuleManagerBase(owner),
 		UserItemManagerBase:   *data.CreateUserItemManagerBase(owner, nil),
 	}
-}
-
-func init() {
-	data.RegisterUserModuleManagerCreator[impl.UserInventoryManager](func(owner *data.User) data.UserModuleManagerImpl {
-		return CreateUserInventoryManager(owner)
-	})
-
-	// var owner *data.User
-	// mgr := data.GetModuleManager[impl.UserInventoryManager](owner)
 }
 
 func (m *UserInventoryManager) GetOwner() *data.User { return m.owner }

@@ -255,11 +255,11 @@ func main() {
 		if err := cmd.Run(); err != nil {
 			log.Printf("go install output:\n%s", out.String())
 			log.Fatalf("failed to install protoc-gen-mutable: %v", err)
-			project_settings.FmtColorFprintRed(os.Stderr, "go install output\n%s", out.String())
+			project_settings.FmtColorFprintRed(os.Stderr, "go install output%s", out.String())
 			project_settings.FmtColorFprintRed(os.Stderr, "failed to install protoc-gen-mutable: %v", err)
 			os.Exit(1)
 		}
-		project_settings.FmtColorFprintGreen(os.Stdout, "install protoc-gen-mutable Success\n")
+		project_settings.FmtColorFprintGreen(os.Stdout, "install protoc-gen-mutable Success")
 	}
 
 	generateAtfwGo(scanDirs)
@@ -274,6 +274,6 @@ func runGoGenerate(target string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Dir = filepath.Dir(target)
 
-	project_settings.FmtColorPrintYellow("Run go generate %s on %s\n", filepath.Base(target), cmd.Dir)
+	project_settings.FmtColorPrintYellow("Run go generate %s on %s", filepath.Base(target), cmd.Dir)
 	return cmd.Run()
 }
