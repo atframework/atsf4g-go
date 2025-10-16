@@ -8,7 +8,7 @@ SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )";
 SCRIPT_DIR="$( readlink -f $SCRIPT_DIR )";
 cd "$SCRIPT_DIR";
 
-./{{ $proc_name }} -config ../cfg/{{ $type_name }}.yaml_{{ $bus_addr }} -pid ./{{ $type_name }}_{{ $bus_addr }}.pid start
+./{{ $proc_name }} -config ../cfg/{{ $type_name }}_{{ $bus_addr }}.yaml -pid ./{{ $type_name }}_{{ $bus_addr }}.pid start
 {{- end }}
 
 {{- define "atapp.start.bat" -}}
@@ -19,5 +19,5 @@ cd "$SCRIPT_DIR";
 
 cd %cd%
 
-.\{{ $proc_name }}.exe -config ..\cfg\{{ $type_name }}.yaml_{{ $bus_addr }} -pid .\{{ $type_name }}_{{ $bus_addr }}.pid start
+.\{{ $proc_name }}.exe -config ..\cfg\{{ $type_name }}_{{ $bus_addr }}.yaml -pid .\{{ $type_name }}_{{ $bus_addr }}.pid start
 {{- end }}
