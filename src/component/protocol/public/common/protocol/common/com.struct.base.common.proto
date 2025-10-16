@@ -36,20 +36,6 @@ enum EnFactionType {
   EN_FACTION_TYPE_DWARF = 6 [ (org.xresloader.enum_alias) = "dwarf" ];
 }
 
-enum EnItemType {
-  EN_ITEM_TYPE_INVALID = 0;
-  EN_ITEM_TYPE_MONEY = 1 [ (org.xresloader.enum_alias) = "money" ];
-  EN_ITEM_TYPE_MATERIAL = 2 [ (org.xresloader.enum_alias) = "material" ];
-  EN_ITEM_TYPE_BUILDING = 3 [ (org.xresloader.enum_alias) = "building" ];
-  EN_ITEM_TYPE_DECORATION = 4 [ (org.xresloader.enum_alias) = "decoration" ];
-  EN_ITEM_TYPE_PACKAGE = 5 [ (org.xresloader.enum_alias) = "package" ];
-  EN_ITEM_TYPE_SKIN = 6 [ (org.xresloader.enum_alias) = "skin" ];
-  EN_ITEM_TYPE_EQUIPMENT = 7 [ (org.xresloader.enum_alias) = "equipment" ];
-  EN_ITEM_TYPE_CHARACTER = 8 [ (org.xresloader.enum_alias) = "character" ];
-  EN_ITEM_TYPE_CHARACTER_MATERIAL = 9 [ (org.xresloader.enum_alias) = "character_material" ];
-  EN_ITEM_TYPE_MENU = 10 [ (org.xresloader.enum_alias) = "menu" ];
-}
-
 enum EnElementType {
   EN_ELEMENT_TYPE_INVALID = 0;
   EN_ELEMENT_TYPE_WATER = 1 [ (org.xresloader.enum_alias) = "water" ];
