@@ -956,6 +956,10 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 		return nil
 	}
 
+	if app.flagSet.Lookup("pid").Value.String() != "" {
+		app.config.PidFile = app.flagSet.Lookup("pid").Value.String()
+	}
+
 	// 检查位置参数以确定命令
 	args := app.flagSet.Args()
 	if len(args) > 0 {

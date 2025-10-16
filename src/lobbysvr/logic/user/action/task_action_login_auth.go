@@ -84,7 +84,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	}
 
 	response_body.LoginCode = loginCode
-	response_body.OpenId = request_body.OpenId
+	response_body.OpenId = request_body.GetOpenId()
 	response_body.UserId = userId
 	response_body.ZoneId = zoneId
 	response_body.IsNewUser = accessSecret == ""

@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Generate:all",
+      "label": "10.Generate:all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -13,7 +13,7 @@
       "group": "build"
     },
     {
-      "label": "Build:all",
+      "label": "10.Build:all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -24,7 +24,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Protocol:libatapp",
+      "label": "20.Generate:Protocol:libatapp",
       "type": "shell",
       "command": "go",
       "args": [
@@ -39,7 +39,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Protocol:Private",
+      "label": "20.Generate:Protocol:Private",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/private"],
@@ -50,7 +50,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Protocol:Public",
+      "label": "20.Generate:Protocol:Public",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/public"],
@@ -61,7 +61,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Excel and configure",
+      "label": "21.Generate:Excel and configure",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/config"],
@@ -72,7 +72,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:Protocol:lobbysvr",
+      "label": "50.Generate:Protocol:lobbysvr",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/lobbysvr"],
@@ -83,7 +83,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:RPC and task configures",
+      "label": "30.Generate:RPC and task configures",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -94,7 +94,7 @@
       "group": "build"
     },
     {
-      "label": "Generate:RPC and task codes",
+      "label": "30.Generate:RPC and task codes",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/tools/generate-for-pb"],
@@ -105,7 +105,7 @@
       "group": "build"
     },
     {
-      "label": "Build:lobbysvr",
+      "label": "50.Build:lobbysvr",
       "type": "shell",
       "command": "go",
       "args": [
@@ -121,7 +121,7 @@
       "group": "build"
     },
     {
-      "label": "Build:robot",
+      "label": "50.Build:robot",
       "type": "shell",
       "command": "go",
       "args": [
@@ -135,6 +135,32 @@
       },
       "problemMatcher": "$go",
       "group": "build"
+    },
+    {
+      "label": "80.Deploy:Update Dependencies",
+      "type": "shell",
+      "command": "./update_dependency.sh",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install"
+      },
+      "windows": {
+        "command": "./update_dependency.bat"
+      },
+      "group": "none"
+    },
+    {
+      "label": "81.Deploy:GenerateServiceConfig",
+      "type": "shell",
+      "command": "generate_config.sh",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install"
+      },
+      "windows": {
+        "command": "./generate_config.bat"
+      },
+      "group": "none"
     }
   ]
 }

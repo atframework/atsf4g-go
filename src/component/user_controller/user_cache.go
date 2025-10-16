@@ -41,9 +41,6 @@ type UserImpl interface {
 	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
 	GetLoginVersion() uint64
 	LoadLoginInfo(self UserImpl, loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
-
-	SyncClientDirtyCache()
-	CleanupClientDirtyCache()
 }
 
 type UserDirtyWrapper[T any] struct {
