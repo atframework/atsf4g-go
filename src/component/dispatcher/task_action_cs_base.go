@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	pu "github.com/atframework/atframe-utils-go/proto_utility"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
@@ -267,6 +268,13 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", t.GetResponseCode())
+		// 输出CSLOG
+		logWriter := t.GetCsActorLogWriter()
+		if logWriter != nil {
+			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Sending: %s\n", time.Now().Format(time.DateTime), t.rpcDescriptor.Output().FullName())
+			fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(t.requestHead))
+			fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.requestBody))
+		}
 		err = t.session.SendMessage(responseMsg)
 		if err != nil {
 			t.GetDispatcher().GetApp().GetDefaultLogger().Error("Failed to send CS response",
@@ -320,6 +328,14 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 
 	// 清空 CSMsg 的 BodyBin，因为已经解析到了 requestBody
 	csMsg.BodyBin = []byte{}
+
+	// 输出CSLOG
+	logWriter := t.GetCsActorLogWriter()
+	if logWriter != nil {
+		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Received: %s\n", time.Now().Format(time.DateTime), t.rpcDescriptor.Output().FullName())
+		fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(t.requestHead))
+		fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.requestBody))
+	}
 
 	user := t.GetUser()
 	if !lu.IsNil(user) {

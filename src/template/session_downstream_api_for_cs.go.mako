@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 
@@ -35,6 +36,23 @@ func sendMessage(responseCode int32, session *uc.Session,
 		rpcType, body)
 	if err != nil {
 		return err
+	}
+
+	var rpcUrl string
+	switch v := rpcType.(type) {
+	case *ppe.RpcResponseMeta:
+		rpcUrl = v.TypeUrl
+	case *ppe.RpcRequestMeta:
+		rpcUrl = v.TypeUrl
+	case *ppe.RpcStreamMeta:
+		rpcUrl = v.TypeUrl
+	}
+
+	logWriter := session.GetCsActorLogWriter()
+	if logWriter != nil {
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Sending: %s\n", time.Now().Format(time.DateTime), rpcUrl)
+		fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(msg.Head))
+		fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(body))
 	}
 
 	return session.SendMessage(msg)

@@ -2,6 +2,7 @@ package atframework_component_user_controller
 
 import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	libatapp "github.com/atframework/libatapp-go"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
@@ -155,4 +156,12 @@ func (s *Session) SendMessage(msg *public_protocol_extension.CSMsg) error {
 
 func (s *Session) GetNetworkHandle() SessionNetworkHandleImpl {
 	return s.networkHandle
+}
+
+func (s *Session) GetCsActorLogWriter() libatapp.LogWriter {
+	user := s.GetUser()
+	if lu.IsNil(user) {
+		return nil
+	}
+	return user.GetCsActorLogWriter()
 }

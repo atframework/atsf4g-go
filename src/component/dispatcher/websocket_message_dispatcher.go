@@ -11,6 +11,7 @@ import (
 
 	libatapp "github.com/atframework/libatapp-go"
 
+	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
@@ -268,7 +269,7 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 				d.GetApp().GetDefaultLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
 			}
 		} else {
-			d.GetApp().GetDefaultLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.String())
+			d.GetApp().GetDefaultLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", pu.MessageReadableText(msg))
 		}
 
 		if err == nil {
