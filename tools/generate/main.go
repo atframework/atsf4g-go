@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"log"
@@ -241,6 +242,24 @@ func main() {
 			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-linux-amd64.tar.gz", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UntarGzToDir(data, project_settings.GetAtdtoolDownloadPath())
 		}
+	}
+
+	// Install protoc-gen-mutable
+	{
+		cmd := exec.Command("go", "install", "./protoc-gen-mutable")
+		cmd.Env = os.Environ()
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		cmd.Dir = filepath.Join(project_settings.GetProjectAtframeworkDir(), "atframe-utils-go")
+		if err := cmd.Run(); err != nil {
+			log.Printf("go install output:\n%s", out.String())
+			log.Fatalf("failed to install protoc-gen-mutable: %v", err)
+			project_settings.FmtColorFprintRed(os.Stderr, "go install output\n%s", out.String())
+			project_settings.FmtColorFprintRed(os.Stderr, "failed to install protoc-gen-mutable: %v", err)
+			os.Exit(1)
+		}
+		project_settings.FmtColorFprintGreen(os.Stdout, "install protoc-gen-mutable Success\n")
 	}
 
 	generateAtfwGo(scanDirs)
