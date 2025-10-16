@@ -147,8 +147,9 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	// 数据复制
 	// proto.Reset(user.MutableClientInfo())
-	// proto.Merge(user.MutableClientInfo(), request_body.GetClientInfo())
-	*user.MutableClientInfo() = *request_body.GetClientInfo()
+	if request_body.GetClientInfo() != nil {
+		*user.MutableClientInfo() = *request_body.GetClientInfo()
+	}
 
 	// session绑定
 	t.GetSession().BindUser(t.GetRpcContext(), user)

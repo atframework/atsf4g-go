@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	libatapp "github.com/atframework/libatapp-go"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -56,7 +58,7 @@ func (h *SessionNetworkWebsocketHandle) GetRemoteAddr() string {
 
 func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *cd.WebSocketMessageDispatcher {
 	d := cd.CreateCSMessageWebsocketDispatcher(owner)
-	if d == nil {
+	if lu.IsNil(d) {
 		return nil
 	}
 
@@ -85,11 +87,11 @@ func WebsocketDispatcherFindSessionFromMessage(
 	rd cd.DispatcherImpl, msg *cd.DispatcherRawMessage,
 	privateData interface{},
 ) *uc.Session {
-	if privateData != nil {
+	if !lu.IsNil(privateData) {
 		switch privateData.(type) {
 		case *cd.WebSocketSession:
 			s := privateData.(*cd.WebSocketSession).PrivateData
-			if s == nil {
+			if lu.IsNil(s) {
 				return nil
 			}
 
@@ -110,7 +112,7 @@ func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Messa
 	serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string,
 	createFn func(cd.TaskActionCSBase[RequestType, ResponseType]) cd.TaskActionImpl,
 ) error {
-	if serviceDescriptor == nil {
+	if lu.IsNil(serviceDescriptor) {
 		rd.GetApp().GetDefaultLogger().Error("service descriptor is nil", "rpc_name", rpcFullName)
 		return fmt.Errorf("service descriptor not match rpc full name")
 	}
@@ -122,14 +124,14 @@ func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Messa
 	}
 
 	methodDesc := serviceDescriptor.Methods().ByName(protoreflect.Name(rpcFullName[lastIndex+1:]))
-	if methodDesc == nil {
+	if lu.IsNil(methodDesc) {
 		rd.GetApp().GetDefaultLogger().Error("method descriptor not found in service", "rpc_name", rpcFullName, "service_name", serviceDescriptor.FullName())
 		return fmt.Errorf("method descriptor not found in service")
 	}
 
 	creator := func(rd cd.DispatcherImpl, startData *cd.DispatcherStartData) (cd.TaskActionImpl, error) {
 		session := findSessionFn(rd, startData.Message, startData.PrivateData)
-		if session == nil {
+		if lu.IsNil(session) {
 			rd.GetApp().GetDefaultLogger().Warn("session not found for CS message", "rpc_name", rpcFullName)
 			return nil, fmt.Errorf("session not found for CS message")
 		}

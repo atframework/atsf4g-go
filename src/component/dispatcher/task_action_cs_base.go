@@ -23,9 +23,12 @@ type TaskActionCSSession interface {
 	GetSessionNodeId() uint64
 	AllocSessionSequence() uint64
 
+	GetActorLogWriter() libatapp.LogWriter
+
 	GetUser() TaskActionCSUser
 	BindUser(ctx *RpcContext, user TaskActionCSUser)
 
+	GetDispatcher() DispatcherImpl
 	SendMessage(*public_protocol_extension.CSMsg) error
 }
 

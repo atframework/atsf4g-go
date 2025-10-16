@@ -150,6 +150,14 @@ func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	}
 }
 
+func (s *Session) GetDispatcher() cd.DispatcherImpl {
+	if lu.IsNil(s.networkHandle) {
+		return nil
+	}
+
+	return s.networkHandle.GetDispatcher()
+}
+
 func (s *Session) SendMessage(msg *public_protocol_extension.CSMsg) error {
 	return s.networkHandle.SendMessage(msg)
 }
@@ -158,7 +166,7 @@ func (s *Session) GetNetworkHandle() SessionNetworkHandleImpl {
 	return s.networkHandle
 }
 
-func (s *Session) GetCsActorLogWriter() libatapp.LogWriter {
+func (s *Session) GetActorLogWriter() libatapp.LogWriter {
 	user := s.GetUser()
 	if lu.IsNil(user) {
 		return nil
