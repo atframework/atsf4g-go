@@ -69,7 +69,7 @@ message DItemPosition {
   // Container guid
   int64 container_guid = 1;
 
-  oneof posotion_type {
+  oneof position_type {
     // 仓库
     DItemBoxPosition inventory = 11;
     // 角色背包

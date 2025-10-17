@@ -1,8 +1,8 @@
 validator:
   - name: "ExcelItem_item_id"
-    description: "Item.xlsx|道具描述总表|type_id 值校验"
+    description: "Item.xlsx|道具描述总表|item_id 值校验"
     rules:
-      - InTableColumn("Item.xlsx", "道具描述总表", 3, 2, "type_id")
+      - InTableColumn("Item.xlsx", "道具描述总表", 3, 2, "item_id")
 
   - name: "ExcelLayer_layer_id"
     description: "Layer.xlsx|层级|layer_id 值校验"
