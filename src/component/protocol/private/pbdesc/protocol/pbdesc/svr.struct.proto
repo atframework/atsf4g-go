@@ -64,4 +64,4 @@ message user_async_jobs_data {
   int64 next_task_active_time = 2;       // 下一次异步任务的启动时间
 }
 
-message user_building_data { repeated DMapAreaData map_area_data = 1; }
+message user_building_data { repeated DMapBuildingData building_map_data = 1; }
