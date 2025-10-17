@@ -11,7 +11,6 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/
 package proy;
 
 message DAttrbute {
-  int32 cooking = 1;
   int32 speed = 2;
   int32 efficiency = 3;
   int32 atk = 4;

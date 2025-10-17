@@ -33,26 +33,6 @@
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelItem</scheme>
       <scheme name="OutputFile" desc="输出文件名">item.bytes</scheme>
     </item>
-    <item name="建筑表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Building.xlsx|建筑|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelBuilding</scheme>
-      <scheme name="OutputFile" desc="输出文件名">building.bytes</scheme>
-    </item>
-    <item name="层级表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Layer.xlsx|层级|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelLayer</scheme>
-      <scheme name="OutputFile" desc="输出文件名">layer.bytes</scheme>
-    </item>
-    <item name="地图表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|地图|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMap</scheme>
-      <scheme name="OutputFile" desc="输出文件名">building_map.bytes</scheme>
-    </item>
-    <item name="区块表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|区块|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMapArea</scheme>
-      <scheme name="OutputFile" desc="输出文件名">maparea.bytes</scheme>
-    </item>
     <item name="角色表" cat="" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Role.xlsx|角色表|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelRole</scheme>
