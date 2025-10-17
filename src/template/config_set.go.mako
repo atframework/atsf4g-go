@@ -135,12 +135,12 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 
 % for code_index in loader.code.indexes:
 // index: ${code_index.name}
-func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy_${code_index.name}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
 	% if code_index.is_vector():
 		% for field in code_index.fields:
 	key := ${pb_loader.MakoToCamelName(field.name)}
 	if key < 0 {
-		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy_${code_index.name} with key for index < 0",
+		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${code_index.name} with key for index < 0",
 			% for field in code_index.fields:
 			"key",
 			${pb_loader.MakoToCamelName(field.name)},
@@ -150,7 +150,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy_${code_index.name}($
 		return nil
 	}
 	if int(key) >= len(configSet.configIndexContainer_${code_index.name}) {
-		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy_${code_index.name} with key for index >= Container Size",
+		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${code_index.name} with key for index >= Container Size",
 			% for field in code_index.fields:
 			"key",
 			${pb_loader.MakoToCamelName(field.name)},
@@ -176,7 +176,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy_${code_index.name}($
 	% endif
 }
 
-func (configSet *ConfigSet${loader.get_go_pb_name()}) GetAllOf_${code_index.name}() *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
+func (configSet *ConfigSet${loader.get_go_pb_name()}) GetAllOf${pb_loader.MakoToCamelName(code_index.name)}() *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
 	return &configSet.configIndexContainer_${code_index.name}
 }
 % endfor

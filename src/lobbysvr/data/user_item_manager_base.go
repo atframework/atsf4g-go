@@ -233,7 +233,7 @@ func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []*ppc.DItemBasi
 }
 
 func (umb *UserItemManagerBase) GetItemCongiure(typeId int32) *ppcfg.ExcelItem {
-	return cc.GetConfigManager().GetCurrentConfigGroup().ExcelItem.GetBy_item_id(typeId)
+	return cc.GetConfigManager().GetCurrentConfigGroup().GetExcelItemByItemId(typeId)
 }
 
 func (umb *UserItemManagerBase) CreateItemAddGuard(itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result) {

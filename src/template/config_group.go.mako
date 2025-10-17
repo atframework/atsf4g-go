@@ -49,17 +49,29 @@ func (configGroup *ConfigGroup) Init(callback ConfigCallback) (err error) {
 // ${loader.get_go_pb_name()}
 	% for loader in pb_msg.loaders:
 		% for code_index in loader.code.indexes:
-func Get_${loader.get_go_pb_name()}_By_${code_index.name}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
-	return configGroup.${loader.get_go_pb_name()}.GetBy_${code_index.name}(${code_index.get_go_key_params()})
+func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+	if configGroup == nil {
+		return nil
+	}
+	return configGroup.${loader.get_go_pb_name()}.GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_params()})
 }
-func Get_${loader.get_go_pb_name()}_AllOf_${code_index.name}(configGroup *ConfigGroup) *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
-	return configGroup.${loader.get_go_pb_name()}.GetAllOf_${code_index.name}()
+func Get${loader.get_go_pb_name()}AllOf${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup) *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
+	if configGroup == nil {
+		return nil
+	}
+	return configGroup.${loader.get_go_pb_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
 }
-func (configGroup *ConfigGroup) Get_${loader.get_go_pb_name()}_By_${code_index.name}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
-	return configGroup.${loader.get_go_pb_name()}.GetBy_${code_index.name}(${code_index.get_go_key_params()})
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+	if configGroup == nil {
+		return nil
+	}
+	return configGroup.${loader.get_go_pb_name()}.GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_params()})
 }
-func (configGroup *ConfigGroup) Get_${loader.get_go_pb_name()}_AllOf_${code_index.name}() *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
-	return configGroup.${loader.get_go_pb_name()}.GetAllOf_${code_index.name}()
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}AllOf${pb_loader.MakoToCamelName(code_index.name)}() *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
+	if configGroup == nil {
+		return nil
+	}
+	return configGroup.${loader.get_go_pb_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
 }
 
 		% endfor

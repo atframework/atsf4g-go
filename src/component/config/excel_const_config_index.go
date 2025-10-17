@@ -8,7 +8,7 @@ import (
 func InitExcelConstConfigIndex(group *generate_config.ConfigGroup) error {
 	// 这边初始化自定义索引
 	source := make(map[string]interface{})
-	for _, v := range *group.ExcelOriginConstConfig.GetAllOf_key() {
+	for _, v := range *group.ExcelOriginConstConfig.GetAllOfKey() {
 		// 把 KV 转为 Map 然后使用解析PB的工具
 		source[v.Key] = v.Value
 	}
