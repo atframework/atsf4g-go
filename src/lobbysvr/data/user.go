@@ -23,13 +23,79 @@ type noCopy struct{}
 type Result = cd.RpcResult
 
 type userItemManagerWrapper struct {
-	idRange userItemTypeIdRange
+	idRange UserItemTypeIdRange
 	manager UserItemManagerImpl
 }
 
 type UserItemDirtyData struct {
-	DirtyTypeId map[int32]*public_protocol_common.DItemInstance
-	DirtyGuid   map[int64]*public_protocol_common.DItemInstance
+	dirtyItems map[int32]*map[int64]*public_protocol_common.DItemInstance
+
+	removeItemKeys map[int32]*map[int64]struct{}
+}
+
+func (d *UserItemDirtyData) MutableDirtyItem(typeId int32, guid int64) *public_protocol_common.DItemInstance {
+	if d.dirtyItems == nil {
+		d.dirtyItems = make(map[int32]*map[int64]*public_protocol_common.DItemInstance)
+	}
+
+	var ret *public_protocol_common.DItemInstance
+	if typeSet, exists := d.dirtyItems[typeId]; !exists {
+		ret = &public_protocol_common.DItemInstance{
+			ItemBasic: &public_protocol_common.DItemBasic{
+				TypeId: typeId,
+				Guid:   guid,
+			},
+		}
+		m := make(map[int64]*public_protocol_common.DItemInstance)
+		d.dirtyItems[typeId] = &m
+		m[guid] = ret
+	} else {
+		ret, exists = (*typeSet)[guid]
+		if !exists || ret == nil {
+			ret = &public_protocol_common.DItemInstance{
+				ItemBasic: &public_protocol_common.DItemBasic{
+					TypeId: typeId,
+					Guid:   guid,
+				},
+			}
+			(*typeSet)[guid] = ret
+		}
+	}
+
+	// cleanup remove keys
+	if d.removeItemKeys != nil {
+		if guidSet, exists := d.removeItemKeys[typeId]; exists {
+			delete(*guidSet, guid)
+			if len(*guidSet) == 0 {
+				delete(d.removeItemKeys, typeId)
+			}
+		}
+	}
+
+	return (*d.dirtyItems[typeId])[guid]
+}
+
+func (d *UserItemDirtyData) MutableRemoveItem(typeId int32, guid int64) {
+	if d.removeItemKeys == nil {
+		d.removeItemKeys = make(map[int32]*map[int64]struct{})
+	}
+	if guidSet, exists := d.removeItemKeys[typeId]; !exists {
+		m := make(map[int64]struct{})
+		d.removeItemKeys[typeId] = &m
+		m[guid] = struct{}{}
+	} else {
+		(*guidSet)[guid] = struct{}{}
+	}
+
+	// remove dirty items
+	if d.dirtyItems != nil {
+		if typeSet, exists := d.dirtyItems[typeId]; exists {
+			delete(*typeSet, guid)
+			if len(*typeSet) == 0 {
+				delete(d.dirtyItems, typeId)
+			}
+		}
+	}
 }
 
 type userDirtyHandles struct {
@@ -76,14 +142,14 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 	}
 
 	for _, creator := range userModuleManagerCreators {
-		mgr := creator.fn(ret)
+		mgr := creator.fn(ctx, ret)
 		if mgr != nil {
 			ret.registerModuleManager(creator.typeInst, mgr)
 		}
 	}
 
 	for _, creator := range userItemManagerCreators {
-		mgr := creator.fn(ret, creator.descriptor)
+		mgr := creator.fn(ctx, ret, creator.descriptor)
 		if mgr != nil {
 			for _, idRange := range creator.descriptor.GetTypeIdRanges() {
 				ret.itemManagerList = append(ret.itemManagerList, userItemManagerWrapper{
@@ -268,8 +334,7 @@ func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Se
 	}
 }
 
-func (u *User) InsertDirtyHandleIfNotExists(ctx *cd.RpcContext,
-	key interface{},
+func (u *User) InsertDirtyHandleIfNotExists(key interface{},
 	dumpDataHandle func(*cd.RpcContext, *UserItemDirtyData),
 	clearCacheHandle func(*cd.RpcContext),
 ) {
@@ -323,16 +388,28 @@ func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 	}
 
 	// 脏数据推送
-	if len(dumpData.DirtyTypeId) > 0 || len(dumpData.DirtyGuid) > 0 {
-		msg := &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync{
-			DirtyItems: make([]*public_protocol_common.DItemInstance, 0, len(dumpData.DirtyTypeId)+len(dumpData.DirtyGuid)),
+	if len(dumpData.dirtyItems) > 0 || len(dumpData.removeItemKeys) > 0 {
+		msg := &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync{}
+
+		if len(dumpData.dirtyItems) > 0 {
+			msg.DirtyItems = make([]*public_protocol_common.DItemInstance, 0, len(dumpData.dirtyItems))
+			for _, itemType := range dumpData.dirtyItems {
+				for _, itemInstance := range *itemType {
+					msg.DirtyItems = append(msg.DirtyItems, itemInstance)
+				}
+			}
 		}
 
-		for _, item := range dumpData.DirtyTypeId {
-			msg.DirtyItems = append(msg.DirtyItems, item)
-		}
-		for _, item := range dumpData.DirtyGuid {
-			msg.DirtyItems = append(msg.DirtyItems, item)
+		if len(dumpData.removeItemKeys) > 0 {
+			msg.RemoveItemKeys = make([]*lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey, 0, len(dumpData.removeItemKeys))
+			for itemTypeId, itemType := range dumpData.removeItemKeys {
+				for itemGuid := range *itemType {
+					msg.RemoveItemKeys = append(msg.RemoveItemKeys, &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
+						TypeId: itemTypeId,
+						Guid:   itemGuid,
+					})
+				}
+			}
 		}
 
 		err := lobbysvr_client_rpc.SendUserDirtyChgSync(session, msg, 0)
@@ -385,13 +462,13 @@ func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {
 	return mgr
 }
 
-func GetModuleManager[ManagerType any](u *User) ManagerType {
+func UserGetModuleManager[ManagerType UserModuleManagerImpl](u *User) ManagerType {
 	if u == nil {
 		var zero ManagerType
 		return zero
 	}
 
-	ret := u.GetModuleManager(reflect.TypeOf((*ManagerType)(nil)).Elem())
+	ret := u.GetModuleManager(reflect.TypeOf((*ManagerType)(nil)).Elem().Elem())
 	if ret == nil {
 		var zero ManagerType
 		return zero

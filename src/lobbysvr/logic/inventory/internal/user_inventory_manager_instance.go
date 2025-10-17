@@ -1,9 +1,11 @@
 package lobbysvr_logic_item
 
 import (
+	"fmt"
 	"math"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	"google.golang.org/protobuf/proto"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
@@ -81,13 +83,13 @@ func (g *UserInventoryItemGroup) addGroupCount(item *ppc.DItemInstance, count in
 	}
 }
 
-func (g *UserInventoryItemGroup) subGroupCount(item *ppc.DItemInstance, count int64) {
+func (g *UserInventoryItemGroup) subGroupCount(item *ppc.DItemBasic, count int64) {
 	if item == nil || count <= 0 || g == nil {
 		return
 	}
 
-	if count > item.GetItemBasic().GetCount() {
-		count = item.GetItemBasic().GetCount()
+	if count > item.GetCount() {
+		count = item.GetCount()
 	}
 	resetStats := false
 	if count > g.statistics.TotalCount {
@@ -95,9 +97,9 @@ func (g *UserInventoryItemGroup) subGroupCount(item *ppc.DItemInstance, count in
 		resetStats = true
 	}
 
-	item.ItemBasic.Count -= count
-	if item.GetItemBasic().GetCount() <= 0 {
-		delete(g.items, item.GetItemBasic().GetGuid())
+	item.Count -= count
+	if item.GetCount() <= 0 {
+		delete(g.items, item.GetGuid())
 	}
 
 	g.statistics.TotalCount -= count
@@ -107,22 +109,31 @@ func (g *UserInventoryItemGroup) subGroupCount(item *ppc.DItemInstance, count in
 	}
 }
 
-type UserInventoryManager struct {
-	owner *data.User
+func (g *UserInventoryItemGroup) empty() bool {
+	return len(g.items) == 0
+}
 
+type UserInventoryManager struct {
 	data.UserModuleManagerBase
 	data.UserItemManagerBase
 
+	virtualItemManager *UserVirtualItemManager
+
 	// type_id -> UserInventoryItemGroup
 	itemGroups map[int32]*UserInventoryItemGroup
+
+	dirtyItems map[int32]*map[int64]struct{}
 }
 
 func CreateUserInventoryManager(owner *data.User) *UserInventoryManager {
-	return &UserInventoryManager{
-		owner:                 owner,
+	ret := &UserInventoryManager{
 		UserModuleManagerBase: *data.CreateUserModuleManagerBase(owner),
 		UserItemManagerBase:   *data.CreateUserItemManagerBase(owner, nil),
 	}
+
+	ret.virtualItemManager = createVirtualItemManager(ret)
+
+	return ret
 }
 
 func (m *UserInventoryManager) getItemGroup(typeId int32) *UserInventoryItemGroup {
@@ -148,25 +159,184 @@ func (m *UserInventoryManager) mutableItemGroup(typeId int32) *UserInventoryItem
 	return group
 }
 
-func (m *UserInventoryManager) GetOwner() *data.User { return m.owner }
+func (m *UserInventoryManager) GetOwner() *data.User {
+	return m.UserItemManagerBase.GetOwner()
+}
 
-func (m *UserInventoryManager) RefreshLimitSecond(_ctx *cd.RpcContext) {
+func (m *UserInventoryManager) RefreshLimitSecond(ctx *cd.RpcContext) {
+	m.virtualItemManager.RefreshLimitSecond(ctx)
+
 	// TODO: 限时道具移除
 }
 
+func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
+	if m.dirtyItems == nil {
+		m.dirtyItems = make(map[int32]*map[int64]struct{})
+	}
+
+	if _, ok := m.dirtyItems[typeId]; !ok {
+		m.dirtyItems[typeId] = &map[int64]struct{}{}
+	}
+
+	(*m.dirtyItems[typeId])[guid] = struct{}{}
+
+	m.UserModuleManagerBase.GetOwner().InsertDirtyHandleIfNotExists(m,
+		func(ctx *cd.RpcContext, dirty *data.UserItemDirtyData) {
+			for typeId, guidSet := range m.dirtyItems {
+				group := m.getItemGroup(typeId)
+				if group == nil {
+					for guid := range *guidSet {
+						dirty.MutableRemoveItem(typeId, guid)
+					}
+					continue
+				}
+				for guid := range *guidSet {
+					itemInstance := group.GetGroup(guid)
+					if itemInstance == nil {
+						dirty.MutableRemoveItem(typeId, guid)
+						continue
+					}
+
+					dumpDirty := dirty.MutableDirtyItem(typeId, guid)
+					proto.Reset(dumpDirty)
+					proto.Merge(dumpDirty, itemInstance)
+				}
+			}
+		},
+		func(_ctx *cd.RpcContext) {
+			clear(m.dirtyItems)
+		},
+	)
+}
+
 func (m *UserInventoryManager) AddItem(ctx *cd.RpcContext, itemOffset []data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
+	for i := 0; i < len(itemOffset); i++ {
+		add := &itemOffset[i]
+
+		typeId := add.Item.GetItemBasic().GetTypeId()
+		// 虚拟道具分发
+		if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+			standalone, _ := m.virtualItemManager.AddItem(ctx, add, reason)
+			if standalone {
+				continue
+			}
+		}
+
+		addCount := add.Item.GetItemBasic().GetCount()
+		groupGuid := add.Item.GetItemBasic().GetGuid()
+
+		// 普通道具
+		group := m.mutableItemGroup(typeId)
+		if group == nil {
+			ctx.LogError("sub item not enough, should failed in CheckAddItem",
+				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
+				"item_id", typeId, "item_guid", groupGuid, "add_item_count", addCount,
+			)
+			continue
+		}
+
+		// TODO: 堆叠?
+		// maxStacking := add.Configure.GetShowMaxStacking()
+
+		addSet := group.MutableGroup(groupGuid)
+		beforeCount := group.statistics.TotalCount
+		group.addGroupCount(addSet, addCount, 0 /*maxStacking*/)
+		afterCount := group.statistics.TotalCount
+		if afterCount-beforeCount < addCount {
+			ctx.LogError("add item not overflow, should failed in CheckAddItem",
+				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
+				"item_id", typeId, "item_guid", groupGuid, "before_item_count", beforeCount, "after_item_count", afterCount, "add_item_count",
+				addCount,
+			)
+		}
+
+		m.markItemDirty(typeId, groupGuid)
+	}
+
 	return cd.CreateRpcResultOk()
 }
 
 func (m *UserInventoryManager) SubItem(ctx *cd.RpcContext, itemOffset []data.ItemSubGuard, reason *data.ItemFlowReason) data.Result {
+	for i := 0; i < len(itemOffset); i++ {
+		sub := &itemOffset[i]
+
+		typeId := sub.Item.GetTypeId()
+		// 虚拟道具分发
+		if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+			standalone, _ := m.virtualItemManager.SubItem(ctx, sub, reason)
+			if standalone {
+				continue
+			}
+		}
+
+		// 普通道具
+		group := m.getItemGroup(typeId)
+		if group == nil {
+			ctx.LogError("sub item not enough, should failed in CheckSubItem",
+				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
+				"item_id", sub.Item.GetTypeId(), "item_guid", sub.Item.GetGuid(), "sub_item_count", sub.Item.GetCount(),
+			)
+			continue
+		}
+
+		subSet := group.GetGroup(sub.Item.GetGuid())
+		if subSet.GetItemBasic().GetCount() < sub.Item.GetCount() {
+			ctx.LogError("sub item not enough, should failed in CheckSubItem",
+				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
+				"item_id", sub.Item.GetTypeId(), "item_guid", sub.Item.GetGuid(), "has_item_count", subSet.GetItemBasic().GetCount(), "sub_item_count", sub.Item.GetCount(),
+			)
+		}
+		group.subGroupCount(sub.Item, sub.Item.GetCount())
+		if group.empty() {
+			delete(m.itemGroups, sub.Item.GetTypeId())
+		}
+
+		m.markItemDirty(sub.Item.GetTypeId(), sub.Item.GetGuid())
+	}
+
 	return cd.CreateRpcResultOk()
 }
 
 func (m *UserInventoryManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []ppc.DItemInstance) ([]data.ItemAddGuard, data.Result) {
+	if itemOffset == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	// 虚拟道具分发
+	for i := 0; i < len(itemOffset); i++ {
+		item := &itemOffset[i]
+		typeId := item.GetItemBasic().GetTypeId()
+		if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+			result := m.virtualItemManager.CheckAddItem(ctx, item)
+			if result.IsError() {
+				return nil, result
+			}
+		}
+	}
+
+	// 普通道具
 	return m.CreateItemAddGuard(itemOffset)
 }
 
 func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []ppc.DItemBasic) ([]data.ItemSubGuard, data.Result) {
+	// 虚拟道具分发
+	if itemOffset == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	// 虚拟道具分发
+	for i := 0; i < len(itemOffset); i++ {
+		item := &itemOffset[i]
+		typeId := item.GetTypeId()
+		if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+			result := m.virtualItemManager.CheckSubItem(ctx, item)
+			if result.IsError() {
+				return nil, result
+			}
+		}
+	}
+
+	// 普通道具
 	guard, result := m.CreateItemSubGuard(itemOffset)
 	if result.IsError() {
 		return nil, result
@@ -179,7 +349,8 @@ func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []ppc
 			return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode(m.GetNotEnoughErrorCode(sub.Item.GetTypeId())))
 		}
 
-		if group.statistics.TotalCount < sub.Item.GetCount() {
+		subSet := group.GetGroup(sub.Item.GetGuid())
+		if subSet == nil || subSet.GetItemBasic().GetCount() < sub.Item.GetCount() {
 			return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode(m.GetNotEnoughErrorCode(sub.Item.GetTypeId())))
 		}
 	}
@@ -188,6 +359,15 @@ func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []ppc
 }
 
 func (m *UserInventoryManager) GetTypeStatistics(typeId int32) *data.ItemTypeStatistics {
+	// 虚拟道具分发
+	if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+		standalone, itemStats := m.virtualItemManager.GetTypeStatistics(typeId)
+		if standalone {
+			return itemStats
+		}
+	}
+
+	// 普通道具
 	group, ok := m.itemGroups[typeId]
 	if !ok {
 		return nil
@@ -196,11 +376,49 @@ func (m *UserInventoryManager) GetTypeStatistics(typeId int32) *data.ItemTypeSta
 	return &group.statistics
 }
 
-func (m *UserInventoryManager) GetItemFromBasic(itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, data.Result) {
-	return nil, cd.RpcResult{
-		Error:        nil,
-		ResponseCode: 0,
+func (m *UserInventoryManager) GetNotEnoughErrorCode(typeId int32) int32 {
+	// 虚拟道具分发
+	if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+		return m.virtualItemManager.GetNotEnoughErrorCode(typeId)
 	}
+
+	// 普通道具
+	return int32(ppp.EnErrorCode_EN_ERR_ITEM_NOT_ENOUGH)
+}
+
+func (m *UserInventoryManager) GetItemFromBasic(itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, data.Result) {
+	if itemBasic == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemBasic is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	typeId := itemBasic.GetTypeId()
+
+	// 虚拟道具分发
+	if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) && typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+		standalone, ret, result := m.virtualItemManager.GetItemFromBasic(itemBasic)
+		if standalone {
+			return ret, result
+		}
+	}
+
+	// 普通道具
+	group, ok := m.itemGroups[typeId]
+	if !ok {
+		return nil, cd.RpcResult{
+			Error:        nil,
+			ResponseCode: m.GetNotEnoughErrorCode(typeId),
+		}
+	}
+
+	groupItem := group.GetGroup(itemBasic.GetGuid())
+	if groupItem == nil {
+		return nil, cd.RpcResult{
+			Error:        nil,
+			ResponseCode: m.GetNotEnoughErrorCode(typeId),
+		}
+	}
+
+	return groupItem, cd.CreateRpcResultOk()
 }
 
 func (m *UserInventoryManager) ForeachItem(fn func(item *ppc.DItemInstance) bool) {
@@ -208,6 +426,10 @@ func (m *UserInventoryManager) ForeachItem(fn func(item *ppc.DItemInstance) bool
 		return
 	}
 
+	// 虚拟道具分发
+	m.virtualItemManager.ForeachItem(fn)
+
+	// 普通道具
 	for _, group := range m.itemGroups {
 		for _, item := range group.items {
 			if !fn(item) {

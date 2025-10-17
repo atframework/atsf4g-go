@@ -18,7 +18,7 @@ type ItemFlowReason struct {
 	Parameter   int64
 }
 
-type userItemTypeIdRange struct {
+type UserItemTypeIdRange struct {
 	beginTypeId int32
 	endTypeId   int32
 }
@@ -60,26 +60,33 @@ type UserItemManagerImpl interface {
 }
 
 type UserItemManagerDescriptor struct {
-	typeIdRanges []userItemTypeIdRange
+	typeIdRanges []UserItemTypeIdRange
 }
 
-func (d *UserItemManagerDescriptor) GetTypeIdRanges() []userItemTypeIdRange {
+func (d *UserItemManagerDescriptor) GetTypeIdRanges() []UserItemTypeIdRange {
 	return d.typeIdRanges
+}
+
+func MakeUserItemTypeIdRange(beginTypeId int32, endTypeId int32) UserItemTypeIdRange {
+	return UserItemTypeIdRange{
+		beginTypeId: beginTypeId,
+		endTypeId:   endTypeId,
+	}
 }
 
 type userItemManagerCreator struct {
 	descriptor *UserItemManagerDescriptor
-	fn         func(*User, *UserItemManagerDescriptor) UserItemManagerImpl
+	fn         func(*cd.RpcContext, *User, *UserItemManagerDescriptor) UserItemManagerImpl
 }
 
 var userItemManagerCreators = make([]userItemManagerCreator, 0)
 
-func RegisterUserItemManagerCreator[ManagerType any](typeIdRanges []userItemTypeIdRange, creator func(*User, *UserItemManagerDescriptor) UserItemManagerImpl) {
+func RegisterUserItemManagerCreator(typeIdRanges []UserItemTypeIdRange, creator func(*cd.RpcContext, *User, *UserItemManagerDescriptor) UserItemManagerImpl) {
 	if creator == nil {
 		panic("nil user item manager creator")
 	}
 
-	slices.SortFunc(typeIdRanges, func(a, b userItemTypeIdRange) int {
+	slices.SortFunc(typeIdRanges, func(a, b UserItemTypeIdRange) int {
 		if a.beginTypeId != b.beginTypeId {
 			return int(a.beginTypeId - b.beginTypeId)
 		}
@@ -122,7 +129,7 @@ func (umb *UserItemManagerBase) GetNotEnoughErrorCode(_typeId int32) int32 {
 }
 
 func (umb *UserItemManagerBase) CheckTypeIdValid(typeId int32) bool {
-	_, found := slices.BinarySearchFunc(umb.descriptor.typeIdRanges, typeId, func(a userItemTypeIdRange, b int32) int {
+	_, found := slices.BinarySearchFunc(umb.descriptor.typeIdRanges, typeId, func(a UserItemTypeIdRange, b int32) int {
 		if a.beginTypeId > b {
 			return 1
 		}

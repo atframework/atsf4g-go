@@ -33,22 +33,22 @@ type UserModuleManagerImpl interface {
 
 var userModuleManagerCreators = make(map[reflect.Type]struct {
 	typeInst reflect.Type
-	fn       func(*User) UserModuleManagerImpl
+	fn       func(*cd.RpcContext, *User) UserModuleManagerImpl
 })
 
-func RegisterUserModuleManagerCreator[ManagerType any](creator func(*User) UserModuleManagerImpl) {
+func RegisterUserModuleManagerCreator[ManagerType UserModuleManagerImpl](creator func(*cd.RpcContext, *User) UserModuleManagerImpl) {
 	if creator == nil {
 		panic("nil user module manager creator")
 	}
 
-	typeInst := reflect.TypeOf((*ManagerType)(nil)).Elem()
+	typeInst := reflect.TypeOf((*ManagerType)(nil)).Elem().Elem()
 	if _, exists := userModuleManagerCreators[typeInst]; exists {
 		panic("duplicate user module manager creator for type: " + typeInst.String())
 	}
 
 	userModuleManagerCreators[typeInst] = struct {
 		typeInst reflect.Type
-		fn       func(*User) UserModuleManagerImpl
+		fn       func(*cd.RpcContext, *User) UserModuleManagerImpl
 	}{
 		typeInst: typeInst,
 		fn:       creator,
