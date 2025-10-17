@@ -11,6 +11,7 @@ package atframework_component_config_generate_config
 import (
 	"log/slog"
 	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
+	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 )
 
 type ConfigCallback interface {
@@ -49,7 +50,11 @@ func (configGroup *ConfigGroup) Init(callback ConfigCallback) (err error) {
 // ${loader.get_go_pb_name()}
 	% for loader in pb_msg.loaders:
 		% for code_index in loader.code.indexes:
-func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+			% if code_index.is_list():
+func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) []*public_protocol_config.${loader.get_go_pb_name()} {
+			% else:
+func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) *public_protocol_config.${loader.get_go_pb_name()} {
+			% endif
 	if configGroup == nil {
 		return nil
 	}
@@ -61,7 +66,11 @@ func Get${loader.get_go_pb_name()}AllOf${pb_loader.MakoToCamelName(code_index.na
 	}
 	return configGroup.${loader.get_go_pb_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
 }
-func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+			% if code_index.is_list():
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) []*public_protocol_config.${loader.get_go_pb_name()} {
+			% else:
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) *public_protocol_config.${loader.get_go_pb_name()} {
+			% endif
 	if configGroup == nil {
 		return nil
 	}

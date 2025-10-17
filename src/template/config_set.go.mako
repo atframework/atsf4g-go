@@ -26,15 +26,18 @@ type configSet${loader.get_go_pb_name()}Key_${code_index.name} struct {
 
 % for code_index in loader.code.indexes:
 // index: ${code_index.name}
-	% if code_index.is_list():
-type IndexValue_${loader.get_go_pb_name()}_${code_index.name} []*public_protocol_config.${loader.get_go_pb_name()}
-	% else:
-type IndexValue_${loader.get_go_pb_name()}_${code_index.name} *public_protocol_config.${loader.get_go_pb_name()}
-	% endif
 	% if code_index.is_vector():
-type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} []IndexValue_${loader.get_go_pb_name()}_${code_index.name}
+		% if code_index.is_list():
+type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} [][]*public_protocol_config.${loader.get_go_pb_name()}
+		% else:
+type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} []*public_protocol_config.${loader.get_go_pb_name()}
+		% endif
 	% else:
-type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} map[configSet${loader.get_go_pb_name()}Key_${code_index.name}]IndexValue_${loader.get_go_pb_name()}_${code_index.name}
+		% if code_index.is_list():
+type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} map[configSet${loader.get_go_pb_name()}Key_${code_index.name}][]*public_protocol_config.${loader.get_go_pb_name()}
+		% else:
+type IndexContainer_${loader.get_go_pb_name()}_${code_index.name} map[configSet${loader.get_go_pb_name()}Key_${code_index.name}]*public_protocol_config.${loader.get_go_pb_name()}
+		% endif
 	% endif
 % endfor
 
@@ -135,7 +138,11 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 
 % for code_index in loader.code.indexes:
 // index: ${code_index.name}
-func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) IndexValue_${loader.get_go_pb_name()}_${code_index.name} {
+	% if code_index.is_list():
+func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) []*public_protocol_config.${loader.get_go_pb_name()} {
+	% else:
+func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) *public_protocol_config.${loader.get_go_pb_name()} {
+	% endif
 	% if code_index.is_vector():
 		% for field in code_index.fields:
 	key := ${pb_loader.MakoToCamelName(field.name)}
