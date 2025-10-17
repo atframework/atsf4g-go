@@ -43,6 +43,11 @@
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelLayer</scheme>
       <scheme name="OutputFile" desc="输出文件名">layer.bytes</scheme>
     </item>
+    <item name="地图表" cat="" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|地图|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMap</scheme>
+      <scheme name="OutputFile" desc="输出文件名">building_map.bytes</scheme>
+    </item>
     <item name="区块表" cat="" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|区块|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelMapArea</scheme>
@@ -62,11 +67,6 @@
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Skill.xlsx|技能|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelSkill</scheme>
       <scheme name="OutputFile" desc="输出文件名">skill.bytes</scheme>
-    </item>
-    <item name="预置建筑表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">MapArea.xlsx|预置建筑|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMapPreset</scheme>
-      <scheme name="OutputFile" desc="输出文件名">mappreset.bytes</scheme>
     </item>
   </list>
 </root>

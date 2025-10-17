@@ -42,5 +42,5 @@ message CSBuildingMoveRsp {}
 
 message SCBuildingStatusSync {
     repeated DBuildingData place = 1;
-    repeated guid store = 2;
+    repeated uint64 store = 2;
 }

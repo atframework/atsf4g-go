@@ -15,15 +15,16 @@ package proy;
 
 message DBuildingData {
     int32 building_id = 1;
-    int32 map_area_id = 2;
+    int32 map_id = 2;
     uint64 guid = 3;
     DVector2 position = 4;
     bool rotate = 5;
     EnLayerType layer = 6;
 }
 
-message DMapAreaData {
+message DMapBuildingData {
     // 已解锁区块
-    int32 map_area_id = 1;
-    repeated DBuildingData building_data = 2;
+    int32 map_id = 1;
+    repeated int32 unlock_map_area_id = 2;
+    repeated DBuildingData building_data = 3;
 }

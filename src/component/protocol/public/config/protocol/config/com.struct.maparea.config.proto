@@ -15,6 +15,14 @@ import "protocol/common/com.struct.base.common.proto";
 import "protocol/common/com.struct.layer.common.proto";
 package proy.config;
 
+message MapPresetItem {
+  option (org.xresloader.msg_separator) = ";";
+  int32 building_id = 1
+      [ (org.xresloader.validator) = "ExcelBuilding_building_id" ];
+  DVector2 position = 2;
+  bool rotate = 3;
+}
+
 message ExcelMapArea {
   option (xrescode.loader) = {
     file_path : "maparea.bytes"
@@ -25,8 +33,23 @@ message ExcelMapArea {
   };
 
   int32 area_id = 1 [ (org.xresloader.field_unique_tag) = "area_id" ];
+  int32 map_id = 7 [ (org.xresloader.validator) = "ExcelMap_map_id" ];
   string area_name = 2 [ (org.xresloader.field_tag) = "client_only" ];
   EnLayerType default_layer = 3;
   DVector2 start_pos = 4;
   DVector2 end_pos = 5;
+  repeated MapPresetItem preset_item = 6 [ (org.xresloader.field_separator) = "|" ];
+}
+
+message ExcelMap {
+  option (xrescode.loader) = {
+    file_path : "building_map.bytes"
+    indexes : {fields : "map_id" index_type : EN_INDEX_KV}
+
+    tags : "client"
+    tags : "server"
+  };
+
+  int32 map_id = 1 [ (org.xresloader.field_unique_tag) = "map_id" ];
+  DVector2 start_pos = 2;
 }

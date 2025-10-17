@@ -28,3 +28,8 @@ validator:
     description: "MapArea.xlsx|区块|area_id 值校验"
     rules:
       - InTableColumn("MapArea.xlsx", "区块", 3, 2, "area_id")
+
+  - name: "ExcelMap_map_id"
+    description: "MapArea.xlsx|地图|map_id 值校验"
+    rules:
+      - InTableColumn("MapArea.xlsx", "地图", 3, 2, "map_id")
