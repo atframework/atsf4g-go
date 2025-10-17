@@ -293,7 +293,7 @@ func UserLoadLoginTableFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64
 		return nil, cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal login db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	ctx.GetLogger().Info("load login table from db success", "zone_id", zoneID, "user_id", userID)
+	ctx.LogInfo("load login table from db success", "zone_id", zoneID, "user_id", userID)
 	return loginTb, cd.CreateRpcResultOk()
 }
 
@@ -330,12 +330,12 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 	} else {
 		udata, err := atfw_utils_fs.ReadAllContent(userTbFilePath)
 		if err != nil {
-			ctx.GetLogger().Info("load user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath)
+			ctx.LogInfo("load user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath)
 			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		}
 
 		if err = proto.Unmarshal(udata, userTb); err != nil {
-			ctx.GetLogger().Info("unmarshal user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath, "error", err)
+			ctx.LogInfo("unmarshal user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath, "error", err)
 			return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 		}
 	}
@@ -343,7 +343,7 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 	userTb.ZoneId = u.GetZoneId()
 	userTb.UserId = u.GetUserId()
 
-	ctx.GetLogger().Info("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+	ctx.LogInfo("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 
 	// Login Table
 	u.LoadLoginInfo(u, loginTb, loginTbVersion)

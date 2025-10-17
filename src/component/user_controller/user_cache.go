@@ -145,10 +145,18 @@ func (u *UserCache) GetZoneId() uint32 {
 }
 
 func (u *UserCache) GetSession() cd.TaskActionCSSession {
+	if u.session == nil {
+		return nil
+	}
+
 	return u.session
 }
 
 func (u *UserCache) GetUserSession() *Session {
+	if u.session == nil {
+		return nil
+	}
+
 	return u.session
 }
 
@@ -156,7 +164,7 @@ func (u *UserCache) GetActorExecutor() *cd.ActorExecutor {
 	return u.actorExecutor
 }
 
-func (u *UserCache) SendAllSyncData() error {
+func (u *UserCache) SendAllSyncData(_ctx *cd.RpcContext) error {
 	return nil
 }
 

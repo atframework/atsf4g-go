@@ -98,6 +98,10 @@ func (s *Session) AllocSessionSequence() uint64 {
 }
 
 func (s *Session) GetUser() cd.TaskActionCSUser {
+	if s.user == nil {
+		return nil
+	}
+
 	return s.user
 }
 

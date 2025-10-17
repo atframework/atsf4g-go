@@ -113,10 +113,17 @@ func (configManagerInst *ConfigManager) checkReloadFinish() {
 	}
 }
 
+var emptyConfigGroup generate_config.ConfigGroup
+
 func (configManagerInst *ConfigManager) GetCurrentConfigGroup() *generate_config.ConfigGroup {
 	// 加写锁
 	configManagerInst.currentConfigGroupRwMutex.RLock()
 	defer configManagerInst.currentConfigGroupRwMutex.RUnlock()
+
+	if configManagerInst.currentConfigGroup == nil {
+		return &emptyConfigGroup
+	}
+
 	return configManagerInst.currentConfigGroup
 }
 

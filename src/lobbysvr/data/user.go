@@ -6,10 +6,16 @@ import (
 	"sync"
 	"time"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
+
+	lobbysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	lobbysvr_client_rpc "github.com/atframework/atsf4g-go/service-lobbysvr/rpc/lobbyclientservice"
 )
 
 type noCopy struct{}
@@ -19,6 +25,16 @@ type Result = cd.RpcResult
 type userItemManagerWrapper struct {
 	idRange userItemTypeIdRange
 	manager UserItemManagerImpl
+}
+
+type UserItemDirtyData struct {
+	DirtyTypeId map[int32]*public_protocol_common.DItemInstance
+	DirtyGuid   map[int64]*public_protocol_common.DItemInstance
+}
+
+type userDirtyHandles struct {
+	dumpDirty  func(*cd.RpcContext, *UserItemDirtyData)
+	clearCache func(*cd.RpcContext)
 }
 
 type User struct {
@@ -32,6 +48,8 @@ type User struct {
 
 	moduleManagerMap map[reflect.Type]UserModuleManagerImpl
 	itemManagerList  []userItemManagerWrapper
+
+	dirtyHandles map[interface{}]userDirtyHandles
 }
 
 func (u *User) Init() {
@@ -53,6 +71,8 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 		isLoginInited:    false,
 		moduleManagerMap: make(map[reflect.Type]UserModuleManagerImpl),
 		itemManagerList:  make([]userItemManagerWrapper, 0),
+
+		dirtyHandles: make(map[interface{}]userDirtyHandles),
 	}
 
 	for _, creator := range userModuleManagerCreators {
@@ -63,9 +83,9 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 	}
 
 	for _, creator := range userItemManagerCreators {
-		mgr := creator.fn(ret)
+		mgr := creator.fn(ret, creator.descriptor)
 		if mgr != nil {
-			for _, idRange := range creator.userItemTypeIdRanges {
+			for _, idRange := range creator.descriptor.GetTypeIdRanges() {
 				ret.itemManagerList = append(ret.itemManagerList, userItemManagerWrapper{
 					idRange: idRange,
 					manager: mgr,
@@ -86,7 +106,7 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 		prev := ret.itemManagerList[i-1]
 		curr := ret.itemManagerList[i]
 		if prev.idRange.endTypeId >= curr.idRange.beginTypeId {
-			ctx.GetLogger().Error("user item manager type id range conflict",
+			ctx.LogError("user item manager type id range conflict",
 				"prev_manager", reflect.TypeOf(prev.manager).String(),
 				"curr_manager", reflect.TypeOf(curr.manager).String(),
 				"prev_range", prev.idRange,
@@ -248,28 +268,99 @@ func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Se
 	}
 }
 
-func (u *User) SyncClientDirtyCache() {
+func (u *User) InsertDirtyHandleIfNotExists(ctx *cd.RpcContext,
+	key interface{},
+	dumpDataHandle func(*cd.RpcContext, *UserItemDirtyData),
+	clearCacheHandle func(*cd.RpcContext),
+) {
+	if lu.IsNil(key) {
+		return
+	}
+
+	if lu.IsNil(dumpDataHandle) {
+		dumpDataHandle = nil
+	}
+
+	if lu.IsNil(clearCacheHandle) {
+		clearCacheHandle = nil
+	}
+
+	if dumpDataHandle == nil && clearCacheHandle == nil {
+		return
+	}
+
+	if _, exists := u.dirtyHandles[key]; exists {
+		return
+	}
+
+	u.dirtyHandles[key] = userDirtyHandles{
+		dumpDirty:  dumpDataHandle,
+		clearCache: clearCacheHandle,
+	}
+}
+
+func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 	u.UserCache.SyncClientDirtyCache()
 
-	// TODO: 脏数据推送handle
-	for _, mgr := range u.moduleManagerMap {
-		mgr.SyncClientDirtyCache()
+	if len(u.dirtyHandles) == 0 {
+		return
+	}
+
+	session := u.GetSession()
+	if session == nil {
+		return
+	}
+
+	dumpData := UserItemDirtyData{}
+
+	// 脏数据导出
+	for _, handles := range u.dirtyHandles {
+		if handles.dumpDirty == nil {
+			continue
+		}
+
+		handles.dumpDirty(ctx, &dumpData)
+	}
+
+	// 脏数据推送
+	if len(dumpData.DirtyTypeId) > 0 || len(dumpData.DirtyGuid) > 0 {
+		msg := &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync{
+			DirtyItems: make([]*public_protocol_common.DItemInstance, 0, len(dumpData.DirtyTypeId)+len(dumpData.DirtyGuid)),
+		}
+
+		for _, item := range dumpData.DirtyTypeId {
+			msg.DirtyItems = append(msg.DirtyItems, item)
+		}
+		for _, item := range dumpData.DirtyGuid {
+			msg.DirtyItems = append(msg.DirtyItems, item)
+		}
+
+		err := lobbysvr_client_rpc.SendUserDirtyChgSync(session, msg, 0)
+		if err != nil {
+			ctx.LogError("send user dirty change sync failed", "error", err, "user_id", u.GetUserId(), "zone_id", u.GetZoneId())
+		}
 	}
 }
 
-func (u *User) CleanupClientDirtyCache() {
+func (u *User) CleanupClientDirtyCache(ctx *cd.RpcContext) {
 	u.UserCache.CleanupClientDirtyCache()
 
-	// TODO: 脏数据推送handle
-	for _, mgr := range u.moduleManagerMap {
-		mgr.CleanupClientDirtyCache()
+	// 清理脏数据推送handle
+	for _, handles := range u.dirtyHandles {
+		if handles.clearCache == nil {
+			continue
+		}
+
+		handles.clearCache(ctx)
 	}
+
+	clear(u.dirtyHandles)
 }
 
-func (u *User) SendAllSyncData() error {
-	u.SyncClientDirtyCache()
+func (u *User) SendAllSyncData(ctx *cd.RpcContext) error {
+	u.SyncClientDirtyCache(ctx)
 
-	u.CleanupClientDirtyCache()
+	u.CleanupClientDirtyCache(ctx)
 	return nil
 }
 

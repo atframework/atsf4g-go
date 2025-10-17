@@ -29,9 +29,6 @@ type UserModuleManagerImpl interface {
 	OnLogout(*cd.RpcContext)
 	OnSaved(*cd.RpcContext, uint64)
 	OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Session)
-
-	SyncClientDirtyCache()
-	CleanupClientDirtyCache()
 }
 
 var userModuleManagerCreators = make(map[reflect.Type]struct {

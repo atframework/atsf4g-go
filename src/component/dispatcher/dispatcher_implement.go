@@ -55,22 +55,6 @@ type DispatcherImpl interface {
 	PushBackMessageFilter(handle MessageFilterHandler)
 }
 
-func (ctx *RpcContext) GetLogger() *slog.Logger {
-	if ctx.app != nil {
-		return ctx.app.GetDefaultLogger()
-	}
-
-	return slog.Default()
-}
-
-func (ctx *RpcContext) GetNow() time.Time {
-	if ctx.dispatcher != nil {
-		return ctx.dispatcher.GetNow()
-	}
-
-	return time.Now()
-}
-
 type taskActionCreatorData struct {
 	service protoreflect.ServiceDescriptor
 	method  protoreflect.MethodDescriptor
@@ -149,13 +133,6 @@ func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {
 	return app.GetDefaultLogger()
 }
 
-func (dispatcher *DispatcherBase) CreateRpcContext(rd DispatcherImpl) *RpcContext {
-	return &RpcContext{
-		app:        dispatcher.GetApp(),
-		dispatcher: rd,
-	}
-}
-
 func (dispatcher *DispatcherBase) OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
 	rd.GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
 }
@@ -213,6 +190,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 		}
 		return err
 	}
+	rpcContext.taskAction = action
 
 	err = RunTaskAction(rd.GetApp(), action, startData)
 	if err != nil {
@@ -369,10 +347,10 @@ func (der *RpcResult) GetErrorString() string {
 	return der.GetResponseMessage()
 }
 
-func (der *RpcResult) WriteLogContext(c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogWithLevelContext(c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
 	if der.IsOK() {
 		if ctx != nil {
-			ctx.GetLogger().Log(c, level, msg, args...)
+			ctx.LogWithLevelContext(c, level, msg, args...)
 		} else {
 			slog.Log(c, level, msg, args...)
 		}
@@ -387,44 +365,48 @@ func (der *RpcResult) WriteLogContext(c context.Context, level slog.Level, ctx *
 	}
 
 	if ctx != nil {
-		ctx.GetLogger().Log(c, level, msg, args...)
+		ctx.LogWithLevelContext(c, level, msg, args...)
 	} else {
 		slog.Log(c, level, msg, args...)
 	}
 }
 
-func (der *RpcResult) WriteLog(level slog.Level, ctx *RpcContext, msg string, args ...any) {
-	der.WriteLogContext(context.Background(), level, ctx, msg, args...)
+func (der *RpcResult) LogWithLevel(level slog.Level, ctx *RpcContext, msg string, args ...any) {
+	if ctx == nil || ctx.Context == nil {
+		der.LogWithLevelContext(context.Background(), level, ctx, msg, args...)
+		return
+	}
+	der.LogWithLevelContext(ctx.Context, level, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogErrorContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.WriteLogContext(c, slog.LevelError, ctx, msg, args...)
+	der.LogWithLevelContext(c, slog.LevelError, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogError(ctx *RpcContext, msg string, args ...any) {
-	der.WriteLog(slog.LevelError, ctx, msg, args...)
+	der.LogWithLevel(slog.LevelError, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogWarnContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.WriteLogContext(c, slog.LevelWarn, ctx, msg, args...)
+	der.LogWithLevelContext(c, slog.LevelWarn, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogWarn(ctx *RpcContext, msg string, args ...any) {
-	der.WriteLog(slog.LevelWarn, ctx, msg, args...)
+	der.LogWithLevel(slog.LevelWarn, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogInfoContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.WriteLogContext(c, slog.LevelInfo, ctx, msg, args...)
+	der.LogWithLevelContext(c, slog.LevelInfo, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogInfo(ctx *RpcContext, msg string, args ...any) {
-	der.WriteLog(slog.LevelInfo, ctx, msg, args...)
+	der.LogWithLevel(slog.LevelInfo, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogDebugContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.WriteLogContext(c, slog.LevelDebug, ctx, msg, args...)
+	der.LogWithLevelContext(c, slog.LevelDebug, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogDebug(ctx *RpcContext, msg string, args ...any) {
-	der.WriteLog(slog.LevelDebug, ctx, msg, args...)
+	der.LogWithLevel(slog.LevelDebug, ctx, msg, args...)
 }

@@ -240,7 +240,7 @@ func (t *TaskActionLogin) OnSuccess() {
 	user.RefreshLimit(t.GetRpcContext(), t.GetNow())
 
 	// 登入过程中产生的脏数据不需要推送
-	user.CleanupClientDirtyCache()
+	user.CleanupClientDirtyCache(t.GetRpcContext())
 }
 
 func (t *TaskActionLogin) OnComplete() {

@@ -269,11 +269,31 @@ func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *RpcResult
 	return nil
 }
 
-func (t *TaskActionBase) GetLogger() *slog.Logger {
+func (t *TaskActionBase) GetInternalLogger() *slog.Logger {
 	d := t.GetDispatcher()
 	if d == nil {
 		return slog.Default()
 	}
 
 	return d.GetLogger()
+}
+
+func (t *TaskActionBase) LogWithLevel(level slog.Level, msg string, args ...any) {
+	t.GetRpcContext().LogWithLevel(level, msg, args...)
+}
+
+func (t *TaskActionBase) LogError(msg string, args ...any) {
+	t.GetRpcContext().LogWithLevel(slog.LevelError, msg, args...)
+}
+
+func (t *TaskActionBase) LogWarn(msg string, args ...any) {
+	t.GetRpcContext().LogWithLevel(slog.LevelWarn, msg, args...)
+}
+
+func (t *TaskActionBase) LogInfo(msg string, args ...any) {
+	t.GetRpcContext().LogWithLevel(slog.LevelInfo, msg, args...)
+}
+
+func (t *TaskActionBase) LogDebug(msg string, args ...any) {
+	t.GetRpcContext().LogWithLevel(slog.LevelDebug, msg, args...)
 }

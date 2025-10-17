@@ -40,7 +40,7 @@ type TaskActionCSUser interface {
 	GetCsActorLogWriter() libatapp.LogWriter
 	GetActorExecutor() *ActorExecutor
 
-	SendAllSyncData() error
+	SendAllSyncData(ctx *RpcContext) error
 
 	// 每次执行任务前刷新
 	RefreshLimit(*RpcContext, time.Time)
@@ -353,7 +353,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 		user = t.GetUser()
 	}
 	if !lu.IsNil(user) {
-		user.SendAllSyncData()
+		user.SendAllSyncData(action.GetRpcContext())
 	}
 
 	return err

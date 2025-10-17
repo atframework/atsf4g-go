@@ -1,19 +1,8 @@
 package atframework_component_dispatcher
 
 import (
-	"context"
 	"time"
-
-	libatapp "github.com/atframework/libatapp-go"
 )
-
-type RpcContext struct {
-	app        libatapp.AppImpl
-	dispatcher DispatcherImpl
-
-	Context  context.Context
-	CancelFn context.CancelFunc
-}
 
 type DispatcherOptions struct {
 	// TODO: 使用协议里的结构
