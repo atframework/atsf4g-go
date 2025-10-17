@@ -15,9 +15,11 @@ package proy;
 
 message DBuildingData {
     int32 building_id = 1;
-    DVector2 position = 2;
-    bool rotate = 3;
-    EnLayerType layer = 4;
+    int32 map_area_id = 2;
+    uint64 guid = 3;
+    DVector2 position = 4;
+    bool rotate = 5;
+    EnLayerType layer = 6;
 }
 
 message DMapAreaData {

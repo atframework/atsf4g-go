@@ -10,16 +10,37 @@ option cc_generic_services = true;
 
 option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
 
+import "protocol/common/com.struct.base.common.proto";
+import "protocol/common/com.struct.layer.common.proto";
+import "protocol/pbdesc/com.struct.building.proto";
+
 package proy;
 
-message CSBuildingPlaceReq {}
+message CSBuildingPlaceReq {
+    int32 building_id = 1;
+    int32 map_area_id = 2;
+    DVector2 position = 3;
+    bool rotate = 4;
+}
 
 message CSBuildingPlaceRsp {}
 
-message CSBuildingStoreReq {}
+message CSBuildingStoreReq {
+    uint64 guid = 1;
+}
 
 message CSBuildingStoreRsp {}
 
-message CSBuildingMoveReq {}
+message CSBuildingMoveReq {
+    uint64 guid = 1;
+
+    DVector2 position = 11;
+    bool rotate = 12;
+}
 
 message CSBuildingMoveRsp {}
+
+message SCBuildingStatusSync {
+    repeated DBuildingData place = 1;
+    repeated guid store = 2;
+}

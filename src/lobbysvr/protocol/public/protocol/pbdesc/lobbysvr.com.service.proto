@@ -87,5 +87,13 @@ service LobbyClientService {
       api_name : "移动建筑"
     };
   };
+
+  rpc user_building_sync(google.protobuf.Empty)
+      returns (stream SCBuildingStatusSync) {
+    option (atframework.rpc_options) = {
+      module_name : "building"
+      api_name : "推送建筑变化"
+    };
+  };
   /////////////////////////// building /////////////////////////////
 }

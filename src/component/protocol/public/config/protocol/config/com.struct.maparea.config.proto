@@ -26,8 +26,7 @@ message ExcelMapArea {
 
   int32 area_id = 1 [ (org.xresloader.field_unique_tag) = "area_id" ];
   string area_name = 2 [ (org.xresloader.field_tag) = "client_only" ];
-  int32 area_type = 3;
+  EnLayerType default_layer = 3;
   DVector2 start_pos = 4;
   DVector2 end_pos = 5;
-  repeated EnLayerType can_place_layer = 6;
 }
