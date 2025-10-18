@@ -82,6 +82,8 @@ message database_table_user {
 
   user_options options = 21; // 玩家选项
 
+  user_inventory_data inventory_data = 31; // 玩家物品数据
+
   // 以下是服务器内部数据
   // 异步任务缓存
   database_table_user_async_jobs_cache_blob_data async_job_blob_data = 101;

@@ -3,6 +3,7 @@ package lobbysvr_logic_item
 import (
 	"fmt"
 
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -21,6 +22,20 @@ func createVirtualItemManager(owner *UserInventoryManager) *UserVirtualItemManag
 }
 
 func (m *UserVirtualItemManager) RefreshLimitSecond(_ctx *cd.RpcContext) {
+}
+
+func (m *UserVirtualItemManager) InitFromDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser, _itemOffset *ppc.DItemInstance) (bool, cd.RpcResult) {
+	return false, cd.RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
+}
+
+func (m *UserVirtualItemManager) DumpToDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) (bool, cd.RpcResult) {
+	return false, cd.RpcResult{
+		Error:        nil,
+		ResponseCode: 0,
+	}
 }
 
 func (m *UserVirtualItemManager) AddItem(ctx *cd.RpcContext, itemOffset *data.ItemAddGuard, reason *data.ItemFlowReason) (bool, data.Result) {

@@ -9,6 +9,8 @@ option cc_enable_arenas = true;
 
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
 
+import "protocol/common/com.struct.item.common.proto";
+
 import "protocol/pbdesc/com.struct.proto";
 
 package proy;
@@ -62,3 +64,5 @@ message user_async_jobs_data {
   repeated history_job_meta history = 1; // 上一轮处理的UUID列表
   int64 next_task_active_time = 2;       // 下一次异步任务的启动时间
 }
+
+message user_inventory_data { repeated DItemInstance item = 1; }
