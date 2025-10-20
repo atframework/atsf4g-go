@@ -104,6 +104,10 @@ func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 	g.P()
 	g.P("package ", f.GoPackageName)
 	g.P()
+	if len(f.Messages) != 0 {
+		g.P("import \"google.golang.org/protobuf/proto\"")
+		g.P()
+	}
 
 	for _, msg := range f.Messages {
 		generateMutableForMessage(g, msg)
@@ -114,6 +118,16 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	if msg.Desc.IsMapEntry() {
 		return
 	}
+
+	g.P("// ===== Clone methods for ", msg.GoIdent.GoName, " ===== Message ====")
+	g.P(fmt.Sprintf(`func (m *%s) Clone() *%s {`, msg.GoIdent.GoName, msg.GoIdent.GoName))
+	g.P(`  if m == nil {`)
+	g.P(fmt.Sprintf(`    return new(%s)`, msg.GoIdent.GoName))
+	g.P(`  }`)
+	g.P(fmt.Sprintf(`  return proto.Clone(m).(*%s)`, msg.GoIdent.GoName))
+	g.P(`}`)
+	g.P()
+
 	for _, field := range msg.Fields {
 		fieldName := field.GoName
 		switch {
@@ -187,7 +201,7 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 			fieldType := GoTypeString(g, field, true)
 			g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fieldType))
 			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
-			g.P(fmt.Sprintf(`    m.%s = &%s{}`, fieldName, fieldType))
+			g.P(fmt.Sprintf(`    m.%s = new(%s)`, fieldName, fieldType))
 			g.P(`  }`)
 			g.P(fmt.Sprintf(`  return m.%s`, fieldName))
 			g.P(`}`)
@@ -209,7 +223,7 @@ func generateMutableForOneof(g *protogen.GeneratedFile, msg *protogen.Message, f
 	g.P(fmt.Sprintf(`  if x, ok := m.%s.(*%s); ok {`, oneofName, fullFieldName))
 	g.P(`    return x`)
 	g.P(`  }`)
-	g.P(fmt.Sprintf(`  x := &%s{}`, fullFieldName))
+	g.P(fmt.Sprintf(`  x := new(%s)`, fullFieldName))
 	g.P(fmt.Sprintf(`  m.%s = x`, oneofName))
 	g.P(`  return x`)
 	g.P(`}`)
