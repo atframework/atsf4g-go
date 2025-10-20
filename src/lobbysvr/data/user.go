@@ -9,7 +9,6 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
@@ -28,74 +27,15 @@ type userItemManagerWrapper struct {
 }
 
 type UserItemDirtyData struct {
-	dirtyItems map[int32]*map[int64]*public_protocol_common.DItemInstance
-
-	removeItemKeys map[int32]*map[int64]struct{}
+	dirtyChangeSync *lobbysvr_protocol_pbdesc.SCUserDirtyChgSync
 }
 
-func (d *UserItemDirtyData) MutableDirtyItem(typeId int32, guid int64) *public_protocol_common.DItemInstance {
-	if d.dirtyItems == nil {
-		d.dirtyItems = make(map[int32]*map[int64]*public_protocol_common.DItemInstance)
+func (d *UserItemDirtyData) MutableNormalDirtyChangeMessage() *lobbysvr_protocol_pbdesc.SCUserDirtyChgSync {
+	if d.dirtyChangeSync == nil {
+		d.dirtyChangeSync = &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync{}
 	}
 
-	var ret *public_protocol_common.DItemInstance
-	if typeSet, exists := d.dirtyItems[typeId]; !exists {
-		ret = &public_protocol_common.DItemInstance{
-			ItemBasic: &public_protocol_common.DItemBasic{
-				TypeId: typeId,
-				Guid:   guid,
-			},
-		}
-		m := make(map[int64]*public_protocol_common.DItemInstance)
-		d.dirtyItems[typeId] = &m
-		m[guid] = ret
-	} else {
-		ret, exists = (*typeSet)[guid]
-		if !exists || ret == nil {
-			ret = &public_protocol_common.DItemInstance{
-				ItemBasic: &public_protocol_common.DItemBasic{
-					TypeId: typeId,
-					Guid:   guid,
-				},
-			}
-			(*typeSet)[guid] = ret
-		}
-	}
-
-	// cleanup remove keys
-	if d.removeItemKeys != nil {
-		if guidSet, exists := d.removeItemKeys[typeId]; exists {
-			delete(*guidSet, guid)
-			if len(*guidSet) == 0 {
-				delete(d.removeItemKeys, typeId)
-			}
-		}
-	}
-
-	return (*d.dirtyItems[typeId])[guid]
-}
-
-func (d *UserItemDirtyData) MutableRemoveItem(typeId int32, guid int64) {
-	if d.removeItemKeys == nil {
-		d.removeItemKeys = make(map[int32]*map[int64]struct{})
-	}
-	if guidSet, exists := d.removeItemKeys[typeId]; !exists {
-		m := make(map[int64]struct{})
-		d.removeItemKeys[typeId] = &m
-		m[guid] = struct{}{}
-	} else {
-		(*guidSet)[guid] = struct{}{}
-	}
-
-	// remove dirty items
-	if d.dirtyItems != nil {
-		if typeSet, exists := d.dirtyItems[typeId]; exists {
-			delete(*typeSet, guid)
-			if len(*typeSet) == 0 {
-				delete(d.dirtyItems, typeId)
-			}
-		}
-	}
+	return d.dirtyChangeSync
 }
 
 type userDirtyHandles struct {
@@ -388,31 +328,10 @@ func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 	}
 
 	// 脏数据推送
-	if len(dumpData.dirtyItems) > 0 || len(dumpData.removeItemKeys) > 0 {
-		msg := &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync{}
-
-		if len(dumpData.dirtyItems) > 0 {
-			msg.DirtyItems = make([]*public_protocol_common.DItemInstance, 0, len(dumpData.dirtyItems))
-			for _, itemType := range dumpData.dirtyItems {
-				for _, itemInstance := range *itemType {
-					msg.DirtyItems = append(msg.DirtyItems, itemInstance)
-				}
-			}
-		}
-
-		if len(dumpData.removeItemKeys) > 0 {
-			msg.RemoveItemKeys = make([]*lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey, 0, len(dumpData.removeItemKeys))
-			for itemTypeId, itemType := range dumpData.removeItemKeys {
-				for itemGuid := range *itemType {
-					msg.RemoveItemKeys = append(msg.RemoveItemKeys, &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
-						TypeId: itemTypeId,
-						Guid:   itemGuid,
-					})
-				}
-			}
-		}
-
-		err := lobbysvr_client_rpc.SendUserDirtyChgSync(session, msg, 0)
+	if dumpData.dirtyChangeSync != nil &&
+		(len(dumpData.dirtyChangeSync.GetDirtyInventory().GetItem()) > 0 ||
+			len(dumpData.dirtyChangeSync.GetRemoveItemKeys().GetItemKeys()) > 0) {
+		err := lobbysvr_client_rpc.SendUserDirtyChgSync(session, dumpData.dirtyChangeSync, 0)
 		if err != nil {
 			ctx.LogError("send user dirty change sync failed", "error", err, "user_id", u.GetUserId(), "zone_id", u.GetZoneId())
 		}

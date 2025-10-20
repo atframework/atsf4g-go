@@ -13,6 +13,8 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	ppp "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+
+	lobbysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type UserInventoryItemGroup struct {
@@ -281,24 +283,31 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 
 	m.UserModuleManagerBase.GetOwner().InsertDirtyHandleIfNotExists(m,
 		func(ctx *cd.RpcContext, dirty *data.UserItemDirtyData) {
+			dirtyData := dirty.MutableNormalDirtyChangeMessage()
 			for typeId, guidSet := range m.dirtyItems {
 				group := m.getItemGroup(typeId)
 				if group == nil {
 					for guid := range *guidSet {
-						dirty.MutableRemoveItem(typeId, guid)
+						dirtyData.MutableRemoveItemKeys().AppendItemKeys(&lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
+							TypeId: typeId,
+							Guid:   guid,
+						})
 					}
 					continue
 				}
 				for guid := range *guidSet {
 					itemInstance := group.GetGroup(guid)
 					if itemInstance == nil {
-						dirty.MutableRemoveItem(typeId, guid)
+						dirtyData.MutableRemoveItemKeys().AppendItemKeys(&lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
+							TypeId: typeId,
+							Guid:   guid,
+						})
 						continue
 					}
 
-					dumpDirty := dirty.MutableDirtyItem(typeId, guid)
-					proto.Reset(dumpDirty)
-					proto.Merge(dumpDirty, itemInstance)
+					dumpDirtyItem := &ppc.DItemInstance{}
+					proto.Merge(dumpDirtyItem, itemInstance)
+					dirtyData.MutableDirtyInventory().AppendItem(dumpDirtyItem)
 				}
 			}
 		},
@@ -533,7 +542,9 @@ func (m *UserInventoryManager) ForeachItem(fn func(item *ppc.DItemInstance) bool
 	}
 
 	// 虚拟道具分发
-	m.virtualItemManager.ForeachItem(fn)
+	if !m.virtualItemManager.ForeachItem(fn) {
+		return
+	}
 
 	// 通用道具管理
 	for _, group := range m.itemGroups {

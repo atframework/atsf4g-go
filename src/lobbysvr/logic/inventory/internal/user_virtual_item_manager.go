@@ -82,5 +82,6 @@ func (m *UserVirtualItemManager) GetItemFromBasic(_itemBasic *ppc.DItemBasic) (b
 	return false, nil, cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) ForeachItem(_fn func(item *ppc.DItemInstance) bool) {
+func (m *UserVirtualItemManager) ForeachItem(_fn func(item *ppc.DItemInstance) bool) bool {
+	return true
 }

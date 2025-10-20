@@ -15,6 +15,8 @@ import "protocol/common/com.struct.item.common.proto";
 import "protocol/pbdesc/com.const.proto";
 import "protocol/pbdesc/com.struct.proto";
 
+import "protocol/pbdesc/com.struct.inventory.proto";
+
 package proy;
 
 /////////////////////////////////////////////////////
@@ -98,7 +100,18 @@ message SCLoginRsp {
 message SCUserProfileSyn { DUserProfile user = 1; }
 
 // 脏数据同步包
-message SCUserDirtyChgSync { repeated DItemInstance dirty_items = 1; }
+message SCUserDirtyChgSync {
+  message RemoveItemKey {
+    int32 type_id = 1;
+    int64 guid = 2;
+  }
+
+  message RemoveItemData { repeated RemoveItemKey item_keys = 1; }
+
+  DUserInventoryData dirty_inventory = 1;
+
+  RemoveItemData remove_item_keys = 2;
+}
 
 // 心跳包，上行包
 message CSPingReq { int64 timepoint = 1; }
@@ -108,12 +121,14 @@ message SCPongRsp { int64 timepoint = 1; }
 
 // 请求用户数据
 message CSUserGetInfoReq {
-  bool need_user_info = 1;    // 标记为true 回包才有会有玩家基本数据
-  bool need_user_options = 2; // 标记为true 回包才有会有玩家选项数据
+  bool need_user_info = 1;      // 标记为true 回包才有会有玩家基本数据
+  bool need_user_options = 2;   // 标记为true 回包才有会有玩家选项数据
+  bool need_user_inventory = 3; // 标记为true 回包才有会有玩家选项数据
 }
 
 // 用户数据返回
 message SCUserGetInfoRsp {
-  DUserInfo user_info = 1;       // 玩家数据
-  DUserOptions user_options = 2; // 玩家自定义选项
+  DUserInfo user_info = 1;               // 玩家数据
+  DUserOptions user_options = 2;         // 玩家自定义选项
+  DUserInventoryData user_inventory = 3; // 玩家通用仓库道具数据
 }
