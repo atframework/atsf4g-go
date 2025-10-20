@@ -114,11 +114,11 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	if msg.Desc.IsMapEntry() {
 		return
 	}
-	g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " =====")
 	for _, field := range msg.Fields {
 		fieldName := field.GoName
 		switch {
 		case field.Desc.IsMap():
+			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Map =====")
 			fieldType := GoTypeString(g, field, false)
 			g.P(fmt.Sprintf(`func (m *%s) Mutable%s() %s {`, msg.GoIdent.GoName, fieldName, fieldType))
 			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
@@ -129,6 +129,9 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 			g.P()
 		case field.Desc.IsList():
 			fieldType := GoTypeString(g, field, false)
+			elementType := elementGoType(g, field, false)
+
+			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Repeated =====")
 			g.P(fmt.Sprintf(`func (m *%s) Mutable%s() %s {`, msg.GoIdent.GoName, fieldName, fieldType))
 			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
 			g.P(fmt.Sprintf(`    m.%s = %s{}`, fieldName, fieldType))
@@ -136,9 +139,42 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 			g.P(fmt.Sprintf(`  return m.%s`, fieldName))
 			g.P(`}`)
 			g.P()
+
+			g.P("// ===== Append methods for ", msg.GoIdent.GoName, " ===== Repeated =====")
+			g.P(fmt.Sprintf(`func (m *%s) Append%s(d %s) {`, msg.GoIdent.GoName, fieldName, elementType))
+			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
+			g.P(fmt.Sprintf(`    m.%s = %s{}`, fieldName, fieldType))
+			g.P(`  }`)
+			g.P(fmt.Sprintf(`    m.%s = append(m.%s, d)`, fieldName, fieldName))
+			g.P(`}`)
+			g.P()
+
+			g.P("// ===== Merge methods for ", msg.GoIdent.GoName, " ===== Repeated =====")
+			g.P(fmt.Sprintf(`func (m *%s) Merge%s(d %s) %s {`, msg.GoIdent.GoName, fieldName, fieldType, fieldType))
+			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
+			g.P(fmt.Sprintf(`    m.%s = %s{}`, fieldName, fieldType))
+			g.P(`  }`)
+			g.P(fmt.Sprintf(`    m.%s = append(m.%s, d...)`, fieldName, fieldName))
+			g.P(fmt.Sprintf(`  return m.%s`, fieldName))
+			g.P(`}`)
+			g.P()
+
+			g.P("// ===== RemoveLast methods for ", msg.GoIdent.GoName, " ===== Repeated =====")
+			g.P(fmt.Sprintf(`func (m *%s) RemoveLast%s() {`, msg.GoIdent.GoName, fieldName))
+			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
+			g.P(fmt.Sprintf(`    m.%s = %s{}`, fieldName, fieldType))
+			g.P(`  }`)
+			g.P(fmt.Sprintf(`  if len(m.%s) != 0 {`, fieldName))
+			g.P(fmt.Sprintf(`    m.%s = m.%s[:len(m.%s)-1]`, fieldName, fieldName, fieldName))
+			g.P(`}`)
+			g.P(`}`)
+			g.P()
 		case field.Oneof != nil:
+			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Oneof =====")
+
 			generateMutableForOneof(g, msg, field, fieldName)
 		case field.Message != nil:
+			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Message =====")
 			fieldType := GoTypeString(g, field, true)
 			g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fieldType))
 			g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
