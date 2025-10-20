@@ -184,16 +184,6 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 				g.P(`	return addValue`)
 				g.P(`}`)
 				g.P()
-			} else {
-				// 基础类型Add
-				g.P("// ===== Add methods for ", msg.GoIdent.GoName, " ===== Repeated =====")
-				g.P(fmt.Sprintf(`func (m *%s) Add%s(addValue %s) {`, msg.GoIdent.GoName, fieldName, elementType))
-				g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
-				g.P(fmt.Sprintf(`    m.%s = %s{}`, fieldName, fieldType))
-				g.P(`  }`)
-				g.P(fmt.Sprintf(`    m.%s = append(m.%s, addValue)`, fieldName, fieldName))
-				g.P(`}`)
-				g.P()
 			}
 
 			g.P("// ===== Merge methods for ", msg.GoIdent.GoName, " ===== Repeated =====")
