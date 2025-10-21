@@ -12,4 +12,6 @@ import "protocol/common/com.struct.item.common.proto";
 
 package proy;
 
-message DUserInventoryData { repeated DItemInstance item = 1; }
+message DUserInventoryData {
+  repeated DItemInstance item = 1;
+}

@@ -230,5 +230,7 @@ enum EnErrorCode {
                            [(error_code.description) = "道具不足"];
   EN_ERR_ITEM_NOT_FOUND = -502
                           [(error_code.description) = "道具未找到"];
+  EN_ERR_ITEM_INVALID_TYPE_ID = -503
+                                [(error_code.description) = "道具类型无效"];
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码
 }
