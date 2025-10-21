@@ -41,7 +41,7 @@ func RegisterUserModuleManagerCreator[ManagerType UserModuleManagerImpl](creator
 		panic("nil user module manager creator")
 	}
 
-	typeInst := reflect.TypeOf((*ManagerType)(nil)).Elem().Elem()
+	typeInst := reflect.TypeOf((*ManagerType)(nil)).Elem()
 	if _, exists := userModuleManagerCreators[typeInst]; exists {
 		panic("duplicate user module manager creator for type: " + typeInst.String())
 	}

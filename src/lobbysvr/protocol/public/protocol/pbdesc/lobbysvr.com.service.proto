@@ -55,6 +55,13 @@ service LobbyClientService {
     };
   };
 
+  rpc user_send_gm_command(CSUserGMCommandReq) returns (SCUserGMCommandRsp) {
+    option (atframework.rpc_options) = {
+      module_name : "user"
+      api_name : "GM command"
+    };
+  };
+
   // Use stream request to disable waiting for response
   rpc user_dirty_chg_sync(google.protobuf.Empty)
       returns (stream SCUserDirtyChgSync) {

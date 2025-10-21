@@ -15,7 +15,9 @@ type UserInventoryManager interface {
 }
 
 func init() {
-	data.RegisterUserModuleManagerCreator[UserInventoryManager](func(_ctx *cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
+	data.RegisterUserModuleManagerCreator[UserInventoryManager](func(_ctx *cd.RpcContext,
+		owner *data.User,
+	) data.UserModuleManagerImpl {
 		return impl.CreateUserInventoryManager(owner)
 	})
 
@@ -32,7 +34,7 @@ func init() {
 		data.MakeUserItemTypeIdRange(
 			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_BEGIN),
 			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_END)),
-	}, func(ctx *cd.RpcContext, owner *data.User, descriptor *data.UserItemManagerDescriptor) data.UserItemManagerImpl {
+	}, func(ctx *cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[UserInventoryManager](owner)
 		if mgr == nil {
 			ctx.LogError("can not find user inventory manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())

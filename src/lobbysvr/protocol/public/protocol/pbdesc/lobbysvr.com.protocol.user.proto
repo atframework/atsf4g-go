@@ -132,3 +132,9 @@ message SCUserGetInfoRsp {
   DUserOptions user_options = 2;         // 玩家自定义选项
   DUserInventoryData user_inventory = 3; // 玩家通用仓库道具数据
 }
+
+// GM指令请求
+message CSUserGMCommandReq { repeated string args = 1; }
+
+// GM指令返回
+message SCUserGMCommandRsp { repeated string reply = 1; }

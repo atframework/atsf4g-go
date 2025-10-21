@@ -407,14 +407,58 @@ func (m *UserInventoryManager) SubItem(ctx *cd.RpcContext, itemOffset []data.Ite
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserInventoryManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []ppc.DItemInstance) ([]data.ItemAddGuard, data.Result) {
+func (m *UserInventoryManager) GenerateItemInstanceFromOffset(_ctx *cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, data.Result) {
+	if itemOffset == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	if itemOffset.GetCount() <= 0 {
+		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	if !m.CheckTypeIdValid(itemOffset.GetTypeId()) {
+		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID))
+	}
+
+	return &ppc.DItemInstance{
+		ItemBasic: &ppc.DItemBasic{
+			TypeId: itemOffset.GetTypeId(),
+			Count:  itemOffset.GetCount(),
+			Guid:   0,
+		},
+	}, cd.CreateRpcResultOk()
+}
+
+func (m *UserInventoryManager) GenerateItemInstanceFromBasic(_ctx *cd.RpcContext, itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, data.Result) {
+	if itemBasic == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemBasic is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	if itemBasic.GetCount() <= 0 {
+		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	if !m.CheckTypeIdValid(itemBasic.GetTypeId()) {
+		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID))
+	}
+
+	return &ppc.DItemInstance{
+		ItemBasic: &ppc.DItemBasic{
+			TypeId: itemBasic.GetTypeId(),
+			Count:  itemBasic.GetCount(),
+			Guid:   itemBasic.GetGuid(),
+		},
+	}, cd.CreateRpcResultOk()
+}
+
+func (m *UserInventoryManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]data.ItemAddGuard, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
 	}
 
 	// 虚拟道具分发
 	for i := 0; i < len(itemOffset); i++ {
-		item := &itemOffset[i]
+		item := itemOffset[i]
 		typeId := item.GetItemBasic().GetTypeId()
 		if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 			typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
@@ -429,7 +473,7 @@ func (m *UserInventoryManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []ppc
 	return m.CreateItemAddGuard(itemOffset)
 }
 
-func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []ppc.DItemBasic) ([]data.ItemSubGuard, data.Result) {
+func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]data.ItemSubGuard, data.Result) {
 	// 虚拟道具分发
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), ppp.EnErrorCode(ppp.EnErrorCode_EN_ERR_INVALID_PARAM))
@@ -437,7 +481,7 @@ func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []ppc
 
 	// 虚拟道具分发
 	for i := 0; i < len(itemOffset); i++ {
-		item := &itemOffset[i]
+		item := itemOffset[i]
 		typeId := item.GetTypeId()
 		if typeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 			typeId < int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {

@@ -45,11 +45,16 @@ func CreateItemTypeStatistics() ItemTypeStatistics {
 type UserItemManagerImpl interface {
 	GetOwner() *User
 
+	BindDescriptor(descriptor *UserItemManagerDescriptor)
+
 	AddItem(ctx *cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result
 	SubItem(ctx *cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result
 
-	CheckAddItem(ctx *cd.RpcContext, itemOffset []ppc.DItemInstance) ([]ItemAddGuard, Result)
-	CheckSubItem(ctx *cd.RpcContext, itemOffset []ppc.DItemBasic) ([]ItemSubGuard, Result)
+	GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, Result)
+	GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) (*ppc.DItemInstance, Result)
+
+	CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result)
+	CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result)
 
 	GetTypeStatistics(typeId int32) *ItemTypeStatistics
 	GetItemFromBasic(itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, Result)
@@ -76,12 +81,12 @@ func MakeUserItemTypeIdRange(beginTypeId int32, endTypeId int32) UserItemTypeIdR
 
 type userItemManagerCreator struct {
 	descriptor *UserItemManagerDescriptor
-	fn         func(*cd.RpcContext, *User, *UserItemManagerDescriptor) UserItemManagerImpl
+	fn         func(*cd.RpcContext, *User) UserItemManagerImpl
 }
 
 var userItemManagerCreators = make([]userItemManagerCreator, 0)
 
-func RegisterUserItemManagerCreator(typeIdRanges []UserItemTypeIdRange, creator func(*cd.RpcContext, *User, *UserItemManagerDescriptor) UserItemManagerImpl) {
+func RegisterUserItemManagerCreator(typeIdRanges []UserItemTypeIdRange, creator func(*cd.RpcContext, *User) UserItemManagerImpl) {
 	if creator == nil {
 		panic("nil user item manager creator")
 	}
@@ -120,6 +125,10 @@ func CreateUserItemManagerBase(owner *User, descriptor *UserItemManagerDescripto
 	return ret
 }
 
+func (umb *UserItemManagerBase) BindDescriptor(descriptor *UserItemManagerDescriptor) {
+	umb.descriptor = descriptor
+}
+
 func (umb *UserItemManagerBase) GetOwner() *User {
 	return umb.owner
 }
@@ -144,7 +153,7 @@ func (umb *UserItemManagerBase) CheckTypeIdValid(typeId int32) bool {
 	return found
 }
 
-func (umb *UserItemManagerBase) HasRepeatedItemInstance(itemOffset []ppc.DItemInstance) bool {
+func (umb *UserItemManagerBase) HasRepeatedItemInstance(itemOffset []*ppc.DItemInstance) bool {
 	if len(itemOffset) <= 1 {
 		return false
 	}
@@ -185,7 +194,7 @@ func (umb *UserItemManagerBase) HasRepeatedItemInstance(itemOffset []ppc.DItemIn
 	return false
 }
 
-func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []ppc.DItemBasic) bool {
+func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []*ppc.DItemBasic) bool {
 	if len(itemOffset) <= 1 {
 		return false
 	}
@@ -194,8 +203,8 @@ func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []ppc.DItemBasic
 	if len(itemOffset) <= 8 {
 		for i := 0; i < len(itemOffset); i++ {
 			for j := i + 1; j < len(itemOffset); j++ {
-				ib := &itemOffset[i]
-				jb := &itemOffset[j]
+				ib := itemOffset[i]
+				jb := itemOffset[j]
 				if ib.GetTypeId() == jb.GetTypeId() && ib.GetGuid() == jb.GetGuid() {
 					return true
 				}
@@ -204,19 +213,20 @@ func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []ppc.DItemBasic
 		return false
 	}
 
-	mapTypeId := make(map[int32]*map[int64]bool)
+	mapTypeId := make(map[int32]*map[int64]struct{})
 	for i := 0; i < len(itemOffset); i++ {
-		ib := &itemOffset[i]
+		ib := itemOffset[i]
 		mapGuid, ok := mapTypeId[ib.GetTypeId()]
 		if !ok {
-			mapGuid = &map[int64]bool{}
+			newMapGuid := make(map[int64]struct{})
+			mapGuid = &newMapGuid
 			mapTypeId[ib.GetTypeId()] = mapGuid
 		}
 
 		if _, found := (*mapGuid)[ib.GetGuid()]; found {
 			return true
 		}
-		(*mapGuid)[ib.GetGuid()] = true
+		(*mapGuid)[ib.GetGuid()] = struct{}{}
 	}
 
 	return false
@@ -226,7 +236,7 @@ func (umb *UserItemManagerBase) GetItemCongiure(typeId int32) *ppcfg.ExcelItem {
 	return cc.GetConfigManager().GetCurrentConfigGroup().ExcelItem.GetBy_item_id(typeId)
 }
 
-func (umb *UserItemManagerBase) CreateItemAddGuard(itemOffset []ppc.DItemInstance) ([]ItemAddGuard, Result) {
+func (umb *UserItemManagerBase) CreateItemAddGuard(itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result) {
 	if umb.HasRepeatedItemInstance(itemOffset) {
 		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -253,21 +263,21 @@ func (umb *UserItemManagerBase) CreateItemAddGuard(itemOffset []ppc.DItemInstanc
 
 		ret = append(ret, ItemAddGuard{
 			Configure: cfg,
-			Item:      &itemOffset[i],
+			Item:      itemOffset[i],
 		})
 	}
 
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (umb *UserItemManagerBase) CreateItemSubGuard(itemOffset []ppc.DItemBasic) ([]ItemSubGuard, Result) {
+func (umb *UserItemManagerBase) CreateItemSubGuard(itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result) {
 	if umb.HasRepeatedItemBasic(itemOffset) {
 		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
 	ret := make([]ItemSubGuard, 0, len(itemOffset))
 	for i := 0; i < len(itemOffset); i++ {
-		ib := &itemOffset[i]
+		ib := itemOffset[i]
 		if ib.Count == 0 {
 			continue
 		}

@@ -34,8 +34,11 @@ type User struct {
 	AccessToken string
 	LoginCode   string
 
-	Logined bool
-	Closed  atomic.Bool
+	Logined           bool
+	HasGetInfo        bool
+	HeartbeatInterval time.Duration
+	LastPingTime      time.Time
+	Closed            atomic.Bool
 
 	connectionSequence uint64
 	connection         *websocket.Conn
@@ -191,6 +194,34 @@ func makePingMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messag
 	return &csMsg, csBody
 }
 
+func makeUserGetInfoMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
+	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{
+		NeedUserInfo:      true,
+		NeedUserOptions:   true,
+		NeedUserInventory: true,
+	}
+
+	csMsg := public_protocol_extension.CSMsg{
+		Head: makeMessageHead(user, "proy.LobbyClientService.user_get_info", string(proto.MessageName(csBody))),
+	}
+	csMsg.BodyBin, _ = proto.Marshal(csBody)
+
+	return &csMsg, csBody
+}
+
+func makeUserGMMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
+	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
+		Args: []string{"add-item", "1001", "1"},
+	}
+
+	csMsg := public_protocol_extension.CSMsg{
+		Head: makeMessageHead(user, "proy.LobbyClientService.user_send_gm_command", string(proto.MessageName(csBody))),
+	}
+	csMsg.BodyBin, _ = proto.Marshal(csBody)
+
+	return &csMsg, csBody
+}
+
 func processMakeRequest(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
 	user.dispatcherLock.Lock()
 	defer user.dispatcherLock.Unlock()
@@ -201,8 +232,13 @@ func processMakeRequest(user *User) (*public_protocol_extension.CSMsg, proto.Mes
 		csMsg, csBody = makeLoginAuthMessage(user)
 	} else if !user.Logined {
 		csMsg, csBody = makeLoginMessage(user)
-	} else {
+	} else if user.LastPingTime.Add(user.HeartbeatInterval).Before(time.Now()) {
 		csMsg, csBody = makePingMessage(user)
+	} else if !user.HasGetInfo {
+		// Here could add more messages after login
+		csMsg, csBody = makeUserGetInfoMessage(user)
+	} else {
+		csMsg, csBody = makeUserGMMessage(user)
 	}
 
 	return csMsg, csBody
@@ -247,12 +283,41 @@ func processLoginResponse(user *User, rpcName string, msg *public_protocol_exten
 		user.ZoneId = body.GetZoneId()
 	}
 	user.Logined = true
+	if body.GetHeartbeatInterval() > 0 {
+		user.HeartbeatInterval = time.Duration(body.GetHeartbeatInterval()) * time.Second
+	}
+}
+
+func processPongResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	head := msg.Head
+	if head.ErrorCode < 0 {
+		return
+	}
+
+	user.LastPingTime = time.Now()
+}
+
+func processGetInfoResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	_, ok := rawBody.(*lobysvr_protocol_pbdesc.SCUserGetInfoRsp)
+	if !ok {
+		log.Println("Can not convert to SCUserGetInfoRsp")
+		return
+	}
+
+	head := msg.Head
+	if head.ErrorCode < 0 {
+		return
+	}
+
+	user.HasGetInfo = true
 }
 
 func buildProcessResponseHandles() map[string]func(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	handles := make(map[string]func(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message))
 	handles["proy.LobbyClientService.login_auth"] = processLoginAuthResponse
 	handles["proy.LobbyClientService.login"] = processLoginResponse
+	handles["proy.LobbyClientService.ping"] = processPongResponse
+	handles["proy.LobbyClientService.user_get_info"] = processGetInfoResponse
 	return handles
 }
 
