@@ -215,14 +215,17 @@ func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
 			d.Close(d.CreateRpcContext(d), session, websocket.CloseServiceRestart, "Service shutdown")
 
 			if session.runningCancel != nil {
-				session.runningCancel()
+				fn := session.runningCancel
 				session.runningCancel = nil
+				fn()
 			}
 			return
 		}
 	}
 
 	d.sessions[session.SessionId] = session
+
+	d.GetApp().GetDefaultLogger().Info("New WebSocket session added", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)
 }
 
 func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
@@ -235,6 +238,8 @@ func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
 	if onRemoveSession != nil {
 		onRemoveSession.(WebSocketCallbackOnRemoveSession)(d.CreateRpcContext(d), session)
 	}
+
+	d.GetApp().GetDefaultLogger().Info("WebSocket session removed", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)
 }
 
 func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession) {
@@ -335,6 +340,10 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 				cleanTimeout()
 			}
 		}
+
+		if session.sentCloseMessage {
+			break
+		}
 	}
 }
 
@@ -384,8 +393,9 @@ func (d *WebSocketMessageDispatcher) Close(_ctx *RpcContext, session *WebSocketS
 	}
 
 	if session.runningCancel != nil {
-		session.runningCancel()
+		fn := session.runningCancel
 		session.runningCancel = nil
+		fn()
 	}
 }
 
@@ -450,8 +460,9 @@ func (d *WebSocketMessageDispatcher) Stop() (bool, error) {
 
 		for _, session := range d.sessions {
 			if session.runningCancel != nil {
-				session.runningCancel()
+				fn := session.runningCancel
 				session.runningCancel = nil
+				fn()
 			}
 		}
 	}

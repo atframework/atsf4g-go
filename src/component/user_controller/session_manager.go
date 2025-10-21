@@ -68,6 +68,8 @@ func (sm *SessionManager) CreateSession(ctx *cd.RpcContext, key SessionKey, hand
 		}
 	}
 
+	ctx.LogInfo("session created", "session_node_id", key.NodeId, "session_id", key.SessionId)
+
 	// TODO: 添加session超时检查
 
 	return session
@@ -90,6 +92,8 @@ func (sm *SessionManager) RemoveSession(ctx *cd.RpcContext, key *SessionKey, rea
 
 	if nodeSessions, ok := sm.sessions[key.NodeId]; ok {
 		if _, ok := (*nodeSessions)[key.SessionId]; ok {
+			ctx.LogInfo("session removed", "session_node_id", key.NodeId, "session_id", key.SessionId)
+
 			delete(*nodeSessions, key.SessionId)
 			if len(*nodeSessions) == 0 {
 				delete(sm.sessions, key.NodeId)

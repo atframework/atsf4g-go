@@ -257,8 +257,6 @@ func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnLogout(ctx)
 	}
-
-	u.isLoginInited = false
 }
 
 func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version uint64) {
@@ -266,6 +264,10 @@ func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version uint64) {
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnSaved(ctx, version)
+	}
+
+	if u.GetSession() == nil {
+		u.isLoginInited = false
 	}
 }
 

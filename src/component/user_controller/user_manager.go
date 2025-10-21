@@ -47,13 +47,15 @@ func (um *UserManager) SetCreateUserCallback(callback CreateUserCallback) {
 	}
 }
 
-func (um *UserManager) replace(u UserImpl) {
+func (um *UserManager) replace(ctx *cd.RpcContext, u UserImpl) {
 	if u == nil {
 		return
 	}
 
 	um.userLock.RLock()
 	defer um.userLock.RUnlock()
+
+	ctx.LogInfo("user removed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 
 	uidMap, ok := um.users[u.GetZoneId()]
 	if !ok {
@@ -98,6 +100,7 @@ func (um *UserManager) Remove(ctx *cd.RpcContext, zoneID uint32, userID uint64, 
 		return nil
 	}
 
+	ctx.LogInfo("user removed", "zone_id", zoneID, "user_id", userID)
 	delete(*uidMap, userID)
 	if len(*uidMap) == 0 {
 		delete(um.users, zoneID)
@@ -166,7 +169,7 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 			}
 		}
 
-		um.replace(u)
+		um.replace(ctx, u)
 	} else {
 		convertRet, ok := u.(T)
 		if !ok {
