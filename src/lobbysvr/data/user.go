@@ -26,11 +26,11 @@ type userItemManagerWrapper struct {
 	manager UserItemManagerImpl
 }
 
-type UserItemDirtyData struct {
+type UserDirtyData struct {
 	dirtyChangeSync *lobbysvr_protocol_pbdesc.SCUserDirtyChgSync
 }
 
-func (d *UserItemDirtyData) MutableNormalDirtyChangeMessage() *lobbysvr_protocol_pbdesc.SCUserDirtyChgSync {
+func (d *UserDirtyData) MutableNormalDirtyChangeMessage() *lobbysvr_protocol_pbdesc.SCUserDirtyChgSync {
 	if d.dirtyChangeSync == nil {
 		d.dirtyChangeSync = &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync{}
 	}
@@ -39,7 +39,7 @@ func (d *UserItemDirtyData) MutableNormalDirtyChangeMessage() *lobbysvr_protocol
 }
 
 type userDirtyHandles struct {
-	dumpDirty  func(*cd.RpcContext, *UserItemDirtyData)
+	dumpDirty  func(*cd.RpcContext, *UserDirtyData) bool
 	clearCache func(*cd.RpcContext)
 }
 
@@ -275,7 +275,7 @@ func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Se
 }
 
 func (u *User) InsertDirtyHandleIfNotExists(key interface{},
-	dumpDataHandle func(*cd.RpcContext, *UserItemDirtyData),
+	dumpDataHandle func(*cd.RpcContext, *UserDirtyData) bool,
 	clearCacheHandle func(*cd.RpcContext),
 ) {
 	if lu.IsNil(key) {
@@ -316,7 +316,9 @@ func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 		return
 	}
 
-	dumpData := UserItemDirtyData{}
+	dumpData := UserDirtyData{}
+
+	hasDirty := false
 
 	// 脏数据导出
 	for _, handles := range u.dirtyHandles {
@@ -324,13 +326,11 @@ func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 			continue
 		}
 
-		handles.dumpDirty(ctx, &dumpData)
+		hasDirty = hasDirty || handles.dumpDirty(ctx, &dumpData)
 	}
 
 	// 脏数据推送
-	if dumpData.dirtyChangeSync != nil &&
-		(len(dumpData.dirtyChangeSync.GetDirtyInventory().GetItem()) > 0 ||
-			len(dumpData.dirtyChangeSync.GetRemoveItemKeys().GetItemKeys()) > 0) {
+	if dumpData.dirtyChangeSync != nil && hasDirty {
 		err := lobbysvr_client_rpc.SendUserDirtyChgSync(session, dumpData.dirtyChangeSync, 0)
 		if err != nil {
 			ctx.LogError("send user dirty change sync failed", "error", err, "user_id", u.GetUserId(), "zone_id", u.GetZoneId())
