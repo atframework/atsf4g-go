@@ -202,7 +202,7 @@ func main() {
 	if runAllTools {
 		_, err := os.Stat(path.Join(project_settings.GetProjectRootDir(), "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
 		if err != nil {
-			project_settings.FmtColorFprintRed(os.Stderr, "Not Found xres-code-generator xrescode-gen.py\n")
+			project_settings.FmtColorFprintRed(os.Stderr, "Not Found xres-code-generator xrescode-gen.py: git submodule init git submodule update\n")
 			os.Exit(1)
 		}
 

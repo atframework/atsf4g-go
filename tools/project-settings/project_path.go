@@ -70,17 +70,17 @@ func PathSetup() error {
 	generateForPbPath := path.Join(projectToolsDir, "generate-for-pb")
 	pythonBinPath, err := GetPythonPath()
 	if err != nil {
-		FmtColor(FgRed, "Get Python Path Failed: %v", err)
+		FmtColorFprintRed(os.Stderr, "Get Python Path Failed: %v", err)
 		os.Exit(1)
 	}
-	FmtColor(FgGreen, "PYTHON_BIN_PATH: %s", pythonBinPath)
+	FmtColorFprintGreen(os.Stdout, "PYTHON_BIN_PATH: %s", pythonBinPath)
 
 	javaBinPath, err := GetJavaPath()
 	if err != nil {
-		FmtColor(FgRed, "Get Java Path Failed: %v", err)
+		FmtColorFprintRed(os.Stderr, "Get Java Path Failed: %v", err)
 		os.Exit(1)
 	}
-	FmtColor(FgGreen, "JAVA_BIN_PATH: %s", javaBinPath)
+	FmtColorFprintGreen(os.Stdout, "JAVA_BIN_PATH: %s", javaBinPath)
 
 	os.Setenv("PROJECT_XRESLOADER_PATH", xresloaderPath)
 	os.Setenv("PROJECT_RESOURCE_TARGET_PBDESC_PATH", buildPbdescDir)

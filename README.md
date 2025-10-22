@@ -17,6 +17,7 @@ scoop install python
 scoop bucket add java
 scoop install gradle maven microsoft-lts-jdk
 scoop install helm
+// 之后退出全部终端 刷新环境变量
 ```
 
 ```bash
