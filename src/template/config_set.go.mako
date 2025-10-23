@@ -100,7 +100,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 		if key < 0 {
 			configSet.callBack.GetLogger().Error("[EXCEL] merge_data() key for index < 0, return",
 		% for field in code_index.fields:
-				"key",
+				"${pb_loader.MakoToCamelName(field.name)}",
 				data.${pb_loader.MakoToCamelName(field.name)},
 		% endfor
 				"index",
@@ -120,7 +120,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 		if _, ok := configSet.configIndexContainer_${code_index.name}[key]; ok {
 			configSet.callBack.GetLogger().Error("[EXCEL] merge_data() key for index is already exists, we will cover it with the newer value",
 		% for field in code_index.fields:
-				"key",
+				"${pb_loader.MakoToCamelName(field.name)}",
 				data.${pb_loader.MakoToCamelName(field.name)},
 		% endfor
 				"index",
@@ -147,9 +147,9 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCam
 		% for field in code_index.fields:
 	key := ${pb_loader.MakoToCamelName(field.name)}
 	if key < 0 {
-		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${code_index.name} with key for index < 0",
+		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${pb_loader.MakoToCamelName(code_index.name)} with key for index < 0",
 			% for field in code_index.fields:
-			"key",
+			"${pb_loader.MakoToCamelName(field.name)}",
 			${pb_loader.MakoToCamelName(field.name)},
 			% endfor
 			"index",
@@ -157,9 +157,9 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCam
 		return nil
 	}
 	if int(key) >= len(configSet.configIndexContainer_${code_index.name}) {
-		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${code_index.name} with key for index >= Container Size",
+		configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${pb_loader.MakoToCamelName(code_index.name)} with key for index >= Container Size",
 			% for field in code_index.fields:
-			"key",
+			"${pb_loader.MakoToCamelName(field.name)}",
 			${pb_loader.MakoToCamelName(field.name)},
 			% endfor
 			"Container Size",
@@ -179,6 +179,15 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) GetBy${pb_loader.MakoToCam
 	if value, ok := configSet.configIndexContainer_${code_index.name}[key]; ok {
 		return value
 	}
+	%   if not code_index.allow_not_found:
+	configSet.callBack.GetLogger().Error("[EXCEL] () GetBy${pb_loader.MakoToCamelName(code_index.name)} with key not found",
+		% for field in code_index.fields:
+		"${pb_loader.MakoToCamelName(field.name)}",
+		${pb_loader.MakoToCamelName(field.name)},
+		% endfor
+		"index",
+		"ConfigSet${loader.get_go_pb_name()}")
+	%   endif
 	return nil
 	% endif
 }
