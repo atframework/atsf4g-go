@@ -14,15 +14,11 @@ package proy;
 
 enum EnItemType {
   EN_ITEM_TYPE_INVALID = 0;
-  EN_ITEM_TYPE_MONEY = 1 [ (org.xresloader.enum_alias) = "money" ];
-  EN_ITEM_TYPE_PROP = 2 [ (org.xresloader.enum_alias) = "prop" ];
-  EN_ITEM_TYPE_PACKAGE = 5 [ (org.xresloader.enum_alias) = "package" ];
-  EN_ITEM_TYPE_SKIN = 6 [ (org.xresloader.enum_alias) = "skin" ];
-  EN_ITEM_TYPE_EQUIPMENT = 7 [ (org.xresloader.enum_alias) = "equipment" ];
-  EN_ITEM_TYPE_CHARACTER = 8 [ (org.xresloader.enum_alias) = "character" ];
-  EN_ITEM_TYPE_CHARACTER_PROP = 9
-      [ (org.xresloader.enum_alias) = "character_prop" ];
-  EN_ITEM_TYPE_MENU = 10 [ (org.xresloader.enum_alias) = "menu" ];
+  EN_ITEM_TYPE_MONEY = 1 [(org.xresloader.enum_alias) = "money"];
+  EN_ITEM_TYPE_PROP = 2 [(org.xresloader.enum_alias) = "prop"];
+  EN_ITEM_TYPE_PACKAGE = 5 [(org.xresloader.enum_alias) = "package"];
+  EN_ITEM_TYPE_CHARACTER = 8 [(org.xresloader.enum_alias) = "character"];
+  EN_ITEM_TYPE_CHARACTER_PROP = 9 [(org.xresloader.enum_alias) = "character_prop"];
 }
 
 enum EnItemTypeRange {
@@ -38,8 +34,6 @@ enum EnItemTypeRange {
   EN_ITEM_TYPE_RANGE_MISC_END = 900000;
   EN_ITEM_TYPE_RANGE_CHARACTER_BEGIN = 2000000;
   EN_ITEM_TYPE_RANGE_CHARACTER_END = 2100000;
-  EN_ITEM_TYPE_RANGE_GUEST_BEGIN = 2100000;
-  EN_ITEM_TYPE_RANGE_GUEST_END = 2200000;
   EN_ITEM_TYPE_RANGE_CHARACTER_PROP_BEGIN = 900000;
   EN_ITEM_TYPE_RANGE_CHARACTER_PROP_END = 1000000;
 }
@@ -56,9 +50,9 @@ enum EnItemVirtualItemType {
 }
 
 message DItemBasic {
-  int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItem_item_id" ];
+  int32 type_id = 1 [(org.xresloader.validator) = "ExcelItem_item_id"];
   int64 count = 2;
-  int64 guid = 3; // 唯一ID(如果有)
+  int64 guid = 3;  // 唯一ID(如果有)
 }
 
 // 道具数据实例
@@ -66,27 +60,25 @@ message DItemInstance {
   // 道具基础信息
   DItemBasic item_basic = 1;
 
-  int64 expire_timepoint = 11; // 超时时间（如果有）
+  int64 expire_timepoint = 11;  // 超时时间（如果有）
 }
 
 // 道具数据(增量,用于奖励等)
 message DItemOffset {
-  int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItem_item_id" ];
+  int32 type_id = 1 [(org.xresloader.validator) = "ExcelItem_item_id"];
   int64 count = 2;
 
   // 有效期，0表示永久生效
-  int64 expire_offset = 11
-      [ (org.xresloader.field_allow_missing_in_plain_mode) = true ];
+  int64 expire_offset = 11 [(org.xresloader.field_allow_missing_in_plain_mode) = true];
 }
 
 // 道具数据(增量,限定Scope,用于奖励等)
 message DItemScopeOffset {
-  DItemOffset item_offset = 1
-      [ (org.xresloader.validator) = "ExcelItem_item_id" ];
+  DItemOffset item_offset = 1 [(org.xresloader.validator) = "ExcelItem_item_id"];
 }
 
 message DItemUseAction {
   oneof action_type {
-    int64 add_role_exp = 1 [ (org.xresloader.field_unique_tag) = "item" ];
+    int64 add_role_exp = 1 [(org.xresloader.field_unique_tag) = "item"];
   }
 }

@@ -19,26 +19,26 @@ message DVector2 {
 
 enum EnRarityType {
   EN_RARITY_TYPE_INVALID = 0;
-  EN_RARITY_TYPE_GREEN = 10 [ (org.xresloader.enum_alias) = "green" ];
-  EN_RARITY_TYPE_BLUE = 20 [ (org.xresloader.enum_alias) = "blue" ];
-  EN_RARITY_TYPE_PURPLE = 30 [ (org.xresloader.enum_alias) = "purple" ];
-  EN_RARITY_TYPE_ORANGE = 40 [ (org.xresloader.enum_alias) = "orange" ];
-  EN_RARITY_TYPE_RED = 50 [ (org.xresloader.enum_alias) = "red" ];
+  EN_RARITY_TYPE_GREEN = 10 [(org.xresloader.enum_alias) = "green"];
+  EN_RARITY_TYPE_BLUE = 20 [(org.xresloader.enum_alias) = "blue"];
+  EN_RARITY_TYPE_PURPLE = 30 [(org.xresloader.enum_alias) = "purple"];
+  EN_RARITY_TYPE_ORANGE = 40 [(org.xresloader.enum_alias) = "orange"];
+  EN_RARITY_TYPE_RED = 50 [(org.xresloader.enum_alias) = "red"];
 }
 
 enum EnFactionType {
   EN_FACTION_TYPE_INVALID = 0;
-  EN_FACTION_TYPE_HUMAN = 1 [ (org.xresloader.enum_alias) = "human" ];
-  EN_FACTION_TYPE_ORC = 2 [ (org.xresloader.enum_alias) = "orc" ];
-  EN_FACTION_TYPE_ELF = 3 [ (org.xresloader.enum_alias) = "elf" ];
-  EN_FACTION_TYPE_VAMPIRE = 4 [ (org.xresloader.enum_alias) = "vampire" ];
-  EN_FACTION_TYPE_TIEFLING = 5 [ (org.xresloader.enum_alias) = "tiefling" ];
-  EN_FACTION_TYPE_DWARF = 6 [ (org.xresloader.enum_alias) = "dwarf" ];
+  EN_FACTION_TYPE_HUMAN = 1 [(org.xresloader.enum_alias) = "human"];
+  EN_FACTION_TYPE_ORC = 2 [(org.xresloader.enum_alias) = "orc"];
+  EN_FACTION_TYPE_ELF = 3 [(org.xresloader.enum_alias) = "elf"];
+  EN_FACTION_TYPE_VAMPIRE = 4 [(org.xresloader.enum_alias) = "vampire"];
+  EN_FACTION_TYPE_TIEFLING = 5 [(org.xresloader.enum_alias) = "tiefling"];
+  EN_FACTION_TYPE_DWARF = 6 [(org.xresloader.enum_alias) = "dwarf"];
 }
 
 enum EnElementType {
   EN_ELEMENT_TYPE_INVALID = 0;
-  EN_ELEMENT_TYPE_WATER = 1 [ (org.xresloader.enum_alias) = "water" ];
-  EN_ELEMENT_TYPE_FIRE = 2 [ (org.xresloader.enum_alias) = "fire" ];
-  EN_ELEMENT_TYPE_MUD = 3 [ (org.xresloader.enum_alias) = "mud" ];
+  EN_ELEMENT_TYPE_WATER = 1 [(org.xresloader.enum_alias) = "water"];
+  EN_ELEMENT_TYPE_FIRE = 2 [(org.xresloader.enum_alias) = "fire"];
+  EN_ELEMENT_TYPE_MUD = 3 [(org.xresloader.enum_alias) = "mud"];
 }
