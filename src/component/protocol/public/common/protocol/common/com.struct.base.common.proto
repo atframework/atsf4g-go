@@ -42,3 +42,13 @@ enum EnElementType {
   EN_ELEMENT_TYPE_FIRE = 2 [(org.xresloader.enum_alias) = "fire"];
   EN_ELEMENT_TYPE_MUD = 3 [(org.xresloader.enum_alias) = "mud"];
 }
+
+// user version type
+enum EnVersionType {
+  EN_VERSION_DEFAULT = 0;  // default
+  EN_VERSION_GRAY = 1;     // gray
+  EN_VERSION_REVIEW = 2;   // review
+
+  EN_VERSION_INNER = 10000;  // inner
+  EN_VERSION_GM = 10001;     // gm
+}
