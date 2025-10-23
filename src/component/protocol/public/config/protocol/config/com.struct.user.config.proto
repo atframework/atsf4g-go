@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.item.common.proto";
+
+package proy.config;
+
+message ExcelUserLevel {
+  option (xrescode.loader) = {
+    file_path : "user_level.bytes"
+    indexes : {fields : "level" index_type : EN_INDEX_IV}
+
+    tags : "client"
+    tags : "server"
+  };
+
+  int32 level = 1 [ (org.xresloader.field_unique_tag) = "level" ];
+  int64 exp = 2;
+  repeated DItemOffset level_up_reward = 3;
+}
+
+message ExcelUserInitializeItems {
+  option (xrescode.loader) = {
+    file_path : "user_initialize_items.bytes"
+    indexes : {fields : "role_id" index_type : EN_INDEX_KV}
+
+    tags : "server"
+  };
+
+  int32 index = 1 [ (org.xresloader.field_unique_tag) = "index" ];
+  int32 version_type = 2 [ (org.xresloader.validator) = "proy.EnVersionType" ];
+  DItemOffset item = 3;
+}

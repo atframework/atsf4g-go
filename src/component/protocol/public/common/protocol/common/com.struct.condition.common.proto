@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+import "protocol/extension/v3/xresloader.proto";
+
+package proy;
+
+// 限频 - 检查点存储结构
+message DConditionCounterCheckpoint {
+  int64 next_day_checkpoint = 1;
+  int64 next_week_checkpoint = 2;
+  int64 next_month_checkpoint = 3;
+}
+
+// 限频 - 次数存储结构
+message DConditionCounterItem {
+  int64 daily_counter = 1;
+  int64 weekly_counter = 2;
+  int64 monthly_counter = 3;
+  int64 sum_counter = 4;
+
+  int64 m_day_next_checkpoint = 11;
+  int64 m_day_counter = 12;
+}
+
+message DConditionCounterStorage {
+  DConditionCounterItem total_counter = 1;
+
+  // 约定: 版本号上涨表示要重置之前的计数
+  int64 current_version = 2;
+  DConditionCounterItem version_counter = 3;
+}
+
+// 限频 - 配置结构
+message DConditionCounterLimit {
+  int64 day_start_offset = 1; // 每日结算时间偏移
+
+  // 约定: 版本号上涨表示要重置之前的计数,0表示不限制版本号
+  int64 counter_version = 5;
+  int64 daily = 6;
+  int64 weekly = 7;
+  int64 monthly = 8;
+  int64 sum = 9;
+
+  google.protobuf.Timestamp m_day_start_time = 11;
+  int64 m_day_m = 12;
+  int64 m_day_limit = 13;
+}
+
+message DConditionRuleMultipleInt {
+  option (org.xresloader.msg_separator) = "#";
+  repeated sint64 values = 1;
+}
+
+message DConditionRuleMultipleUInt {
+  option (org.xresloader.msg_separator) = "#";
+  repeated uint64 values = 1;
+}
+
+message DConditionRuleRangeInt {
+  sint64 left = 1;
+  sint64 right = 2;
+}
+
+message DConditionRuleRangeUInt {
+  uint64 left = 1;
+  uint64 right = 2;
+}
+
+// Datetime区间, 用以支持时间段配置
+//   2022-11-16 00:00:00~2022-12-16 00:00:00
+// 要支持多组配置的使用的地方请设置 [(org.xresloader.field_separator) = "|"]
+//   2022-11-16 00:00:00~2022-12-16 00:00:00|2022-12-16 00:00:00~2023-01-01
+//   00:00:00
+message DConditionRuleRangeDatetime {
+  option (org.xresloader.msg_separator) = "~";
+  google.protobuf.Timestamp begin_time = 1; // 开始时间
+  google.protobuf.Timestamp end_time = 2;   // 结束
+}
+
+// Time区间, 用以支持多个区间范围的时间段配置
+//   08:00:00-12:00:00
+// 要支持多组配置的使用的地方请设置 [(org.xresloader.field_separator) = "|"]
+//   08:00:00-12:00:00|16:00:00-20:00:00
+message DConditionRuleRangeTime {
+  option (org.xresloader.msg_separator) = "-";
+  google.protobuf.Duration begin_time = 1; // 开始时间
+  google.protobuf.Duration end_time = 2;   // 结束
+}
+
+// 功能性条件
+message DConditionRule {
+  option (org.xresloader.msg_separator) = "@";
+
+  oneof rule_type {
+    option (org.xresloader.oneof_separator) = "|";
+
+    // @see EnAccountITopLoginChannelType
+    DConditionRuleMultipleUInt login_channel = 101
+        [ (org.xresloader.field_alias) = "登入渠道" ];
+    DConditionRuleMultipleUInt system_platform = 102
+        [ (org.xresloader.field_alias) = "系统平台" ]; // @see EnPlatformID
+    DConditionRuleRangeInt player_level = 201
+        [ (org.xresloader.field_alias) = "玩家等级" ];
+    DConditionRuleRangeInt has_item = 301
+        [ (org.xresloader.field_alias) = "拥有道具" ];
+  }
+}
+
+message DConditionBasicLimit {
+  // 时效性
+  google.protobuf.Timestamp show_time = 1; // 显示时间
+
+  // 多段时效性
+  repeated DConditionRuleRangeDatetime valid_time = 2
+      [ (org.xresloader.field_separator) = "|" ];
+
+  // 通用规则
+  repeated DConditionRule rule = 11;
+}

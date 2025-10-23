@@ -50,32 +50,15 @@ enum EnItemMoneyType {
   EN_ITEM_MONEY_TYPE_CASH = 1002;
 }
 
-message DItemBoxPosition {
-  int32 x = 1;
-  int32 y = 2;
-}
-
-message DItemSlotPosition { int32 slot_idx = 1; }
-
-message DItemPosition {
-  // Container guid
-  int64 container_guid = 1;
-
-  oneof position_type {
-    // 仓库
-    DItemBoxPosition inventory = 11;
-    // 角色背包
-    DItemBoxPosition role_backpack = 12;
-    // 角色装备位置
-    DItemSlotPosition role_equipment = 13;
-  }
+enum EnItemVirtualItemType {
+  EN_ITEM_VIRTUAL_ITEM_TYPE_INVALID = 0;
+  EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP = 1101;
 }
 
 message DItemBasic {
   int32 type_id = 1 [ (org.xresloader.validator) = "ExcelItem_item_id" ];
   int64 count = 2;
   int64 guid = 3; // 唯一ID(如果有)
-  DItemPosition position = 4;
 }
 
 // 道具数据实例

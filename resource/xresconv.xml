@@ -19,7 +19,8 @@
       </tree>
       -->
     <tree id="misc" name="杂项"></tree>
-    <tree id="item" name="道具/库存"></tree>
+    <tree id="item" name="道具"></tree>
+    <tree id="user" name="玩家/用户"></tree>
   </category>
 
   <list>
@@ -47,6 +48,21 @@
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Skill.xlsx|技能|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelSkill</scheme>
       <scheme name="OutputFile" desc="输出文件名">skill.bytes</scheme>
+    </item>
+    <item name="通用条件表" cat="misc" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Condition.xlsx|限制条件|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelConditionPool</scheme>
+      <scheme name="OutputFile" desc="输出文件名">condition_pool.bytes</scheme>
+    </item>
+    <item name="用户等级表" cat="user" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">User.xlsx|用户等级表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelUserLevel</scheme>
+      <scheme name="OutputFile" desc="输出文件名">user_level.bytes</scheme>
+    </item>
+    <item name="新用户初始道具表" cat="user" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">User.xlsx|新用户初始道具表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelUserInitializeItems</scheme>
+      <scheme name="OutputFile" desc="输出文件名">user_initialize_items.bytes</scheme>
     </item>
   </list>
 </root>
