@@ -54,6 +54,7 @@ func (m *UserVirtualItemManager) CheckAddItem(ctx *cd.RpcContext, itemOffset *pp
 	switch itemOffset.GetItemBasic().GetTypeId() {
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_CASH):
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
 		return cd.CreateRpcResultOk()
 	default:
 		return cd.CreateRpcResultError(nil, pp_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)

@@ -35,8 +35,8 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 	response_body := t.MutableResponseBody()
 
 	if request_body.GetNeedUserInfo() {
+		response_body.UserProfile = user.GetAccountInfo().GetProfile()
 		response_body.UserInfo = &public_protocol_pbdesc.DUserInfo{
-			Profile:   user.GetAccountInfo().GetProfile(),
 			UserLevel: user.GetUserData().GetUserLevel(),
 			UserStat: &public_protocol_pbdesc.DUserStat{
 				RegisterTime:  user.GetLoginInfo().GetBusinessRegisterTime(),
