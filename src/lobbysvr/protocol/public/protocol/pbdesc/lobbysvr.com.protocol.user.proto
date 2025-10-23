@@ -97,10 +97,6 @@ message SCLoginRsp {
   uint32 zone_id = 5;            // 大区ID
 }
 
-message SCUserProfileSyn {
-  DUserProfile user = 1;
-}
-
 // 脏数据同步包
 message SCUserDirtyChgSync {
   message RemoveItemKey {
@@ -115,6 +111,10 @@ message SCUserDirtyChgSync {
   DUserInventoryData dirty_inventory = 1;
 
   RemoveItemData remove_item_keys = 2;
+
+  DUserProfile user_profile = 6;
+  DUserInfo user_info = 7;
+  DUserOptions user_options = 8;
 }
 
 // 心跳包，上行包
@@ -137,9 +137,9 @@ message CSUserGetInfoReq {
 // 用户数据返回
 message SCUserGetInfoRsp {
   DUserProfile user_profile = 1;
-  DUserInfo user_info = 2;                      // 玩家数据
-  DUserOptions user_options = 3;                // 玩家自定义选项
-  DUserInventoryData user_inventory = 4;        // 玩家通用仓库道具数据
+  DUserInfo user_info = 2;                // 玩家数据
+  DUserOptions user_options = 3;          // 玩家自定义选项
+  DUserInventoryData user_inventory = 4;  // 玩家通用仓库道具数据
 }
 
 // GM指令请求
