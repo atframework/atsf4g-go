@@ -137,6 +137,17 @@
       "group": "build"
     },
     {
+      "label": "60.Delete GeneratePBGO",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "."],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/delete-generate-go"
+      },
+      "problemMatcher": "$go",
+      "group": "build"
+    },
+    {
       "label": "80.Deploy:Update Dependencies",
       "type": "shell",
       "command": "./update_dependency.sh",

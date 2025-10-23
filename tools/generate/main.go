@@ -262,6 +262,23 @@ func main() {
 		project_settings.FmtColorFprintGreen(os.Stdout, "install protoc-gen-mutable Success")
 	}
 
+	{
+		cmd := exec.Command("go", "run", ".")
+		cmd.Env = os.Environ()
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		cmd.Dir = filepath.Join(project_settings.GetProjectToolsDir(), "delete-generate-go")
+		if err := cmd.Run(); err != nil {
+			log.Printf("go delete-generate-go output:\n%s", out.String())
+			log.Fatalf("failed to delete-generate-go: %v", err)
+			project_settings.FmtColorFprintRed(os.Stderr, "delete-generate-go%s", out.String())
+			project_settings.FmtColorFprintRed(os.Stderr, "failed to delete-generate-go: %v", err)
+			os.Exit(1)
+		}
+		project_settings.FmtColorFprintGreen(os.Stdout, "delete-generate-go Success")
+	}
+
 	generateAtfwGo(scanDirs)
 	installAtdtool()
 	installScript()
