@@ -9,6 +9,7 @@ import (
 	atfw_utils_fs "github.com/atframework/atframe-utils-go/file_system"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
 
@@ -196,7 +197,7 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 	// 创建初始化
 	if u.GetLoginVersion() <= 0 {
 		// 新用户初始化逻辑
-		u.CreateInit(u, ctx, uint32(public_protocol_pbdesc.EnVersionType_EN_VERSION_DEFAULT))
+		u.CreateInit(u, ctx, uint32(public_protocol_common.EnVersionType_EN_VERSION_DEFAULT))
 
 		// 设置版本号
 		u.GetLoginInfo().RouterVersion = 0

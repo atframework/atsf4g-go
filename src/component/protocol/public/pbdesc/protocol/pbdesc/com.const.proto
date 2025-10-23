@@ -230,13 +230,5 @@ enum EnErrorCode {
                            [(error_code.description) = "道具不足"];
   EN_ERR_ITEM_NOT_FOUND = -502
                           [(error_code.description) = "道具未找到"];
-
-  // 建筑模块错误码
-  EN_ERR_BUILDING_ID_NOT_FOUND = -601
-                                 [(error_code.description) = "建筑未找到"];
-  EN_ERR_BUILDING_LAYER_ERROR = -602
-                                [(error_code.description) = "层次错误"];
-  EN_ERR_BUILDING_CAN_NOT_PLACE = -603
-                                  [(error_code.description) = "无法放置"];
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码
 }
