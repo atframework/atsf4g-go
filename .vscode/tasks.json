@@ -161,6 +161,39 @@
         "command": "./generate_config.bat"
       },
       "group": "none"
+    },
+    {
+      "label": "90.Start Lobbysvr",
+      "type": "shell",
+      "command": "./start_1.1.11.1.bat",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/lobbysvr/bin"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "91.Stop Lobbysvr",
+      "type": "shell",
+      "command": "./stop_1.1.11.1.bat",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/lobbysvr/bin"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "92.Start Robot",
+      "type": "shell",
+      "command": "./robotd.exe",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/robot/bin"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
     }
   ]
 }
