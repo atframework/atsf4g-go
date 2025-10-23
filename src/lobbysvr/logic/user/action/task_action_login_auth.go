@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -88,7 +89,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	response_body.UserId = userId
 	response_body.ZoneId = zoneId
 	response_body.IsNewUser = accessSecret == ""
-	response_body.VersionType = uint32(public_protocol_pbdesc.EnVersionType_EN_VERSION_DEFAULT)
+	response_body.VersionType = uint32(public_protocol_common.EnVersionType_EN_VERSION_DEFAULT)
 
 	return nil
 }

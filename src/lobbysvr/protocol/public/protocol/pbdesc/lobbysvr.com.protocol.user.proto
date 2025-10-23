@@ -17,8 +17,6 @@ import "protocol/pbdesc/com.struct.proto";
 
 import "protocol/pbdesc/com.struct.inventory.proto";
 
-import "protocol/pbdesc/com.struct.inventory.proto";
-
 package proy;
 
 /////////////////////////////////////////////////////
