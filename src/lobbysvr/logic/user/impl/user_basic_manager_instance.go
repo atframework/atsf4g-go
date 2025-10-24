@@ -174,7 +174,7 @@ func (m *UserBasicManager) AddUserExp(ctx *cd.RpcContext, v int64) data.Result {
 	}
 
 	configGroup := config.GetConfigManager().GetCurrentConfigGroup()
-	userExpConfigIndex := config.GetExcelUserExpLevelConfigIndex(configGroup)
+	userExpConfigIndex := configGroup.GetCustomIndex().GetUserExpLevelConfigIndex()
 	if userExpConfigIndex == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("Can not find UserExpLevelConfigIndex"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}

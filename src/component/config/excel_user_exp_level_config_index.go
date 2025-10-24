@@ -2,8 +2,6 @@ package atframework_component_config
 
 import (
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-
-	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
 )
 
 func InitExcelUserExpLevelConfigIndex(group *generate_config.ConfigGroup) error {
@@ -22,15 +20,7 @@ func InitExcelUserExpLevelConfigIndex(group *generate_config.ConfigGroup) error 
 		}
 	}
 
-	group.UserLevelExpIndex.MaxLevel = uint32(maxLevel)
-	group.UserLevelExpIndex.MaxExp = maxExp
+	group.GetCustomIndex().GetUserExpLevelConfigIndex().MaxLevel = uint32(maxLevel)
+	group.GetCustomIndex().GetUserExpLevelConfigIndex().MaxExp = maxExp
 	return nil
-}
-
-func GetExcelUserExpLevelConfigIndex(g *generate_config.ConfigGroup) *custom_index_type.ExcelConfigUserLevelExpIndex {
-	if g == nil {
-		return nil
-	}
-
-	return &g.UserLevelExpIndex
 }

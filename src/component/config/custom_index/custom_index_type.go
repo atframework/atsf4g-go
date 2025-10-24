@@ -4,8 +4,19 @@ import (
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 )
 
+type ExcelConfigUserLevelExpIndex struct {
+	MaxLevel uint32
+	MaxExp   int64
+}
+
 type ExcelConfigCustomIndex struct {
-	ConstIndex ExcelConfigConstIndex
+	ConstIndex        ExcelConfigConstIndex
+	UserLevelExpIndex ExcelConfigUserLevelExpIndex
+}
+
+// 此处定义自定义索引的类型
+type ExcelConfigConstIndex struct {
+	ExcelConstConfig public_protocol_config.ExcelConstConfig
 }
 
 func (i *ExcelConfigCustomIndex) GetConstIndex() *ExcelConfigConstIndex {
@@ -15,12 +26,10 @@ func (i *ExcelConfigCustomIndex) GetConstIndex() *ExcelConfigConstIndex {
 	return &i.ConstIndex
 }
 
-// 此处定义自定义索引的类型
-type ExcelConfigConstIndex struct {
-	ExcelConstConfig public_protocol_config.ExcelConstConfig
-}
+func (i *ExcelConfigCustomIndex) GetUserExpLevelConfigIndex() *ExcelConfigUserLevelExpIndex {
+	if i == nil {
+		return nil
+	}
 
-type ExcelConfigUserLevelExpIndex struct {
-	MaxLevel uint32
-	MaxExp   int64
+	return &i.UserLevelExpIndex
 }
