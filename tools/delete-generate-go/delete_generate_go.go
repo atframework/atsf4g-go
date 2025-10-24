@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	project_settings "github.com/atframework/atsf4g-go/tools/project-settings"
 )
@@ -14,8 +15,10 @@ func deleteGoFiles(dir string) error {
 			return err
 		}
 
-		// 如果是文件且以 .go 结尾，删除文件
-		if !info.IsDir() && filepath.Ext(path) == ".go" {
+		// 如果是文件且以 .pb.go 结尾，删除文件
+		if !info.IsDir() && strings.HasSuffix(path, ".pb.go") {
+			return os.Remove(path)
+		} else if !info.IsDir() && strings.HasSuffix(path, ".go") && strings.Contains(path, "generate_config") {
 			return os.Remove(path)
 		}
 		return nil
@@ -23,16 +26,22 @@ func deleteGoFiles(dir string) error {
 }
 
 func main() {
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "config", "generate_config"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "common"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "config"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "extension"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "pbdesc"))
+	if len(os.Args) > 1 && os.Args[1] != "" {
+		for _, path := range os.Args[1:] {
+			deleteGoFiles(path)
+		}
+	} else {
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "config", "generate_config"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "common"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "config"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "extension"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "pbdesc"))
 
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "common"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "config"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "extension"))
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "pbdesc"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "common"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "config"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "extension"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "pbdesc"))
 
-	deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "lobbysvr", "protocol"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "lobbysvr", "protocol"))
+	}
 }
