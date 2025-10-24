@@ -17,7 +17,6 @@ func main() {
 		"-o", path.Join("..", "generate_config"),
 		"-g", "config_group.go.mako:config_group.go",
 		"-l", "config_set.go.mako:${\"config_set_{0}.go\".format(loader.get_go_pb_name())}",
-		"-c", "custom_config_group:config_custom_group_field.go.mako",
 		"-t", "server")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

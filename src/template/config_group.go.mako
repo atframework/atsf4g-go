@@ -26,12 +26,14 @@ type ConfigGroup struct {
 	${loader.get_go_pb_name()} ConfigSet${loader.get_go_pb_name()};
 	% endfor
 % endfor
+	customIndex custom_index_type.ExcelConfigCustomIndex
+}
 
-// 自定义索引由此开始 在config_custom_group_field.go内定义 需要在ExcelConfigCallbackOnLoad内初始化
-
-% for block_file in pb_set.get_custom_blocks("custom_config_group"):
-<%include file="${block_file}" />
-% endfor
+func (configGroup *ConfigGroup) GetCustomIndex() *custom_index_type.ExcelConfigCustomIndex {
+	if configGroup == nil {
+		return nil
+	}
+	return &configGroup.customIndex
 }
 
 func (configGroup *ConfigGroup) Init(callback ConfigCallback) (err error) {

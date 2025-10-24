@@ -13,5 +13,5 @@ func InitExcelConstConfigIndex(group *generate_config.ConfigGroup) error {
 		source[v.Key] = v.Value
 	}
 
-	return libatapp.ParseMessage(source, &group.ExcelConstConfig.ExcelConstConfig, nil)
+	return libatapp.ParseMessage(source, &group.GetCustomIndex().GetConstIndex().ExcelConstConfig, nil)
 }
