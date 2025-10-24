@@ -9,6 +9,8 @@ import (
 func createCompleter() readline.AutoCompleter {
 	return readline.NewPrefixCompleter(
 		readline.PcItem("login"),
+		readline.PcItem("getInfo"),
+		readline.PcItem("gm"),
 	)
 }
 
@@ -20,6 +22,10 @@ func onRecvCmd(cmd string) string {
 	switch cmds[0] {
 	case "login":
 		return LoginCmd(cmds[1:])
+	case "getInfo":
+		return GetInfoCmd(cmds[1:])
+	case "gm":
+		return GMCmd(cmds[1:])
 	}
 	return ""
 }
@@ -44,5 +50,23 @@ func LoginCmd(cmd []string) string {
 
 	// 创建Ping流程
 	GetCurrentUser().CheckPingTask()
+	return ""
+}
+
+func GetInfoCmd(cmd []string) string {
+	// 发送登录请求
+	err := GetInfoRpc(GetCurrentUser())
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func GMCmd(cmd []string) string {
+	// 发送登录请求
+	err := GMRpc(GetCurrentUser(), cmd)
+	if err != nil {
+		return err.Error()
+	}
 	return ""
 }

@@ -58,6 +58,24 @@ func PingRpc(user *User) error {
 	return sendReq(user, csMsg, csBody, false)
 }
 
+func GetInfoRpc(user *User) error {
+	if !user.Logined {
+		return fmt.Errorf("need login")
+	}
+
+	csMsg, csBody := makeUserGetInfoMessage(user)
+	return sendReq(user, csMsg, csBody, false)
+}
+
+func GMRpc(user *User, args []string) error {
+	if !user.Logined {
+		return fmt.Errorf("need login")
+	}
+
+	csMsg, csBody := makeUserGMMessage(user, args)
+	return sendReq(user, csMsg, csBody, false)
+}
+
 func makeLoginAuthMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSLoginAuthReq{
 		OpenId: user.OpenId,
@@ -139,6 +157,7 @@ func makeUserGetInfoMessage(user *User) (*public_protocol_extension.CSMsg, proto
 		NeedUserInfo:      true,
 		NeedUserOptions:   true,
 		NeedUserInventory: true,
+		NeedUserBuilding:  true,
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
@@ -149,9 +168,9 @@ func makeUserGetInfoMessage(user *User) (*public_protocol_extension.CSMsg, proto
 	return &csMsg, csBody
 }
 
-func makeUserGMMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeUserGMMessage(user *User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
-		Args: []string{"add-item", "1001", "1"},
+		Args: args,
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
