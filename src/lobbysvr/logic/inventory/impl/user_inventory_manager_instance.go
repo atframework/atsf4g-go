@@ -320,7 +320,8 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 	(*m.dirtyItems[typeId])[guid] = struct{}{}
 
 	m.GetOwner().InsertDirtyHandleIfNotExists(m,
-		func(ctx *cd.RpcContext, dirty *data.UserDirtyData) (ret bool) {
+		func(ctx *cd.RpcContext, dirty *data.UserDirtyData) bool {
+			ret := false
 			dirtyData := dirty.MutableNormalDirtyChangeMessage()
 			for typeId, guidSet := range m.dirtyItems {
 				group := m.getItemGroup(typeId)
@@ -351,7 +352,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 					ret = true
 				}
 			}
-			return
+			return ret
 		},
 		func(_ctx *cd.RpcContext) {
 			clear(m.dirtyItems)

@@ -14,6 +14,8 @@ import (
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
+
+	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
 type TaskActionUserGetInfo struct {
@@ -36,12 +38,11 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 
 	if request_body.GetNeedUserInfo() {
 		response_body.UserProfile = user.GetAccountInfo().GetProfile()
-		response_body.UserInfo = &public_protocol_pbdesc.DUserInfo{
-			UserLevel: user.GetUserData().GetUserLevel(),
-			UserStat: &public_protocol_pbdesc.DUserStat{
-				RegisterTime:  user.GetLoginInfo().GetBusinessRegisterTime(),
-				LastLoginTime: user.GetLoginInfo().GetBusinessLoginTime(),
-			},
+		ubmgr := data.UserGetModuleManager[logic_user.UserBasicManager](user)
+		if ubmgr != nil {
+			ubmgr.DumpUserInfo(response_body.MutableUserInfo())
+		} else {
+			t.LogError("UserBasicManager not found")
 		}
 	}
 

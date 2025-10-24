@@ -9,6 +9,8 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	pp_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+
+	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
 type UserVirtualItemManager struct {
@@ -39,10 +41,40 @@ func (m *UserVirtualItemManager) DumpToDB(_ctx *cd.RpcContext, _dbUser *private_
 }
 
 func (m *UserVirtualItemManager) AddItem(ctx *cd.RpcContext, itemOffset *data.ItemAddGuard, reason *data.ItemFlowReason) (bool, data.Result) {
+	if itemOffset == nil || itemOffset.Item == nil {
+		return true, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	switch itemOffset.Item.GetItemBasic().GetTypeId() {
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return true, cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		return true, redirMgr.AddUserExp(ctx, itemOffset.Item.GetItemBasic().GetCount())
+	default:
+		break
+	}
+
 	return false, cd.CreateRpcResultOk()
 }
 
 func (m *UserVirtualItemManager) SubItem(ctx *cd.RpcContext, itemOffset *data.ItemSubGuard, reason *data.ItemFlowReason) (bool, data.Result) {
+	if itemOffset == nil || itemOffset.Item == nil {
+		return true, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	switch itemOffset.Item.GetTypeId() {
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return true, cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		return true, redirMgr.SubUserExp(ctx, itemOffset.Item.GetCount())
+	default:
+		break
+	}
+
 	return false, cd.CreateRpcResultOk()
 }
 
@@ -51,11 +83,24 @@ func (m *UserVirtualItemManager) CheckAddItem(ctx *cd.RpcContext, itemOffset *pp
 		return cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
+	if itemOffset.GetItemBasic().GetCount() < 0 {
+		return cd.CreateRpcResultError(nil, pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	if itemOffset.GetItemBasic().GetGuid() != 0 {
+		return cd.CreateRpcResultError(fmt.Errorf("virtual item can not have guid"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
 	switch itemOffset.GetItemBasic().GetTypeId() {
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_CASH):
-	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
 		return cd.CreateRpcResultOk()
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		return redirMgr.CheckAddUserExp(ctx, itemOffset.GetItemBasic().GetCount())
 	default:
 		return cd.CreateRpcResultError(nil, pp_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 	}
@@ -63,15 +108,49 @@ func (m *UserVirtualItemManager) CheckAddItem(ctx *cd.RpcContext, itemOffset *pp
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) CheckSubItem(_ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) data.Result {
+func (m *UserVirtualItemManager) CheckSubItem(ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) data.Result {
 	if itemOffset == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	if itemOffset.GetCount() < 0 {
+		return cd.CreateRpcResultError(nil, pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	if itemOffset.GetGuid() != 0 {
+		return cd.CreateRpcResultError(fmt.Errorf("virtual item can not have guid"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	switch itemOffset.GetTypeId() {
+	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
+	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_CASH):
+		return cd.CreateRpcResultOk()
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		return redirMgr.CheckSubUserExp(ctx, itemOffset.GetCount())
+	default:
+		return cd.CreateRpcResultError(nil, pp_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 	}
 
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) GetTypeStatistics(_typeId int32) (bool, *data.ItemTypeStatistics) {
+func (m *UserVirtualItemManager) GetTypeStatistics(typeId int32) (bool, *data.ItemTypeStatistics) {
+	switch typeId {
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return true, nil
+		}
+		return true, &data.ItemTypeStatistics{
+			TotalCount: redirMgr.GetUserExp(),
+		}
+	default:
+		break
+	}
 	return false, nil
 }
 
@@ -79,10 +158,41 @@ func (m *UserVirtualItemManager) GetNotEnoughErrorCode(typeId int32) int32 {
 	return m.owner.UserItemManagerBase.GetNotEnoughErrorCode(typeId)
 }
 
-func (m *UserVirtualItemManager) GetItemFromBasic(_itemBasic *ppc.DItemBasic) (bool, *ppc.DItemInstance, data.Result) {
+func (m *UserVirtualItemManager) GetItemFromBasic(itemBasic *ppc.DItemBasic) (bool, *ppc.DItemInstance, data.Result) {
+	if itemBasic == nil {
+		return true, nil, cd.CreateRpcResultError(fmt.Errorf("itemBasic is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	switch itemBasic.GetTypeId() {
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return true, nil, cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+		return true, &ppc.DItemInstance{
+			ItemBasic: &ppc.DItemBasic{
+				TypeId: itemBasic.GetTypeId(),
+				Count:  redirMgr.GetUserExp(),
+				Guid:   0,
+			},
+		}, cd.CreateRpcResultOk()
+	default:
+		break
+	}
+	if itemBasic.GetCount() < 0 {
+		return true, nil, cd.CreateRpcResultError(nil, pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
 	return false, nil, cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) ForeachItem(_fn func(item *ppc.DItemInstance) bool) bool {
+func (m *UserVirtualItemManager) ForeachItem(fn func(item *ppc.DItemInstance) bool) bool {
+	redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+	if redirMgr != nil {
+		if !redirMgr.ForeachItem(fn) {
+			return false
+		}
+	}
+
 	return true
 }

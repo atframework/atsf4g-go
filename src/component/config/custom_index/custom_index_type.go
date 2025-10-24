@@ -19,3 +19,8 @@ func (i *ExcelConfigCustomIndex) GetConstIndex() *ExcelConfigConstIndex {
 type ExcelConfigConstIndex struct {
 	ExcelConstConfig public_protocol_config.ExcelConstConfig
 }
+
+type ExcelConfigUserLevelExpIndex struct {
+	MaxLevel uint32
+	MaxExp   int64
+}
