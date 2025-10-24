@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"strings"
 	"time"
@@ -15,40 +16,46 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func makeMessageHead(user *User, rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
-	user.connectionSequence++
-	return &public_protocol_extension.CSMsgHead{
-		Timestamp:      time.Now().Unix(),
-		ClientSequence: user.connectionSequence,
-		RpcType: &public_protocol_extension.CSMsgHead_RpcRequest{
-			RpcRequest: &public_protocol_extension.RpcRequestMeta{
-				RpcName: rpcName,
-				TypeUrl: typeName,
-			},
-		},
-	}
+var processResponseHandles = buildProcessResponseHandles()
+
+func buildProcessResponseHandles() map[string]func(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	handles := make(map[string]func(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message))
+	handles["proy.LobbyClientService.login_auth"] = processLoginAuthResponse
+	handles["proy.LobbyClientService.login"] = processLoginResponse
+	handles["proy.LobbyClientService.ping"] = processPongResponse
+	handles["proy.LobbyClientService.user_get_info"] = processGetInfoResponse
+	return handles
 }
 
-func processMakeRequest(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
-	user.dispatcherLock.Lock()
-	defer user.dispatcherLock.Unlock()
-
-	var csMsg *public_protocol_extension.CSMsg
-	var csBody proto.Message
-	if user.LoginCode == "" {
-		csMsg, csBody = makeLoginAuthMessage(user)
-	} else if !user.Logined {
-		csMsg, csBody = makeLoginMessage(user)
-	} else if user.LastPingTime.Add(user.HeartbeatInterval).Before(time.Now()) {
-		csMsg, csBody = makePingMessage(user)
-	} else if !user.HasGetInfo {
-		// Here could add more messages after login
-		csMsg, csBody = makeUserGetInfoMessage(user)
-	} else {
-		csMsg, csBody = makeUserGMMessage(user)
+func LoginAuthRpc(user *User) error {
+	if user.LoginCode != "" {
+		return fmt.Errorf("already login auth")
 	}
 
-	return csMsg, csBody
+	csMsg, csBody := makeLoginAuthMessage(user)
+	return sendReq(user, csMsg, csBody, true)
+}
+
+func LoginRpc(user *User) error {
+	if user.LoginCode == "" {
+		return fmt.Errorf("need login auth")
+	}
+
+	if user.Logined {
+		return fmt.Errorf("already login")
+	}
+
+	csMsg, csBody := makeLoginMessage(user)
+	return sendReq(user, csMsg, csBody, true)
+}
+
+func PingRpc(user *User) error {
+	if !user.Logined {
+		return fmt.Errorf("need login")
+	}
+
+	csMsg, csBody := makePingMessage(user)
+	return sendReq(user, csMsg, csBody, false)
 }
 
 func makeLoginAuthMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
@@ -106,7 +113,6 @@ func makeLoginMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messa
 		Head: makeMessageHead(user, "proy.LobbyClientService.login", string(proto.MessageName(csBody))),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
 	return &csMsg, csBody
 }
 
@@ -154,4 +160,72 @@ func makeUserGMMessage(user *User) (*public_protocol_extension.CSMsg, proto.Mess
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
 
 	return &csMsg, csBody
+}
+
+func processLoginAuthResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginAuthRsp)
+	if !ok {
+		log.Println("Can not convert to SCLoginAuthRsp")
+		return
+	}
+
+	head := msg.Head
+	if head.ErrorCode < 0 {
+		return
+	}
+
+	if body.GetLoginCode() != "" {
+		user.LoginCode = body.GetLoginCode()
+	}
+	if body.GetUserId() != 0 {
+		user.UserId = body.GetUserId()
+	}
+	if body.GetZoneId() != 0 {
+		user.ZoneId = body.GetZoneId()
+	}
+}
+
+func processLoginResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginRsp)
+	if !ok {
+		log.Println("Can not convert to SCLoginResp")
+		return
+	}
+
+	head := msg.Head
+	if head.ErrorCode < 0 {
+		return
+	}
+
+	if body.GetZoneId() != 0 {
+		user.ZoneId = body.GetZoneId()
+	}
+	user.Logined = true
+	if body.GetHeartbeatInterval() > 0 {
+		user.HeartbeatInterval = time.Duration(body.GetHeartbeatInterval()) * time.Second
+	}
+}
+
+func processPongResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	head := msg.Head
+	if head.ErrorCode < 0 {
+		return
+	}
+
+	user.LastPingTime = time.Now()
+}
+
+func processGetInfoResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	_, ok := rawBody.(*lobysvr_protocol_pbdesc.SCUserGetInfoRsp)
+	if !ok {
+		log.Println("Can not convert to SCUserGetInfoRsp")
+		return
+	}
+
+	head := msg.Head
+	if head.ErrorCode < 0 {
+		return
+	}
+
+	user.HasGetInfo = true
 }
