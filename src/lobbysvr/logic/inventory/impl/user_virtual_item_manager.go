@@ -15,12 +15,61 @@ import (
 
 type UserVirtualItemManager struct {
 	owner *UserInventoryManager
+
+	cachedVirtualItemInstance   map[int32]*ppc.DItemInstance
+	cachedVirtualItemStatistics map[int32]*data.ItemTypeStatistics
 }
 
 func createVirtualItemManager(owner *UserInventoryManager) *UserVirtualItemManager {
 	return &UserVirtualItemManager{
-		owner: owner,
+		owner:                       owner,
+		cachedVirtualItemInstance:   make(map[int32]*ppc.DItemInstance),
+		cachedVirtualItemStatistics: make(map[int32]*data.ItemTypeStatistics),
 	}
+}
+
+func (m *UserVirtualItemManager) mutableVirtualItemInstance(typeID int32) *ppc.DItemInstance {
+	if m == nil {
+		return &ppc.DItemInstance{
+			ItemBasic: &ppc.DItemBasic{
+				TypeId: typeID,
+				Count:  0,
+				Guid:   0,
+			},
+		}
+	}
+
+	ret, ok := m.cachedVirtualItemInstance[typeID]
+	if !ok || ret == nil {
+		ret := &ppc.DItemInstance{
+			ItemBasic: &ppc.DItemBasic{
+				TypeId: typeID,
+				Count:  0,
+				Guid:   0,
+			},
+		}
+		m.cachedVirtualItemInstance[typeID] = ret
+	}
+
+	return ret
+}
+
+func (m *UserVirtualItemManager) mutableVirtualItemStatistics(typeID int32) *data.ItemTypeStatistics {
+	if m == nil {
+		return &data.ItemTypeStatistics{
+			TotalCount: 0,
+		}
+	}
+
+	ret, ok := m.cachedVirtualItemStatistics[typeID]
+	if !ok || ret == nil {
+		ret := &data.ItemTypeStatistics{
+			TotalCount: 0,
+		}
+		m.cachedVirtualItemStatistics[typeID] = ret
+	}
+
+	return ret
 }
 
 func (m *UserVirtualItemManager) RefreshLimitSecond(_ctx *cd.RpcContext) {
@@ -145,9 +194,10 @@ func (m *UserVirtualItemManager) GetTypeStatistics(typeId int32) (bool, *data.It
 		if redirMgr == nil {
 			return true, nil
 		}
-		return true, &data.ItemTypeStatistics{
-			TotalCount: redirMgr.GetUserExp(),
-		}
+
+		ret := m.mutableVirtualItemStatistics(typeId)
+		ret.TotalCount = redirMgr.GetUserExp()
+		return true, ret
 	default:
 		break
 	}
@@ -169,13 +219,11 @@ func (m *UserVirtualItemManager) GetItemFromBasic(itemBasic *ppc.DItemBasic) (bo
 		if redirMgr == nil {
 			return true, nil, cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		}
-		return true, &ppc.DItemInstance{
-			ItemBasic: &ppc.DItemBasic{
-				TypeId: itemBasic.GetTypeId(),
-				Count:  redirMgr.GetUserExp(),
-				Guid:   0,
-			},
-		}, cd.CreateRpcResultOk()
+
+		ret := m.mutableVirtualItemInstance(itemBasic.GetTypeId())
+		ret.MutableItemBasic().Count = redirMgr.GetUserExp()
+		ret.MutableItemBasic().Guid = 0
+		return true, ret, cd.CreateRpcResultOk()
 	default:
 		break
 	}
