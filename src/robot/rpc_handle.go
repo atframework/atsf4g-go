@@ -157,7 +157,6 @@ func makeUserGetInfoMessage(user *User) (*public_protocol_extension.CSMsg, proto
 		NeedUserInfo:      true,
 		NeedUserOptions:   true,
 		NeedUserInventory: true,
-		NeedUserBuilding:  true,
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
