@@ -70,4 +70,5 @@ _generated/
 /src/component/config/generate_config
 
 /src/lobbysvr/app/*
+!/src/lobbysvr/app/register_modules.go
 /src/lobbysvr/rpc/lobbyclientservice/*

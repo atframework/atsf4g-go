@@ -15,7 +15,51 @@ import (
 	ppp "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	lobbysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+
+	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
 )
+
+func init() {
+	var _ logic_inventory.UserInventoryManager = (*UserInventoryManager)(nil)
+	data.RegisterUserModuleManagerCreator[logic_inventory.UserInventoryManager](func(_ctx *cd.RpcContext,
+		owner *data.User,
+	) data.UserModuleManagerImpl {
+		return CreateUserInventoryManager(owner)
+	})
+
+	data.RegisterUserItemManagerCreator([]data.UserItemTypeIdRange{
+		data.MakeUserItemTypeIdRange(
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN),
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END)),
+		data.MakeUserItemTypeIdRange(
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_PROP_BEGIN),
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_PROP_END)),
+		data.MakeUserItemTypeIdRange(
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_MISC_BEGIN),
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_MISC_END)),
+		data.MakeUserItemTypeIdRange(
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_FURNITURE_BEGIN),
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_FURNITURE_END)),
+		data.MakeUserItemTypeIdRange(
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_KITCHENWARE_BEGIN),
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_KITCHENWARE_END)),
+		data.MakeUserItemTypeIdRange(
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_BEGIN),
+			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_END)),
+	}, func(ctx *cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
+		mgr := data.UserGetModuleManager[logic_inventory.UserInventoryManager](owner)
+		if mgr == nil {
+			ctx.LogError("can not find user inventory manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
+			return nil
+		}
+		convert, ok := mgr.(data.UserItemManagerImpl)
+		if !ok || convert == nil {
+			ctx.LogError("user inventory manager does not implement UserItemManagerImpl", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
+			return nil
+		}
+		return convert
+	})
+}
 
 type UserInventoryItemGroup struct {
 	typeId int32
