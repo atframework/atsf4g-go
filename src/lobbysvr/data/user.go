@@ -9,7 +9,7 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -509,7 +509,7 @@ func (u *User) SubItem(ctx *cd.RpcContext, itemOffset []ItemSubGuard, reason *It
 	return result
 }
 
-func (u *User) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, Result) {
+func (u *User) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemOffset.GetTypeId()
 	mgr := u.GetItemManager(typeId)
 	if mgr == nil {
@@ -519,7 +519,7 @@ func (u *User) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *pp
 	return mgr.GenerateItemInstanceFromOffset(ctx, itemOffset)
 }
 
-func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, Result) {
+func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemBasic.GetTypeId()
 	mgr := u.GetItemManager(typeId)
 	if mgr == nil {
@@ -529,9 +529,9 @@ func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *ppc.
 	return mgr.GenerateItemInstanceFromBasic(ctx, itemBasic)
 }
 
-func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result) {
+func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]ItemAddGuard, Result) {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
-		data []*ppc.DItemInstance
+		data []*public_protocol_common.DItemInstance
 	})
 	for _, offset := range itemOffset {
 		typeId := offset.GetItemBasic().GetTypeId()
@@ -544,9 +544,9 @@ func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance)
 		group, exists := splitByMgr[mgr]
 		if !exists || group == nil {
 			group = &struct {
-				data []*ppc.DItemInstance
+				data []*public_protocol_common.DItemInstance
 			}{
-				data: make([]*ppc.DItemInstance, 0, 2),
+				data: make([]*public_protocol_common.DItemInstance, 0, 2),
 			}
 			splitByMgr[mgr] = group
 		}
@@ -564,9 +564,9 @@ func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance)
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result) {
+func (u *User) CheckSubItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]ItemSubGuard, Result) {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
-		data []*ppc.DItemBasic
+		data []*public_protocol_common.DItemBasic
 	})
 	for _, offset := range itemOffset {
 		typeId := offset.GetTypeId()
@@ -579,9 +579,9 @@ func (u *User) CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([
 		group, exists := splitByMgr[mgr]
 		if !exists || group == nil {
 			group = &struct {
-				data []*ppc.DItemBasic
+				data []*public_protocol_common.DItemBasic
 			}{
-				data: make([]*ppc.DItemBasic, 0, 2),
+				data: make([]*public_protocol_common.DItemBasic, 0, 2),
 			}
 			splitByMgr[mgr] = group
 		}
@@ -599,7 +599,7 @@ func (u *User) CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) GetTypeStatistics(typeId int32) *ItemTypeStatistics {
+func (u *User) GetItemTypeStatistics(typeId int32) *ItemTypeStatistics {
 	mgr := u.GetItemManager(typeId)
 	if mgr == nil {
 		return nil
@@ -608,7 +608,7 @@ func (u *User) GetTypeStatistics(typeId int32) *ItemTypeStatistics {
 	return mgr.GetTypeStatistics(typeId)
 }
 
-func (u *User) GetItemFromBasic(itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, Result) {
+func (u *User) GetItemFromBasic(itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
 	if itemBasic == nil {
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -638,4 +638,35 @@ func (u *User) CheckTypeIdValid(typeId int32) bool {
 	}
 
 	return mgr.CheckTypeIdValid(typeId)
+}
+
+// 检查期望消耗是否满足配置要求
+func (u *User) CheckCostItem(ctx *cd.RpcContext,
+	realCost []*public_protocol_common.DItemBasic,
+	expectCost []*public_protocol_common.DItemOffset,
+) Result {
+	if len(expectCost) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	countByTypeId := make(map[int32]int64)
+	for _, cost := range realCost {
+		typeId := cost.GetTypeId()
+		if countByTypeId[typeId] <= 0 {
+			continue
+		}
+
+		countByTypeId[typeId] += cost.GetCount()
+	}
+
+	for _, expect := range expectCost {
+		typeId := expect.GetTypeId()
+		expectCount := expect.GetCount()
+		actualCount, exists := countByTypeId[typeId]
+		if !exists || actualCount < expectCount {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(typeId))
+		}
+	}
+
+	return cd.CreateRpcResultOk()
 }
