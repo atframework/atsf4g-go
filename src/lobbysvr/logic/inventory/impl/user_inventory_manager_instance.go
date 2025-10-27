@@ -38,12 +38,6 @@ func init() {
 			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_MISC_BEGIN),
 			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_MISC_END)),
 		data.MakeUserItemTypeIdRange(
-			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_FURNITURE_BEGIN),
-			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_FURNITURE_END)),
-		data.MakeUserItemTypeIdRange(
-			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_KITCHENWARE_BEGIN),
-			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_BUILDING_KITCHENWARE_END)),
-		data.MakeUserItemTypeIdRange(
 			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_BEGIN),
 			int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_END)),
 	}, func(ctx *cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
