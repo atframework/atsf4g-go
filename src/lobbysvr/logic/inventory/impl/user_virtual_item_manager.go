@@ -1,4 +1,4 @@
-package lobbysvr_logic_item
+package lobbysvr_logic_inventory_impl
 
 import (
 	"fmt"
