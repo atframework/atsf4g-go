@@ -220,7 +220,8 @@ func main() {
 	binDir := filepath.Dir(protocBin)
 	os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	if runAllTools {
+	{
+		// 拷贝转表所需文件
 		_, err := os.Stat(path.Join(project_settings.GetProjectRootDir(), "third_party", "xresloader", "xres-code-generator", "xrescode-gen.py"))
 		if err != nil {
 			project_settings.FmtColorFprintRed(os.Stderr, "Not Found xres-code-generator xrescode-gen.py: git submodule init git submodule update\n")
