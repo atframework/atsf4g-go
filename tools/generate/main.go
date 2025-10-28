@@ -75,9 +75,11 @@ func generateAtfwGo(scanDirs []string) {
 			if strings.HasSuffix(baseName, ".go") && strings.HasPrefix(baseName, "generate.atfw.") {
 				for {
 					if strings.HasPrefix(baseName, "generate.atfw.windows.") && runtime.GOOS != "windows" {
+						// windows 只有linux跑
 						break
 					}
-					if strings.HasPrefix(baseName, "generate.atfw.linux.") && runtime.GOOS != "linux" {
+					if strings.HasPrefix(baseName, "generate.atfw.linux.") && runtime.GOOS == "windows" {
+						// linux 只有Windows不跑
 						break
 					}
 					absPath, err := filepath.Abs(path)
