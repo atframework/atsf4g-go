@@ -275,8 +275,8 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 		logWriter := t.GetCsActorLogWriter()
 		if logWriter != nil {
 			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Sending: %s\n", time.Now().Format(time.DateTime), t.rpcDescriptor.Output().FullName())
-			fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(t.requestHead))
-			fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.requestBody))
+			fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(responseMsg.Head))
+			fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.responseBody))
 		}
 		err = t.session.SendMessage(responseMsg)
 		if err != nil {
@@ -335,7 +335,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	// 输出CSLOG
 	logWriter := t.GetCsActorLogWriter()
 	if logWriter != nil {
-		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Received: %s\n", time.Now().Format(time.DateTime), t.rpcDescriptor.Output().FullName())
+		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Received: %s\n", time.Now().Format(time.DateTime), t.requestHead.GetRpcRequest().GetTypeUrl())
 		fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(t.requestHead))
 		fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.requestBody))
 	}
