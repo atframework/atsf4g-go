@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,25 +72,33 @@ func generateAtfwGo(scanDirs []string) {
 			}
 
 			baseName := filepath.Base(path)
-			if strings.HasPrefix(baseName, "generate.atfw.") && strings.HasSuffix(baseName, ".go") {
-				absPath, err := filepath.Abs(path)
-
-				re := regexp.MustCompile(`\.(\d+)\.go$`)
-				numberStrMatch := re.FindStringSubmatch(baseName)
-				number, _ := strconv.Atoi(numberStrMatch[1])
-
-				if err != nil {
-					if runCache[absPath] {
-						return nil
+			if strings.HasSuffix(baseName, ".go") && strings.HasPrefix(baseName, "generate.atfw.") {
+				for {
+					if strings.HasPrefix(baseName, "generate.atfw.windows.") && runtime.GOOS != "windows" {
+						break
 					}
-					matches = append(matches, matchPath{number, absPath})
-					runCache[absPath] = true
-				} else {
-					if runCache[path] {
-						return nil
+					if strings.HasPrefix(baseName, "generate.atfw.linux.") && runtime.GOOS != "linux" {
+						break
 					}
-					matches = append(matches, matchPath{number, absPath})
-					runCache[path] = true
+					absPath, err := filepath.Abs(path)
+					re := regexp.MustCompile(`\.(\d+)\.go$`)
+					numberStrMatch := re.FindStringSubmatch(baseName)
+					number, _ := strconv.Atoi(numberStrMatch[1])
+
+					if err != nil {
+						if runCache[absPath] {
+							return nil
+						}
+						matches = append(matches, matchPath{number, absPath})
+						runCache[absPath] = true
+					} else {
+						if runCache[path] {
+							return nil
+						}
+						matches = append(matches, matchPath{number, absPath})
+						runCache[path] = true
+					}
+					break
 				}
 			}
 			return nil
