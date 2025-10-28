@@ -260,7 +260,7 @@ func main() {
 	}
 	{
 		// atdtool win64
-		if !atframe_utils.PathExists(project_settings.GetAtdtoolDownloadPath()) {
+		if runtime.GOOS == "windows" && !atframe_utils.FileExists(path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool.exe")) {
 			project_settings.FmtColorPrintGreen("Download atdtool.exe")
 			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-windows-amd64.zip", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UnzipToDir(data, project_settings.GetAtdtoolDownloadPath())
@@ -268,7 +268,7 @@ func main() {
 	}
 	{
 		// atdtool linux
-		if !atframe_utils.PathExists(project_settings.GetAtdtoolDownloadPath()) {
+		if runtime.GOOS == "linux" && !atframe_utils.FileExists(path.Join(project_settings.GetAtdtoolDownloadPath(), "bin", "atdtool")) {
 			project_settings.FmtColorPrintGreen("Download atdtool")
 			data := atframe_utils.MustHTTPGet(fmt.Sprintf("https://github.com/atframework/atdtool/releases/download/v%s/atdtool-linux-amd64.tar.gz", project_settings.GetAtdtoolVersion()))
 			atframe_utils.UntarGzToDir(data, project_settings.GetAtdtoolDownloadPath())
