@@ -38,7 +38,7 @@ var CurrentUser *User
 
 func CreateUser(openId string) {
 	bufferWriter, _ := libatapp.NewlogBufferedRotatingWriter(
-		"./", openId, 1*1024*1024, 3, time.Second*3, false, false)
+		"../log", openId, 1*1024*1024, 3, time.Second*3, false, false)
 	runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
 		writer.Close()
 	})

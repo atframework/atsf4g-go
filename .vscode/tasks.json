@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "10.Generate:all",
+      "label": "010.Generate:all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -13,7 +13,7 @@
       "group": "build"
     },
     {
-      "label": "10.Build:all",
+      "label": "010.Build:all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -24,7 +24,7 @@
       "group": "build"
     },
     {
-      "label": "20.Generate:Protocol:libatapp",
+      "label": "020.Generate:Protocol:libatapp",
       "type": "shell",
       "command": "go",
       "args": [
@@ -39,7 +39,7 @@
       "group": "build"
     },
     {
-      "label": "20.Generate:Protocol:Private",
+      "label": "020.Generate:Protocol:Private",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/private"],
@@ -50,7 +50,7 @@
       "group": "build"
     },
     {
-      "label": "20.Generate:Protocol:Public",
+      "label": "020.Generate:Protocol:Public",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/public"],
@@ -61,7 +61,7 @@
       "group": "build"
     },
     {
-      "label": "21.Generate:Excel and configure",
+      "label": "021.Generate:Excel and configure",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/config"],
@@ -72,7 +72,7 @@
       "group": "build"
     },
     {
-      "label": "50.Generate:Protocol:lobbysvr",
+      "label": "050.Generate:Protocol:lobbysvr",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/lobbysvr"],
@@ -83,7 +83,7 @@
       "group": "build"
     },
     {
-      "label": "30.Generate:RPC and task configures",
+      "label": "030.Generate:RPC and task configures",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -94,7 +94,7 @@
       "group": "build"
     },
     {
-      "label": "30.Generate:RPC and task codes",
+      "label": "030.Generate:RPC and task codes",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/tools/generate-for-pb"],
@@ -105,7 +105,7 @@
       "group": "build"
     },
     {
-      "label": "50.Build:lobbysvr",
+      "label": "050.Build:lobbysvr",
       "type": "shell",
       "command": "go",
       "args": [
@@ -121,7 +121,7 @@
       "group": "build"
     },
     {
-      "label": "50.Build:robot",
+      "label": "050.Build:robot",
       "type": "shell",
       "command": "go",
       "args": [
@@ -137,7 +137,7 @@
       "group": "build"
     },
     {
-      "label": "60.Delete GeneratePBGO",
+      "label": "060.Delete GeneratePBGO",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -148,7 +148,7 @@
       "group": "build"
     },
     {
-      "label": "80.Deploy:Update Dependencies",
+      "label": "080.Deploy:Update Dependencies",
       "type": "shell",
       "command": "./update_dependency.sh",
       "args": [],
@@ -161,7 +161,7 @@
       "group": "none"
     },
     {
-      "label": "81.Deploy:GenerateServiceConfig",
+      "label": "081.Deploy:GenerateServiceConfig",
       "type": "shell",
       "command": "generate_config.sh",
       "args": [],
@@ -174,7 +174,7 @@
       "group": "none"
     },
     {
-      "label": "90.Start Lobbysvr",
+      "label": "090.Start Lobbysvr",
       "type": "shell",
       "command": "./start_1.1.11.1.bat",
       "args": [],
@@ -185,7 +185,7 @@
       "group": "none"
     },
     {
-      "label": "91.Stop Lobbysvr",
+      "label": "091.Stop Lobbysvr",
       "type": "shell",
       "command": "./stop_1.1.11.1.bat",
       "args": [],
@@ -196,7 +196,51 @@
       "group": "none"
     },
     {
-      "label": "92.Start Robot",
+      "label": "092.Restart Lobbysvr",
+      "type": "shell",
+      "command": "./restart_1.1.11.1.bat",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/lobbysvr/bin"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "100.Clear DB",
+      "type": "shell",
+      "command": "rm",
+      "args": ["*"],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/lobbysvr/data"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "101.Clear Lobby Log",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-r", "*"],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/lobbysvr/log"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "102.Clear Robot Log",
+      "type": "shell",
+      "command": "rm",
+      "args": ["*"],
+      "options": {
+        "cwd": "${workspaceFolder}/build/install/robot/log"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "095.Start Robot",
       "type": "shell",
       "command": "./robotd.exe",
       "args": [],
