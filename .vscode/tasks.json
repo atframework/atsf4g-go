@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "010.Generate:all",
+      "label": "Generate-Generate-all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -10,10 +10,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "010.Build:all",
+      "label": "Build:all",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -21,10 +21,10 @@
         "cwd": "${workspaceFolder}/tools/build"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "020.Generate:Protocol:libatapp",
+      "label": "Generate-Protocol:libatapp",
       "type": "shell",
       "command": "go",
       "args": [
@@ -36,10 +36,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "020.Generate:Protocol:Private",
+      "label": "Generate-Protocol:Private",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/private"],
@@ -47,10 +47,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "020.Generate:Protocol:Public",
+      "label": "Generate-Protocol:Public",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/protocol/public"],
@@ -58,10 +58,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "021.Generate:Excel and configure",
+      "label": "Generate-Excel and configure",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/component/config"],
@@ -69,10 +69,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "050.Generate:Protocol:lobbysvr",
+      "label": "Generate-Protocol:lobbysvr",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/src/lobbysvr"],
@@ -80,10 +80,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "030.Generate:RPC and task configures",
+      "label": "Generate-RPC and task configures",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -91,10 +91,10 @@
         "cwd": "${workspaceFolder}/tools/generate-for-pb"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "030.Generate:RPC and task codes",
+      "label": "Generate-RPC and task codes",
       "type": "shell",
       "command": "go",
       "args": ["run", ".", "${workspaceFolder}/tools/generate-for-pb"],
@@ -102,10 +102,10 @@
         "cwd": "${workspaceFolder}/tools/generate"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "050.Build:lobbysvr",
+      "label": "Build-lobbysvr",
       "type": "shell",
       "command": "go",
       "args": [
@@ -118,10 +118,10 @@
         "cwd": "${workspaceFolder}/src/lobbysvr"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "050.Build:robot",
+      "label": "Build-robot",
       "type": "shell",
       "command": "go",
       "args": [
@@ -134,10 +134,10 @@
         "cwd": "${workspaceFolder}/src/robot"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "060.Delete GeneratePBGO",
+      "label": "Generate-Delete GeneratePBGO",
       "type": "shell",
       "command": "go",
       "args": ["run", "."],
@@ -145,10 +145,10 @@
         "cwd": "${workspaceFolder}/tools/delete-generate-go"
       },
       "problemMatcher": "$go",
-      "group": "build"
+      "group": "none"
     },
     {
-      "label": "080.Deploy:Update Dependencies",
+      "label": "Deploy-Update Dependencies",
       "type": "shell",
       "command": "./update_dependency.sh",
       "args": [],
@@ -161,7 +161,7 @@
       "group": "none"
     },
     {
-      "label": "081.Deploy:GenerateServiceConfig",
+      "label": "Deploy-GenerateServiceConfig",
       "type": "shell",
       "command": "generate_config.sh",
       "args": [],
@@ -174,7 +174,7 @@
       "group": "none"
     },
     {
-      "label": "090.Start Lobbysvr",
+      "label": "Runtime-Start Lobbysvr",
       "type": "shell",
       "command": "./start_1.1.11.1.bat",
       "args": [],
@@ -185,7 +185,7 @@
       "group": "none"
     },
     {
-      "label": "091.Stop Lobbysvr",
+      "label": "Runtime-Stop Lobbysvr",
       "type": "shell",
       "command": "./stop_1.1.11.1.bat",
       "args": [],
@@ -196,7 +196,7 @@
       "group": "none"
     },
     {
-      "label": "092.Restart Lobbysvr",
+      "label": "Runtime-Restart Lobbysvr",
       "type": "shell",
       "command": "./restart_1.1.11.1.bat",
       "args": [],
@@ -207,7 +207,7 @@
       "group": "none"
     },
     {
-      "label": "100.Clear DB",
+      "label": "Runtime-Clear DB",
       "type": "shell",
       "command": "rm",
       "args": ["*"],
@@ -218,7 +218,7 @@
       "group": "none"
     },
     {
-      "label": "101.Clear Lobby Log",
+      "label": "Runtime-Clear Lobby Log",
       "type": "shell",
       "command": "rm",
       "args": ["-r", "*"],
@@ -229,7 +229,7 @@
       "group": "none"
     },
     {
-      "label": "102.Clear Robot Log",
+      "label": "Runtime-Clear Robot Log",
       "type": "shell",
       "command": "rm",
       "args": ["*"],
@@ -240,7 +240,7 @@
       "group": "none"
     },
     {
-      "label": "095.Start Robot",
+      "label": "Runtime-Start Robot",
       "type": "shell",
       "command": "./robotd.exe",
       "args": [],
