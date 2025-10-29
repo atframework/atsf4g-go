@@ -50,7 +50,7 @@ func LoginRpc(user *User) error {
 }
 
 func PingRpc(user *User) error {
-	if !user.Logined {
+	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -59,7 +59,7 @@ func PingRpc(user *User) error {
 }
 
 func GetInfoRpc(user *User) error {
-	if !user.Logined {
+	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -68,7 +68,7 @@ func GetInfoRpc(user *User) error {
 }
 
 func GMRpc(user *User, args []string) error {
-	if !user.Logined {
+	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 

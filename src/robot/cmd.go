@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/chzyer/readline"
@@ -27,6 +28,13 @@ func onRecvCmd(cmd string) string {
 	case "gm":
 		return GMCmd(cmds[1:])
 	}
+	return ""
+}
+
+func Logout() string {
+	GetCurrentUser().Logout()
+	CurrentUser = nil
+	fmt.Println("user logout")
 	return ""
 }
 

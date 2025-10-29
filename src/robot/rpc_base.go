@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
@@ -65,10 +64,9 @@ func receiveHandler(user *User) {
 			continue
 		}
 
-		titleString := fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName)
-		log.Printf("%s\n", titleString)
+		log.Printf("Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<\n", csMsg.Head.ErrorCode, rpcName)
 
-		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), titleString)
+		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName))
 		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
 
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
@@ -83,7 +81,6 @@ func receiveHandler(user *User) {
 			log.Println("Error in Unmarshal:", err)
 			return
 		}
-		log.Println(strings.Repeat("-", len(titleString)))
 		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
 		processResponse(user, rpcName, csMsg, csBody)
 	}

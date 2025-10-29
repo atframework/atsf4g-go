@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
-	"github.com/gorilla/websocket"
 )
 
 func ReadLine() {
@@ -22,40 +21,29 @@ func ReadLine() {
 	}
 	defer rl.Close()
 
+	fmt.Println("Enter 'quit' to Exit")
+	fmt.Println(CurrentUser.CmdHelpInfo())
+
 	for {
-		cmdInfo := CurrentUser.CmdHelpInfo()
-		if cmdInfo != "" {
-			fmt.Println(cmdInfo)
-		}
 		cmd, err := rl.Readline()
 		if err != nil {
-			// 读取错误退出
-			if err.Error() == "EOF" {
-				log.Println("EOF")
-				break
-			}
-			log.Println("End:", err)
+			continue
+		}
+		if cmd == "quit" {
 			break
 		}
-		cmdInfo = onRecvCmd(cmd)
+		cmdInfo := onRecvCmd(cmd)
 		if cmdInfo != "" {
 			fmt.Println(cmdInfo)
 		}
 	}
 
-	// We received a SIGINT (Ctrl + C). Terminate gracefully...
 	log.Println("Closing all pending connections")
 
 	currentUser := GetCurrentUser()
-	if currentUser != nil && CurrentUser.connection != nil {
-		// Close our websocket connection
-		err = currentUser.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		if err != nil {
-			log.Println("Error during closing websocket:", err)
-			return
-		}
-
+	if currentUser != nil {
+		currentUser.Logout()
 		<-time.After(1 * time.Second)
-		log.Println("Timeout in closing receiving channel. Exiting....")
+		log.Println("Exiting....")
 	}
 }

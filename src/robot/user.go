@@ -43,7 +43,6 @@ func CreateUser(openId string) {
 		writer.Close()
 	})
 
-	socketUrl := "ws://localhost:7001/ws/v1"
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
 		log.Fatal("Error connecting to Websocket Server:", err)
@@ -68,6 +67,19 @@ func GetCurrentUser() *User {
 	return CurrentUser
 }
 
+func (u *User) IsLogin() bool {
+	if u == nil {
+		return false
+	}
+	if u.Closed.Load() {
+		return false
+	}
+	if !u.Logined {
+		return false
+	}
+	return true
+}
+
 func (u *User) CmdHelpInfo() string {
 	if u == nil {
 		return "Need Login,CMD: login opendid"
@@ -87,4 +99,21 @@ func (u *User) CheckPingTask() {
 		}
 	}
 	time.AfterFunc(5*time.Second, u.CheckPingTask)
+}
+
+func (u *User) Logout() {
+	if !u.Logined {
+		return
+	}
+	u.Logined = false
+	u.Closed.Store(true)
+
+	if u.connection != nil {
+		// Close our websocket connection
+		err := u.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		if err != nil {
+			log.Println("Error during closing websocket:", err)
+			return
+		}
+	}
 }
