@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/chzyer/readline"
 )
@@ -36,14 +35,5 @@ func ReadLine() {
 		if cmdInfo != "" {
 			fmt.Println(cmdInfo)
 		}
-	}
-
-	log.Println("Closing all pending connections")
-
-	currentUser := GetCurrentUser()
-	if currentUser != nil {
-		currentUser.Logout()
-		<-time.After(1 * time.Second)
-		log.Println("Exiting....")
 	}
 }
