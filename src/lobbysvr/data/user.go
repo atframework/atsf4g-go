@@ -331,7 +331,7 @@ func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 			continue
 		}
 
-		hasDirty = hasDirty || handles.dumpDirty(ctx, &dumpData)
+		hasDirty = handles.dumpDirty(ctx, &dumpData) || hasDirty
 	}
 
 	// 脏数据推送
