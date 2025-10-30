@@ -145,8 +145,7 @@ func ReadLine() {
 	}
 	defer rlIn.Close()
 
-	fmt.Println("Enter 'quit' to Exit")
-	fmt.Println(CurrentUser.CmdHelpInfo())
+	fmt.Println("Enter 'quit' to Exit, 'Tab' to AutoComplete")
 
 	for {
 		cmd, err := rlIn.Readline()

@@ -80,13 +80,6 @@ func (u *User) IsLogin() bool {
 	return true
 }
 
-func (u *User) CmdHelpInfo() string {
-	if u == nil {
-		return "Need Login,CMD: login opendid"
-	}
-	return ""
-}
-
 func (u *User) CheckPingTask() {
 	if !u.IsLogin() {
 		return
