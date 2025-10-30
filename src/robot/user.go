@@ -88,7 +88,7 @@ func (u *User) CmdHelpInfo() string {
 }
 
 func (u *User) CheckPingTask() {
-	if !u.Logined {
+	if !u.IsLogin() {
 		return
 	}
 	if u.LastPingTime.Add(u.HeartbeatInterval).Before(time.Now()) {
@@ -102,7 +102,7 @@ func (u *User) CheckPingTask() {
 }
 
 func (u *User) Logout() {
-	if !u.Logined {
+	if !u.IsLogin() {
 		return
 	}
 	u.Logined = false

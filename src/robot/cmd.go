@@ -2,36 +2,16 @@ package main
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/chzyer/readline"
 )
 
-func createCompleter() readline.AutoCompleter {
-	return readline.NewPrefixCompleter(
-		readline.PcItem("login"),
-		readline.PcItem("getInfo"),
-		readline.PcItem("gm"),
-	)
+func init() {
+	RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>")
+	RegisterCommand([]string{"user", "logout"}, Logout, "")
+	RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "")
+	RegisterCommand([]string{"misc", "gm"}, GMCmd, "<args...>")
 }
 
-func onRecvCmd(cmd string) string {
-	cmds := strings.Split(cmd, " ")
-	if len(cmds) == 0 {
-		return ""
-	}
-	switch cmds[0] {
-	case "login":
-		return LoginCmd(cmds[1:])
-	case "getInfo":
-		return GetInfoCmd(cmds[1:])
-	case "gm":
-		return GMCmd(cmds[1:])
-	}
-	return ""
-}
-
-func Logout() string {
+func Logout(cmd []string) string {
 	GetCurrentUser().Logout()
 	CurrentUser = nil
 	fmt.Println("user logout")

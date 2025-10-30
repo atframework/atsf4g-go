@@ -112,7 +112,7 @@ func makeLoginMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messa
 			ChannelId:   uint32(public_protocol_pbdesc.EnPlatformChannelID_EN_PCI_NONE),
 		},
 		ClientInfo: &public_protocol_pbdesc.DClientDeviceInfo{
-			SystemId:       uint32(public_protocol_pbdesc.EnSystemID_EN_OS_WINDOWS),
+			SystemId:       public_protocol_pbdesc.EnSystemID_EN_OS_WINDOWS,
 			ClientVersion:  "0.0.0.1",
 			SystemSoftware: runtime.GOOS,
 			SystemHardware: runtime.GOARCH,
