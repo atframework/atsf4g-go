@@ -6,3 +6,26 @@ proc_name: lobbysvrd
 
 redis:
   enable: true
+  
+type_id: 65
+type_name: "lobbysvr"
+
+image:
+  repository: harbor.m-oa.com:6023/project-y/project-y-server
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+volumeMounts:
+  mountPath: /service/lobbysvr/cfg
+  
+imagePullSecrets:
+  - name: jijunliang-harbor-regcred
+
+persistence:
+  cbs:
+    enabled: false
+    volumes:
+      - name: log
+        storage: 50Gi
+        mountPath: /service/lobbysvr/log
+

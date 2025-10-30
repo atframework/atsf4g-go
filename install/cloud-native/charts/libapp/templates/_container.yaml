@@ -1,0 +1,75 @@
+{{- define "libapp.container.tpl" -}}
+name: {{ include "libapp.name" . }}
+securityContext:
+  {{- toYaml .Values.securityContext | nindent 2 }}
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+imagePullPolicy: {{ .Values.image.pullPolicy }}
+volumeMounts:
+- name: config
+  mountPath: "{{ .Values.volumeMounts.mountPath }}"
+  readOnly: true
+env:
+- name: ATAPP_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: ATAPP_HOSTNAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: ATAPP_METADATA_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: ATAPP_METADATA_NAMESPACE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
+- name: ATAPP_METADATA_UID
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.uid
+- name: ATAPP_RUNTIME_SPEC_SERVICE_ACCOUNT_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.serviceAccountName
+- name: ATAPP_RUNTIME_SPEC_NODE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+- name: ATAPP_RUNTIME_STATUS_HOST_IP
+  valueFrom:
+    fieldRef:
+      fieldPath: status.hostIP
+- name: ATAPP_RUNTIME_STATUS_POD_IP
+  valueFrom:
+    fieldRef:
+      fieldPath: status.podIP
+- name: ATAPP_RESOURCE_LIMITS_CPU
+  valueFrom:
+    resourceFieldRef:
+      containerName: {{ include "libapp.name" . }}
+      resource: limits.cpu
+      divisor: "1m"
+- name: ATAPP_RESOURCE_LIMITS_MEMORY
+  valueFrom:
+    resourceFieldRef:
+      containerName: {{ include "libapp.name" . }}
+      resource: limits.memory
+- name: ATAPP_RESOURCE_REQUESTS_CPU
+  valueFrom:
+    resourceFieldRef:
+      containerName: {{ include "libapp.name" . }}
+      resource: requests.cpu
+      divisor: "1m"
+- name: ATAPP_RESOURCE_REQUESTS_MEMORY
+  valueFrom:
+    resourceFieldRef:
+      containerName: {{ include "libapp.name" . }}
+      resource: requests.memory
+{{- end -}}
+{{- define "libapp.container" -}}
+{{- /* clear new line so indentation works correctly */ -}}
+{{- println "" -}}
+{{- include "libapp.util.merge" (append . "libapp.container.tpl") | indent 4 -}}
+{{- end -}}
