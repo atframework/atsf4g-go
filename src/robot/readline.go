@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"sort"
 	"strings"
 
@@ -48,7 +47,7 @@ func RegisterCommand(path []string, fn CommandFunc, info string) {
 // FindCommand 根据路径查找命令节点
 func FindCommand(path string) (args []string, node *CommandNode) {
 	node = root
-	args = strings.Fields(path)
+	args = splitArgs(path)
 	for {
 		if len(node.Children) == 0 {
 			break
@@ -97,12 +96,54 @@ func buildCompleterFromNode(node *CommandNode, name string) *readline.PrefixComp
 	return readline.PcItem(name, items...)
 }
 
-func clearHistoryFunc(args []string) string {
-	file, _ := os.OpenFile("./cmd_history.tmp", os.O_WRONLY|os.O_TRUNC, 0666)
-	file.Close()
-	rlIn.ResetHistory()
-	fmt.Println(args)
-	return ""
+func splitArgs(input string) []string {
+	var result []string
+	var current strings.Builder
+	var quote rune   // 当前是否在引号内 (' 或 ")
+	escaped := false // 上一个字符是否为 '\'
+
+	for _, r := range input {
+		switch {
+		case escaped:
+			// 转义状态下，直接写入字符
+			current.WriteRune(r)
+			escaped = false
+
+		case r == '\\':
+			// 遇到反斜杠，开启转义模式
+			escaped = true
+
+		case quote != 0:
+			// 在引号内
+			if r == quote {
+				// 结束引号
+				quote = 0
+			} else {
+				current.WriteRune(r)
+			}
+
+		case r == '"' || r == '\'':
+			// 开始新的引号块
+			quote = r
+
+		case r == ' ' || r == '\t':
+			// 空白分隔符（仅在非引号内生效）
+			if current.Len() > 0 {
+				result = append(result, current.String())
+				current.Reset()
+			}
+
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	// 收尾
+	if current.Len() > 0 {
+		result = append(result, current.String())
+	}
+
+	return result
 }
 
 // ExecuteCommand 执行命令
@@ -130,7 +171,6 @@ func ExecuteCommand(rl *readline.Instance, input string) {
 func ReadLine() {
 	// 注册命令
 	RegisterCommand([]string{"quit"}, nil, "")
-	RegisterCommand([]string{"clear-history"}, clearHistoryFunc, "")
 
 	config := &readline.Config{
 		Prompt:       "\033[32m»\033[0m ", // 设置提示符
