@@ -117,15 +117,17 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 			${pb_loader.MakoToCamelName(field.name)}: ${pb_loader.MakoPbMsgGetPbFieldGoType(field)}(data.${pb_loader.MakoToCamelName(field.name)}),
 		% endfor
 		}
+		% if not code_index.is_list():
 		if _, ok := configSet.configIndexContainer_${code_index.name}[key]; ok {
 			configSet.callBack.GetLogger().Error("[EXCEL] merge_data() key for index is already exists, we will cover it with the newer value",
-		% for field in code_index.fields:
+			% for field in code_index.fields:
 				"${pb_loader.MakoToCamelName(field.name)}",
 				data.${pb_loader.MakoToCamelName(field.name)},
-		% endfor
+			% endfor
 				"index",
 				"ConfigSet${loader.get_go_pb_name()}")
 		}
+		% endif
 	% endif
 	% if code_index.is_list():
 		configSet.configIndexContainer_${code_index.name}[key] = append(configSet.configIndexContainer_${code_index.name}[key], data)
