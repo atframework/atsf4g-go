@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/chzyer/readline"
 )
@@ -14,34 +15,93 @@ type CommandFunc func([]string) string
 type CommandNode struct {
 	Children map[string]*CommandNode
 	Name     string
+	FullName string
 	Func     CommandFunc
+	ArgsInfo string
+	Desc     string
+}
+
+func (node *CommandNode) SelfHelpString() []string {
+	return []string{node.FullName, node.ArgsInfo, node.Desc}
+}
+
+func AllHelpStringInner(node *CommandNode) (ret [][]string) {
+	if node.Func != nil {
+		ret = append(ret, node.SelfHelpString())
+	}
+	for _, v := range node.Children {
+		ret = append(ret, AllHelpStringInner(v)...)
+	}
+	return
+}
+
+func print3Cols(table [][]string) string {
+	// 至少三个列宽
+	width := [3]int{0, 0, 0}
+
+	// 计算每列最大宽度（按 rune 数）
+	for _, row := range table {
+		for i := 0; i < 3; i++ {
+			var cell string
+			if i < len(row) {
+				cell = row[i]
+			} else {
+				cell = ""
+			}
+			l := utf8.RuneCountInString(cell)
+			if l > width[i] {
+				width[i] = l
+			}
+		}
+	}
+
+	var builder strings.Builder
+
+	// 打印，每列左对齐，两列之间用两个空格分隔
+	format := fmt.Sprintf("%%-%ds  %%-%ds  %%-%ds\n", width[0], width[1], width[2])
+	for _, row := range table {
+		c0, c1, c2 := "", "", ""
+		if len(row) > 0 {
+			c0 = row[0]
+		}
+		if len(row) > 1 {
+			c1 = row[1]
+		}
+		if len(row) > 2 {
+			c2 = row[2]
+		}
+
+		builder.WriteString(fmt.Sprintf(format, c0, c1, c2))
+	}
+	return builder.String()
+}
+
+func AllHelpString(node *CommandNode) string {
+	head := []string{"Command", "Args", "Desc"}
+	ret := make([][]string, 0)
+	ret = append(ret, head)
+	ret = append(ret, AllHelpStringInner(node)...)
+	return print3Cols(ret)
 }
 
 var root = &CommandNode{Children: make(map[string]*CommandNode)}
-var rlIn *readline.Instance
 
-func RegisterCommand(path []string, fn CommandFunc, info string) {
+func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string) {
 	current := root
 	for _, key := range path {
 		if current.Children[strings.ToLower(key)] == nil {
-			current.Children[strings.ToLower(key)] = &CommandNode{Children: make(map[string]*CommandNode)}
+			current.Children[strings.ToLower(key)] = &CommandNode{
+				Children: make(map[string]*CommandNode),
+				Name:     key,
+				FullName: current.FullName + " " + key,
+			}
 			current.Children[strings.ToLower(key)].Name = key
 		}
 		current = current.Children[strings.ToLower(key)]
 	}
 	current.Func = fn
-	if info != "" {
-		if current.Children["-h"] == nil {
-			current.Children["-h"] = &CommandNode{
-				Children: make(map[string]*CommandNode),
-				Name:     "-h",
-				Func: func([]string) string {
-					return info
-				},
-			}
-			current.Children["-h"].Name = "-h"
-		}
-	}
+	current.ArgsInfo = argsInfo
+	current.Desc = desc
 }
 
 // FindCommand 根据路径查找命令节点
@@ -153,7 +213,11 @@ func ExecuteCommand(rl *readline.Instance, input string) {
 		return
 	}
 	args, node := FindCommand(input)
-	if node == nil {
+	if node == root {
+		if input == "help" {
+			fmt.Print(AllHelpString(root))
+			return
+		}
 		fmt.Println("未知命令:", input)
 		return
 	}
@@ -164,13 +228,17 @@ func ExecuteCommand(rl *readline.Instance, input string) {
 			fmt.Println(result)
 		}
 	} else {
-		fmt.Println("这是一个命令组，不可直接执行")
+		fmt.Print(AllHelpString(node))
 	}
+}
+
+func QuitCmd([]string) string {
+	return ""
 }
 
 func ReadLine() {
 	// 注册命令
-	RegisterCommand([]string{"quit"}, nil, "")
+	RegisterCommand([]string{"quit"}, QuitCmd, "", "退出")
 
 	config := &readline.Config{
 		Prompt:       "\033[32m»\033[0m ", // 设置提示符

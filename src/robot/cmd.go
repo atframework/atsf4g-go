@@ -5,10 +5,10 @@ import (
 )
 
 func init() {
-	RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>")
-	RegisterCommand([]string{"user", "logout"}, Logout, "")
-	RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "")
-	RegisterCommand([]string{"misc", "gm"}, GMCmd, "<args...>")
+	RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议")
+	RegisterCommand([]string{"user", "logout"}, Logout, "", "登出协议")
+	RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息")
+	RegisterCommand([]string{"misc", "gm"}, GMCmd, "<args...>", "GM")
 }
 
 func Logout(cmd []string) string {
