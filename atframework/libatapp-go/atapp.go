@@ -1007,6 +1007,14 @@ func (app *AppInstance) setupStartupLog() error {
 	}
 
 	if app.config.CrashOutputFile != "" {
+
+		dir := filepath.Dir(app.config.CrashOutputFile)
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			app.GetDefaultLogger().Error("Create crash output dir failed", "file", app.config.CrashOutputFile, "error", err)
+			return err
+		}
+
 		f, err := os.Create(app.config.CrashOutputFile)
 		if err != nil {
 			app.GetDefaultLogger().Error("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
