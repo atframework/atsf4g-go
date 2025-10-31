@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -76,6 +77,7 @@ type AppConfig struct {
 	// 日志配置
 	StartupLog       []string
 	StartupErrorFile string
+	CrashOutputFile  string
 
 	ConfigPb *atframe_protocol.AtappConfigure
 }
@@ -230,6 +232,7 @@ func CreateAppInstance() AppImpl {
 	ret.flagSet.String("pid", "", "pid file path")
 	ret.flagSet.String("startup-log", "", "startup log file")
 	ret.flagSet.String("startup-error-file", "", "startup error file")
+	ret.flagSet.String("crash-output-file", "", "crash output file")
 
 	ret.appContext, ret.stopAppHandle = context.WithCancel(context.Background())
 
@@ -305,6 +308,10 @@ func (app *AppInstance) SetFlag(flag AppFlag, value bool) bool {
 }
 
 func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, error) {
+	if config == nil {
+		return nil, fmt.Errorf("log config is nil")
+	}
+
 	globalLevel := ConvertLogLevel(config.Level)
 	appLog := new(AppLog)
 
@@ -852,20 +859,15 @@ func (app *AppInstance) LoadConfig(configFile string) (err error) {
 		app.config.ConfigFile = configFile
 		// 实际的配置文件解析逻辑
 		app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
-		var configPb atframe_protocol.AtappConfigure
-		err = LoadConfigFromYaml(configFile, "atapp", &configPb, app.GetDefaultLogger())
+		app.config.ConfigPb = &atframe_protocol.AtappConfigure{}
+		err = LoadConfigFromYaml(configFile, "atapp", app.config.ConfigPb, app.GetDefaultLogger())
 		if err != nil {
+			app.GetDefaultLogger().Error("Load config failed", "error", err)
 			return
 		}
-		var appLog *AppLog
-		appLog, err = app.InitLog(configPb.Log)
-		if err != nil {
-			return
-		}
-		oldLogger := app.logger
-		app.logger = appLog
-		for i := range oldLogger.writers {
-			oldLogger.writers[i].Close()
+
+		if app.config.ConfigPb.GetLog().GetCrashOutputFile() != "" {
+			app.config.CrashOutputFile = app.config.ConfigPb.GetLog().GetCrashOutputFile()
 		}
 	}
 	return
@@ -960,6 +962,10 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 		app.config.PidFile = app.flagSet.Lookup("pid").Value.String()
 	}
 
+	if app.flagSet.Lookup("crash-output-file").Value.String() != "" {
+		app.config.CrashOutputFile = app.flagSet.Lookup("crash-output-file").Value.String()
+	}
+
 	// 检查位置参数以确定命令
 	args := app.flagSet.Args()
 	if len(args) > 0 {
@@ -999,11 +1005,57 @@ func (app *AppInstance) setupStartupLog() error {
 			app.GetDefaultLogger().Info("Setting up startup log", "file", logFile)
 		}
 	}
+
+	if app.config.CrashOutputFile != "" {
+		f, err := os.Create(app.config.CrashOutputFile)
+		if err != nil {
+			app.GetDefaultLogger().Error("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			return err
+		}
+
+		app.GetDefaultLogger().Info("Setting up crash output file", "file", app.config.CrashOutputFile)
+		err = debug.SetCrashOutput(f, debug.CrashOptions{})
+		if err != nil {
+			app.GetDefaultLogger().Error("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (app *AppInstance) setupLog() error {
-	// TODO: 根据配置设置日志
+	if app.config.ConfigPb == nil {
+		return fmt.Errorf("setup process error, configure not loaded")
+	}
+	// 根据配置设置日志
+	appLog, err := app.InitLog(app.config.ConfigPb.Log)
+	if err != nil {
+		return err
+	}
+
+	oldLogger := app.logger
+	app.logger = appLog
+	for i := range oldLogger.writers {
+		oldLogger.writers[i].Close()
+	}
+
+	// 设置崩溃输出文件
+	if app.config.CrashOutputFile != "" {
+		f, err := os.Create(app.config.CrashOutputFile)
+		if err != nil {
+			app.GetDefaultLogger().Error("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			return err
+		}
+
+		app.GetDefaultLogger().Info("Setting up crash output file", "file", app.config.CrashOutputFile)
+		err = debug.SetCrashOutput(f, debug.CrashOptions{})
+		if err != nil {
+			app.GetDefaultLogger().Error("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1170,7 +1222,19 @@ func (app *AppInstance) handleStopCommand(_args []string) error {
 
 func (app *AppInstance) handleReloadCommand(_args []string) error {
 	app.GetDefaultLogger().Info("======================== App received reload command ========================")
-	return app.Reload()
+	err := app.Reload()
+	if err != nil {
+		app.GetDefaultLogger().Error("App reload failed", slog.Any("error", err))
+		return err
+	}
+
+	err = app.setupLog()
+	if err != nil {
+		app.GetDefaultLogger().Error("App reload and log setup failed", slog.Any("error", err))
+		return err
+	}
+
+	return nil
 }
 
 func (app *AppInstance) MakeAction(callback func(action *AppActionData) error, message_data []byte, private_data interface{}) *AppActionSender {
