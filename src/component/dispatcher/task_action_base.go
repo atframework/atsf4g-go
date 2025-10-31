@@ -7,6 +7,7 @@ import (
 	"time"
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	libatapp "github.com/atframework/libatapp-go"
 )
 
 type TaskActionBase struct {
@@ -278,22 +279,24 @@ func (t *TaskActionBase) GetInternalLogger() *slog.Logger {
 	return d.GetLogger()
 }
 
+// ====================== 业务日志接口 =========================
+
 func (t *TaskActionBase) LogWithLevel(level slog.Level, msg string, args ...any) {
-	t.GetRpcContext().LogWithLevel(level, msg, args...)
+	t.GetRpcContext().LogWithLevelWithCaller(libatapp.GetCaller(1), level, msg, args...)
 }
 
 func (t *TaskActionBase) LogError(msg string, args ...any) {
-	t.GetRpcContext().LogWithLevel(slog.LevelError, msg, args...)
+	t.GetRpcContext().LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelError, msg, args...)
 }
 
 func (t *TaskActionBase) LogWarn(msg string, args ...any) {
-	t.GetRpcContext().LogWithLevel(slog.LevelWarn, msg, args...)
+	t.GetRpcContext().LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelWarn, msg, args...)
 }
 
 func (t *TaskActionBase) LogInfo(msg string, args ...any) {
-	t.GetRpcContext().LogWithLevel(slog.LevelInfo, msg, args...)
+	t.GetRpcContext().LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelInfo, msg, args...)
 }
 
 func (t *TaskActionBase) LogDebug(msg string, args ...any) {
-	t.GetRpcContext().LogWithLevel(slog.LevelDebug, msg, args...)
+	t.GetRpcContext().LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelDebug, msg, args...)
 }

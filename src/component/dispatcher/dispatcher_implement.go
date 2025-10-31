@@ -347,12 +347,12 @@ func (der *RpcResult) GetErrorString() string {
 	return der.GetResponseMessage()
 }
 
-func (der *RpcResult) LogWithLevelContext(c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
 	if der.IsOK() {
 		if ctx != nil {
-			ctx.LogWithLevelContext(c, level, msg, args...)
+			ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 		} else {
-			slog.Log(c, level, msg, args...)
+			libatapp.LogInner(slog.Default(), pc, c, level, msg, args...)
 		}
 		return
 	}
@@ -365,48 +365,50 @@ func (der *RpcResult) LogWithLevelContext(c context.Context, level slog.Level, c
 	}
 
 	if ctx != nil {
-		ctx.LogWithLevelContext(c, level, msg, args...)
+		ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 	} else {
-		slog.Log(c, level, msg, args...)
+		libatapp.LogInner(slog.Default(), pc, c, level, msg, args...)
 	}
 }
 
-func (der *RpcResult) LogWithLevel(level slog.Level, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogWithLevelWithCaller(pc uintptr, level slog.Level, ctx *RpcContext, msg string, args ...any) {
 	if ctx == nil || ctx.Context == nil {
-		der.LogWithLevelContext(context.Background(), level, ctx, msg, args...)
+		der.LogWithLevelContextWithCaller(pc, context.Background(), level, ctx, msg, args...)
 		return
 	}
-	der.LogWithLevelContext(ctx.Context, level, ctx, msg, args...)
+	der.LogWithLevelContextWithCaller(pc, ctx.Context, level, ctx, msg, args...)
 }
 
+// ====================== 业务日志接口 =========================
+
 func (der *RpcResult) LogErrorContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevelContext(c, slog.LevelError, ctx, msg, args...)
+	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelError, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogError(ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevel(slog.LevelError, ctx, msg, args...)
+	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelError, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogWarnContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevelContext(c, slog.LevelWarn, ctx, msg, args...)
+	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelWarn, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogWarn(ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevel(slog.LevelWarn, ctx, msg, args...)
+	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelWarn, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogInfoContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevelContext(c, slog.LevelInfo, ctx, msg, args...)
+	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelInfo, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogInfo(ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevel(slog.LevelInfo, ctx, msg, args...)
+	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelInfo, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogDebugContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevelContext(c, slog.LevelDebug, ctx, msg, args...)
+	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelDebug, ctx, msg, args...)
 }
 
 func (der *RpcResult) LogDebug(ctx *RpcContext, msg string, args ...any) {
-	der.LogWithLevel(slog.LevelDebug, ctx, msg, args...)
+	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelDebug, ctx, msg, args...)
 }

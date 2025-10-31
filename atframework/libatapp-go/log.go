@@ -106,7 +106,15 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 	}
 
 	buf := make([]uintptr, 32)
-	n := runtime.Callers(5, buf)
+	n := runtime.Callers(3, buf)
+	// 找到pc所在位置
+	for i := 0; i < n; i++ {
+		if buf[i] == pc {
+			buf = buf[i:]
+			n -= i
+			break
+		}
+	}
 
 	frames := runtime.CallersFrames(buf[:n])
 
@@ -117,10 +125,6 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 		if !more {
 			break
 		}
-	}
-	trimCount := 1
-	if len(stack) > trimCount {
-		stack = stack[:len(stack)-trimCount]
 	}
 
 	sb := newlogBuffer()
@@ -220,4 +224,23 @@ func ConvertLogLevel(level string) slog.Level {
 	}
 
 	return slog.LevelInfo
+}
+
+func GetCaller(skip int) uintptr {
+	var pcs [1]uintptr
+	// skip [runtime.Callers, this function, this function's caller, and skip]
+	runtime.Callers(2+skip, pcs[:])
+	return pcs[0]
+}
+
+func LogInner(logger *slog.Logger, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !logger.Enabled(ctx, level) {
+		return
+	}
+	r := slog.NewRecord(time.Now(), level, msg, pc)
+	r.Add(args...)
+	_ = logger.Handler().Handle(ctx, r)
 }

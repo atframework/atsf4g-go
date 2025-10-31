@@ -230,8 +230,7 @@ func CreateAppInstance() AppImpl {
 	ret.flagSet.Bool("help", false, "print help and exit")
 	ret.flagSet.String("config", "", "config file path")
 	ret.flagSet.String("pid", "", "pid file path")
-	ret.flagSet.String("startup-log", "", "startup log file")
-	ret.flagSet.String("startup-error-file", "", "startup error file")
+	ret.flagSet.String("startup-log", "", "startup log output <\"stdout,stderr,stdsys,/path/to/file\">")
 	ret.flagSet.String("crash-output-file", "", "crash output file")
 
 	ret.appContext, ret.stopAppHandle = context.WithCancel(context.Background())
@@ -962,6 +961,10 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 		app.config.PidFile = app.flagSet.Lookup("pid").Value.String()
 	}
 
+	if app.flagSet.Lookup("startup-log").Value.String() != "" {
+		app.config.StartupLog = strings.Split(app.flagSet.Lookup("startup-log").Value.String(), ",")
+	}
+
 	if app.flagSet.Lookup("crash-output-file").Value.String() != "" {
 		app.config.CrashOutputFile = app.flagSet.Lookup("crash-output-file").Value.String()
 	}
@@ -999,11 +1002,53 @@ func (app *AppInstance) setupSignal() error {
 }
 
 func (app *AppInstance) setupStartupLog() error {
-	// TODO: 根据配置设置启动流程日志
 	if len(app.config.StartupLog) > 0 {
-		for _, logFile := range app.config.StartupLog {
-			app.GetDefaultLogger().Info("Setting up startup log", "file", logFile)
+		app.GetDefaultLogger().Info("Setting up startup log", "config", app.config.StartupLog)
+		app.logger.loggers = nil
+		handler := logHandlerImpl{
+			writers:        make([]logHandlerWriter, 0),
+			frameInfoCache: &app.logFrameInfoCache,
+			stackCache:     &app.logStackCache,
 		}
+		for _, logFile := range app.config.StartupLog {
+			switch logFile {
+			case "stdout":
+				{
+					handler.writers = append(handler.writers, logHandlerWriter{
+						minLevel: slog.LevelError,
+						maxLevel: slog.LevelError,
+						out:      NewlogStdoutWriter(),
+					})
+				}
+			case "stderr":
+				{
+					handler.writers = append(handler.writers, logHandlerWriter{
+						minLevel: slog.LevelError,
+						maxLevel: slog.LevelError,
+						out:      NewlogStderrWriter(),
+					})
+				}
+			case "stdsys":
+				{
+					// TODO 支持SYS
+				}
+			default:
+				{
+
+					out, _ := NewlogBufferedRotatingWriter(
+						"../log", logFile, 50*1024*1024, 1, time.Second*1, false, false)
+					handler.writers = append(handler.writers, logHandlerWriter{
+						minLevel:         slog.LevelDebug,
+						maxLevel:         slog.LevelError,
+						out:              out,
+						enableStackTrace: true,
+						stackTraceLevel:  slog.LevelError,
+						autoFlushLevel:   slog.LevelError,
+					})
+				}
+			}
+		}
+		app.logger.loggers = append(app.logger.loggers, slog.New(&handler))
 	}
 
 	if app.config.CrashOutputFile != "" {
