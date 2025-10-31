@@ -14,6 +14,7 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var processResponseHandles = buildProcessResponseHandles()
@@ -58,12 +59,12 @@ func PingRpc(user *User) error {
 	return sendReq(user, csMsg, csBody, false)
 }
 
-func GetInfoRpc(user *User) error {
+func GetInfoRpc(user *User, args []string) error {
 	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
-	csMsg, csBody := makeUserGetInfoMessage(user)
+	csMsg, csBody := makeUserGetInfoMessage(user, args)
 	return sendReq(user, csMsg, csBody, false)
 }
 
@@ -152,11 +153,35 @@ func makePingMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messag
 	return &csMsg, csBody
 }
 
-func makeUserGetInfoMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
-	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{
-		NeedUserInfo:      true,
-		NeedUserOptions:   true,
-		NeedUserInventory: true,
+func makeUserGetInfoMessage(user *User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{}
+
+	ref := csBody.ProtoReflect()
+	fields := ref.Descriptor().Fields()
+
+	needFields := make(map[string]struct{})
+	for _, arg := range args {
+		needFields[arg] = struct{}{}
+	}
+
+	for i := 0; i < fields.Len(); i++ {
+		field := fields.Get(i)
+		fieldName := string(field.Name())
+
+		// 检查字段名前缀和类型
+		if strings.HasPrefix(fieldName, "need_") && field.Kind() == protoreflect.BoolKind {
+			if len(needFields) > 0 {
+				_, ok := needFields[fieldName]
+				if !ok {
+					_, ok = needFields[strings.TrimPrefix(fieldName, "need_")]
+					if !ok {
+						continue
+					}
+				}
+			}
+
+			ref.Set(field, protoreflect.ValueOfBool(true))
+		}
 	}
 
 	csMsg := public_protocol_extension.CSMsg{

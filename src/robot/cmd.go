@@ -43,7 +43,7 @@ func LoginCmd(cmd []string) string {
 
 func GetInfoCmd(cmd []string) string {
 	// 发送登录请求
-	err := GetInfoRpc(GetCurrentUser())
+	err := GetInfoRpc(GetCurrentUser(), cmd)
 	if err != nil {
 		return err.Error()
 	}
