@@ -56,8 +56,8 @@ func (h *SessionNetworkWebsocketHandle) GetRemoteAddr() string {
 	return h.cacheRemoteAddr
 }
 
-func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl) *cd.WebSocketMessageDispatcher {
-	d := cd.CreateCSMessageWebsocketDispatcher(owner)
+func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl, webServerConfigurePath string, webSocketServerConfigurePath string) *cd.WebSocketMessageDispatcher {
+	d := cd.CreateCSMessageWebsocketDispatcher(owner, webServerConfigurePath, webSocketServerConfigurePath)
 	if lu.IsNil(d) {
 		return nil
 	}

@@ -47,6 +47,9 @@ type (
 type WebSocketMessageDispatcher struct {
 	DispatcherBase
 
+	webServerConfigurePath       string
+	webSocketServerConfigurePath string
+
 	serverConfig *private_protocol_config.WebserverCfg
 	wsConfig     *private_protocol_config.WebsocketServerCfg
 	upgrader     *websocket.Upgrader
@@ -68,10 +71,13 @@ type WebSocketMessageDispatcher struct {
 	onNewMessage    atomic.Value
 }
 
-func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl) *WebSocketMessageDispatcher {
+func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl, webServerConfigurePath string, webSocketServerConfigurePath string) *WebSocketMessageDispatcher {
 	// 使用时间戳作为初始值, 避免与重启前的值冲突
 	ret := &WebSocketMessageDispatcher{
 		DispatcherBase: CreateDispatcherBase(owner),
+
+		webServerConfigurePath:       webServerConfigurePath,
+		webSocketServerConfigurePath: webSocketServerConfigurePath,
 
 		sessions:           make(map[uint64]*WebSocketSession),
 		sessionIdAllocator: atomic.Uint64{},
@@ -440,11 +446,26 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 		Path:                 "/ws/v1",
 	}
 
+	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webServerConfigurePath, d.serverConfig, d.GetLogger())
+	if loadErr != nil {
+		err = loadErr
+	}
+
+	loadErr = libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webSocketServerConfigurePath, d.wsConfig, d.GetLogger())
+	if loadErr != nil {
+		err = loadErr
+	}
+
+	if d.serverConfig.Port <= 0 || d.serverConfig.Port > 65535 {
+		err = fmt.Errorf("invalid web server port: %d", d.serverConfig.Port)
+		d.serverConfig.Port = 7001
+	}
+
 	if d.IsActived() {
 		return d.setupListen()
 	}
 
-	return nil
+	return err
 }
 
 func (d *WebSocketMessageDispatcher) Stop() (bool, error) {

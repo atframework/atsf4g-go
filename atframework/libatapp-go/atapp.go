@@ -79,7 +79,8 @@ type AppConfig struct {
 	StartupErrorFile string
 	CrashOutputFile  string
 
-	ConfigPb *atframe_protocol.AtappConfigure
+	ConfigPb         *atframe_protocol.AtappConfigure
+	ConfigOriginData interface{}
 }
 
 // 消息类型
@@ -859,7 +860,7 @@ func (app *AppInstance) LoadConfig(configFile string) (err error) {
 		// 实际的配置文件解析逻辑
 		app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
 		app.config.ConfigPb = &atframe_protocol.AtappConfigure{}
-		err = LoadConfigFromYaml(configFile, "atapp", app.config.ConfigPb, app.GetDefaultLogger())
+		app.config.ConfigOriginData, err = LoadConfigFromYaml(configFile, "atapp", app.config.ConfigPb, app.GetDefaultLogger())
 		if err != nil {
 			app.GetDefaultLogger().Error("Load config failed", "error", err)
 			return
@@ -1054,7 +1055,7 @@ func (app *AppInstance) setupStartupLog() error {
 	if app.config.CrashOutputFile != "" {
 
 		dir := filepath.Dir(app.config.CrashOutputFile)
-		err := os.MkdirAll(dir, 0755)
+		err := os.MkdirAll(dir, 0o755)
 		if err != nil {
 			app.GetDefaultLogger().Error("Create crash output dir failed", "file", app.config.CrashOutputFile, "error", err)
 			return err

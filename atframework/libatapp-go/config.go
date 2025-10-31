@@ -169,8 +169,10 @@ const (
 )
 
 // 字符映射数组，最大256个字符
-var mapValue [256]int
-var transValue [256]rune
+var (
+	mapValue   [256]int
+	transValue [256]rune
+)
 
 func initCharSet() {
 	// 如果已初始化则跳过
@@ -820,20 +822,65 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 	return nil
 }
 
-func LoadConfigFromYaml(configPath string, firstPath string, configPb proto.Message, logger *slog.Logger) (err error) {
+func LoadConfigFromOriginData(originData interface{}, prefixPath string, configPb proto.Message, logger *slog.Logger) (err error) {
+	parent := originData
+	pathParts := strings.Split(prefixPath, ".")
+	for i, pathPart := range pathParts {
+		trimPart := strings.TrimSpace(pathPart)
+		if trimPart == "" {
+			continue
+		}
+
+		arrayIndex, convErr := strconv.Atoi(trimPart)
+		if convErr == nil {
+			// 数组下标
+			parentArray, ok := parent.([]interface{})
+			if !ok {
+				err = fmt.Errorf("LoadConfigFromYaml expected array at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
+				return
+			}
+			if len(parentArray) <= arrayIndex {
+				err = fmt.Errorf("LoadConfigFromYaml array index out of range at %s, got %d >= %d", strings.Join(pathParts[0:i+1], "."), arrayIndex, len(parentArray))
+				return
+			}
+			parent = parentArray[arrayIndex]
+		} else {
+			// 字符串key
+			parentMap, ok := parent.(map[string]interface{})
+			if !ok {
+				err = fmt.Errorf("LoadConfigFromYaml expected map at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
+				return
+			}
+			parent, ok = parentMap[trimPart]
+			if !ok {
+				err = fmt.Errorf("LoadConfigFromYaml key not found at %s", strings.Join(pathParts[0:i+1], "."))
+				return
+			}
+		}
+	}
+
+	atappData, ok := parent.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("LoadConfigFromYaml expected map at %s, got %T", strings.Join(pathParts, "."), reflect.TypeOf(parent).Elem().Name())
+		return
+	}
+	err = ParseMessage(atappData, configPb, logger)
+	return
+}
+
+func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Message, logger *slog.Logger) (yamlData map[string]interface{}, err error) {
 	var data []byte
 	data, err = os.ReadFile(configPath)
 	if err != nil {
 		return
 	}
 
-	yamlData := make(map[interface{}]interface{})
+	yamlData = make(map[string]interface{})
 	err = yaml.Unmarshal(data, yamlData)
 	if err != nil {
 		return
 	}
 
-	atappData := yamlData[firstPath].(map[string]interface{})
-	err = ParseMessage(atappData, configPb, logger)
+	err = LoadConfigFromOriginData(yamlData, prefixPath, configPb, logger)
 	return
 }

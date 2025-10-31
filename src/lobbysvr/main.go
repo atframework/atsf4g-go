@@ -16,7 +16,7 @@ func main() {
 	app := ssc.CreateServiceApplication()
 
 	// CS消息WebSocket分发器
-	csDispatcher := uc_d.WebsocketDispatcherCreateCSMessage(app)
+	csDispatcher := uc_d.WebsocketDispatcherCreateCSMessage(app, "lobbysvr.webserver", "lobbysvr.websocket")
 	atapp.AtappAddModule(app, csDispatcher)
 
 	if err := lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc_d.WebsocketDispatcherFindSessionFromMessage); err != nil {
