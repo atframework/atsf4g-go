@@ -76,11 +76,11 @@ Selector labels
 {{- define "libapp.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "libapp.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app.matrix.io/service-type: gs
-app.matrix.io/id: {{ int .Values.logic_id | quote }}
-app.matrix.io/name: {{ include "libapp.name" . }}
-app.matrix.io/environment: {{ include "libapp.environment" . }}
-app.matrix.io/partition: {{ .Values.partition | quote }}
+app.yygf.io/service-type: gs
+app.yygf.io/id: {{ int .Values.logic_id | quote }}
+app.yygf.io/name: {{ include "libapp.name" . }}
+app.yygf.io/environment: {{ include "libapp.environment" . }}
+app.yygf.io/partition: {{ .Values.partition | quote }}
 {{- end }}
 
 {{/*

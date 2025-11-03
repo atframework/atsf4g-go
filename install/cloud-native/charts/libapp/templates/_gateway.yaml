@@ -11,14 +11,10 @@ metadata:
 spec:
   gatewayClassName: {{ default "cilium" .Values.gateway.class }}
   listeners:
-  - name: https-1
-    protocol: HTTPS
+  - name: http-1
+    protocol: HTTP
     port: {{ default 443 .Values.gateway.port }}
     hostname: {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.gateway.hostname | quote }}
-    tls:
-      certificateRefs:
-      - kind: Secret
-        name: {{ default "tls-secret" .Values.gateway.certificateSecret }}
   addresses:
     - type: IPAddress
       value: {{ default "127.0.0.1" .Values.gateway.addresses_ip }}
