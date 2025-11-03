@@ -47,7 +47,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 	loginCode := user.GetLoginInfo().GetLoginCode()
 
 	err := uc.UserUpdateAuthDataToFile(t.GetRpcContext(), user.GetZoneId(), user.GetUserId(), accessSecret, loginCode)
-	if err != nil {
+	if err.IsError() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
 		t.GetLogger().Warn("save access secret failed", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "error", err)
 		return nil

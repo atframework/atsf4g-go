@@ -11,6 +11,7 @@ import (
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
+	db "github.com/atframework/atsf4g-go/component-db"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
@@ -89,7 +90,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		return nil
 	}
 
-	loginTb, result := uc.UserLoadLoginTableFromFile(t.GetRpcContext(), zoneId, userId)
+	loginTb, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
 	if result.IsError() {
 		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND) {
 			loginTb = &private_protocol_pbdesc.DatabaseTableLogin{

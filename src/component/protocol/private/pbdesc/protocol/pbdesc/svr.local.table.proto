@@ -15,6 +15,23 @@ import "protocol/pbdesc/svr.struct.proto";
 
 package proy;
 
+message database_table_access {
+  // clang-format off
+  option (atframework.database_table) = {
+    index: {
+      name: "access"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      key_fields: "zone_id"
+      key_fields: "user_id"
+    }
+  };
+  // clang-format on
+  uint64 user_id = 1;
+  uint32 zone_id = 2;
+  string access_secret = 3;
+  string login_code = 4;
+}
+
 message database_table_login {
   string open_id = 1;
   uint64 user_id = 2;

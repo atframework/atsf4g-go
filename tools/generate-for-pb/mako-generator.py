@@ -17,6 +17,7 @@ import tempfile
 import threading
 import concurrent.futures
 from subprocess import PIPE, Popen, TimeoutExpired
+from google.protobuf import descriptor_pb2 as pb2
 
 HANDLE_SPLIT_PBFIELD_RULE = re.compile("\\d+|_+|\\s+|\\-")
 HANDLE_SPLIT_MODULE_RULE = re.compile("\\.|\\/|\\\\")
@@ -26,6 +27,44 @@ LOCAL_PROJECT_VCS_CACHE = dict()
 LOCAL_WOKER_POOL: concurrent.futures.ThreadPoolExecutor = None
 LOCAL_WOKER_FUTURES = dict()
 
+pb_msg_go_type_map = {
+    pb2.FieldDescriptorProto.TYPE_BOOL: "bool",
+    pb2.FieldDescriptorProto.TYPE_BYTES: "[]byte",
+    pb2.FieldDescriptorProto.TYPE_DOUBLE: "double",
+    pb2.FieldDescriptorProto.TYPE_ENUM: "int32",
+    pb2.FieldDescriptorProto.TYPE_FIXED32: "int32",
+    pb2.FieldDescriptorProto.TYPE_FIXED64: "int64",
+    pb2.FieldDescriptorProto.TYPE_FLOAT: "float",
+    pb2.FieldDescriptorProto.TYPE_INT32: "int32",
+    pb2.FieldDescriptorProto.TYPE_INT64: "int64",
+    pb2.FieldDescriptorProto.TYPE_SFIXED32: "int32",
+    pb2.FieldDescriptorProto.TYPE_SFIXED64: "int64",
+    pb2.FieldDescriptorProto.TYPE_SINT32: "int32",
+    pb2.FieldDescriptorProto.TYPE_SINT64: "int64",
+    pb2.FieldDescriptorProto.TYPE_STRING: "string",
+    pb2.FieldDescriptorProto.TYPE_UINT32: "uint32",
+    pb2.FieldDescriptorProto.TYPE_UINT64: "uint64",
+}
+
+pb_msg_go_fmt_map = {
+    pb2.FieldDescriptorProto.TYPE_BOOL: "%d",
+    pb2.FieldDescriptorProto.TYPE_BYTES: "%s",
+    pb2.FieldDescriptorProto.TYPE_DOUBLE: "%f",
+    pb2.FieldDescriptorProto.TYPE_ENUM: "%d",
+    pb2.FieldDescriptorProto.TYPE_FIXED32: "%d",
+    pb2.FieldDescriptorProto.TYPE_FIXED64: "%d",
+    pb2.FieldDescriptorProto.TYPE_FLOAT: "%f",
+    pb2.FieldDescriptorProto.TYPE_INT32: "%d",
+    pb2.FieldDescriptorProto.TYPE_INT64: "%d",
+    pb2.FieldDescriptorProto.TYPE_SFIXED32: "%d",
+    pb2.FieldDescriptorProto.TYPE_SFIXED64: "%d",
+    pb2.FieldDescriptorProto.TYPE_SINT32: "%d",
+    pb2.FieldDescriptorProto.TYPE_SINT64: "%d",
+    pb2.FieldDescriptorProto.TYPE_STRING: "%s",
+    pb2.FieldDescriptorProto.TYPE_UINT32: "%d",
+    pb2.FieldDescriptorProto.TYPE_UINT64: "%d",
+    pb2.FieldDescriptorProto.TYPE_MESSAGE: "%s",
+}
 
 def print_exception_with_traceback(e: Exception, fmt: str = None, *args):
     import traceback
@@ -331,6 +370,17 @@ class PbField(PbObjectBase):
             return False
         return self.descriptor.full_name in checked_names
 
+    def get_go_type(self):
+        global pb_msg_go_type_map
+        if self.descriptor.type in pb_msg_go_type_map:
+            return pb_msg_go_type_map[self.descriptor.type]
+        return self.descriptor.type
+
+    def get_go_fmt_type(self):
+        global pb_msg_go_fmt_map
+        if self.descriptor.type in pb_msg_go_fmt_map:
+            return pb_msg_go_fmt_map[self.descriptor.type]
+        return self.descriptor.type
 
 class PbOneof(PbObjectBase):
 

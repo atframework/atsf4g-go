@@ -1,18 +1,14 @@
 package atframework_component_user_controller
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"sync"
-
-	atfw_utils_fs "github.com/atframework/atframe-utils-go/file_system"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	"google.golang.org/protobuf/proto"
 
+	db "github.com/atframework/atsf4g-go/component-db"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
@@ -215,90 +211,23 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 
 // TODO: 临时的鉴权数据读取
 func UserGetAuthDataFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64) (string, string) {
-	accessFilePath := fmt.Sprintf("../data/%d-%d.access.db", zoneID, userID)
-	if _, serr := os.Stat(accessFilePath); serr != nil {
+	table, err := db.DatabaseTableAccessLoadWithZoneIdUserId(ctx, zoneID, userID)
+	if err.IsError() {
 		return "", ""
 	}
-
-	af, err := os.Open(accessFilePath)
-	if err != nil {
-		return "", ""
-	}
-	defer af.Close()
-
-	var accessSecret string
-	var loginCode string
-	scanner := bufio.NewScanner(af)
-	for scanner.Scan() {
-		text := scanner.Text()
-		if len(text) == 0 {
-			continue
-		}
-
-		if loginCode == "" {
-			loginCode = text
-			continue
-		}
-
-		accessSecret = text
-		break
-	}
-
-	return accessSecret, loginCode
+	return table.GetAccessSecret(), table.GetLoginCode()
 }
 
 // TODO: 临时的鉴权数据更新
-func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, accessSecret string, loginCode string) error {
-	dataDir := "../data"
-	accessFilePath := fmt.Sprintf("../data/%d-%d.access.db", zoneID, userID)
-
-	if _, serr := os.Stat(dataDir); serr != nil {
-		os.MkdirAll(dataDir, 0o755)
+func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, accessSecret string, loginCode string) cd.RpcResult {
+	table := private_protocol_pbdesc.DatabaseTableAccess{
+		ZoneId:       zoneID,
+		UserId:       userID,
+		AccessSecret: accessSecret,
+		LoginCode:    loginCode,
 	}
 
-	af, err := os.OpenFile(accessFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-	if err != nil {
-		return err
-	}
-	defer af.Close()
-
-	writer := bufio.NewWriter(af)
-
-	_, err = writer.WriteString(loginCode + "\n")
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.WriteString(accessSecret + "\n")
-	if err != nil {
-		return err
-	}
-
-	writer.Flush()
-
-	return nil
-}
-
-// TODO: 临时的数据读取
-func UserLoadLoginTableFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64) (*private_protocol_pbdesc.DatabaseTableLogin, cd.RpcResult) {
-	loginTbFilePath := fmt.Sprintf("../data/%d-%d.login.db", zoneID, userID)
-
-	if _, serr := os.Stat(loginTbFilePath); serr != nil {
-		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND)
-	}
-
-	ldata, err := atfw_utils_fs.ReadAllContent(loginTbFilePath)
-	if err != nil {
-		return nil, cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-	}
-
-	loginTb := &private_protocol_pbdesc.DatabaseTableLogin{}
-	if err = proto.Unmarshal(ldata, loginTb); err != nil {
-		return nil, cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal login db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-	}
-
-	ctx.LogInfo("load login table from db success", "zone_id", zoneID, "user_id", userID)
-	return loginTb, cd.CreateRpcResultOk()
+	return db.DatabaseTableAccessUpdateZoneIdUserId(ctx, &table)
 }
 
 // TODO: 临时的数据读取
@@ -311,11 +240,10 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	userTb := &private_protocol_pbdesc.DatabaseTableUser{}
-
-	userTbFilePath := fmt.Sprintf("../data/%d-%d.user.db", u.GetZoneId(), u.GetUserId())
-	if _, serr := os.Stat(userTbFilePath); serr != nil {
+	userTb, err := db.DatabaseTableUserLoadWithZoneIdUserId(ctx, u.GetZoneId(), u.GetUserId())
+	if err.IsError() {
 		// 新创建得记录初始化
+		userTb = new(private_protocol_pbdesc.DatabaseTableUser)
 		userTb.AccountData = &private_protocol_pbdesc.AccountInformation{
 			AccountType: loginTb.GetAccount().GetAccountType(),
 			Access:      loginTb.GetAccount().GetAccess(),
@@ -331,18 +259,8 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 			SessionSequence: 1,
 		}
 		userTb.DataVersion = UserDataCurrentVersion
-	} else {
-		udata, err := atfw_utils_fs.ReadAllContent(userTbFilePath)
-		if err != nil {
-			ctx.LogInfo("load user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath)
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-
-		if err = proto.Unmarshal(udata, userTb); err != nil {
-			ctx.LogInfo("unmarshal user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "file_path", userTbFilePath, "error", err)
-			return cd.CreateRpcResultError(fmt.Errorf("failed to unmarshal user db data: %w", err), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-		}
 	}
+
 	userTb.OpenId = loginTb.GetOpenId()
 	userTb.ZoneId = u.GetZoneId()
 	userTb.UserId = u.GetUserId()
@@ -372,94 +290,27 @@ func (um *UserManager) internalSave(ctx *cd.RpcContext, userImpl UserImpl) cd.Rp
 		}
 	}
 
-	// TODO: 临时的保存数据
-	if _, serr := os.Stat("../data"); serr != nil {
-		os.MkdirAll("../data", 0o755)
-	}
-
-	var result cd.RpcResult
-	if ds, serr := os.Stat("../data"); serr != nil || !ds.IsDir() {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("../data is not a directory or can not be created as a directory"),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY),
-		}
-
-		result.LogError(ctx, "failed to create ../data directory", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
-	}
-
 	dstTb := &private_protocol_pbdesc.DatabaseTableUser{}
-	result = userImpl.DumpToDB(userImpl, ctx, dstTb)
+	result := userImpl.DumpToDB(userImpl, ctx, dstTb)
 
 	if result.IsError() {
 		result.LogError(ctx, "dump user to db failed", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
 		return result
 	}
 
-	userData, err := proto.Marshal(dstTb)
-	if err != nil {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("failed to marshal user db data: %w", err),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE),
-		}
-		result.LogError(ctx, "failed to marshal user db data", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
-	}
-
 	// 路由版本号+1
 	routerVersion := userImpl.GetLoginInfo().RouterVersion + 1
 	userImpl.GetLoginInfo().RouterVersion = routerVersion
-	loginData, err := proto.Marshal(userImpl.GetLoginInfo())
-	userImpl.GetLoginInfo().RouterVersion = routerVersion - 1
-	if err != nil {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("failed to marshal login db data: %w", err),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE),
-		}
-		result.LogError(ctx, "failed to marshal login db data", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
+
+	err := db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb)
+	if err.IsError() {
+		userImpl.GetLoginInfo().RouterVersion = routerVersion - 1
+		return err
 	}
 
-	uf, err := os.Create(fmt.Sprintf("../data/%d-%d.user.db", userImpl.GetZoneId(), userImpl.GetUserId()))
-	if err != nil {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("failed to create user db file: %w", err),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY),
-		}
-		result.LogError(ctx, "failed to create user db file", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
-	}
-	defer uf.Close()
-
-	lf, err := os.Create(fmt.Sprintf("../data/%d-%d.login.db", userImpl.GetZoneId(), userImpl.GetUserId()))
-	if err != nil {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("failed to create login db file: %w", err),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY),
-		}
-		result.LogError(ctx, "failed to create login db file", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
-	}
-	defer lf.Close()
-
-	_, err = uf.Write(userData)
-	if err != nil {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("failed to write user db file: %w", err),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM),
-		}
-		result.LogError(ctx, "failed to write user db file", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
-	}
-
-	_, err = lf.Write(loginData)
-	if err != nil {
-		result = cd.RpcResult{
-			Error:        fmt.Errorf("failed to write login db file: %w", err),
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM),
-		}
-		result.LogError(ctx, "failed to write login db file", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
+	err = db.DatabaseTableLoginUpdateZoneIdUserId(ctx, userImpl.GetLoginInfo())
+	if err.IsError() {
+		return err
 	}
 
 	if routerVersion > userImpl.GetLoginInfo().RouterVersion {

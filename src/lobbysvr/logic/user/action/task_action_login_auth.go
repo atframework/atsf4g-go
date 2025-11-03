@@ -77,10 +77,10 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	if accessSecret == "" {
 		accessSecret = "*"
 	}
-	err = uc.UserUpdateAuthDataToFile(t.GetRpcContext(), zoneId, userId, accessSecret, loginCode)
-	if err != nil {
+	rpcErr := uc.UserUpdateAuthDataToFile(t.GetRpcContext(), zoneId, userId, accessSecret, loginCode)
+	if rpcErr.IsError() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().Warn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
+		t.GetLogger().Warn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", rpcErr)
 		return nil
 	}
 
