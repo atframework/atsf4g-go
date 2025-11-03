@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-)
 
-var socketUrl string
+	cmd "github.com/atframework/atsf4g-go/robot/cmd"
+	config "github.com/atframework/atsf4g-go/robot/config"
+	utils "github.com/atframework/atsf4g-go/robot/utils"
+)
 
 func main() {
 	flagSet := flag.NewFlagSet(
@@ -30,13 +32,13 @@ func main() {
 		return
 	}
 
-	socketUrl = flagSet.Lookup("url").Value.String()
-	fmt.Println("URL:", socketUrl)
+	config.SocketUrl = flagSet.Lookup("url").Value.String()
+	fmt.Println("URL:", config.SocketUrl)
 
-	ReadLine()
+	utils.ReadLine()
 
 	log.Println("Closing all pending connections")
-	currentUser := GetCurrentUser()
+	currentUser := cmd.GetCurrentUser()
 	if currentUser != nil {
 		currentUser.Logout()
 		<-time.After(1 * time.Second)

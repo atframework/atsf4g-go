@@ -1,13 +1,17 @@
-// client.go
-package main
+package atsf4g_go_robot_user
 
 import (
 	"fmt"
 	"log"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	robot_protocol "github.com/atframework/atsf4g-go/robot/protocol"
+	robot_protocol_user "github.com/atframework/atsf4g-go/robot/protocol/user"
+	libatapp "github.com/atframework/libatapp-go"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -15,7 +19,85 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-func makeMessageHead(user *User, rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
+type User struct {
+	OpenId string
+	UserId uint64
+	ZoneId uint32
+
+	AccessToken string
+	LoginCode   string
+
+	Logined           bool
+	HasGetInfo        bool
+	HeartbeatInterval time.Duration
+	LastPingTime      time.Time
+	Closed            atomic.Bool
+
+	connectionSequence uint64
+	connection         *websocket.Conn
+	dispatcherLock     sync.Mutex
+	rpcChan            map[uint64]chan string
+	csLog              *libatapp.LogBufferedRotatingWriter
+}
+
+func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter) *User {
+	return &User{
+		OpenId:             openId,
+		UserId:             0,
+		ZoneId:             1,
+		AccessToken:        fmt.Sprintf("access-token-for-%s", openId),
+		connectionSequence: 99,
+		connection:         conn,
+		rpcChan:            make(map[uint64]chan string),
+		csLog:              bufferWriter,
+	}
+}
+
+func (u *User) IsLogin() bool {
+	if u == nil {
+		return false
+	}
+	if u.Closed.Load() {
+		return false
+	}
+	if !u.Logined {
+		return false
+	}
+	return true
+}
+
+func (u *User) CheckPingTask() {
+	if !u.IsLogin() {
+		return
+	}
+	if u.LastPingTime.Add(u.HeartbeatInterval).Before(time.Now()) {
+		err := robot_protocol_user.PingRpc(u)
+		if err != nil {
+			log.Println("ping error stop check")
+			return
+		}
+	}
+	time.AfterFunc(5*time.Second, u.CheckPingTask)
+}
+
+func (u *User) Logout() {
+	if !u.IsLogin() {
+		return
+	}
+	u.Logined = false
+	u.Closed.Store(true)
+
+	if u.connection != nil {
+		// Close our websocket connection
+		err := u.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		if err != nil {
+			log.Println("Error during closing websocket:", err)
+			return
+		}
+	}
+}
+
+func (user *User) MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
 	user.connectionSequence++
 	return &public_protocol_extension.CSMsgHead{
 		Timestamp:      time.Now().Unix(),
@@ -29,7 +111,7 @@ func makeMessageHead(user *User, rpcName string, typeName string) *public_protoc
 	}
 }
 
-func receiveHandler(user *User) {
+func (user *User) ReceiveHandler() {
 	defer func() {
 		log.Printf("User %v:%v connection closed.\n", user.ZoneId, user.UserId)
 		user.Closed.Store(true)
@@ -82,15 +164,15 @@ func receiveHandler(user *User) {
 			return
 		}
 		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
-		processResponse(user, rpcName, csMsg, csBody)
+		user.processResponse(rpcName, csMsg, csBody)
 	}
 }
 
-func processResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func (user *User) processResponse(rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	user.dispatcherLock.Lock()
 	defer user.dispatcherLock.Unlock()
 
-	if handle, ok := processResponseHandles[rpcName]; ok {
+	if handle, ok := robot_protocol.ProcessResponseHandles[rpcName]; ok {
 		handle(user, rpcName, msg, rawBody)
 		// 通知收包
 		c, ok := user.rpcChan[msg.GetHead().GetClientSequence()]
@@ -100,7 +182,7 @@ func processResponse(user *User, rpcName string, msg *public_protocol_extension.
 	}
 }
 
-func sendReq(user *User, csMsg *public_protocol_extension.CSMsg, csBody proto.Message, await bool) error {
+func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message, await bool) error {
 	if user == nil {
 		return fmt.Errorf("need login")
 	}
@@ -147,4 +229,44 @@ func sendReq(user *User, csMsg *public_protocol_extension.CSMsg, csBody proto.Me
 		}
 	}
 	return nil
+}
+
+func (user *User) GetLoginCode() string {
+	return user.LoginCode
+}
+func (user *User) GetLogined() bool {
+	return user.Logined
+}
+func (user *User) GetOpenId() string {
+	return user.OpenId
+}
+func (user *User) GetAccessToken() string {
+	return user.AccessToken
+}
+func (user *User) GetUserId() uint64 {
+	return user.UserId
+}
+func (user *User) GetZoneId() uint32 {
+	return user.ZoneId
+}
+func (user *User) SetLoginCode(d string) {
+	user.LoginCode = d
+}
+func (user *User) SetUserId(d uint64) {
+	user.UserId = d
+}
+func (user *User) SetZoneId(d uint32) {
+	user.ZoneId = d
+}
+func (user *User) SetLogined(d bool) {
+	user.Logined = d
+}
+func (user *User) SetHeartbeatInterval(d time.Duration) {
+	user.HeartbeatInterval = d
+}
+func (user *User) SetLastPingTime(d time.Time) {
+	user.LastPingTime = d
+}
+func (user *User) SetHasGetInfo(d bool) {
+	user.HasGetInfo = d
 }

@@ -8,11 +8,13 @@ option cc_enable_arenas = true;
 
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
 
+import "protocol/pbdesc/com.const.proto";
+
 package proy;
 
 // 登录用户终端信息
 message DClientDeviceInfo {
-  uint32 system_id = 1;                // EnSystemID
+  EnSystemID system_id = 1;            // EnSystemID
   string client_version = 2;           // 客户端版本号
   string system_software = 3;          // 移动终端操作系统版本
   string system_hardware = 4;          // 移动终端机型

@@ -1,5 +1,4 @@
-// client.go
-package main
+package atsf4g_go_robot_protocol_user
 
 import (
 	"fmt"
@@ -10,6 +9,7 @@ import (
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	user "github.com/atframework/atsf4g-go/robot/data"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -17,72 +17,61 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-var processResponseHandles = buildProcessResponseHandles()
-
-func buildProcessResponseHandles() map[string]func(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
-	handles := make(map[string]func(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message))
-	handles["proy.LobbyClientService.login_auth"] = processLoginAuthResponse
-	handles["proy.LobbyClientService.login"] = processLoginResponse
-	handles["proy.LobbyClientService.ping"] = processPongResponse
-	handles["proy.LobbyClientService.user_get_info"] = processGetInfoResponse
-	return handles
-}
-
-func LoginAuthRpc(user *User) error {
-	if user.LoginCode != "" {
+func LoginAuthRpc(user user.UserBase) error {
+	if user.GetLoginCode() != "" {
 		return fmt.Errorf("already login auth")
 	}
 
 	csMsg, csBody := makeLoginAuthMessage(user)
-	return sendReq(user, csMsg, csBody, true)
+	return user.SendReq(csMsg, csBody, true)
 }
 
-func LoginRpc(user *User) error {
-	if user.LoginCode == "" {
+func LoginRpc(user user.UserBase) error {
+	if user.GetLoginCode() == "" {
 		return fmt.Errorf("need login auth")
 	}
 
-	if user.Logined {
+	if user.GetLogined() {
 		return fmt.Errorf("already login")
 	}
 
 	csMsg, csBody := makeLoginMessage(user)
-	return sendReq(user, csMsg, csBody, true)
+	return user.SendReq(csMsg, csBody, true)
 }
 
-func PingRpc(user *User) error {
+func PingRpc(user user.UserBase) error {
 	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
 	csMsg, csBody := makePingMessage(user)
-	return sendReq(user, csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody, false)
 }
 
-func GetInfoRpc(user *User, args []string) error {
+func GetInfoRpc(user user.UserBase, args []string) error {
 	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
 	csMsg, csBody := makeUserGetInfoMessage(user, args)
-	return sendReq(user, csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody, false)
 }
 
-func GMRpc(user *User, args []string) error {
+func GMRpc(user user.UserBase, args []string) error {
 	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
 	csMsg, csBody := makeUserGMMessage(user, args)
-	return sendReq(user, csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody, false)
 }
 
-func makeLoginAuthMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeLoginAuthMessage(user user.UserBase) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSLoginAuthReq{
-		OpenId: user.OpenId,
+		OpenId: user.GetOpenId(),
 		Account: &public_protocol_pbdesc.DAccountData{
 			AccountType: uint32(public_protocol_pbdesc.EnAccountTypeID_EN_ATI_ACCOUNT_INNER),
-			Access:      user.AccessToken,
+			Access:      user.GetAccessToken(),
 			ChannelId:   uint32(public_protocol_pbdesc.EnPlatformChannelID_EN_PCI_NONE),
 		},
 		SystemId:        public_protocol_pbdesc.EnSystemID_EN_OS_WINDOWS,
@@ -91,25 +80,25 @@ func makeLoginAuthMessage(user *User) (*public_protocol_extension.CSMsg, proto.M
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
-		Head: makeMessageHead(user, "proy.LobbyClientService.login_auth", string(proto.MessageName(csBody))),
+		Head: user.MakeMessageHead("proy.LobbyClientService.login_auth", string(proto.MessageName(csBody))),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
 
 	return &csMsg, csBody
 }
 
-func makeLoginMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeLoginMessage(user user.UserBase) (*public_protocol_extension.CSMsg, proto.Message) {
 	vmem, _ := mem.VirtualMemory()
 	cpuInfo, _ := cpu.Info()
 
 	csBody := &lobysvr_protocol_pbdesc.CSLoginReq{
-		LoginCode: user.LoginCode,
-		OpenId:    user.OpenId,
-		UserId:    user.UserId,
-		ZoneId:    user.ZoneId,
+		LoginCode: user.GetLoginCode(),
+		OpenId:    user.GetOpenId(),
+		UserId:    user.GetUserId(),
+		ZoneId:    user.GetZoneId(),
 		Account: &public_protocol_pbdesc.DAccountData{
 			AccountType: uint32(public_protocol_pbdesc.EnAccountTypeID_EN_ATI_ACCOUNT_INNER),
-			Access:      user.AccessToken,
+			Access:      user.GetAccessToken(),
 			ChannelId:   uint32(public_protocol_pbdesc.EnPlatformChannelID_EN_PCI_NONE),
 		},
 		ClientInfo: &public_protocol_pbdesc.DClientDeviceInfo{
@@ -129,19 +118,19 @@ func makeLoginMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messa
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
-		Head: makeMessageHead(user, "proy.LobbyClientService.login", string(proto.MessageName(csBody))),
+		Head: user.MakeMessageHead("proy.LobbyClientService.login", string(proto.MessageName(csBody))),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
 	return &csMsg, csBody
 }
 
-func makePingMessage(user *User) (*public_protocol_extension.CSMsg, proto.Message) {
+func makePingMessage(user user.UserBase) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSPingReq{
 		Timepoint: time.Now().UnixNano(),
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
-		Head: makeMessageHead(user, "proy.LobbyClientService.ping", string(proto.MessageName(csBody))),
+		Head: user.MakeMessageHead("proy.LobbyClientService.ping", string(proto.MessageName(csBody))),
 	}
 
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
@@ -153,7 +142,7 @@ func makePingMessage(user *User) (*public_protocol_extension.CSMsg, proto.Messag
 	return &csMsg, csBody
 }
 
-func makeUserGetInfoMessage(user *User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeUserGetInfoMessage(user user.UserBase, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{}
 
 	ref := csBody.ProtoReflect()
@@ -185,27 +174,27 @@ func makeUserGetInfoMessage(user *User, args []string) (*public_protocol_extensi
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
-		Head: makeMessageHead(user, "proy.LobbyClientService.user_get_info", string(proto.MessageName(csBody))),
+		Head: user.MakeMessageHead("proy.LobbyClientService.user_get_info", string(proto.MessageName(csBody))),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
 
 	return &csMsg, csBody
 }
 
-func makeUserGMMessage(user *User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeUserGMMessage(user user.UserBase, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
 		Args: args,
 	}
 
 	csMsg := public_protocol_extension.CSMsg{
-		Head: makeMessageHead(user, "proy.LobbyClientService.user_send_gm_command", string(proto.MessageName(csBody))),
+		Head: user.MakeMessageHead("proy.LobbyClientService.user_send_gm_command", string(proto.MessageName(csBody))),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(csBody)
 
 	return &csMsg, csBody
 }
 
-func processLoginAuthResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessLoginAuthResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginAuthRsp)
 	if !ok {
 		log.Println("Can not convert to SCLoginAuthRsp")
@@ -218,17 +207,17 @@ func processLoginAuthResponse(user *User, rpcName string, msg *public_protocol_e
 	}
 
 	if body.GetLoginCode() != "" {
-		user.LoginCode = body.GetLoginCode()
+		user.SetLoginCode(body.GetLoginCode())
 	}
 	if body.GetUserId() != 0 {
-		user.UserId = body.GetUserId()
+		user.SetUserId(body.GetUserId())
 	}
 	if body.GetZoneId() != 0 {
-		user.ZoneId = body.GetZoneId()
+		user.SetZoneId(body.GetZoneId())
 	}
 }
 
-func processLoginResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessLoginResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginRsp)
 	if !ok {
 		log.Println("Can not convert to SCLoginResp")
@@ -241,24 +230,24 @@ func processLoginResponse(user *User, rpcName string, msg *public_protocol_exten
 	}
 
 	if body.GetZoneId() != 0 {
-		user.ZoneId = body.GetZoneId()
+		user.SetZoneId(body.GetZoneId())
 	}
-	user.Logined = true
+	user.SetLogined(true)
 	if body.GetHeartbeatInterval() > 0 {
-		user.HeartbeatInterval = time.Duration(body.GetHeartbeatInterval()) * time.Second
+		user.SetHeartbeatInterval(time.Duration(body.GetHeartbeatInterval()) * time.Second)
 	}
 }
 
-func processPongResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessPongResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	head := msg.Head
 	if head.ErrorCode < 0 {
 		return
 	}
 
-	user.LastPingTime = time.Now()
+	user.SetLastPingTime(time.Now())
 }
 
-func processGetInfoResponse(user *User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessGetInfoResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	_, ok := rawBody.(*lobysvr_protocol_pbdesc.SCUserGetInfoRsp)
 	if !ok {
 		log.Println("Can not convert to SCUserGetInfoRsp")
@@ -270,5 +259,5 @@ func processGetInfoResponse(user *User, rpcName string, msg *public_protocol_ext
 		return
 	}
 
-	user.HasGetInfo = true
+	user.SetHasGetInfo(true)
 }

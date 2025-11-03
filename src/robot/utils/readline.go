@@ -1,4 +1,4 @@
-package main
+package atsf4g_go_robot_util
 
 import (
 	"fmt"
