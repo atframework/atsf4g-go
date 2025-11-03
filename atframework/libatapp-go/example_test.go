@@ -157,4 +157,32 @@ func TestConfigManagement(t *testing.T) {
 	if config.ConfigFile != "test.conf" {
 		t.Errorf("Expected ConfigFile 'test.conf', got '%s'", config.ConfigFile)
 	}
+
+	if app.config.ConfigPb.Id != "1.1.11.1" {
+		t.Errorf("Load Error")
+	}
+
+	if app.config.ConfigPb.Area.ZoneId != 1001 {
+		t.Errorf("Load Error")
+	}
+
+	if len(app.config.ConfigPb.Metadata.Labels) != 2 {
+		t.Errorf("Load Error")
+	}
+
+	if app.config.ConfigPb.Metadata.Labels["app"] != "lobby" {
+		t.Errorf("Load Error")
+	}
+
+	if len(app.config.ConfigPb.Bus.Listen) != 2 {
+		t.Errorf("Load Error")
+	}
+
+	if app.config.ConfigPb.Bus.Listen[0] != "A" {
+		t.Errorf("Load Error")
+	}
+
+	if app.config.ConfigPb.Bus.Listen[1] != "B" {
+		t.Errorf("Load Error")
+	}
 }
