@@ -14,6 +14,7 @@ import "google/protobuf/timestamp.proto";
 import "protocol/extension/svr.database.extension.proto";
 
 import "protocol/pbdesc/svr.struct.proto";
+import "protocol/extension/svr.database.extension.proto";
 
 package proy;
 
@@ -35,6 +36,17 @@ message database_table_access {
 }
 
 message database_table_login {
+  // clang-format off
+  option (atframework.database_table) = {
+    index: {
+      name: "login"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      key_fields: "zone_id"
+      key_fields: "user_id"
+    }
+  };
+  // clang-format on
+
   string open_id = 1;
   uint64 user_id = 2;
   uint32 zone_id = 3;
@@ -91,6 +103,17 @@ message database_table_user_async_jobs_cache_blob_data {
 }
 
 message database_table_user {
+  // clang-format off
+  option (atframework.database_table) = {
+    index: {
+      name: "user"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      key_fields: "zone_id"
+      key_fields: "user_id"
+    }
+  };
+  // clang-format on
+
   string open_id = 1;
   uint64 user_id = 2;
   uint32 zone_id = 3;
@@ -109,6 +132,17 @@ message database_table_user {
 }
 
 message database_table_distribute_transaction {
+  // clang-format off
+  option (atframework.database_table) = {
+    index: {
+      name: "distribute_transaction"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      key_fields: "zone_id"
+      key_fields: "transaction_uuid"
+    }
+  };
+  // clang-format on
+
   uint32 zone_id = 1;
   bytes transaction_uuid = 2;
 
