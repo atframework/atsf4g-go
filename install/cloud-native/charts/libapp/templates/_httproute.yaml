@@ -13,16 +13,8 @@ spec:
   - name: {{ default (printf "%s-tls-gateway" (include "libapp.fullname" .)) }}
   # hostnames: 支持单个字符串或数组 .Values.httproute.hosts
   hostnames:
-  {{- if .Values.httproute.hosts }}
-  {{- range .Values.httproute.hosts }}
-  - {{ . | quote }}
-  {{- end }}
-  {{- else }}
-  - {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.httproute.host }}
-  {{- end }}
+  - {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.gateway.hostname }}
   rules:
-
-  
   - matches:
     - path:
         type: PathPrefix

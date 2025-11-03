@@ -34,6 +34,7 @@ gateway:
   port: 7001
   hostname: gateway.example.com
   certificateSecret: cert-m-oa.com-wildcard
+  addresses_ip: 127.0.0.1
 
 httproute:
   port: 7001

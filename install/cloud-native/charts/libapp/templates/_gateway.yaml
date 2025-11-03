@@ -19,6 +19,9 @@ spec:
       certificateRefs:
       - kind: Secret
         name: {{ default "tls-secret" .Values.gateway.certificateSecret }}
+  addresses:
+    - type: IPAddress
+      value: {{ default "127.0.0.1" .Values.gateway.addresses_ip }}
 {{- end -}}
 {{- define "libapp.gateway" -}}
 {{- template "libapp.util.merge" (append . "libapp.gateway.tpl") -}}
