@@ -1,0 +1,25 @@
+{{- define "libapp.gateway.tpl" -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  # name: 支持通过 .Values.gateway.name 覆盖，默认使用 fullname + -tls-gateway
+  name: {{ default (printf "%s-tls-gateway" (include "libapp.fullname" .))}}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "libapp.name" . }}
+    release: {{ .Release.Name }}
+spec:
+  gatewayClassName: {{ default "cilium" .Values.gateway.class }}
+  listeners:
+  - name: https-1
+    protocol: HTTPS
+    port: {{ default 443 .Values.gateway.port }}
+    hostname: {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.gateway.hostname | quote }}
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: {{ default "tls-secret" .Values.gateway.certificateSecret }}
+{{- end -}}
+{{- define "libapp.gateway" -}}
+{{- template "libapp.util.merge" (append . "libapp.gateway.tpl") -}}
+{{- end -}}

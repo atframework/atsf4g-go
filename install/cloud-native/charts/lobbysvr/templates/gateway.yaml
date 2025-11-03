@@ -1,0 +1,3 @@
+{{- template "libapp.gateway" (list . "lobbysvr.gateway") -}}
+{{- define "lobbysvr.gateway" -}}
+{{- end -}}

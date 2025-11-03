@@ -29,3 +29,17 @@ persistence:
         storage: 50Gi
         mountPath: /service/lobbysvr/log
 
+gateway:
+  class: cilium
+  port: 7001
+  hostname: gateway.example.com
+  certificateSecret: cert-m-oa.com-wildcard
+
+httproute:
+  port: 7001
+
+service:
+  type: ClusterIP
+  port: 7001
+  targetPort: 7001
+  protocol: TCP
