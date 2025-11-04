@@ -759,6 +759,19 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 							if err := ParseMessage(innerMap, msg.ProtoReflect().Mutable(fd).List().AppendMutable().Message().Interface(), logger); err != nil {
 								return err
 							}
+						} else {
+							innerString, ok := item.(string)
+							if ok {
+								// 需要String视为Yaml解析
+								yamlData = make(map[string]interface{})
+								err := yaml.Unmarshal([]byte(innerString), yamlData)
+								if err != nil {
+									return err
+								}
+								if err = ParseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+									return err
+								}
+							}
 						}
 						continue
 					}
@@ -797,8 +810,21 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 							return err
 						}
 					} else {
-						if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
-							return err
+						innerString, ok := yamlData[fieldName].(string)
+						if ok {
+							// 需要String视为Yaml解析
+							yamlData = make(map[string]interface{})
+							err := yaml.Unmarshal([]byte(innerString), yamlData)
+							if err != nil {
+								return err
+							}
+							if err = ParseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+								return err
+							}
+						} else {
+							if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+								return err
+							}
 						}
 					}
 				}
