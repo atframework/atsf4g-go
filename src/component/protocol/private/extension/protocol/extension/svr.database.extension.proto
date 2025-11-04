@@ -25,8 +25,10 @@ message database_table_index {
   repeated string key_fields = 11;
 }
 
-message database_table_options { repeated database_table_index index = 1; }
+message database_table_options {
+  repeated database_table_index index = 1;
+}
 
 extend google.protobuf.MessageOptions {
-  database_table_options database_table = 3311; // 自定义数据库表配置
+  database_table_options database_table = 3311;  // 自定义数据库表配置
 }
