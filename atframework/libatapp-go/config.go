@@ -367,6 +367,10 @@ func convertToInt64(data interface{}) (int64, error) {
 		} else {
 			return 0, nil
 		}
+	case reflect.Float32:
+		return int64(reflect.ValueOf(data).Float()), nil
+	case reflect.Float64:
+		return int64(reflect.ValueOf(data).Float()), nil
 	case reflect.String:
 		value, _, err := pickNumber(reflect.ValueOf(data).String(), false)
 		if err != nil {
@@ -380,7 +384,7 @@ func convertToInt64(data interface{}) (int64, error) {
 	if v, ok := data.(*durationpb.Duration); ok {
 		return v.Seconds*1000000000 + int64(v.Nanos), nil
 	}
-	return 0, fmt.Errorf("convertToInt64 failed Type not fount: %T", data)
+	return 0, fmt.Errorf("convertToInt64 failed Type not found: %T", data)
 }
 
 func checkMinMax(yamlData interface{}, minData interface{}, maxData interface{}) (interface{}, error) {
@@ -514,6 +518,9 @@ func convertField(yamlData interface{}, minData interface{}, maxData interface{}
 	case protoreflect.FloatKind:
 		if v, ok := yamlData.(float32); ok {
 			return protoreflect.ValueOfFloat32(v), nil
+		}
+		if v, ok := yamlData.(float64); ok {
+			return protoreflect.ValueOfFloat64(v), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected float32, got %T", yamlData)
 
