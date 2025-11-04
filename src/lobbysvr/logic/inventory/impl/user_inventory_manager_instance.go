@@ -439,7 +439,7 @@ func (m *UserInventoryManager) SubItem(ctx *cd.RpcContext, itemOffset []data.Ite
 				"item_id", sub.Item.GetTypeId(), "item_guid", sub.Item.GetGuid(), "has_item_count", subSet.GetItemBasic().GetCount(), "sub_item_count", sub.Item.GetCount(),
 			)
 		}
-		group.subGroupCount(sub.Item, sub.Item.GetCount())
+		group.subGroupCount(subSet.GetItemBasic(), sub.Item.GetCount())
 		if group.empty() {
 			delete(m.itemGroups, sub.Item.GetTypeId())
 		}
