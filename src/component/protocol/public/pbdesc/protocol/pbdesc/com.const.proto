@@ -196,8 +196,8 @@ enum EnErrorCode {
                            [(error_code.description) = "认证失败"];
   EN_ERR_LOGIN_ALREADY_ONLINE = -406
                                 [(error_code.description) = "仍然在线且踢下线失败"];
-  EN_ERR_LOGIN_INVALID_PLAT = -407
-                              [(error_code.description) = "平台不受支持"];
+  EN_ERR_LOGIN_INVALID_PLATFORM = -407
+                                  [(error_code.description) = "平台不受支持"];
   EN_ERR_LOGIN_OTHER_DEVICE = -408
                               [(error_code.description) = "在其他地方有登入"];
   EN_ERR_LOGIN_NOT_LOGINED = -409
@@ -218,6 +218,8 @@ enum EnErrorCode {
                                       [(error_code.description) = "创建用户失败"];
   EN_ERR_LOGIN_USERID_NOT_MATCH = -417
                                   [(error_code.description) = "用户ID不匹配"];
+  EN_ERR_LOGIN_INVALID_CHANNEL = -418
+                                 [(error_code.description) = "渠道不受支持"];
 
   // 道具模块错误码
   EN_ERR_ITEM_NOT_ENOUGH = -501
@@ -226,5 +228,25 @@ enum EnErrorCode {
                           [(error_code.description) = "道具未找到"];
   EN_ERR_ITEM_INVALID_TYPE_ID = -503
                                 [(error_code.description) = "道具类型无效"];
+  EN_ERR_ITEM_TOO_MANY = -504
+                         [(error_code.description) = "道具过多"];
+  EN_ERR_MONEY_COIN_NOT_ENOUGH = -505
+                                 [(error_code.description) = "金币不足"];
+  EN_ERR_MONEY_CASH_NOT_ENOUGH = -506
+                                 [(error_code.description) = "点券不足"];
+
+  // 玩家相关错误码
+  EN_ERR_USER_MIN_LEVEL_LIMIT = -701
+                                [(error_code.description) = "用户等级过低"];
+  EN_ERR_USER_MAX_LEVEL_LIMIT = -702
+                                [(error_code.description) = "用户等级过高"];
+
+  // 通用条件错误码
+  EN_ERR_CONDITION_DATETIME_NOT_START = -801
+                                        [(error_code.description) = "时间未开始"];
+  EN_ERR_CONDITION_DATETIME_ALREADY_END = -802
+                                          [(error_code.description) = "时间已结束"];
+  EN_ERR_CONDITION_RULE_ID_NOT_FOUND = -803
+                                       [(error_code.description) = "规则ID未找到"];
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码
 }

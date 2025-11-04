@@ -14,8 +14,6 @@ import "google/protobuf/timestamp.proto";
 import "protocol/extension/svr.database.extension.proto";
 
 import "protocol/pbdesc/svr.struct.proto";
-import "protocol/extension/svr.database.extension.proto";
-
 package proy;
 
 message database_table_access {
