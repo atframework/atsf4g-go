@@ -2,6 +2,7 @@ package lobbysvr_logic_user_impl
 
 import (
 	"fmt"
+	"reflect"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
@@ -15,6 +16,7 @@ import (
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
+	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
@@ -24,6 +26,8 @@ func init() {
 	) data.UserModuleManagerImpl {
 		return CreateUserBasicManager(owner)
 	})
+
+	registerCondition()
 }
 
 type UserBasicManager struct {
@@ -58,7 +62,7 @@ func (m *UserBasicManager) DumpUserInfo(to *public_protocol_pbdesc.DUserInfo) {
 	}
 
 	loginInfo := m.GetOwner().GetLoginInfo()
-	to.UserLevel = m.GetOwner().GetUserData().GetUserLevel()
+	to.UserLevel = m.GetUserLevel()
 	to.MutableUserStat().RegisterTime = loginInfo.GetBusinessRegisterTime()
 	to.MutableUserStat().LastLoginTime = loginInfo.GetBusinessLoginTime()
 }
@@ -267,4 +271,90 @@ func (m *UserBasicManager) ForeachItem(fn func(item *public_protocol_common.DIte
 	}
 
 	return fn(inst)
+}
+
+func registerCondition() {
+	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_LoginChannel{}), checkRuleUserLoginChannel, nil)
+	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_SystemPlatform{}), checkRuleUserSystemPlatform, nil)
+	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_UserLevel{}), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
+}
+
+func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	loginChannel := uint64(m.GetOwner().GetLoginInfo().GetAccount().GetChannelId())
+
+	if len(rule.GetLoginChannel().GetValues()) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	for _, v := range rule.GetLoginChannel().GetValues() {
+		if loginChannel == v {
+			return cd.CreateRpcResultOk()
+		}
+	}
+
+	// 错误码: 登入平台不满足要求
+	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_INVALID_PLATFORM)
+}
+
+func checkRuleUserSystemPlatform(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	loginChannel := uint64(m.GetOwner().GetClientInfo().GetSystemId())
+
+	if len(rule.GetSystemPlatform().GetValues()) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	for _, v := range rule.GetSystemPlatform().GetValues() {
+		if loginChannel == v {
+			return cd.CreateRpcResultOk()
+		}
+	}
+
+	// 错误码: 登入平台不满足要求
+	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_INVALID_CHANNEL)
+}
+
+func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	if rule.GetUserLevel().GetLeft() <= 1 {
+		return cd.CreateRpcResultOk()
+	}
+
+	mgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.GetOwner())
+	if mgr == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("can not get UserBasicManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	userLevel := mgr.GetUserLevel()
+	if int64(userLevel) < rule.GetUserLevel().GetLeft() {
+		// 错误码: 最小等级不满足要求
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_MIN_LEVEL_LIMIT)
+	}
+
+	return cd.CreateRpcResultOk()
+}
+
+func checkRuleUserLevelDynamic(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	if rule.GetUserLevel().GetRight() <= 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	mgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.GetOwner())
+	if mgr == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("can not get UserBasicManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	userLevel := mgr.GetUserLevel()
+	if int64(userLevel) > rule.GetUserLevel().GetRight() {
+		// 错误码: 最大等级不满足要求
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_MAX_LEVEL_LIMIT)
+	}
+
+	return cd.CreateRpcResultOk()
 }
