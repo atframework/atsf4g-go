@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	atfw_utils_fs "github.com/atframework/atframe-utils-go/file_system"
+	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 )
 
 // 示例模块实现
@@ -183,6 +186,35 @@ func TestConfigManagement(t *testing.T) {
 	}
 
 	if app.config.ConfigPb.Bus.Listen[1] != "B" {
+		t.Errorf("Load Error")
+	}
+
+	source := make(map[string]interface{})
+	data, err := atfw_utils_fs.ReadAllContent("test_const.conf")
+	if err != nil {
+		t.Errorf("Read Error")
+	}
+	source["bus"] = string(data)
+
+	var constConfig atframe_protocol.AtappConfigure
+	err = ParseMessage(source, &constConfig, nil)
+	if err != nil {
+		t.Errorf("Read Error %v", err)
+	}
+
+	if len(constConfig.GetBus().GetListen()) != 3 {
+		t.Errorf("Load Error")
+	}
+
+	if constConfig.GetBus().GetListen()[2] != "C" {
+		t.Errorf("Load Error")
+	}
+
+	if len(constConfig.GetBus().GetGateways()) != 2 {
+		t.Errorf("Load Error")
+	}
+
+	if constConfig.GetBus().GetGateways()[1].GetMatchHosts()[1] != "DD" {
 		t.Errorf("Load Error")
 	}
 }
