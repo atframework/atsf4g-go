@@ -18,14 +18,14 @@ type UserManager struct {
 	_ noCopy
 
 	userLock sync.RWMutex
-	users    map[uint32]*map[uint64]UserImpl
+	users    map[uint32]map[uint64]UserImpl
 
 	createUserCallback CreateUserCallback
 }
 
 func createUserManager() *UserManager {
 	ret := &UserManager{
-		users: make(map[uint32]*map[uint64]UserImpl),
+		users: make(map[uint32]map[uint64]UserImpl),
 	}
 
 	ret.createUserCallback = func(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
@@ -56,13 +56,13 @@ func (um *UserManager) replace(ctx *cd.RpcContext, u UserImpl) {
 
 	uidMap, ok := um.users[u.GetZoneId()]
 	if !ok {
-		m := &map[uint64]UserImpl{}
-		(*m)[u.GetUserId()] = u
+		m := make(map[uint64]UserImpl)
+		m[u.GetUserId()] = u
 		um.users[u.GetZoneId()] = m
 		return
 	}
 
-	(*uidMap)[u.GetUserId()] = u
+	uidMap[u.GetUserId()] = u
 }
 
 func (um *UserManager) Find(zoneID uint32, userID uint64) UserImpl {
@@ -73,7 +73,7 @@ func (um *UserManager) Find(zoneID uint32, userID uint64) UserImpl {
 	if !ok {
 		return nil
 	}
-	user, ok := (*uidMap)[userID]
+	user, ok := uidMap[userID]
 	if !ok {
 		return nil
 	}
@@ -88,7 +88,7 @@ func (um *UserManager) Remove(ctx *cd.RpcContext, zoneID uint32, userID uint64, 
 	if !ok {
 		return nil
 	}
-	user, ok := (*uidMap)[userID]
+	user, ok := uidMap[userID]
 	if !ok {
 		return nil
 	}
@@ -98,8 +98,8 @@ func (um *UserManager) Remove(ctx *cd.RpcContext, zoneID uint32, userID uint64, 
 	}
 
 	ctx.LogInfo("user removed", "zone_id", zoneID, "user_id", userID)
-	delete(*uidMap, userID)
-	if len(*uidMap) == 0 {
+	delete(uidMap, userID)
+	if len(uidMap) == 0 {
 		delete(um.users, zoneID)
 	}
 

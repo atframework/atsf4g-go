@@ -670,3 +670,36 @@ func (u *User) CheckCostItem(ctx *cd.RpcContext,
 
 	return cd.CreateRpcResultOk()
 }
+
+// 检查期望消耗是否满足配置要求
+func (u *User) MergeCostItem(expectCost ...[]*public_protocol_common.DItemOffset) []*public_protocol_common.DItemOffset {
+	if len(expectCost) == 0 {
+		return nil
+	}
+
+	if len(expectCost) == 1 {
+		return expectCost[0]
+	}
+
+	countByTypeId := make(map[int32]int64)
+	for _, costList := range expectCost {
+		for _, cost := range costList {
+			typeId := cost.GetTypeId()
+			if countByTypeId[typeId] <= 0 {
+				countByTypeId[typeId] = 0
+			}
+
+			countByTypeId[typeId] += cost.GetCount()
+		}
+	}
+
+	ret := make([]*public_protocol_common.DItemOffset, 0, len(countByTypeId))
+	for typeId, count := range countByTypeId {
+		ret = append(ret, &public_protocol_common.DItemOffset{
+			TypeId: typeId,
+			Count:  count,
+		})
+	}
+
+	return ret
+}

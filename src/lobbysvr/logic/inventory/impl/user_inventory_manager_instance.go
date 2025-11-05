@@ -169,7 +169,7 @@ type UserInventoryManager struct {
 	// type_id -> UserInventoryItemGroup
 	itemGroups map[int32]*UserInventoryItemGroup
 
-	dirtyItems map[int32]*map[int64]struct{}
+	dirtyItems map[int32]map[int64]struct{}
 }
 
 func CreateUserInventoryManager(owner *data.User) *UserInventoryManager {
@@ -178,7 +178,7 @@ func CreateUserInventoryManager(owner *data.User) *UserInventoryManager {
 		UserItemManagerBase:   *data.CreateUserItemManagerBase(owner, nil),
 
 		itemGroups: make(map[int32]*UserInventoryItemGroup),
-		dirtyItems: make(map[int32]*map[int64]struct{}),
+		dirtyItems: make(map[int32]map[int64]struct{}),
 	}
 
 	ret.virtualItemManager = createVirtualItemManager(ret)
@@ -214,12 +214,12 @@ func (m *UserInventoryManager) GetOwner() *data.User {
 }
 
 func (m *UserInventoryManager) InitFromDB(_ctx *cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
-	invalidIds := make(map[int32]*map[int64]struct{})
+	invalidIds := make(map[int32]map[int64]struct{})
 
 	for typeId, group := range m.itemGroups {
-		invalidIds[typeId] = &map[int64]struct{}{}
+		invalidIds[typeId] = make(map[int64]struct{})
 		for guid := range group.items {
-			(*invalidIds[typeId])[guid] = struct{}{}
+			invalidIds[typeId][guid] = struct{}{}
 		}
 	}
 
@@ -241,8 +241,8 @@ func (m *UserInventoryManager) InitFromDB(_ctx *cd.RpcContext, dbUser *private_p
 
 		// 脏数据索引移除
 		if group, tok := invalidIds[typeId]; tok {
-			delete(*group, guid)
-			if len(*group) == 0 {
+			delete(group, guid)
+			if len(group) == 0 {
 				delete(invalidIds, typeId)
 			}
 		}
@@ -271,7 +271,7 @@ func (m *UserInventoryManager) InitFromDB(_ctx *cd.RpcContext, dbUser *private_p
 		if group == nil {
 			continue
 		}
-		for guid := range *guidSet {
+		for guid := range guidSet {
 			delete(group.items, guid)
 		}
 		if group.empty() {
@@ -314,14 +314,14 @@ func (m *UserInventoryManager) RefreshLimitSecond(ctx *cd.RpcContext) {
 
 func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 	if m.dirtyItems == nil {
-		m.dirtyItems = make(map[int32]*map[int64]struct{})
+		m.dirtyItems = make(map[int32]map[int64]struct{})
 	}
 
 	if _, ok := m.dirtyItems[typeId]; !ok {
-		m.dirtyItems[typeId] = &map[int64]struct{}{}
+		m.dirtyItems[typeId] = make(map[int64]struct{})
 	}
 
-	(*m.dirtyItems[typeId])[guid] = struct{}{}
+	m.dirtyItems[typeId][guid] = struct{}{}
 
 	m.GetOwner().InsertDirtyHandleIfNotExists(m,
 		func(ctx *cd.RpcContext, dirty *data.UserDirtyData) bool {
@@ -330,7 +330,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 			for typeId, guidSet := range m.dirtyItems {
 				group := m.getItemGroup(typeId)
 				if group == nil {
-					for guid := range *guidSet {
+					for guid := range guidSet {
 						dirtyData.MutableRemoveItemKeys().AppendItemKeys(&lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
 							TypeId: typeId,
 							Guid:   guid,
@@ -339,7 +339,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 					}
 					continue
 				}
-				for guid := range *guidSet {
+				for guid := range guidSet {
 					itemInstance := group.GetGroup(guid)
 					if itemInstance == nil {
 						dirtyData.MutableRemoveItemKeys().AppendItemKeys(&lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{

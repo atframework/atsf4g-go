@@ -55,7 +55,7 @@ type RuleCheckerParameterPair struct {
 }
 
 type RuleCheckerRuntime struct {
-	ruleParameter        *map[reflect.Type]interface{}
+	ruleParameter        map[reflect.Type]interface{}
 	currentRuleParameter interface{}
 }
 
@@ -64,7 +64,7 @@ func (r *RuleCheckerRuntime) GetRuleParameter(t reflect.Type) interface{} {
 		return nil
 	}
 
-	return (*r.ruleParameter)[t]
+	return r.ruleParameter[t]
 }
 
 func (r *RuleCheckerRuntime) GetCurrentRuleParameter() interface{} {
@@ -110,7 +110,7 @@ func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRu
 	}
 
 	ret := &RuleCheckerRuntime{
-		ruleParameter:        &m,
+		ruleParameter:        m,
 		currentRuleParameter: nil,
 	}
 

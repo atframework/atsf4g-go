@@ -172,7 +172,7 @@ func (umb *UserItemManagerBase) HasRepeatedItemInstance(itemOffset []*ppc.DItemI
 		return false
 	}
 
-	mapTypeId := make(map[int32]*map[int64]bool)
+	mapTypeId := make(map[int32]map[int64]struct{})
 	for i := 0; i < len(itemOffset); i++ {
 		ib := itemOffset[i].GetItemBasic()
 		if ib == nil {
@@ -181,14 +181,14 @@ func (umb *UserItemManagerBase) HasRepeatedItemInstance(itemOffset []*ppc.DItemI
 
 		mapGuid, ok := mapTypeId[ib.GetTypeId()]
 		if !ok {
-			mapGuid = &map[int64]bool{}
+			mapGuid = make(map[int64]struct{})
 			mapTypeId[ib.GetTypeId()] = mapGuid
 		}
 
-		if _, found := (*mapGuid)[ib.GetGuid()]; found {
+		if _, found := mapGuid[ib.GetGuid()]; found {
 			return true
 		}
-		(*mapGuid)[ib.GetGuid()] = true
+		mapGuid[ib.GetGuid()] = struct{}{}
 	}
 
 	return false
@@ -213,20 +213,19 @@ func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []*ppc.DItemBasi
 		return false
 	}
 
-	mapTypeId := make(map[int32]*map[int64]struct{})
+	mapTypeId := make(map[int32]map[int64]struct{})
 	for i := 0; i < len(itemOffset); i++ {
 		ib := itemOffset[i]
 		mapGuid, ok := mapTypeId[ib.GetTypeId()]
 		if !ok {
 			newMapGuid := make(map[int64]struct{})
-			mapGuid = &newMapGuid
-			mapTypeId[ib.GetTypeId()] = mapGuid
+			mapTypeId[ib.GetTypeId()] = newMapGuid
 		}
 
-		if _, found := (*mapGuid)[ib.GetGuid()]; found {
+		if _, found := mapGuid[ib.GetGuid()]; found {
 			return true
 		}
-		(*mapGuid)[ib.GetGuid()] = struct{}{}
+		mapGuid[ib.GetGuid()] = struct{}{}
 	}
 
 	return false

@@ -12,12 +12,12 @@ type SessionManager struct {
 	_ noCopy
 
 	sessionLock sync.RWMutex
-	sessions    map[uint64]*map[uint64]*Session
+	sessions    map[uint64]map[uint64]*Session
 }
 
 func createSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions: make(map[uint64]*map[uint64]*Session),
+		sessions: make(map[uint64]map[uint64]*Session),
 	}
 }
 
@@ -32,7 +32,7 @@ func (sm *SessionManager) GetSession(key *SessionKey) *Session {
 	defer sm.sessionLock.RUnlock()
 
 	if nodeSessions, ok := sm.sessions[key.NodeId]; ok {
-		if session, ok := (*nodeSessions)[key.SessionId]; ok {
+		if session, ok := nodeSessions[key.SessionId]; ok {
 			return session
 		}
 	}
@@ -47,7 +47,7 @@ func (sm *SessionManager) CreateSession(ctx *cd.RpcContext, key SessionKey, hand
 
 	sm.sessionLock.RLock()
 	if nodeSessions, ok := sm.sessions[key.NodeId]; ok {
-		if session, ok := (*nodeSessions)[key.SessionId]; ok {
+		if session, ok := nodeSessions[key.SessionId]; ok {
 			sm.sessionLock.RUnlock()
 			return session
 		}
@@ -61,9 +61,9 @@ func (sm *SessionManager) CreateSession(ctx *cd.RpcContext, key SessionKey, hand
 	defer sm.sessionLock.Unlock()
 
 	if nodeSessions, ok := sm.sessions[key.NodeId]; ok {
-		(*nodeSessions)[key.SessionId] = session
+		nodeSessions[key.SessionId] = session
 	} else {
-		sm.sessions[key.NodeId] = &map[uint64]*Session{
+		sm.sessions[key.NodeId] = map[uint64]*Session{
 			key.SessionId: session,
 		}
 	}
@@ -91,11 +91,11 @@ func (sm *SessionManager) RemoveSession(ctx *cd.RpcContext, key *SessionKey, rea
 	defer sm.sessionLock.Unlock()
 
 	if nodeSessions, ok := sm.sessions[key.NodeId]; ok {
-		if _, ok := (*nodeSessions)[key.SessionId]; ok {
+		if _, ok := nodeSessions[key.SessionId]; ok {
 			ctx.LogInfo("session removed", "session_node_id", key.NodeId, "session_id", key.SessionId)
 
-			delete(*nodeSessions, key.SessionId)
-			if len(*nodeSessions) == 0 {
+			delete(nodeSessions, key.SessionId)
+			if len(nodeSessions) == 0 {
 				delete(sm.sessions, key.NodeId)
 			}
 		}
