@@ -922,7 +922,7 @@ func (app *AppInstance) GetDefaultLogger() *slog.Logger {
 
 func (app *AppInstance) GetLogger(index int) *slog.Logger {
 	log := app.logger
-	if len(log.loggers) <= index {
+	if len(log.loggers) > index {
 		return log.loggers[index]
 	}
 	return log.loggers[0]
