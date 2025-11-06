@@ -306,6 +306,14 @@ func (der *RpcResult) IsError() bool {
 	return der.Error != nil || der.ResponseCode < 0
 }
 
+func (der *RpcResult) GetStandardError() error {
+	if der == nil {
+		return nil
+	}
+
+	return der.Error
+}
+
 func (der *RpcResult) GetResponseCode() int32 {
 	if der.IsOK() {
 		return der.ResponseCode
