@@ -99,6 +99,13 @@ func buildRuleCheckers() map[reflect.Type]*conditionRuleCheckHandle {
 
 var conditionRuleCheckers = buildRuleCheckers()
 
+func CreateRuntimePair[T interface{}](value T) *RuleCheckerParameterPair {
+	return &RuleCheckerParameterPair{
+		key:   reflect.TypeOf((*T)(nil)).Elem(),
+		value: value,
+	}
+}
+
 func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRuntime {
 	if len(params) == 0 {
 		return nil
