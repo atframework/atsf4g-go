@@ -133,18 +133,34 @@ func (u *UserCache) Init(actorInstance interface{}) {
 }
 
 func (u *UserCache) GetOpenId() string {
+	if u == nil {
+		return ""
+	}
+
 	return u.openId
 }
 
 func (u *UserCache) GetUserId() uint64 {
+	if u == nil {
+		return 0
+	}
+
 	return u.userId
 }
 
 func (u *UserCache) GetZoneId() uint32 {
+	if u == nil {
+		return 0
+	}
+
 	return u.zoneId
 }
 
 func (u *UserCache) GetSession() cd.TaskActionCSSession {
+	if u == nil {
+		return nil
+	}
+
 	if u.session == nil {
 		return nil
 	}
@@ -153,6 +169,10 @@ func (u *UserCache) GetSession() cd.TaskActionCSSession {
 }
 
 func (u *UserCache) GetUserSession() *Session {
+	if u == nil {
+		return nil
+	}
+
 	if u.session == nil {
 		return nil
 	}
@@ -161,6 +181,10 @@ func (u *UserCache) GetUserSession() *Session {
 }
 
 func (u *UserCache) GetActorExecutor() *cd.ActorExecutor {
+	if u == nil {
+		return nil
+	}
+
 	return u.actorExecutor
 }
 
@@ -169,6 +193,10 @@ func (u *UserCache) SendAllSyncData(_ctx *cd.RpcContext) error {
 }
 
 func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
+	if u == nil {
+		return
+	}
+
 	if u.session == session {
 		return
 	}
@@ -192,6 +220,10 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 }
 
 func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
+	if u == nil {
+		return
+	}
+
 	if u.session == nil {
 		return
 	}
@@ -262,17 +294,32 @@ func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private
 }
 
 func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, versionType uint32) {
+	if u == nil {
+		return
+	}
+
 	u.MutableAccountInfo().VersionType = versionType
 }
 
 func (u *UserCache) LoginInit(_self UserImpl, ctx *cd.RpcContext) {
+	if u == nil {
+		return
+	}
+
 	u.updateLoginData(ctx)
 }
 
 func (u *UserCache) OnLogin(_self UserImpl, _ctx *cd.RpcContext) {
+	if u == nil {
+		return
+	}
 }
 
 func (u *UserCache) OnLogout(_self UserImpl, ctx *cd.RpcContext) {
+	if u == nil {
+		return
+	}
+
 	loginInfo := lu.Mutable(&u.loginInfo)
 
 	nowSec := ctx.GetNow().Unix()
@@ -280,6 +327,10 @@ func (u *UserCache) OnLogout(_self UserImpl, ctx *cd.RpcContext) {
 }
 
 func (u *UserCache) OnSaved(_self UserImpl, _ctx *cd.RpcContext, version uint64) {
+	if u == nil {
+		return
+	}
+
 	u.account_info_.ClearDirty(version)
 	u.user_data_.ClearDirty(version)
 	u.user_options_.ClearDirty(version)
@@ -289,6 +340,10 @@ func (u *UserCache) OnUpdateSession(_self UserImpl, ctx *cd.RpcContext, from *Se
 }
 
 func (u *UserCache) GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin {
+	if u == nil {
+		return nil
+	}
+
 	if u.loginInfo == nil {
 		u.loginInfo = &private_protocol_pbdesc.DatabaseTableLogin{}
 		u.loginInfo.UserId = u.userId
@@ -306,11 +361,15 @@ func (u *UserCache) GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin {
 }
 
 func (u *UserCache) GetLoginVersion() uint64 {
+	if u == nil {
+		return 0
+	}
+
 	return u.loginVersion
 }
 
 func (u *UserCache) LoadLoginInfo(_self UserImpl, info *private_protocol_pbdesc.DatabaseTableLogin, version uint64) {
-	if info == nil {
+	if u == nil || info == nil {
 		return
 	}
 
@@ -325,46 +384,90 @@ func (u *UserCache) CleanupClientDirtyCache() {
 }
 
 func (u *UserCache) GetCurrentDbDataVersion() uint64 {
+	if u == nil {
+		return 0
+	}
+
 	return u.loginInfo.RouterVersion
 }
 
 func (u *UserCache) GetAccountInfo() *private_protocol_pbdesc.AccountInformation {
+	if u == nil {
+		return nil
+	}
+
 	return u.account_info_.Get()
 }
 
 func (u *UserCache) MutableAccountInfo() *private_protocol_pbdesc.AccountInformation {
+	if u == nil {
+		return nil
+	}
+
 	return u.account_info_.Mutable(u.GetCurrentDbDataVersion())
 }
 
 func (u *UserCache) GetUserData() *private_protocol_pbdesc.UserData {
+	if u == nil {
+		return nil
+	}
+
 	return u.user_data_.Get()
 }
 
 func (u *UserCache) MutableUserData() *private_protocol_pbdesc.UserData {
+	if u == nil {
+		return &private_protocol_pbdesc.UserData{}
+	}
+
 	return u.user_data_.Mutable(u.GetCurrentDbDataVersion())
 }
 
 func (u *UserCache) GetUserOptions() *private_protocol_pbdesc.UserOptions {
+	if u == nil {
+		return nil
+	}
+
 	return u.user_options_.Get()
 }
 
 func (u *UserCache) MutableUserOptions() *private_protocol_pbdesc.UserOptions {
+	if u == nil {
+		return &private_protocol_pbdesc.UserOptions{}
+	}
+
 	return u.user_options_.Mutable(u.GetCurrentDbDataVersion())
 }
 
 func (u *UserCache) GetClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
+	if u == nil {
+		return nil
+	}
+
 	return lu.Mutable(&u.loginInfo).GetLastLogin().GetClientInfo()
 }
 
 func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
+	if u == nil {
+		return &public_protocol_pbdesc.DClientDeviceInfo{}
+	}
+
 	return lu.Mutable(&lu.Mutable(&lu.Mutable(&u.loginInfo).LastLogin).ClientInfo)
 }
 
 func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
+	if u == nil {
+		return nil
+	}
+
 	return u.cs_actor_log_writer
 }
 
 func (u *UserCache) updateLoginData(ctx *cd.RpcContext) {
+	if u == nil {
+		return
+	}
+
 	if u.loginInfo == nil {
 		return
 	}
