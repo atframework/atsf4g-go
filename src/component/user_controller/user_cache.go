@@ -6,6 +6,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	"google.golang.org/protobuf/proto"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
@@ -266,6 +267,20 @@ func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, srcTb *priva
 	if srcTb.GetUserData().GetSessionSequence() > u.sessionSequence {
 		u.sessionSequence = srcTb.GetUserData().GetSessionSequence()
 	}
+
+	if srcTb.GetAccountData() != nil {
+		proto.Merge(u.MutableAccountInfo(), srcTb.GetAccountData())
+	}
+
+	if srcTb.GetUserData() != nil {
+		proto.Merge(u.MutableUserData(), srcTb.GetUserData())
+	}
+
+	if srcTb.GetOptions() != nil {
+		proto.Merge(u.MutableUserOptions(), srcTb.GetOptions())
+	}
+
+	// TODO: 数据版本升级 u.dataVersion -> UserDataCurrentVersion
 
 	return cd.CreateRpcResultOk()
 }
