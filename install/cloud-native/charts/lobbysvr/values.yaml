@@ -37,6 +37,7 @@ gateway:
 
 httproute:
   port: 7001
+  sectionName: http
 
 service:
   type: ClusterIP

@@ -23,7 +23,7 @@ spec:
       protocol: {{ default "TCP" .Values.service.protocol }}
   selector:
     # selector 推荐使用 values 配置化，这里保留向后兼容的默认值
-    app.yygf.io/name: {{ include "libapp.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- define "libapp.service" -}}
 {{- /* 将当前 dot 传递给 util.merge，以便模板内的 .Values/.Release 可用 */ -}}

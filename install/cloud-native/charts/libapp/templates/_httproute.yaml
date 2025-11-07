@@ -11,6 +11,7 @@ metadata:
 spec:
   parentRefs:
   - name: {{ default (printf "%s-tls-gateway" (include "libapp.fullname" .)) }}
+  - sectionName: {{ default "http" .Values.httproute.sectionName | quote }}
   # hostnames: 支持单个字符串或数组 .Values.httproute.hosts
   hostnames:
   - {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.gateway.hostname }}
