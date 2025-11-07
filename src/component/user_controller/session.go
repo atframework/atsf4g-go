@@ -1,6 +1,8 @@
 package atframework_component_user_controller
 
 import (
+	"fmt"
+
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
 
@@ -129,7 +131,7 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	s.user = convertUser
 	convertUser.BindSession(convertUser, ctx, s)
 
-	if !lu.IsNil(s.user) {
+	if !lu.IsNil(s.user) && !lu.IsNil(s.networkHandle) {
 		s.networkHandle.SetAuthorized(true)
 	}
 
@@ -163,6 +165,9 @@ func (s *Session) GetDispatcher() cd.DispatcherImpl {
 }
 
 func (s *Session) SendMessage(msg *public_protocol_extension.CSMsg) error {
+	if lu.IsNil(s.networkHandle) {
+		return fmt.Errorf("network handle is already closed")
+	}
 	return s.networkHandle.SendMessage(msg)
 }
 

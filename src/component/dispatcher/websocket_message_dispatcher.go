@@ -360,6 +360,10 @@ func (d *WebSocketMessageDispatcher) WriteMessage(session *WebSocketSession, mes
 		return fmt.Errorf("message or session is nil")
 	}
 
+	if d == nil {
+		return fmt.Errorf("dispatcher is nil")
+	}
+
 	select {
 	case session.sendQueue <- message:
 		return nil

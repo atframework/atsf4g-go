@@ -26,25 +26,53 @@ type SessionNetworkWebsocketHandle struct {
 }
 
 func (h *SessionNetworkWebsocketHandle) GetDispatcher() cd.DispatcherImpl {
+	if h == nil {
+		return nil
+	}
 	return h.dispatcher
 }
 
 func (h *SessionNetworkWebsocketHandle) SendMessage(msg *public_protocol_extension.CSMsg) error {
+	if h == nil {
+		return fmt.Errorf("session network handle is nil")
+	}
 	// Implement the logic to send a message over the WebSocket
 	return h.dispatcher.WriteMessage(h.networkSession, msg)
 }
 
 func (h *SessionNetworkWebsocketHandle) SetAuthorized(authorized bool) {
+	if h == nil {
+		return
+	}
+
+	if lu.IsNil(h.networkSession) {
+		return
+	}
+
 	// Implement the logic to set the authorization state
 	h.networkSession.Authorized = authorized
 }
 
 func (h *SessionNetworkWebsocketHandle) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) {
+	if h == nil {
+		ctx.LogError("SessionNetworkWebsocketHandle is nil")
+		return
+	}
+
+	if h.dispatcher == nil {
+		ctx.LogError("SessionNetworkWebsocketHandle.dispatcher is nil")
+		return
+	}
+
 	// Implement the logic to close the WebSocket session
 	h.dispatcher.Close(ctx, h.networkSession, int(reason), reasonMessage)
 }
 
 func (h *SessionNetworkWebsocketHandle) GetRemoteAddr() string {
+	if h == nil {
+		return ""
+	}
+
 	if h.cacheRemoteAddr != "" {
 		return h.cacheRemoteAddr
 	}

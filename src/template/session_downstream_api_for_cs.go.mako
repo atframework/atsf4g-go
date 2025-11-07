@@ -52,7 +52,7 @@ func sendMessage(responseCode int32, session cd.TaskActionCSSession,
 	}
 
 	logWriter := session.GetActorLogWriter()
-	if logWriter != nil {
+	if !lu.IsNil(logWriter) {
 		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Sending: %s\n", time.Now().Format(time.DateTime), rpcUrl)
 		fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(msg.Head))
 		fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(body))
@@ -69,7 +69,7 @@ if rpc.get_request_descriptor().full_name != "google.protobuf.Empty":
 rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
 func Send${rpc_name}(session cd.TaskActionCSSession, body *sp.${rpc.get_response().get_name()}, responseCode int32) error {
-	if session == nil || body == nil {
+	if lu.IsNil(session) || body == nil {
 		return fmt.Errorf("session or message body is nil")
 	}
 
