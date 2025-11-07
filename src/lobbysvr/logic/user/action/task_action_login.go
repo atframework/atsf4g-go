@@ -92,7 +92,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	loginTb, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
 	if result.IsError() {
-		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND) {
+		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
 			loginTb = &private_protocol_pbdesc.DatabaseTableLogin{
 				OpenId:         request_body.GetOpenId(),
 				UserId:         userId,

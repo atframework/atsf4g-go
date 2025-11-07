@@ -242,7 +242,9 @@ func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
 
 	onRemoveSession := d.onRemoveSession.Load()
 	if onRemoveSession != nil {
-		onRemoveSession.(WebSocketCallbackOnRemoveSession)(d.CreateRpcContext(d), session)
+		ctx := d.CreateRpcContext(d)
+		ctx.Context = context.Background()
+		onRemoveSession.(WebSocketCallbackOnRemoveSession)(ctx, session)
 	}
 
 	d.GetApp().GetDefaultLogger().Info("WebSocket session removed", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)

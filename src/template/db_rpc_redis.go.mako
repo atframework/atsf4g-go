@@ -64,8 +64,9 @@ func ${message_name}LoadWith${index_key_name}(
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
 					)
+					return resumeError
 				}
-				return resumeError
+				return redisError
             }
 			if len(result) == 0 {
 				ctx.GetApp().GetLogger(2).Info("HGetAll ${message_name} Record Not Found: \n", "Seq", awaitOption.Sequence)
@@ -177,8 +178,9 @@ func ${message_name}Update${index_key_name}(
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
 					)
+					return resumeError
 				}
-				return resumeError
+				return redisError
             }
 			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Recv: \n", "Seq", awaitOption.Sequence)
 			resumeData.Result = cd.CreateRpcResultOk()
@@ -270,8 +272,9 @@ func ${message_name}LoadWith${index_key_name}PartlyField${partly_field_name}(
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
 					)
+					return resumeError
 				}
-				return resumeError
+				return redisError
             }
 			if len(result) == 0 {
 				ctx.GetApp().GetLogger(2).Info("HMGet ${message_name} Record Not Found: \n", "Seq", awaitOption.Sequence)

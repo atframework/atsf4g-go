@@ -41,6 +41,9 @@ func (ctx *RpcContext) GetAction() TaskActionImpl {
 	return ctx.taskAction
 }
 
+func (ctx *RpcContext) BindAction(action TaskActionImpl) {
+	ctx.taskAction = action
+}
 
 func (ctx *RpcContext) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, msg string, args ...any) {
 	var logger *slog.Logger = nil

@@ -2,6 +2,7 @@ package atframework_component_user_controller_action
 
 import (
 	// libatapp "github.com/atframework/libatapp-go"
+	"context"
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -67,10 +68,16 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx *cd.RpcContext, s
 		session:                 session,
 	}
 
+	rpcContext := rd.CreateRpcContext(rd)
+	if ctx != nil && ctx.Context != nil {
+		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(ctx.Context)
+	}
+	rpcContext.BindAction(logoutTask)
+
 	startData := &cd.DispatcherStartData{
 		Message:           nil,
 		PrivateData:       nil,
-		MessageRpcContext: ctx,
+		MessageRpcContext: rpcContext,
 	}
 
 	err := cd.RunTaskAction(rd.GetApp(), logoutTask, startData)
