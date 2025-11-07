@@ -1,4 +1,4 @@
-package lobbysvr_logic_item
+package lobbysvr_logic_condition
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+
+	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 )
 
 type CheckConditionFunc = func(m UserConditionManager, ctx *cd.RpcContext, rule *public_protocol_common.DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
@@ -49,42 +51,13 @@ func HasLimitData(limit *public_protocol_common.DConditionBasicLimit) bool {
 	return len(limit.GetRule()) > 0 || len(limit.GetValidTime()) > 0
 }
 
-type RuleCheckerParameterPair struct {
-	key   reflect.Type
-	value interface{}
-}
+type (
+	RuleCheckerParameterPair = logic_condition_data.RuleCheckerParameterPair
+	RuleCheckerRuntime       = logic_condition_data.RuleCheckerRuntime
+)
 
-type RuleCheckerRuntime struct {
-	ruleParameter        map[reflect.Type]interface{}
-	currentRuleParameter interface{}
-}
-
-func (r *RuleCheckerRuntime) GetRuleParameter(t reflect.Type) interface{} {
-	if r == nil {
-		return nil
-	}
-
-	return r.ruleParameter[t]
-}
-
-func (r *RuleCheckerRuntime) GetCurrentRuleParameter() interface{} {
-	if r == nil {
-		return nil
-	}
-
-	return r.currentRuleParameter
-}
-
-func (r *RuleCheckerRuntime) MakeCurrentRuntime(t reflect.Type) *RuleCheckerRuntime {
-	if r == nil {
-		return nil
-	}
-
-	current := r.GetRuleParameter(t)
-	return &RuleCheckerRuntime{
-		ruleParameter:        r.ruleParameter,
-		currentRuleParameter: current,
-	}
+func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRuntime {
+	return logic_condition_data.CreateRuleCheckerRuntime(params...)
 }
 
 type conditionRuleCheckHandle struct {
@@ -98,31 +71,6 @@ func buildRuleCheckers() map[reflect.Type]*conditionRuleCheckHandle {
 }
 
 var conditionRuleCheckers = buildRuleCheckers()
-
-func CreateRuntimePair[T interface{}](value T) *RuleCheckerParameterPair {
-	return &RuleCheckerParameterPair{
-		key:   reflect.TypeOf((*T)(nil)).Elem(),
-		value: value,
-	}
-}
-
-func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRuntime {
-	if len(params) == 0 {
-		return nil
-	}
-
-	m := make(map[reflect.Type]interface{}, len(params))
-	for _, p := range params {
-		m[p.key] = p.value
-	}
-
-	ret := &RuleCheckerRuntime{
-		ruleParameter:        m,
-		currentRuleParameter: nil,
-	}
-
-	return ret
-}
 
 // 注册规则检查器，此函数请在init函数中调用
 // t 必须是 DConditionRule.RuleType 中的具体类型

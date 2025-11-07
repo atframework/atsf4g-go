@@ -1,4 +1,4 @@
-package lobbysvr_logic_item_impl
+package lobbysvr_logic_condition_impl
 
 import (
 	"fmt"
