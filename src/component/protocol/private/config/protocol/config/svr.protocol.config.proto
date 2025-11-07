@@ -41,6 +41,12 @@ message logic_server_cfg {
   logic_server_shared_component_cfg shared_component = 106;
 }
 
+message logic_redis_cfg {
+  string addr = 1;
+  string password = 2;
+  int32 pool_size = 3 [(atapp.protocol.CONFIGURE) = { default_value: "100" min_value: "50" }];
+}
+
 message webserver_cfg {
   string host = 1 [ (atapp.protocol.CONFIGURE) = {default_value : ""} ];
   int32 port = 2 [

@@ -17,13 +17,6 @@ type RpcContext struct {
 	CancelFn context.CancelFunc
 }
 
-func (dispatcher *DispatcherBase) CreateRpcContext(rd DispatcherImpl) *RpcContext {
-	return &RpcContext{
-		app:        dispatcher.GetApp(),
-		dispatcher: rd,
-	}
-}
-
 func (ctx *RpcContext) GetInternalLogger() *slog.Logger {
 	if ctx.app != nil {
 		return ctx.app.GetDefaultLogger()
@@ -39,6 +32,15 @@ func (ctx *RpcContext) GetNow() time.Time {
 
 	return time.Now()
 }
+
+func (ctx *RpcContext) GetApp() libatapp.AppImpl {
+	return ctx.app
+}
+
+func (ctx *RpcContext) GetAction() TaskActionImpl {
+	return ctx.taskAction
+}
+
 
 func (ctx *RpcContext) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, msg string, args ...any) {
 	var logger *slog.Logger = nil

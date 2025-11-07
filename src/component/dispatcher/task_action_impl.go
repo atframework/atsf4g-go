@@ -18,6 +18,8 @@ type TaskActionAwaitChannelData struct {
 	killed *RpcResult
 }
 
+type BeforeYieldAction func() RpcResult
+
 type TaskActionImpl interface {
 	Name() string
 	GetTaskId() uint64
@@ -63,7 +65,7 @@ type TaskActionImpl interface {
 
 	// 切出等待管理
 	TrySetupAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*chan TaskActionAwaitChannelData, error)
-	TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData) error
+	TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData, notify bool) error
 	TryKillAwait(action TaskActionImpl, killData *RpcResult) error
 }
 
@@ -238,7 +240,7 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 	}
 }
 
-func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) (*DispatcherResumeData, *RpcResult) {
+func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, *RpcResult) {
 	// TODO: 已经超时或者被Killed，不允许再切出
 
 	// 暂停任务逻辑, 让出令牌
@@ -247,6 +249,24 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 		app.GetDefaultLogger().Error("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return nil, &RpcResult{Error: err, ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
+
+	if beforeYield != nil {
+		result := beforeYield()
+		if result.IsError() {
+			// 释放等待逻辑 继续执行
+			err := action.TryFinishAwait(action, &DispatcherResumeData{
+				Message: &DispatcherRawMessage{
+					Type: awaitOptions.Type,
+				},
+				Sequence: awaitOptions.Sequence,
+			}, false)
+			if err != nil {
+				app.GetDefaultLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+			}
+			return nil, &result
+		}
+	}
+
 	actor := action.GetActorExecutor()
 	if actor != nil {
 		actor.releaseCurrentRunningAction(app, action, true)
@@ -275,7 +295,7 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 func ResumeTaskAction(app libatapp.AppImpl, action TaskActionImpl, resumeData *DispatcherResumeData) error {
 	// TODO: TaskManager移除超时和等待数据
 
-	err := action.TryFinishAwait(action, resumeData)
+	err := action.TryFinishAwait(action, resumeData, true)
 	if err != nil {
 		app.GetDefaultLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return err

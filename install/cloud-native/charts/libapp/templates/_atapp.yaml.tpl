@@ -86,7 +86,7 @@ atapp:
             auto_flush: error
             flush_interval: 1s    # flush log interval
             hard_link: true
-      - name: local_db
+      - name: redis
         index: 1
         prefix: "[%F %T.%f]: "
         stacktrace:
@@ -101,9 +101,9 @@ atapp:
               number: 10
               size: 10MB
             path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.localdb.%N.info.log"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.all.log"
             auto_flush: error
-            flush_interval: 1s    # flush log interval
+            flush_interval: 1s        # flush log interval
           - type: file
             level:
               min: fatal
@@ -112,10 +112,10 @@ atapp:
               number: 10
               size: 10MB
             path: "{{ .Values.server_log_dir }}"
-            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.localdb.%N.error.log"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
-      - name: global_db
+      - name: db_inner
         index: 2
         prefix: "[%F %T.%f]: "
         stacktrace:
@@ -130,74 +130,9 @@ atapp:
               number: 10
               size: 10MB
             path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.globaldb.%N.info.log"
+            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.info.log"
             auto_flush: error
-            flush_interval: 1s        # flush log interval
-          - type: file
-            level:
-              min: fatal
-              max: warning
-            rotate:
-              number: 10
-              size: 10MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.globaldb.%N.error.log"
-            auto_flush: error
-            flush_interval: 1s        # flush log interval
-      - name: proto_stat
-        index: 3
-        prefix: "[%F %T.%f]: "
-        stacktrace:
-          min: disable
-          max: disable
-        sink:
-          - type: file
-            level:
-              min: fatal
-              max: debug
-            rotate:
-              number: 10
-              size: 20MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.pstat.log"
-            auto_flush: error
-            flush_interval: 1s        # flush log interval
-      - name: pay
-        index: 4
-        prefix: "[%F %T.%f]: "
-        stacktrace:
-          min: disable
-          max: disable
-        sink:
-          - type: file
-            level:
-              min: fatal
-              max: debug
-            rotate:
-              number: 10
-              size: 20MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.pay.log"
-            auto_flush: error
-            flush_interval: 1s        # flush log interval
-      - name: metric
-        index: 6
-        prefix: "  "
-        stacktrace:
-          min: disable
-          max: disable
-        sink:
-          - type: file
-            level:
-              min: fatal
-              max: debug
-            rotate:
-              number: 10
-              size: 50MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.metric.log"
-            auto_flush: fatal
-            flush_interval: 1s        # flush log interval
+            flush_interval: 1s    # flush log interval
   # =========== timer ===========
   timer:
     tick_interval: 8ms               # 8ms for tick active

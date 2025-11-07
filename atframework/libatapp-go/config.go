@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -864,17 +865,22 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 			continue
 		}
 
+		if lu.IsNil(parent) {
+			err = fmt.Errorf("LoadConfigFromYaml data nil")
+			break
+		}
+
 		arrayIndex, convErr := strconv.Atoi(trimPart)
 		if convErr == nil {
 			// 数组下标
 			parentArray, ok := parent.([]interface{})
 			if !ok {
 				err = fmt.Errorf("LoadConfigFromYaml expected array at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
-				return
+				break
 			}
 			if len(parentArray) <= arrayIndex {
 				err = fmt.Errorf("LoadConfigFromYaml array index out of range at %s, got %d >= %d", strings.Join(pathParts[0:i+1], "."), arrayIndex, len(parentArray))
-				return
+				break
 			}
 			parent = parentArray[arrayIndex]
 		} else {
@@ -882,14 +888,24 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 			parentMap, ok := parent.(map[string]interface{})
 			if !ok {
 				err = fmt.Errorf("LoadConfigFromYaml expected map at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
-				return
+				break
 			}
 			parent, ok = parentMap[trimPart]
 			if !ok {
 				err = fmt.Errorf("LoadConfigFromYaml key not found at %s", strings.Join(pathParts[0:i+1], "."))
-				return
+				break
 			}
 		}
+	}
+
+	if err != nil {
+		logger.Error("load prefixPath failed", "err", err)
+		// 使用初始值初始化
+		parseErr := ParseMessage(nil, configPb, logger)
+		if parseErr != nil {
+			logger.Error("ParseMessage failed", "err", parseErr)
+		}
+		return
 	}
 
 	atappData, ok := parent.(map[string]interface{})

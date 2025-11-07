@@ -191,6 +191,7 @@ func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *Dispat
 		)
 	}
 
+	t.currentAwaiting.Option = awaitOptions
 	return nil
 }
 
@@ -211,7 +212,7 @@ func (t *TaskActionBase) TrySetupAwait(action TaskActionImpl, awaitOptions *Disp
 	return t.currentAwaiting.Channel, nil
 }
 
-func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData) error {
+func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *DispatcherResumeData, notify bool) error {
 	t.currentAwaiting.Lock.Lock()
 	defer t.currentAwaiting.Lock.Unlock()
 
@@ -230,15 +231,19 @@ func (t *TaskActionBase) TryFinishAwait(action TaskActionImpl, resumeData *Dispa
 		)
 	}
 
-	if t.currentAwaiting.Channel == nil {
-		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
-	}
-
-	select {
-	case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{resume: resumeData}:
+	if !notify {
 		t.currentAwaiting.Option = nil
-	default:
-		return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
+	} else {
+		if t.currentAwaiting.Channel == nil {
+			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
+		}
+
+		select {
+		case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{resume: resumeData}:
+			t.currentAwaiting.Option = nil
+		default:
+			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", action.Name(), action.GetTaskId())
+		}
 	}
 
 	return nil

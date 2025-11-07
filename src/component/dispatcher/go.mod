@@ -20,10 +20,13 @@ require (
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 	github.com/gorilla/websocket v1.5.3
+	github.com/redis/go-redis/v9 v9.16.0
 	google.golang.org/protobuf v1.36.9
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/panjf2000/ants/v2 v2.11.3 // indirect
 	github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect

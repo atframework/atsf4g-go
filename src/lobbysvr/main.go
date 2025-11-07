@@ -7,6 +7,7 @@ import (
 
 	ssc "github.com/atframework/atsf4g-go/component-service_shared_collection"
 
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
 
 	lobbysvr_app "github.com/atframework/atsf4g-go/service-lobbysvr/app"
@@ -18,6 +19,9 @@ func main() {
 	// CS消息WebSocket分发器
 	csDispatcher := uc_d.WebsocketDispatcherCreateCSMessage(app, "lobbysvr.webserver", "lobbysvr.websocket")
 	atapp.AtappAddModule(app, csDispatcher)
+
+	redisDispatcher := cd.CreateRedisMessageDispatcher(app)
+	atapp.AtappAddModule(app, redisDispatcher)
 
 	if err := lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc_d.WebsocketDispatcherFindSessionFromMessage); err != nil {
 		println("RegisterLobbyClientService fail: %s", err.Error())

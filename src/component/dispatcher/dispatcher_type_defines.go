@@ -16,6 +16,7 @@ type DispatcherRawMessage struct {
 type DispatcherResumeData struct {
 	Message     *DispatcherRawMessage
 	Sequence    uint64
+	Result      RpcResult
 	PrivateData interface{}
 
 	MessageRpcContext *RpcContext

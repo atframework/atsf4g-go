@@ -53,6 +53,8 @@ type DispatcherImpl interface {
 
 	PushFrontMessageFilter(handle MessageFilterHandler)
 	PushBackMessageFilter(handle MessageFilterHandler)
+
+	CreateRpcContext(rd DispatcherImpl) *RpcContext
 }
 
 type taskActionCreatorData struct {
@@ -277,6 +279,13 @@ func (dispatcher *DispatcherBase) PushBackMessageFilter(handle MessageFilterHand
 	dispatcher.messageFilters = append(dispatcher.messageFilters, handle)
 }
 
+func (dispatcher *DispatcherBase) CreateRpcContext(rd DispatcherImpl) *RpcContext {
+	return &RpcContext{
+		app:        dispatcher.GetApp(),
+		dispatcher: rd,
+	}
+}
+
 func CreateRpcResultOk() RpcResult {
 	return RpcResult{
 		Error:        nil,
@@ -303,7 +312,7 @@ func (der *RpcResult) IsOK() bool {
 }
 
 func (der *RpcResult) IsError() bool {
-	return der.Error != nil || der.ResponseCode < 0
+	return der != nil && (der.Error != nil || der.ResponseCode < 0)
 }
 
 func (der *RpcResult) GetStandardError() error {

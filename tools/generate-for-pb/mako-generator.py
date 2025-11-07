@@ -27,6 +27,21 @@ LOCAL_PROJECT_VCS_CACHE = dict()
 LOCAL_WOKER_POOL: concurrent.futures.ThreadPoolExecutor = None
 LOCAL_WOKER_FUTURES = dict()
 
+pb_msg_go_db_vaild_type_map = {
+    pb2.FieldDescriptorProto.TYPE_BOOL: True,
+    pb2.FieldDescriptorProto.TYPE_BYTES: True,
+    pb2.FieldDescriptorProto.TYPE_DOUBLE: True,
+    pb2.FieldDescriptorProto.TYPE_FLOAT: True,
+    pb2.FieldDescriptorProto.TYPE_INT32: True,
+    pb2.FieldDescriptorProto.TYPE_INT64: True,
+    pb2.FieldDescriptorProto.TYPE_SINT32: True,
+    pb2.FieldDescriptorProto.TYPE_SINT64: True,
+    pb2.FieldDescriptorProto.TYPE_STRING: True,
+    pb2.FieldDescriptorProto.TYPE_UINT32: True,
+    pb2.FieldDescriptorProto.TYPE_UINT64: True,
+    pb2.FieldDescriptorProto.TYPE_MESSAGE: True,
+}
+
 pb_msg_go_type_map = {
     pb2.FieldDescriptorProto.TYPE_BOOL: "bool",
     pb2.FieldDescriptorProto.TYPE_BYTES: "[]byte",
@@ -375,6 +390,14 @@ class PbField(PbObjectBase):
         if self.descriptor.type in pb_msg_go_type_map:
             return pb_msg_go_type_map[self.descriptor.type]
         return self.descriptor.type
+
+    def is_db_vaild_type(self):
+        if self.descriptor.label == pb2.FieldDescriptorProto.LABEL_REPEATED:
+            return False
+        global pb_msg_go_db_vaild_type_map
+        if self.descriptor.type in pb_msg_go_db_vaild_type_map:
+            return True
+        return False
 
     def get_go_fmt_type(self):
         global pb_msg_go_fmt_map
