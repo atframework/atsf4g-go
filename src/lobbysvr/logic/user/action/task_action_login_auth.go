@@ -44,8 +44,8 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		t.GetLogger().Warn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
 		return nil
 	}
-	// TODO: zoneId从服务器中读取
-	zoneId := uint32(1)
+
+	zoneId := t.GetDispatcher().GetApp().GetLogicId()
 
 	user := uc.UserManagerFindUserAs[*data.User](uc.GlobalUserManager, zoneId, userId)
 	if !t.checkExistedUser(user) {

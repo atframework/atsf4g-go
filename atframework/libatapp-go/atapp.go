@@ -66,6 +66,9 @@ type AppConfig struct {
 	ConfigFile   string
 	PidFile      string
 	ExecutePath  string
+	WoridId      uint32
+	ZoneId       uint32
+	LogicId      uint32
 
 	// 定时器配置
 	TickInterval     time.Duration
@@ -112,6 +115,9 @@ type AppImpl interface {
 	GetHashCode() string
 	GetAppVersion() string
 	GetBuildVersion() string
+	GetWorldId() uint32
+	GetZoneId() uint32
+	GetLogicId() uint32
 
 	AddModule(typeInst reflect.Type, module AppModuleImpl) error
 
@@ -237,6 +243,9 @@ func CreateAppInstance() AppImpl {
 	ret.appContext, ret.stopAppHandle = context.WithCancel(context.Background())
 
 	// 设置默认配置
+	ret.config.ZoneId = 1
+	ret.config.WoridId = 1
+	ret.config.LogicId = 1001
 	ret.config.TickInterval = 8 * time.Millisecond
 	ret.config.TickRoundTimeout = 128 * time.Millisecond
 	ret.config.StopTimeout = 30 * time.Second
@@ -851,6 +860,9 @@ func (app *AppInstance) GetHashCode() string     { return app.config.HashCode }
 func (app *AppInstance) GetAppVersion() string   { return app.config.AppVersion }
 func (app *AppInstance) GetBuildVersion() string { return app.config.BuildVersion }
 func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
+func (app *AppInstance) GetWorldId() uint32      { return app.config.WoridId }
+func (app *AppInstance) GetZoneId() uint32       { return app.config.ZoneId }
+func (app *AppInstance) GetLogicId() uint32      { return app.config.LogicId }
 
 // 配置管理
 func (app *AppInstance) LoadConfig(configFile string) (err error) {
@@ -869,6 +881,14 @@ func (app *AppInstance) LoadConfig(configFile string) (err error) {
 		if app.config.ConfigPb.GetLog().GetCrashOutputFile() != "" {
 			app.config.CrashOutputFile = app.config.ConfigPb.GetLog().GetCrashOutputFile()
 		}
+
+		app.config.ZoneId = app.config.ConfigPb.GetZoneId()
+		app.config.WoridId = app.config.ConfigPb.GetWorldId()
+		app.config.LogicId = uint32(app.config.ConfigPb.GetArea().GetZoneId())
+	}
+	if app.config.ZoneId == 0 || app.config.WoridId == 0 || app.config.LogicId == 0 {
+		err = fmt.Errorf("invalid config: zone_id, world_id and logic_id must be greater than 0")
+		return
 	}
 	return
 }

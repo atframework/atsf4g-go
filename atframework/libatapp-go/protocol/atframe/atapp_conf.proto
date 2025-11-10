@@ -383,16 +383,17 @@ message atapp_resource {
 message atapp_configure {
   // bus configure
   string id = 101;       // maybe hex or a.b.c.d
-  string id_mask = 102;  // convert a.b.c.d -> id
-  string name = 103;
-  uint64 type_id = 104;
-  string type_name = 105;
-  atapp_area area = 106;  // Some service is splited by area
+  uint32 world_id = 102;
+  uint32 zone_id = 103;
+  string name = 104;
+  uint64 type_id = 105;
+  string type_name = 106;
+  atapp_area area = 107;  // Some service is splited by area
   // See these document below for details:
   //   https://kubernetes.io/docs/concepts/workloads/pods/downward-api/#available-fields
   //   https://kubernetes.io/zh-cn/docs/concepts/workloads/pods/downward-api/#available-fields
-  atapp_metadata metadata = 107;
-  atapp_runtime runtime = 108;
+  atapp_metadata metadata = 108;
+  atapp_runtime runtime = 109;
 
   string hostname = 121;
   // The same identity means the same instance of a app.

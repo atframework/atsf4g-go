@@ -17,6 +17,12 @@ enum database_index_type {
   EN_ATFRAMEWORK_DB_INDEX_TYPE_KL = 1;
 }
 
+enum database_table_split_type {
+  EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_NONE = 0;        // 不分区分服
+  EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD = 1;       // 分大区
+  EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE = 2;  // 分小区
+}
+
 message database_partly_field {
   repeated string fields = 1;
 }
@@ -24,6 +30,7 @@ message database_partly_field {
 message database_table_index {
   string name = 1;
   database_index_type type = 2;
+  database_table_split_type split_type = 3;
 
   repeated string key_fields = 11;
   repeated database_partly_field partly_get = 12;

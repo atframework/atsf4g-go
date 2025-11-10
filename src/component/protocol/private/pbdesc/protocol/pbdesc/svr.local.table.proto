@@ -22,6 +22,7 @@ message database_table_access {
     index: {
       name: "access"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       key_fields: "zone_id"
       key_fields: "user_id"
     }
@@ -39,6 +40,7 @@ message database_table_login {
     index: {
       name: "login"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       key_fields: "zone_id"
       key_fields: "user_id"
     }
@@ -106,6 +108,7 @@ message database_table_user {
     index: {
       name: "user"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       key_fields: "zone_id"
       key_fields: "user_id"
     }
@@ -135,6 +138,7 @@ message database_table_distribute_transaction {
     index: {
       name: "distribute_transaction"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD
       key_fields: "zone_id"
       key_fields: "transaction_uuid"
     }

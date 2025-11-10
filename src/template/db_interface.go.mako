@@ -20,10 +20,12 @@ import (
 )
 <%
 file = database.get_file(generate_proto_file)
-enum = database.get_enum("atframework.database_index_type")
-if enum == None:
+index_type_enum = database.get_enum("atframework.database_index_type")
+if index_type_enum == None:
     return
-kv_type = enum.values_by_name["EN_ATFRAMEWORK_DB_INDEX_TYPE_KV"]
+split_type_enum = database.get_enum("atframework.database_table_split_type")
+if split_type_enum == None:
+    return
 %>
 %	for message_name, message_desc in file.descriptor.message_types_by_name.items():
 <%
@@ -39,5 +41,5 @@ kv_type = enum.values_by_name["EN_ATFRAMEWORK_DB_INDEX_TYPE_KV"]
         continue
     message_name = message.get_identify_name(message_name, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
-<%include file="db_rpc_redis.go.mako" args="message_name=message_name,extension=extension,message=message,kv_type=kv_type" />
+<%include file="db_rpc_redis.go.mako" args="message_name=message_name,extension=extension,message=message,index_type_enum=index_type_enum,split_type_enum=split_type_enum" />
 %   endfor

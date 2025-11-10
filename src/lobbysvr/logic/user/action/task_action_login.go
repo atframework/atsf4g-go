@@ -50,10 +50,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		userId = userIdFromOpenId
 	}
 
-	zoneId := request_body.GetZoneId()
-	if zoneId == 0 {
-		zoneId = uint32(1)
-	}
+	zoneId := t.GetDispatcher().GetApp().GetLogicId()
 
 	csSession := t.GetSession()
 	if csSession == nil {

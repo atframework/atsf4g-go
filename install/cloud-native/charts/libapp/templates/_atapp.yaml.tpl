@@ -3,7 +3,8 @@
 atapp:
   # =========== bus configure ===========
   id: {{ $bus_addr | quote }}
-  id_mask: ""
+  world_id: {{ .Values.world_id }}
+  zone_id: {{ .Values.zone_id }}
   type_id: {{ required ".Values.type_id who entry required!" .Values.type_id }} # server type id
   type_name: {{ .Values.type_name | default (include "libapp.name" .) }}         # server type name
   area:
