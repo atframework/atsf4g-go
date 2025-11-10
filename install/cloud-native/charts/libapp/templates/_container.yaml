@@ -2,7 +2,7 @@
 name: {{ include "libapp.name" . }}
 securityContext:
   {{- toYaml .Values.securityContext | nindent 2 }}
-image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
 imagePullPolicy: {{ .Values.image.pullPolicy }}
 volumeMounts:
 - name: config
