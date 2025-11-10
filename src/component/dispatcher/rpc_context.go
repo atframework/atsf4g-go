@@ -17,7 +17,7 @@ type RpcContext struct {
 	CancelFn context.CancelFunc
 }
 
-func (ctx *RpcContext) GetInternalLogger() *slog.Logger {
+func (ctx *RpcContext) getInternalLogger() *slog.Logger {
 	if ctx.app != nil {
 		return ctx.app.GetDefaultLogger()
 	}
@@ -48,7 +48,7 @@ func (ctx *RpcContext) BindAction(action TaskActionImpl) {
 func (ctx *RpcContext) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, msg string, args ...any) {
 	var logger *slog.Logger = nil
 	if ctx != nil {
-		logger = ctx.GetInternalLogger()
+		logger = ctx.getInternalLogger()
 
 		if c == nil {
 			c = ctx.Context

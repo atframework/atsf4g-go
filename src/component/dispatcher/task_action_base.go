@@ -275,15 +275,6 @@ func (t *TaskActionBase) TryKillAwait(action TaskActionImpl, killData *RpcResult
 	return nil
 }
 
-func (t *TaskActionBase) GetInternalLogger() *slog.Logger {
-	d := t.GetDispatcher()
-	if d == nil {
-		return slog.Default()
-	}
-
-	return d.GetLogger()
-}
-
 // ====================== 业务日志接口 =========================
 
 func (t *TaskActionBase) LogWithLevel(level slog.Level, msg string, args ...any) {
