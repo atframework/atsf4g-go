@@ -12,6 +12,8 @@ import (
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	config "github.com/atframework/atsf4g-go/component-config"
+
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 
@@ -223,11 +225,83 @@ func (u *User) DumpToDB(self uc.UserImpl, ctx *cd.RpcContext, dstDb *private_pro
 	}
 }
 
+func (u *User) createInitItemBatch(ctx *cd.RpcContext,
+	itemInsts []*public_protocol_common.DItemInstance,
+) cd.RpcResult {
+	addGuard, result := u.CheckAddItem(ctx, itemInsts)
+	if result.IsError() {
+		return result
+	}
+
+	u.AddItem(ctx, addGuard, &ItemFlowReason{
+		// TODO: 道具流水原因
+	})
+
+	return cd.CreateRpcResultOk()
+}
+
+func (u *User) createInitItemOneByOne(ctx *cd.RpcContext,
+	itemInsts []*public_protocol_common.DItemInstance,
+) cd.RpcResult {
+	if len(itemInsts) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	for _, itemInst := range itemInsts {
+		addGuard, result := u.CheckAddItem(ctx, []*public_protocol_common.DItemInstance{itemInst})
+		if result.IsError() {
+			ctx.LogError("user create init generate item from offset failed", "error", result.Error,
+				"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
+				"item_type_id", itemInst.GetItemBasic().GetTypeId(), "item_count", itemInst.GetItemBasic().GetCount())
+			continue
+		}
+
+		u.AddItem(ctx, addGuard, &ItemFlowReason{
+			// TODO: 道具流水原因
+		})
+	}
+
+	return cd.CreateRpcResultOk()
+}
+
 func (u *User) CreateInit(self uc.UserImpl, ctx *cd.RpcContext, versionType uint32) {
 	u.UserCache.CreateInit(self, ctx, versionType)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.CreateInit(ctx, versionType)
+	}
+
+	// 玩家出身表
+	initItemCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelUserInitializeItemsAllOfIndex()
+	if initItemCfg != nil {
+		var initItems []*public_protocol_common.DItemOffset
+		for _, itemCfg := range *initItemCfg {
+			if itemCfg.GetItem().GetTypeId() == 0 || itemCfg.GetItem().GetCount() <= 0 {
+				continue
+			}
+
+			initItems = append(initItems, itemCfg.GetItem())
+		}
+
+		var itemInsts []*public_protocol_common.DItemInstance
+
+		for _, initItem := range initItems {
+			itemInst, result := u.GenerateItemInstanceFromOffset(ctx, initItem)
+			if result.IsError() {
+				ctx.LogError("user create init generate item from offset failed", "error", result.Error,
+					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
+					"item_type_id", itemInst.GetItemBasic().GetTypeId(), "item_count", itemInst.GetItemBasic().GetCount())
+				continue
+			}
+
+			itemInsts = append(itemInsts, itemInst)
+		}
+
+		initItemResult := u.createInitItemBatch(ctx, itemInsts)
+		if initItemResult.IsError() {
+			initItemResult.LogWarn(ctx, "user create init batch add item failed, we will try to add item one by one", "user_id", u.GetUserId(), "zone_id", u.GetZoneId())
+			u.createInitItemOneByOne(ctx, itemInsts)
+		}
 	}
 }
 
