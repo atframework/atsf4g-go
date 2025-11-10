@@ -11,7 +11,6 @@ metadata:
 spec:
   parentRefs:
   - name: {{ default "project-y-tls-gateway" .Values.httproute.parentRefsName | quote }}
-    sectionName: {{ default "http" .Values.httproute.sectionName | quote }}
   # hostnames: 支持单个字符串或数组 .Values.httproute.hosts
   hostnames:
   - {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.gateway.hostname }}
@@ -19,7 +18,13 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: {{ default "/" .Values.httproute.path | quote }}
+        {{- $env := (default "" .Values.atapp.deployment.deployment_environment) -}}
+        {{- $wspath := (default "" .Values.websocket.path) -}}
+        {{- if $wspath }}
+        value: {{ printf "/%s/%s/ws/v1" $env $wspath | replace "///" "/" | replace "//" "/" | quote }}
+        {{- else }}
+        value: "/ws/v1"
+        {{- end }}
     backendRefs:
     - name: {{ default (include "libapp.fullname" .) }}
       port: {{ default 80 .Values.service.port }}

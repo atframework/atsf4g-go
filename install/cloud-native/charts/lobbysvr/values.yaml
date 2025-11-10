@@ -37,7 +37,6 @@ gateway:
 
 httproute:
   port: 7001
-  sectionName: http
   parentRefsName: project-y-tls-gateway
 
 service:
@@ -45,3 +44,9 @@ service:
   port: 7001
   targetPort: 7001
   protocol: TCP
+webserver:
+  port: 7001
+
+# websocket:
+  # websocket 路径片段 实际路径为 /<deployment_environment>/daily/ws/v1
+  # path: daily 

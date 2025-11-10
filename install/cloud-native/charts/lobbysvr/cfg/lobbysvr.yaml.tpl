@@ -10,3 +10,12 @@ lobbysvr:
     record_prefix: {{ .Values.redis.record_prefix }}
     random_prefix: {{ .Values.redis.random_prefix }}
 {{- end -}} {{- /* end if */}}
+  webserver:
+    port: {{ .Values.webserver.port }}
+  websocket:
+    {{- $env := (default "" .Values.atapp.deployment.deployment_environment) -}}
+    {{- if and .Values.websocket .Values.websocket.path }}
+    path: {{ printf "/%s/%s/ws/v1" $env .Values.websocket.path | replace "///" "/" | replace "//" "/" | quote }}
+    {{- else }}
+    path: "/ws/v1"
+    {{- end }}
