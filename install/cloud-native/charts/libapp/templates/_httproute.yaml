@@ -18,8 +18,11 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        {{- $env := (default "" .Values.atapp.deployment.deployment_environment) -}}
-        {{- $wspath := (default "" .Values.websocket.path) -}}
+        {{- $atapp := (default (dict) .Values.atapp) -}}
+        {{- $deploy := (default (dict) $atapp.deployment) -}}
+        {{- $env := (default "" $deploy.deployment_environment) -}}
+        {{- $ws := (default (dict) .Values.websocket) -}}
+        {{- $wspath := (default "" $ws.path) -}}
         {{- if $wspath }}
         value: {{ printf "/%s/%s/ws/v1" $env $wspath | replace "///" "/" | replace "//" "/" | quote }}
         {{- else }}
