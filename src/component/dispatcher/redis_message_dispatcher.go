@@ -2,8 +2,14 @@ package atframework_component_dispatcher
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net"
+	"os"
+	"runtime"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -29,6 +35,48 @@ type RedisMessageDispatcher struct {
 	redisCfg      private_protocol_config.LogicRedisCfg
 	redisInstance *redis.Client
 	sequence      atomic.Uint64
+	recordPrefix  string
+}
+
+// GetStableHostID 返回一个稳定的 8 位字符串
+// 同一台机器固定，不同机器大概率不同
+func GetStableHostID() string {
+	var parts []string
+
+	// 1️⃣ 加入操作系统类型（防止不同平台同名主机冲突）
+	parts = append(parts, runtime.GOOS)
+
+	// 2️⃣ 加入主机名
+	hostname, err := os.Hostname()
+	if err == nil && hostname != "" {
+		parts = append(parts, hostname)
+	}
+
+	// 3️⃣ 加入第一个可用的 MAC 地址
+	mac := getFirstMAC()
+	if mac != "" {
+		parts = append(parts, mac)
+	}
+
+	// 4️⃣ 拼接后哈希
+	base := strings.Join(parts, "_")
+	sum := sha256.Sum256([]byte(base))
+	return hex.EncodeToString(sum[:])[:8]
+}
+
+// 获取第一个有效的 MAC 地址（跨平台）
+func getFirstMAC() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if len(iface.HardwareAddr) == 0 {
+			continue
+		}
+		return iface.HardwareAddr.String()
+	}
+	return ""
 }
 
 func CreateRedisMessageDispatcher(owner libatapp.AppImpl) *RedisMessageDispatcher {
@@ -53,16 +101,24 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
 	}
 
-	if d.redisCfg.Addr == "" {
+	if d.redisCfg.GetAddr() == "" {
 		d.DispatcherBase.GetLogger().Error("redis config error empty")
 		return fmt.Errorf("redis config error empty")
 	}
 
+	if d.redisCfg.GetRecordPrefix() != "" {
+		d.recordPrefix = d.redisCfg.GetRecordPrefix()
+	} else if d.redisCfg.GetRandomPrefix() {
+		d.recordPrefix = GetStableHostID()
+	}
+
+	d.DispatcherBase.GetLogger().Info("Redis Prefix", "Prefix", d.recordPrefix)
+
 	redis.SetLogger(&d.log)
 	d.redisInstance = redis.NewClient(&redis.Options{
-		Addr:     d.redisCfg.Addr,
-		Password: d.redisCfg.Password,
-		PoolSize: int(d.redisCfg.PoolSize),
+		Addr:     d.redisCfg.GetAddr(),
+		Password: d.redisCfg.GetPassword(),
+		PoolSize: int(d.redisCfg.GetPoolSize()),
 	})
 
 	if d.redisInstance == nil {
@@ -75,6 +131,7 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		d.DispatcherBase.GetLogger().Error("check redis cluster client failed", "err", err)
 		return err
 	}
+	d.DispatcherBase.GetLogger().Info("Init Redis success")
 	return nil
 }
 
@@ -98,4 +155,8 @@ func (d *RedisMessageDispatcher) CreateDispatcherAwaitOptions() *DispatcherAwait
 		Sequence: d.sequence.Add(1),
 		Timeout:  time.Duration(0),
 	}
+}
+
+func (d *RedisMessageDispatcher) GetRecordPrefix() string {
+	return d.recordPrefix
 }

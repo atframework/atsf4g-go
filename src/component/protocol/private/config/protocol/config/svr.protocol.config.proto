@@ -45,6 +45,8 @@ message logic_redis_cfg {
   string addr = 1;
   string password = 2;
   int32 pool_size = 3 [(atapp.protocol.CONFIGURE) = { default_value: "100" min_value: "50" }];
+  string record_prefix = 4;
+  bool random_prefix = 5;
 }
 
 message webserver_cfg {

@@ -23,17 +23,17 @@ func ${message_name}LoadWith${index_key_name}(
 	${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)} ${message.fields_by_name[key].get_go_type()},
 %           endfor
 ) (*private_protocol_pbdesc.${message_name}, cd.RpcResult) {
-	index := fmt.Sprintf("${db_fmt_key}",
-%           for key in index.key_fields:
-		${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)},
-%           endfor
-    )
 	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
 	instance := dispatcher.GetRedisInstance()
 	if instance == nil {
         ctx.LogError("get redis instance failed")
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
+	index := fmt.Sprintf("%s${db_fmt_key}", dispatcher.GetRecordPrefix(),
+%           for key in index.key_fields:
+		${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)},
+%           endfor
+    )
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
 	if lu.IsNil(currentAction) {
@@ -135,17 +135,17 @@ func ${message_name}Update${index_key_name}(
 	ctx *cd.RpcContext,
     table *private_protocol_pbdesc.${message_name},
 ) cd.RpcResult {
-	index := fmt.Sprintf("${db_fmt_key}",
-%           for key in index.key_fields:
-		table.Get${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)}(),
-%           endfor
-    )
 	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
 	instance := dispatcher.GetRedisInstance()
 	if instance == nil {
         ctx.LogError("get redis instance failed")
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
+	index := fmt.Sprintf("%s${db_fmt_key}", dispatcher.GetRecordPrefix(),
+%           for key in index.key_fields:
+		table.Get${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)}(),
+%           endfor
+    )
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
 	if lu.IsNil(currentAction) {
@@ -226,17 +226,17 @@ func ${message_name}LoadWith${index_key_name}PartlyField${partly_field_name}(
 	${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)} ${message.fields_by_name[key].get_go_type()},
 %           endfor
 ) (*private_protocol_pbdesc.${message_name}, cd.RpcResult) {
-	index := fmt.Sprintf("${db_fmt_key}",
-%           for key in index.key_fields:
-		${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)},
-%           endfor
-    )
 	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
 	instance := dispatcher.GetRedisInstance()
 	if instance == nil {
         ctx.LogError("get redis instance failed")
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
+	index := fmt.Sprintf("%s${db_fmt_key}", dispatcher.GetRecordPrefix(),
+%           for key in index.key_fields:
+		table.Get${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)}(),
+%           endfor
+    )
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
 	if lu.IsNil(currentAction) {
