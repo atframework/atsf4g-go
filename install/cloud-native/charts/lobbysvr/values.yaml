@@ -14,20 +14,23 @@ image:
   repository: harbor.m-oa.com:6023/project-y/project-y-server
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+  tag: latest
+
 volumeMounts:
-  mountPath: /service/lobbysvr/cfg
-  
+  configMountPath: /service/lobbysvr/cfg
+  logMountPath: /service/lobbysvr/log
+
 imagePullSecrets:
   - name: jijunliang-harbor-regcred
 
 persistence:
   cbs:
-    enabled: false
+    enabled: true
+    storageClass: openebs-hostpath
     volumes:
       - name: log
-        storage: 50Gi
-        mountPath: /service/lobbysvr/log
+        storage: 5Gi
+        accessMode: ReadWriteOnce
 
 gateway:
   class: cilium

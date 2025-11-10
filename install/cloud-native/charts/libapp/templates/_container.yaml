@@ -6,8 +6,10 @@ image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }
 imagePullPolicy: {{ .Values.image.pullPolicy }}
 volumeMounts:
 - name: config
-  mountPath: "{{ .Values.volumeMounts.mountPath }}"
+  mountPath: "{{ .Values.volumeMounts.configMountPath }}"
   readOnly: true
+- name: log
+  mountPath: {{ default "/service/lobbysvr/log" .Values.volumeMounts.logMountPath | quote }}
 env:
 - name: ATAPP_NAME
   valueFrom:
