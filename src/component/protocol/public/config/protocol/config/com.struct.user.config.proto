@@ -17,27 +17,27 @@ package proy.config;
 
 message ExcelUserLevel {
   option (xrescode.loader) = {
-    file_path : "user_level.bytes"
-    indexes : {fields : "level" index_type : EN_INDEX_IV}
+    file_path: "user_level.bytes"
+    indexes: { fields: "level" index_type: EN_INDEX_IV }
 
-    tags : "client"
-    tags : "server"
+    tags: "client"
+    tags: "server"
   };
 
-  int32 level = 1 [ (org.xresloader.field_unique_tag) = "level" ];
+  int32 level = 1 [(org.xresloader.field_unique_tag) = "level"];
   int64 exp = 2;
   repeated DItemOffset level_up_reward = 3;
 }
 
 message ExcelUserInitializeItems {
   option (xrescode.loader) = {
-    file_path : "user_initialize_items.bytes"
-    indexes : {fields : "role_id" index_type : EN_INDEX_KV}
+    file_path: "user_initialize_items.bytes"
+    indexes: { fields: "index" index_type: EN_INDEX_KV }
 
-    tags : "server"
+    tags: "server"
   };
 
-  int32 index = 1 [ (org.xresloader.field_unique_tag) = "index" ];
-  int32 version_type = 2 [ (org.xresloader.validator) = "proy.EnVersionType" ];
+  int32 index = 1 [(org.xresloader.field_unique_tag) = "index"];
+  int32 version_type = 2 [(org.xresloader.validator) = "proy.EnVersionType"];
   DItemOffset item = 3;
 }
