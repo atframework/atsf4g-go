@@ -4,29 +4,37 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	user "github.com/atframework/atsf4g-go/robot/data"
+	config "github.com/atframework/atsf4g-go/robot/config"
+	user_data "github.com/atframework/atsf4g-go/robot/data"
+	user_impl "github.com/atframework/atsf4g-go/robot/data/impl"
+
+	utils "github.com/atframework/atsf4g-go/robot/utils"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	"github.com/atframework/libatapp-go"
+	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-func LoginAuthRpc(user user.UserBase) error {
+func LoginAuthRpc(user user_data.User) error {
 	if user.GetLoginCode() != "" {
 		return fmt.Errorf("already login auth")
 	}
 
 	csMsg, csBody := makeLoginAuthMessage(user)
-	return user.SendReq(csMsg, csBody, true)
+	return user.SendReq(csMsg, csBody, false)
 }
 
-func LoginRpc(user user.UserBase) error {
+func LoginRpc(user user_data.User) error {
 	if user.GetLoginCode() == "" {
 		return fmt.Errorf("need login auth")
 	}
@@ -36,11 +44,11 @@ func LoginRpc(user user.UserBase) error {
 	}
 
 	csMsg, csBody := makeLoginMessage(user)
-	return user.SendReq(csMsg, csBody, true)
+	return user.SendReq(csMsg, csBody, false)
 }
 
-func PingRpc(user user.UserBase) error {
-	if !user.IsLogin() {
+func PingRpc(user user_data.User) error {
+	if user == nil || !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -48,8 +56,8 @@ func PingRpc(user user.UserBase) error {
 	return user.SendReq(csMsg, csBody, false)
 }
 
-func GetInfoRpc(user user.UserBase, args []string) error {
-	if !user.IsLogin() {
+func GetInfoRpc(user user_data.User, args []string) error {
+	if user == nil || !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -57,8 +65,8 @@ func GetInfoRpc(user user.UserBase, args []string) error {
 	return user.SendReq(csMsg, csBody, false)
 }
 
-func GMRpc(user user.UserBase, args []string) error {
-	if !user.IsLogin() {
+func GMRpc(user user_data.User, args []string) error {
+	if user == nil || !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -66,7 +74,7 @@ func GMRpc(user user.UserBase, args []string) error {
 	return user.SendReq(csMsg, csBody, false)
 }
 
-func makeLoginAuthMessage(user user.UserBase) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeLoginAuthMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSLoginAuthReq{
 		OpenId: user.GetOpenId(),
 		Account: &public_protocol_pbdesc.DAccountData{
@@ -87,7 +95,7 @@ func makeLoginAuthMessage(user user.UserBase) (*public_protocol_extension.CSMsg,
 	return &csMsg, csBody
 }
 
-func makeLoginMessage(user user.UserBase) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeLoginMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
 	vmem, _ := mem.VirtualMemory()
 	cpuInfo, _ := cpu.Info()
 
@@ -124,7 +132,7 @@ func makeLoginMessage(user user.UserBase) (*public_protocol_extension.CSMsg, pro
 	return &csMsg, csBody
 }
 
-func makePingMessage(user user.UserBase) (*public_protocol_extension.CSMsg, proto.Message) {
+func makePingMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSPingReq{
 		Timepoint: time.Now().UnixNano(),
 	}
@@ -142,7 +150,7 @@ func makePingMessage(user user.UserBase) (*public_protocol_extension.CSMsg, prot
 	return &csMsg, csBody
 }
 
-func makeUserGetInfoMessage(user user.UserBase, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeUserGetInfoMessage(user user_data.User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{}
 
 	ref := csBody.ProtoReflect()
@@ -181,7 +189,7 @@ func makeUserGetInfoMessage(user user.UserBase, args []string) (*public_protocol
 	return &csMsg, csBody
 }
 
-func makeUserGMMessage(user user.UserBase, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+func makeUserGMMessage(user user_data.User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
 		Args: args,
 	}
@@ -194,7 +202,7 @@ func makeUserGMMessage(user user.UserBase, args []string) (*public_protocol_exte
 	return &csMsg, csBody
 }
 
-func ProcessLoginAuthResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginAuthRsp)
 	if !ok {
 		log.Println("Can not convert to SCLoginAuthRsp")
@@ -203,6 +211,22 @@ func ProcessLoginAuthResponse(user user.UserBase, rpcName string, msg *public_pr
 
 	head := msg.Head
 	if head.ErrorCode < 0 {
+		return
+	}
+
+	if user == nil {
+		userMapLock.Lock()
+		defer userMapLock.Unlock()
+
+		userInst, ok := mutableUserMapContainer()[body.GetOpenId()]
+		if !ok || userInst == nil {
+			user = userInst
+			user = mutableUserMapContainer()[strconv.FormatUint(body.GetUserId(), 10)]
+		}
+	}
+
+	if user == nil {
+		log.Println("user is nil in ProcessLoginAuthResponse")
 		return
 	}
 
@@ -215,9 +239,16 @@ func ProcessLoginAuthResponse(user user.UserBase, rpcName string, msg *public_pr
 	if body.GetZoneId() != 0 {
 		user.SetZoneId(body.GetZoneId())
 	}
+
+	err := LoginRpc(user)
+	if err != nil {
+		log.Println("user login failed", "error", err, "open_id", user.GetOpenId(),
+			"user_id", user.GetUserId(), "zone_id", user.GetZoneId())
+		return
+	}
 }
 
-func ProcessLoginResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessLoginResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginRsp)
 	if !ok {
 		log.Println("Can not convert to SCLoginResp")
@@ -236,9 +267,14 @@ func ProcessLoginResponse(user user.UserBase, rpcName string, msg *public_protoc
 	if body.GetHeartbeatInterval() > 0 {
 		user.SetHeartbeatInterval(time.Duration(body.GetHeartbeatInterval()) * time.Second)
 	}
+
+	user_data.SetCurrentUser(user)
+
+	// 创建Ping流程
+	user.CheckPingTask()
 }
 
-func ProcessPongResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessPongResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	head := msg.Head
 	if head.ErrorCode < 0 {
 		return
@@ -247,7 +283,7 @@ func ProcessPongResponse(user user.UserBase, rpcName string, msg *public_protoco
 	user.SetLastPingTime(time.Now())
 }
 
-func ProcessGetInfoResponse(user user.UserBase, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+func ProcessGetInfoResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	_, ok := rawBody.(*lobysvr_protocol_pbdesc.SCUserGetInfoRsp)
 	if !ok {
 		log.Println("Can not convert to SCUserGetInfoRsp")
@@ -260,4 +296,121 @@ func ProcessGetInfoResponse(user user.UserBase, rpcName string, msg *public_prot
 	}
 
 	user.SetHasGetInfo(true)
+}
+
+// ========================= 注册指令 =========================
+func init() {
+	utils.RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议")
+	utils.RegisterCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议")
+	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息")
+	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM")
+
+	user_data.RegisterResponseHandle("proy.LobbyClientService.login_auth", ProcessLoginAuthResponse)
+	user_data.RegisterResponseHandle("proy.LobbyClientService.login", ProcessLoginResponse)
+	user_data.RegisterResponseHandle("proy.LobbyClientService.ping", ProcessPongResponse)
+	user_data.RegisterResponseHandle("proy.LobbyClientService.user_get_info", ProcessGetInfoResponse)
+}
+
+var (
+	userMapContainer map[string]*user_impl.User
+	userMapLock      sync.Mutex
+)
+
+func mutableUserMapContainer() map[string]*user_impl.User {
+	if userMapContainer == nil {
+		userMapContainer = make(map[string]*user_impl.User)
+	}
+	return userMapContainer
+}
+
+func CreateUser(openId string, socketUrl string) *user_impl.User {
+	userMapLock.Lock()
+
+	if existingUser, ok := mutableUserMapContainer()[openId]; ok && existingUser != nil {
+		userMapLock.Unlock()
+		return existingUser
+	}
+	userMapLock.Unlock()
+
+	bufferWriter, _ := libatapp.NewlogBufferedRotatingWriter(
+		"../log", openId, 20*1024*1024, 3, time.Second*3, false, false)
+	runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
+		writer.Close()
+	})
+
+	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
+	if err != nil {
+		log.Fatal("Error connecting to Websocket Server:", err)
+	}
+
+	var ret *user_impl.User = nil
+	userMapLock.Lock()
+	defer userMapLock.Unlock()
+	ret = user_impl.CreateUser(openId, conn, bufferWriter, PingRpc)
+
+	mutableUserMapContainer()[openId] = ret
+
+	ret.AddOnClosedHandler(func(user user_data.User) {
+		userMapLock.Lock()
+		defer userMapLock.Unlock()
+
+		u, ok := mutableUserMapContainer()[openId]
+		if !ok || u != user {
+			return
+		}
+		delete(mutableUserMapContainer(), openId)
+		log.Println("Remove User:", openId)
+
+		if user_data.GetCurrentUser() == user {
+			user_data.SetCurrentUser(nil)
+		}
+	})
+	go ret.ReceiveHandler()
+
+	log.Println("Create User:", openId)
+
+	return ret
+}
+
+func LogoutCmd(cmd []string) string {
+	if user_data.GetCurrentUser() != nil {
+		fmt.Printf("user %s logout\n", user_data.GetCurrentUser().GetOpenId())
+		user_data.GetCurrentUser().Logout()
+		user_data.SetCurrentUser(nil)
+	}
+	return ""
+}
+
+func LoginCmd(cmd []string) string {
+	if len(cmd) < 1 {
+		return "Need OpenId"
+	}
+	// 创建角色
+	u := CreateUser(cmd[0], config.SocketUrl)
+
+	// 发送登录请求
+	err := LoginAuthRpc(u)
+	if err != nil {
+		return err.Error()
+	}
+
+	return ""
+}
+
+func GetInfoCmd(cmd []string) string {
+	// 发送登录请求
+	err := GetInfoRpc(user_data.GetCurrentUser(), cmd)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func GMCmd(cmd []string) string {
+	// 发送登录请求
+	err := GMRpc(user_data.GetCurrentUser(), cmd)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }

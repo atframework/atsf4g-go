@@ -10,13 +10,10 @@ import (
 	"sync/atomic"
 
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-
 	libatapp "github.com/atframework/libatapp-go"
 )
 
 type ConfigManager struct {
-	libatapp.AppModuleBase
-
 	currentConfigGroup        *generate_config.ConfigGroup
 	loadingConfigGroup        *generate_config.ConfigGroup
 	currentConfigGroupRwMutex sync.RWMutex
@@ -24,18 +21,35 @@ type ConfigManager struct {
 	init         bool
 	reloading    atomic.Bool
 	reloadFinish atomic.Bool
+
+	resourceDir string
+	logger      *slog.Logger
 }
 
 // 管理所有配置
-var globalConfigManagerInst ConfigManager
+var globalConfigManagerInst = ConfigManager{
+	resourceDir: path.Join("..", "..", "resource"),
+}
+
+func (configManagerInst *ConfigManager) GetLogger() *slog.Logger {
+	if configManagerInst.logger == nil {
+		return slog.Default()
+	}
+
+	return configManagerInst.logger
+}
+
+func (configManagerInst *ConfigManager) GetResourceDir() string {
+	return configManagerInst.resourceDir
+}
+
+func (configManagerInst *ConfigManager) SetResourceDir(path string) {
+	configManagerInst.resourceDir = path
+}
 
 func (configManagerInst *ConfigManager) Init(parent context.Context) error {
 	configManagerInst.currentConfigGroup = new(generate_config.ConfigGroup)
 	return configManagerInst.loadImpl(configManagerInst.currentConfigGroup)
-}
-
-func (configManagerInst *ConfigManager) Name() string {
-	return "ConfigManager"
 }
 
 // 同步接口
@@ -57,7 +71,7 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 		if resultChan != nil {
 			resultChan <- fmt.Errorf("Reload not Finish")
 		}
-		configManagerInst.GetApp().GetDefaultLogger().Info("Reload not Finish")
+		configManagerInst.GetLogger().Info("Reload not Finish")
 		return fmt.Errorf("Reload not Finish")
 	}
 
@@ -87,17 +101,17 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 
 func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_config.ConfigGroup) error {
 	// 加载配置逻辑
-	configManagerInst.GetApp().GetDefaultLogger().Info("Excel Loading Begin")
+	configManagerInst.GetLogger().Info("Excel Loading Begin")
 	var callback ExcelConfigCallback
 	err := loadConfigGroup.Init(callback)
 	if err != nil {
 		return err
 	}
-	configManagerInst.GetApp().GetDefaultLogger().Info("Excel Loading End")
+	configManagerInst.GetLogger().Info("Excel Loading End")
 	return nil
 }
 
-func (configManagerInst *ConfigManager) Tick(arent context.Context) bool {
+func (configManagerInst *ConfigManager) Tick(parent context.Context) bool {
 	configManagerInst.checkReloadFinish()
 	return true
 }
@@ -128,7 +142,7 @@ func GetConfigManager() *ConfigManager {
 type ExcelConfigCallback struct{}
 
 func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
-	filePath := path.Join("..", "..", "resource", "excel", pbinName)
+	filePath := path.Join(GetConfigManager().GetResourceDir(), "excel", pbinName)
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
@@ -145,9 +159,40 @@ func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
 }
 
 func (callback ExcelConfigCallback) GetLogger() *slog.Logger {
-	return GetConfigManager().GetApp().GetDefaultLogger()
+	return GetConfigManager().GetLogger()
 }
 
 func (callback ExcelConfigCallback) OnLoaded(config_group *generate_config.ConfigGroup) error {
 	return ExcelConfigCallbackOnLoad(config_group)
+}
+
+type ConfigManagerModule struct {
+	libatapp.AppModuleBase
+
+	SharedConfigManager *ConfigManager
+}
+
+func CreateConfigManagerModule(app libatapp.AppImpl) *ConfigManagerModule {
+	return &ConfigManagerModule{
+		AppModuleBase:       libatapp.CreateAppModuleBase(app),
+		SharedConfigManager: GetConfigManager(),
+	}
+}
+
+func (m *ConfigManagerModule) Init(parent context.Context) error {
+	m.SharedConfigManager.logger = m.GetApp().GetDefaultLogger()
+	return m.SharedConfigManager.Init(parent)
+}
+
+func (m *ConfigManagerModule) Name() string {
+	return "ConfigManagerModule"
+}
+
+// 同步接口
+func (m *ConfigManagerModule) Reload() error {
+	return m.SharedConfigManager.Reload()
+}
+
+func (m *ConfigManagerModule) Tick(parent context.Context) bool {
+	return m.SharedConfigManager.Tick(parent)
 }

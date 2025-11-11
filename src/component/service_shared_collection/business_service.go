@@ -11,9 +11,7 @@ func CreateServiceApplication() libatapp.AppImpl {
 	app := libatapp.CreateAppInstance()
 
 	// 内置公共逻辑层模块
-	configManager := config.GetConfigManager()
-	configManager.AppModuleBase = libatapp.CreateAppModuleBase(app)
-	libatapp.AtappAddModule(app, configManager)
+	libatapp.AtappAddModule(app, config.CreateConfigManagerModule(app))
 
 	libatapp.AtappAddModule(app, cd.CreateNoMessageDispatcher(app))
 	return app

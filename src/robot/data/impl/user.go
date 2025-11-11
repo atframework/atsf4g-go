@@ -1,4 +1,4 @@
-package atsf4g_go_robot_user
+package atsf4g_go_robot_user_impl
 
 import (
 	"fmt"
@@ -9,14 +9,14 @@ import (
 
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
-	robot_protocol "github.com/atframework/atsf4g-go/robot/protocol"
-	robot_protocol_user "github.com/atframework/atsf4g-go/robot/protocol/user"
 	libatapp "github.com/atframework/libatapp-go"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+
+	user_data "github.com/atframework/atsf4g-go/robot/data"
 )
 
 type User struct {
@@ -38,10 +38,16 @@ type User struct {
 	dispatcherLock     sync.Mutex
 	rpcChan            map[uint64]chan string
 	csLog              *libatapp.LogBufferedRotatingWriter
+	heartbeatFn        func(user user_data.User) error
+
+	onClosed []func(user user_data.User)
 }
 
-func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter) *User {
-	return &User{
+func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter,
+	heartbeatFn func(user user_data.User) error,
+) *User {
+	var _ user_data.User = &User{}
+	ret := &User{
 		OpenId:             openId,
 		UserId:             0,
 		ZoneId:             1,
@@ -50,7 +56,18 @@ func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogB
 		connection:         conn,
 		rpcChan:            make(map[uint64]chan string),
 		csLog:              bufferWriter,
+		heartbeatFn:        heartbeatFn,
 	}
+
+	var _ user_data.User = ret
+	return ret
+}
+
+func (u *User) AddOnClosedHandler(f func(user user_data.User)) {
+	if f == nil {
+		return
+	}
+	u.onClosed = append(u.onClosed, f)
 }
 
 func (u *User) IsLogin() bool {
@@ -71,10 +88,12 @@ func (u *User) CheckPingTask() {
 		return
 	}
 	if u.LastPingTime.Add(u.HeartbeatInterval).Before(time.Now()) {
-		err := robot_protocol_user.PingRpc(u)
-		if err != nil {
-			log.Println("ping error stop check")
-			return
+		if u.heartbeatFn != nil {
+			err := u.heartbeatFn(u)
+			if err != nil {
+				log.Println("ping error stop check")
+				return
+			}
 		}
 	}
 	time.AfterFunc(5*time.Second, u.CheckPingTask)
@@ -86,6 +105,9 @@ func (u *User) Logout() {
 	}
 	u.Logined = false
 	u.Closed.Store(true)
+	for _, f := range u.onClosed {
+		f(u)
+	}
 
 	if u.connection != nil {
 		// Close our websocket connection
@@ -115,6 +137,9 @@ func (user *User) ReceiveHandler() {
 	defer func() {
 		log.Printf("User %v:%v connection closed.\n", user.ZoneId, user.UserId)
 		user.Closed.Store(true)
+		for _, f := range user.onClosed {
+			f(user)
+		}
 	}()
 
 	for {
@@ -169,16 +194,16 @@ func (user *User) ReceiveHandler() {
 }
 
 func (user *User) processResponse(rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
+	if handle, ok := user_data.GetResponseHandles()[rpcName]; ok {
+		handle(user, rpcName, msg, rawBody)
+	}
+
 	user.dispatcherLock.Lock()
 	defer user.dispatcherLock.Unlock()
-
-	if handle, ok := robot_protocol.ProcessResponseHandles[rpcName]; ok {
-		handle(user, rpcName, msg, rawBody)
-		// 通知收包
-		c, ok := user.rpcChan[msg.GetHead().GetClientSequence()]
-		if ok {
-			c <- ""
-		}
+	// 通知收包
+	c, ok := user.rpcChan[msg.GetHead().GetClientSequence()]
+	if ok {
+		c <- ""
 	}
 }
 
@@ -204,15 +229,22 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 	fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
 	fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
 
+	var awaitChan chan string
 	if await {
-		user.rpcChan[csMsg.GetHead().GetClientSequence()] = make(chan string)
-		defer delete(user.rpcChan, csMsg.GetHead().GetClientSequence())
+		user.dispatcherLock.Lock()
+		awaitChan = make(chan string)
+		user.rpcChan[csMsg.GetHead().GetClientSequence()] = awaitChan
+		user.dispatcherLock.Unlock()
+		defer func() {
+			user.dispatcherLock.Lock()
+			delete(user.rpcChan, csMsg.GetHead().GetClientSequence())
+			user.dispatcherLock.Unlock()
+		}()
 	}
 
 	// Send an echo packet every second
-	user.dispatcherLock.Lock()
+
 	err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
-	user.dispatcherLock.Unlock()
 	if err != nil {
 		log.Println("Error during writing to websocket:", err)
 		return err
@@ -220,7 +252,7 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 
 	if await {
 		select {
-		case <-user.rpcChan[csMsg.GetHead().GetClientSequence()]:
+		case <-awaitChan:
 			// 收到回包
 			return nil
 		case <-time.After(time.Second * 3):
@@ -234,39 +266,51 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 func (user *User) GetLoginCode() string {
 	return user.LoginCode
 }
+
 func (user *User) GetLogined() bool {
 	return user.Logined
 }
+
 func (user *User) GetOpenId() string {
 	return user.OpenId
 }
+
 func (user *User) GetAccessToken() string {
 	return user.AccessToken
 }
+
 func (user *User) GetUserId() uint64 {
 	return user.UserId
 }
+
 func (user *User) GetZoneId() uint32 {
 	return user.ZoneId
 }
+
 func (user *User) SetLoginCode(d string) {
 	user.LoginCode = d
 }
+
 func (user *User) SetUserId(d uint64) {
 	user.UserId = d
 }
+
 func (user *User) SetZoneId(d uint32) {
 	user.ZoneId = d
 }
+
 func (user *User) SetLogined(d bool) {
 	user.Logined = d
 }
+
 func (user *User) SetHeartbeatInterval(d time.Duration) {
 	user.HeartbeatInterval = d
 }
+
 func (user *User) SetLastPingTime(d time.Time) {
 	user.LastPingTime = d
 }
+
 func (user *User) SetHasGetInfo(d bool) {
 	user.HasGetInfo = d
 }

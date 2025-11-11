@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"unicode/utf8"
 
 	"github.com/chzyer/readline"
@@ -84,10 +85,19 @@ func AllHelpString(node *CommandNode) string {
 	return print3Cols(ret)
 }
 
-var root = &CommandNode{Children: make(map[string]*CommandNode)}
+var root *CommandNode
+
+func MutableCommandRoot() *CommandNode {
+	if root != nil {
+		return root
+	}
+
+	root = &CommandNode{Children: make(map[string]*CommandNode)}
+	return root
+}
 
 func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string) {
-	current := root
+	current := MutableCommandRoot()
 	for _, key := range path {
 		if current.Children[strings.ToLower(key)] == nil {
 			current.Children[strings.ToLower(key)] = &CommandNode{
@@ -106,7 +116,7 @@ func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string
 
 // FindCommand 根据路径查找命令节点
 func FindCommand(path string) (args []string, node *CommandNode) {
-	node = root
+	node = MutableCommandRoot()
 	args = splitArgs(path)
 	for {
 		if len(node.Children) == 0 {
@@ -128,7 +138,7 @@ func FindCommand(path string) (args []string, node *CommandNode) {
 
 // 构建自动补全器
 func NewCompleter() *readline.PrefixCompleter {
-	return buildCompleterFromNode(root, "")
+	return buildCompleterFromNode(MutableCommandRoot(), "")
 }
 
 // 递归构建 PrefixCompleter
@@ -140,7 +150,7 @@ func buildCompleterFromNode(node *CommandNode, name string) *readline.PrefixComp
 
 	// 排序一下
 	sortKey := make([]string, 0)
-	for key, _ := range node.Children {
+	for key := range node.Children {
 		sortKey = append(sortKey, key)
 	}
 	sort.Slice(sortKey, func(i, j int) bool {
@@ -213,9 +223,9 @@ func ExecuteCommand(rl *readline.Instance, input string) {
 		return
 	}
 	args, node := FindCommand(input)
-	if node == root {
+	if node == MutableCommandRoot() {
 		if input == "help" {
-			fmt.Print(AllHelpString(root))
+			fmt.Print(AllHelpString(MutableCommandRoot()))
 			return
 		}
 		fmt.Println("未知命令:", input)
@@ -236,6 +246,12 @@ func QuitCmd([]string) string {
 	return ""
 }
 
+var _readlineInstance atomic.Pointer[readline.Instance]
+
+func GetCurrentReadlineInstance() *readline.Instance {
+	return _readlineInstance.Load()
+}
+
 func ReadLine() {
 	// 注册命令
 	RegisterCommand([]string{"quit"}, QuitCmd, "", "退出")
@@ -251,7 +267,12 @@ func ReadLine() {
 		log.Println("无法创建 readline 实例:", err)
 		return
 	}
-	defer rlIn.Close()
+
+	_readlineInstance.Store(rlIn)
+	defer func() {
+		_readlineInstance.Store(nil)
+		rlIn.Close()
+	}()
 
 	fmt.Println("Enter 'quit' to Exit, 'Tab' to AutoComplete")
 

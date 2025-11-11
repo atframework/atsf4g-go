@@ -6,8 +6,11 @@ replace github.com/atframework/libatapp-go => ../../atframework/libatapp-go
 
 replace github.com/atframework/atframe-utils-go => ../../atframework/atframe-utils-go
 
+replace github.com/atframework/atsf4g-go/component-config => ../component/config
+
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/service-lobbysvr v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
@@ -25,6 +28,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
+	github.com/xresloader/xres-code-generator v0.0.0-00010101000000-000000000000 // indirect
 	github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/sync v0.17.0 // indirect
