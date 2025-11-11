@@ -9,6 +9,12 @@ import time
 package atframework_component_config_generate_config
 
 import (
+% for code_index in loader.code.indexes:
+	% if code_index.is_list() and len(code_index.sort_by) != 0:
+	"sort"
+<% break %>
+	% endif
+% endfor
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	xresloader_pb_header "github.com/xresloader/xresloader/protocol/config"
 	"google.golang.org/protobuf/proto"
@@ -63,9 +69,9 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack ConfigCallba
 	configSet.callBack = callBack
 % for code_index in loader.code.indexes:
 	% if code_index.is_vector():
-		configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name}, 0)
+	configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name}, 0)
 	% else:
-		configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name})
+	configSet.configIndexContainer_${code_index.name} = make(IndexContainer_${loader.get_go_pb_name()}_${code_index.name})
 	% endif
 % endfor
 	for _, fileName := range configSet.fileList {
@@ -83,8 +89,9 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack ConfigCallba
 			proto.Unmarshal(dataBlocks.DataBlock[index], excelItemType)
 			configSet.mergeData(excelItemType)
 		}
-		configSet.callBack.GetLogger().Info("[EXCEL] ${loader.get_go_pb_name()} load success", "row_size", len(configSet.dataList))
+		configSet.callBack.GetLogger().Info("[EXCEL] ${loader.get_go_pb_name()} load success", "file", fileName, "row_size", len(configSet.dataList))
 	}
+	configSet.onDataLoaded()
     return nil
 }
 
@@ -135,6 +142,23 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) mergeData(data *public_pro
 		configSet.configIndexContainer_${code_index.name}[key] = data
 	% endif
 	}
+% endfor
+}
+
+func (configSet *ConfigSet${loader.get_go_pb_name()}) onDataLoaded() {
+% for code_index in loader.code.indexes:
+	% if code_index.is_list() and len(code_index.sort_by) != 0:
+	for _, list := range configSet.configIndexContainer_${code_index.name} {
+		sort.Slice(list, func(i, j int) bool {
+%     for sort in code_index.sort_by:
+			if list[i].${pb_loader.MakoToCamelName(sort.name)} != list[j].${pb_loader.MakoToCamelName(sort.name)} {
+				return list[i].${pb_loader.MakoToCamelName(sort.name)} < list[j].${pb_loader.MakoToCamelName(sort.name)}
+			}
+%     endfor
+			return false
+		})
+	}
+	% endif
 % endfor
 }
 
