@@ -30,6 +30,9 @@ type TaskActionCSSession interface {
 
 	GetDispatcher() DispatcherImpl
 	SendMessage(*public_protocol_extension.CSMsg) error
+
+	IsEnableActorLog() bool
+	InsertPendingActorLog(string)
 }
 
 type TaskActionCSUser interface {
@@ -274,10 +277,15 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 		// 输出CSLOG
 		logWriter := t.GetCsActorLogWriter()
 		if logWriter != nil {
-			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Sending: %s\n", time.Now().Format(time.DateTime), t.rpcDescriptor.Output().FullName())
+			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\n", time.Now().Format(time.DateTime), t.session.GetSessionId(), t.rpcDescriptor.Output().FullName())
 			fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(responseMsg.Head))
 			fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.responseBody))
+		} else if t.session.IsEnableActorLog() {
+			t.session.InsertPendingActorLog(fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\n", time.Now().Format(time.DateTime), t.session.GetSessionId(), t.rpcDescriptor.Output().FullName()))
+			t.session.InsertPendingActorLog(fmt.Sprintf("Head:{\n%s}\n", pu.MessageReadableText(responseMsg.Head)))
+			t.session.InsertPendingActorLog(fmt.Sprintf("Body:{\n%s}\n\n", pu.MessageReadableText(t.responseBody)))
 		}
+
 		err = t.session.SendMessage(responseMsg)
 		if err != nil {
 			t.GetDispatcher().GetApp().GetDefaultLogger().Error("Failed to send CS response",
@@ -335,9 +343,13 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	// 输出CSLOG
 	logWriter := t.GetCsActorLogWriter()
 	if logWriter != nil {
-		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Received: %s\n", time.Now().Format(time.DateTime), t.requestHead.GetRpcRequest().GetTypeUrl())
+		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\n", time.Now().Format(time.DateTime), t.session.GetSessionId(), t.requestHead.GetRpcRequest().GetTypeUrl())
 		fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(t.requestHead))
 		fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(t.requestBody))
+	} else if t.session.IsEnableActorLog() {
+		t.session.InsertPendingActorLog(fmt.Sprintf("%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\n", time.Now().Format(time.DateTime), t.session.GetSessionId(), t.requestHead.GetRpcRequest().GetTypeUrl()))
+		t.session.InsertPendingActorLog(fmt.Sprintf("Head:{\n%s}\n", pu.MessageReadableText(t.requestHead)))
+		t.session.InsertPendingActorLog(fmt.Sprintf("Body:{\n%s}\n\n", pu.MessageReadableText(t.requestBody)))
 	}
 
 	user := t.GetUser()

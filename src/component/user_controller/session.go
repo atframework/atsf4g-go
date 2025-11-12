@@ -6,6 +6,7 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
 
+	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
@@ -40,6 +41,9 @@ type Session struct {
 	networkClosed bool
 
 	sessionSequenceAllocator uint64
+
+	enableActorLog bool
+	pendingCsLog   []string
 }
 
 func CreateSessionKey(nodeId uint64, sessionId uint64) SessionKey {
@@ -59,6 +63,7 @@ func CreateSession(key SessionKey, handle SessionNetworkHandleImpl) *Session {
 		networkHandle:            handle,
 		networkClosed:            false,
 		sessionSequenceAllocator: 0,
+		enableActorLog:           config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog(),
 	}
 }
 
@@ -181,4 +186,12 @@ func (s *Session) GetActorLogWriter() libatapp.LogWriter {
 		return nil
 	}
 	return user.GetCsActorLogWriter()
+}
+
+func (s *Session) IsEnableActorLog() bool {
+	return s.enableActorLog
+}
+
+func (s *Session) InsertPendingActorLog(content string) {
+	s.pendingCsLog = append(s.pendingCsLog, content)
 }

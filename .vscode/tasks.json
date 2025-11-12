@@ -207,17 +207,6 @@
       "group": "none"
     },
     {
-      "label": "Runtime-Clear DB",
-      "type": "shell",
-      "command": "rm",
-      "args": ["*"],
-      "options": {
-        "cwd": "${workspaceFolder}/build/install/lobbysvr/data"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
       "label": "Runtime-Clear Lobby Log",
       "type": "shell",
       "command": "rm",

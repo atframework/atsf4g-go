@@ -217,6 +217,15 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 	u.session = session
 	session.BindUser(ctx, self)
 
+	logWriter := u.GetCsActorLogWriter()
+	if logWriter != nil {
+		for _, log := range session.pendingCsLog {
+			fmt.Fprint(logWriter, log)
+		}
+		session.pendingCsLog = nil
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d \n", time.Now().Format(time.DateTime), u.session.GetSessionId())
+	}
+
 	u.OnUpdateSession(self, ctx, old_session, session)
 
 	if !lu.IsNil(old_session) {
@@ -235,6 +244,11 @@ func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Se
 
 	if !lu.IsNil(session) && u.session != session {
 		return
+	}
+
+	logWriter := u.GetCsActorLogWriter()
+	if logWriter != nil {
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d \n", time.Now().Format(time.DateTime), u.session.GetSessionId())
 	}
 
 	old_session := u.session
