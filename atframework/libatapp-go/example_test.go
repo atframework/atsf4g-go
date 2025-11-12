@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	atfw_utils_fs "github.com/atframework/atframe-utils-go/file_system"
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
@@ -86,10 +85,6 @@ func TestAppBasicFunctionality(t *testing.T) {
 
 	// 设置基本配置
 	config := app.GetConfig()
-	config.AppId = 0x12345678
-	config.TypeId = 0x1001
-	config.TypeName = "TestApp"
-	config.AppName = "test-app"
 	config.AppVersion = "1.0.0-test"
 
 	// 添加示例模块
@@ -114,14 +109,6 @@ func TestAppBasicFunctionality(t *testing.T) {
 		t.Error("App should be initialized")
 	}
 
-	if app.GetAppId() != 0x12345678 {
-		t.Errorf("Expected AppId 0x12345678, got 0x%x", app.GetAppId())
-	}
-
-	if app.GetAppName() != "test-app" {
-		t.Errorf("Expected AppName 'test-app', got '%s'", app.GetAppName())
-	}
-
 	// 测试状态标志
 	if !app.CheckFlag(AppFlagInitialized) {
 		t.Error("App should have initialized flag set")
@@ -142,15 +129,6 @@ func TestConfigManagement(t *testing.T) {
 	app := CreateAppInstance().(*AppInstance)
 
 	config := app.GetConfig()
-
-	// 测试默认值
-	if config.TickInterval != 8*time.Millisecond {
-		t.Errorf("Expected TickInterval 8ms, got %v", config.TickInterval)
-	}
-
-	if config.StopTimeout != 30*time.Second {
-		t.Errorf("Expected StopTimeout 30s, got %v", config.StopTimeout)
-	}
 
 	// 测试配置加载
 	if err := app.LoadConfig("test.conf"); err != nil {

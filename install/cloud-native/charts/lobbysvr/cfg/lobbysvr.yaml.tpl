@@ -1,4 +1,6 @@
 {{ include "atapp.yaml" . }}
+{{ include "atapp.logic.yaml" . }}
+
 lobbysvr:
 {{- if and .Values.redis .Values.redis.enable }}
   redis:

@@ -5,10 +5,6 @@
 ###### 环境相关配置 ######
 envOverride: ""
 partition: ""
-proc_work_path: "."
-proc_enable_user_systemd: false
-container:
-  run_after_failed: ""
 
 atapp:
   deployment:
@@ -34,92 +30,22 @@ atapp:
       scaling_down_queue_size: 8
       leak_scan_interval: 600s
 
-shared_component:
-  task_manager: true
-  router_manager_set: true
-  session_manager: false
-  # excel_config: false # switch by excel_enable
-###### 平台相关配置开始 ######
-###### itop/intl配置开始 ######
-itop_intl:
-  game_id: 27946
-  profile_update_interval: 1h
-  profile_unavailable_login_channels: [0, 10] # 某些平台不支持拉取Profile
-  friend_unavailable_login_channels: [0] # 某些平台不支持好友
-
-###### excel表格配置开始 ######
-excel_enable: true
-excel_override_same_version: true
-excel_group_number: 8
-
-# 业务配置
-session_remove_player_cache_when_stop: false
-localization: zh_cn
-# 事务超时时间
-distributed_transaction:
-  timeout: 10s
-# 战斗服的上报版本号附加前缀
-battle_etcd_version_path: by_battle_version
-# 战斗服是否忽略不匹配的版本号(测试环境用)
-battle_ignore_invalid_version: false
-# 是否开启调试消息
-enable_debug_message: false
 # 远程服务器配置自动更新间隔
 remote_configure_update_interval: 5m
 
-gm:
-  enable_gm_cmd: false
-  enable_gm_set_time: false
-
-# 日志格式
-default_log_format: "%d.%u|%h|(%f:%l) (%F)|%M|%p| %m%n"
 # 日志级别
 log_level: INFO
 enable_session_actor_log: true
-enable_session_actor_otel_log: true
 log_stacktrace_level: disable
-log_level_apollo_low: DEBUG
 
 login_code_protect: 0s
 login_code_valid_sec: 720s
 
 # 日志输出路径
 server_log_dir: ../log
+
 # 日志滚动数量
 log_rotate_num: 10
-log_text_trace_buffer_size: 1024000
-log_text_trace_size_limit: 31457280
-log_text_error_buffer_size: 1024000
-log_text_error_size_limit: 52428800
-log_tbuspp_buffer_size: 1024000
-log_tbuspp_size_limit: 10485760
-log_tconnd_buffer_size: 1024000
-log_tconnd_size_limit: 10485760
-log_user_buffer_size: 1024000
-log_user_size_limit: 10485760
-log_user_flush_interval: "1s"
-log_match_buffer_size: 1024000
-log_match_size_limit: 10485760
-log_data_bill_buffer_size: 1024000
-log_data_bill_size_limit: 20971520
-
-actor_log_rate: 1000
-# 错误日志输出URL
-error_tlog_url: ""
-# oss日志输出服务地址列表
-oss_log_server_list: []
-# oss日志开关
-oss_log_enable_remote_log: true
-oss_log_enable_local_log: true
-# monitor日志输出服务地址列表
-monitor_log_server_list: []
-# monitor日志开关
-monitor_log_enable_remote_log: true
-monitor_log_enable_local_log: true
 
 remove_all_delay_await_time_ms: 150
 remove_all_delay_timeout_second: 60
-
-###### excel表格配置开始 ######
-excel_patch_datetime: 0 # 转表时区基准 0关闭强制校验 CN:1577808000 JP:1577804400
-excel_patch_region: "" # 做表地区校验，IGNORE不校验，CN、JP、TW

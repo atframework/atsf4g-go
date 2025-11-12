@@ -62,7 +62,7 @@ type ConfigSet${loader.get_go_pb_name()} struct {
 % endfor
 }
 
-func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack ConfigCallback) error {
+func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(configGroup *ConfigGroup, callBack ConfigCallback) error {
 %for one_file_path in loader.code.file_path:
     configSet.fileList = append(configSet.fileList, "${one_file_path}")
 %endfor
@@ -75,7 +75,7 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(callBack ConfigCallba
 	% endif
 % endfor
 	for _, fileName := range configSet.fileList {
-		content, err := configSet.callBack.LoadFile(fileName)
+		content, err := configSet.callBack.LoadFile(configGroup.ExcelResourceDir, fileName)
 		if err != nil {
 			return err
 		}

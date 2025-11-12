@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -84,7 +85,7 @@ func main() {
 	}
 	_, err := os.Stat(filepath.Join(resourceDir, "pbdesc", "public-config.pb"))
 	if err == nil {
-		component_config.GetConfigManager().SetResourceDir(resourceDir)
+		component_config.GetConfigManager().SetResourceDir(path.Join(resourceDir, "excel"))
 		component_config.GetConfigManager().Init(context.Background())
 		component_config.GetConfigManager().Reload()
 	} else {

@@ -55,33 +55,21 @@ const (
 
 // App 配置
 type AppConfig struct {
-	AppId        uint64
-	TypeId       uint64
-	TypeName     string
-	AppName      string
-	AppIdentity  string
+	// Runtime配置
 	HashCode     string
-	AppVersion   string
+	AppName      string
 	BuildVersion string
+	AppVersion   string
 	ConfigFile   string
 	PidFile      string
 	ExecutePath  string
-	WoridId      uint32
-	ZoneId       uint32
-	LogicId      uint32
-
-	// 定时器配置
-	TickInterval     time.Duration
-	TickRoundTimeout time.Duration
-	StopTimeout      time.Duration
-	StopInterval     time.Duration
-	InitTimeout      time.Duration
 
 	// 日志配置
 	StartupLog       []string
 	StartupErrorFile string
 	CrashOutputFile  string
 
+	// 文件配置
 	ConfigPb         *atframe_protocol.AtappConfigure
 	ConfigOriginData interface{}
 }
@@ -107,6 +95,7 @@ type AppImpl interface {
 	RunOnce(tickTimer *time.Ticker) error
 	Stop() error
 	Reload() error
+
 	GetAppId() uint64
 	GetTypeId() uint64
 	GetTypeName() string
@@ -115,6 +104,8 @@ type AppImpl interface {
 	GetHashCode() string
 	GetAppVersion() string
 	GetBuildVersion() string
+	GetConfigFile() string
+
 	GetWorldId() uint32
 	GetZoneId() uint32
 	GetLogicId() uint32
@@ -243,14 +234,6 @@ func CreateAppInstance() AppImpl {
 	ret.appContext, ret.stopAppHandle = context.WithCancel(context.Background())
 
 	// 设置默认配置
-	ret.config.ZoneId = 1
-	ret.config.WoridId = 1
-	ret.config.LogicId = 1001
-	ret.config.TickInterval = 8 * time.Millisecond
-	ret.config.TickRoundTimeout = 128 * time.Millisecond
-	ret.config.StopTimeout = 30 * time.Second
-	ret.config.StopInterval = 100 * time.Millisecond
-	ret.config.InitTimeout = 30 * time.Second
 	ret.config.ExecutePath = os.Args[0]
 	ret.config.AppVersion = "1.0.0"
 	ret.config.BuildVersion = fmt.Sprintf("libatapp-go based atapp %s", ret.config.AppVersion)
@@ -284,7 +267,7 @@ func (app *AppInstance) destroy() {
 // 生成哈希码
 func (app *AppInstance) generateHashCode() {
 	hasher := sha256.New()
-	hasher.Write([]byte(fmt.Sprintf("%s_%d_%s", app.config.AppName, app.config.AppId, app.config.ExecutePath)))
+	hasher.Write([]byte(fmt.Sprintf("%s_%d_%s", app.GetAppName(), app.GetAppId(), app.config.ExecutePath)))
 	app.config.HashCode = hex.EncodeToString(hasher.Sum(nil))
 }
 
@@ -506,14 +489,8 @@ func (app *AppInstance) Init(arguments []string) error {
 		return fmt.Errorf("load config failed: %w", err)
 	}
 
-	// 生成默认的应用名称和标识
-	if app.config.TypeName == "" {
-		execName := filepath.Base(os.Args[0])
-		execName = strings.TrimSuffix(execName, ".exe")
-		app.config.TypeName = execName
-	}
 	if app.config.AppName == "" {
-		app.config.AppName = fmt.Sprintf("%s-0x%x", app.config.TypeName, app.config.AppId)
+		app.config.AppName = fmt.Sprintf("%s-0x%x", app.GetAppName(), app.GetAppId())
 	}
 
 	// 生成哈希码
@@ -558,7 +535,7 @@ func (app *AppInstance) Init(arguments []string) error {
 		return err
 	}
 
-	initContext, initCancel := context.WithTimeout(app.appContext, app.config.InitTimeout)
+	initContext, initCancel := context.WithTimeout(app.appContext, app.config.ConfigPb.GetTimer().GetInitializeTimeout().AsDuration())
 	defer initCancel()
 
 	// 初始化所有模块
@@ -689,7 +666,7 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 		}
 		forceTimeout := checkFlag(flags, AppFlagTimeout)
 		if now.After(app.stopTimepoint) || forceTimeout {
-			app.stopTimepoint = now.Add(app.config.StopInterval)
+			app.stopTimepoint = now.Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
 			app.closeAllModules(forceTimeout)
 		}
 	}
@@ -827,7 +804,7 @@ func (app *AppInstance) Stop() error {
 		return nil
 	}
 
-	app.stopTimeout = time.Now().Add(app.config.StopTimeout)
+	app.stopTimeout = time.Now().Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
 	app.SetFlag(AppFlagStopping, true)
 	app.stopAppHandle()
 	return nil
@@ -851,18 +828,19 @@ func (app *AppInstance) Reload() error {
 }
 
 // Getter methods
-func (app *AppInstance) GetAppId() uint64        { return app.config.AppId }
-func (app *AppInstance) GetTypeId() uint64       { return app.config.TypeId }
-func (app *AppInstance) GetTypeName() string     { return app.config.TypeName }
+func (app *AppInstance) GetAppId() uint64        { return app.config.ConfigPb.GetAppId() }
+func (app *AppInstance) GetTypeId() uint64       { return app.config.ConfigPb.GetTypeId() }
+func (app *AppInstance) GetTypeName() string     { return app.config.ConfigPb.GetTypeName() }
 func (app *AppInstance) GetAppName() string      { return app.config.AppName }
-func (app *AppInstance) GetAppIdentity() string  { return app.config.AppIdentity }
+func (app *AppInstance) GetAppIdentity() string  { return app.config.ConfigPb.GetIdentity() }
 func (app *AppInstance) GetHashCode() string     { return app.config.HashCode }
 func (app *AppInstance) GetAppVersion() string   { return app.config.AppVersion }
 func (app *AppInstance) GetBuildVersion() string { return app.config.BuildVersion }
 func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
-func (app *AppInstance) GetWorldId() uint32      { return app.config.WoridId }
-func (app *AppInstance) GetZoneId() uint32       { return app.config.ZoneId }
-func (app *AppInstance) GetLogicId() uint32      { return app.config.LogicId }
+func (app *AppInstance) GetWorldId() uint32      { return app.config.ConfigPb.GetWorldId() }
+func (app *AppInstance) GetZoneId() uint32       { return app.config.ConfigPb.GetZoneId() }
+func (app *AppInstance) GetLogicId() uint32      { return app.config.ConfigPb.GetArea().GetZoneId() }
+func (app *AppInstance) GetConfigFile() string   { return app.config.ConfigFile }
 
 // 配置管理
 func (app *AppInstance) LoadConfig(configFile string) (err error) {
@@ -881,14 +859,15 @@ func (app *AppInstance) LoadConfig(configFile string) (err error) {
 		if app.config.ConfigPb.GetLog().GetCrashOutputFile() != "" {
 			app.config.CrashOutputFile = app.config.ConfigPb.GetLog().GetCrashOutputFile()
 		}
-
-		app.config.ZoneId = app.config.ConfigPb.GetZoneId()
-		app.config.WoridId = app.config.ConfigPb.GetWorldId()
-		app.config.LogicId = uint32(app.config.ConfigPb.GetArea().GetZoneId())
-	}
-	if app.config.ZoneId == 0 || app.config.WoridId == 0 || app.config.LogicId == 0 {
-		err = fmt.Errorf("invalid config: zone_id, world_id and logic_id must be greater than 0")
-		return
+	} else {
+		// 使用默认配置
+		app.GetDefaultLogger().Info("No config file specified, using default config")
+		app.config.ConfigPb = &atframe_protocol.AtappConfigure{}
+		err = ParseMessage(nil, app.config.ConfigPb, app.GetDefaultLogger())
+		if err != nil {
+			app.GetDefaultLogger().Error("Load config failed", "error", err)
+			return
+		}
 	}
 	return
 }
@@ -1136,9 +1115,9 @@ func (app *AppInstance) setupLog() error {
 func (app *AppInstance) setupTickTimer() error {
 	// 定时器在 Run 方法中设置
 	if app.tickTimer == nil {
-		app.tickTimer = time.NewTicker(app.config.TickInterval)
+		app.tickTimer = time.NewTicker(app.config.ConfigPb.GetTimer().GetTickInterval().AsDuration())
 	} else {
-		app.tickTimer.Reset(app.config.TickInterval)
+		app.tickTimer.Reset(app.config.ConfigPb.GetTimer().GetTickInterval().AsDuration())
 	}
 	return nil
 }

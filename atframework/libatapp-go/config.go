@@ -54,6 +54,7 @@ func pickNumber(str string, ignoreNegative bool) (int64, string, error) {
 
 // pickDuration 解析字符串并填充到 protobuf 的 Duration 结构
 func pickDuration(value string) (*durationpb.Duration, error) {
+	orginValue := value
 	// 去除空格
 	value = skipSpace(value)
 
@@ -96,7 +97,7 @@ func pickDuration(value string) (*durationpb.Duration, error) {
 	case unit == "w" || unit == "week" || unit == "weeks":
 		duration.Seconds = tmVal * 3600 * 24 * 7
 	default:
-		return nil, fmt.Errorf("pickDuration unsupported unit: %s", unit)
+		return nil, fmt.Errorf("pickDuration unsupported orginValue: %s", orginValue)
 	}
 
 	return &duration, nil

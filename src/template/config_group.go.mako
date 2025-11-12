@@ -10,17 +10,22 @@ package atframework_component_config_generate_config
 
 import (
 	"log/slog"
+	libatapp "github.com/atframework/libatapp-go"
 	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
+	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 )
 
 type ConfigCallback interface {
-	LoadFile(string) ([]byte, error)
+	LoadFile(string, string) ([]byte, error)
 	GetLogger() *slog.Logger
 	OnLoaded(*ConfigGroup) error
 }
 
 type ConfigGroup struct {
+	ExcelResourceDir string
+	ServerConfig 	 *private_protocol_config.LogicSectionCfg
+
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
 	${loader.get_go_pb_name()} ConfigSet${loader.get_go_pb_name()};
@@ -36,10 +41,45 @@ func (configGroup *ConfigGroup) GetCustomIndex() *custom_index_type.ExcelConfigC
 	return &configGroup.customIndex
 }
 
-func (configGroup *ConfigGroup) Init(callback ConfigCallback) (err error) {
+func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.LogicSectionCfg {
+	if configGroup == nil {
+		return nil
+	}
+	return configGroup.ServerConfig
+}
+
+func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback) (err error) {
+	if configFile != "" {
+		callback.GetLogger().Info("Load config from file", "file", configFile)
+		configGroup.ServerConfig = &private_protocol_config.LogicSectionCfg{}
+		_, err = libatapp.LoadConfigFromYaml(configFile, "logic", configGroup.ServerConfig, callback.GetLogger())
+		if err != nil {
+			callback.GetLogger().Error("Load config failed", "error", err)
+			return
+		}
+	} else {
+		// 使用默认配置
+		callback.GetLogger().Info("Load config from default")
+		configGroup.ServerConfig = &private_protocol_config.LogicSectionCfg{}
+		err = libatapp.ParseMessage(nil, configGroup.ServerConfig, callback.GetLogger())
+		if err != nil {
+			callback.GetLogger().Error("Load config failed", "error", err)
+			return
+		}
+	}
+
+	if !configGroup.ServerConfig.GetExcel().GetEnable() {
+		callback.GetLogger().Warn("Disable Excel")
+		return
+	}
+	callback.GetLogger().Warn("Enable Excel")
+	if configGroup.ExcelResourceDir == "" {
+		configGroup.ExcelResourceDir = configGroup.ServerConfig.GetExcel().GetBindir()
+	}
+
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
-	if err = configGroup.${loader.get_go_pb_name()}.Init(callback); err != nil {
+	if err = configGroup.${loader.get_go_pb_name()}.Init(configGroup, callback); err != nil {
 		return
 	}
 	% endfor

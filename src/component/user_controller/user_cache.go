@@ -6,6 +6,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	config "github.com/atframework/atsf4g-go/component-config"
 	"google.golang.org/protobuf/proto"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
@@ -100,11 +101,14 @@ type UserCache struct {
 }
 
 func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
-	writer, _ := libatapp.NewlogBufferedRotatingWriter("../log",
-		openId, 1*1024*1024, 3, time.Second*3, false, true)
-	runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
-		writer.Close()
-	})
+	var writer *libatapp.LogBufferedRotatingWriter
+	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
+		writer, _ = libatapp.NewlogBufferedRotatingWriter(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
+			openId, 20*1024*1024, 3, time.Second*3, false, true) // TODO: 配置化
+		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
+			writer.Close()
+		})
+	}
 	return UserCache{
 		zoneId:        zoneId,
 		userId:        userId,
@@ -471,10 +475,9 @@ func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInf
 }
 
 func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
-	if u == nil {
+	if lu.IsNil(u.cs_actor_log_writer) {
 		return nil
 	}
-
 	return u.cs_actor_log_writer
 }
 

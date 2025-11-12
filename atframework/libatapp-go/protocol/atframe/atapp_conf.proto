@@ -43,7 +43,7 @@ message atapp_area {
   // region -> district -> zone
   string region = 1;
   string district = 2;
-  uint64 zone_id = 3;  // Such as postal zone/zip code
+  uint32 zone_id = 3;  // Such as postal zone/zip code
 }
 
 message atapp_gateway {
@@ -93,13 +93,7 @@ message atapp_timer {
   google.protobuf.Duration stop_interval = 2 [(atapp.protocol.CONFIGURE) = { default_value: "128ms" }];
   google.protobuf.Duration tick_interval = 3 [(atapp.protocol.CONFIGURE) = { default_value: "16ms" }];
   google.protobuf.Duration tick_round_timeout = 4 [(atapp.protocol.CONFIGURE) = { default_value: "128ms" }];
-  google.protobuf.Duration message_timeout = 5 [(atapp.protocol.CONFIGURE) = { default_value: "8s" }];
-  google.protobuf.Duration initialize_timeout = 6 [(atapp.protocol.CONFIGURE) = { default_value: "10s" }];
-  google.protobuf.Duration reserve_interval_min = 7
-      [(atapp.protocol.CONFIGURE) = { default_value: "100us" min_value: "0" }];
-  google.protobuf.Duration reserve_interval_max = 8
-      [(atapp.protocol.CONFIGURE) = { default_value: "1s" min_value: "1ms" }];
-  int32 reserve_permille = 9 [(atapp.protocol.CONFIGURE) = { default_value: "10" min_value: "1" }];
+  google.protobuf.Duration initialize_timeout = 5 [(atapp.protocol.CONFIGURE) = { default_value: "10s" }];
 }
 
 message atapp_log_level_range {
@@ -381,19 +375,19 @@ message atapp_resource {
 }
 
 message atapp_configure {
-  // bus configure
   string id = 101;       // maybe hex or a.b.c.d
-  uint32 world_id = 102;
-  uint32 zone_id = 103;
-  string name = 104;
-  uint64 type_id = 105;
-  string type_name = 106;
-  atapp_area area = 107;  // Some service is splited by area
+  uint64 app_id = 102;
+  uint32 world_id = 103;
+  uint32 zone_id = 104;
+  string name = 105;
+  uint64 type_id = 106;
+  string type_name = 107;
+  atapp_area area = 108;  // Some service is splited by area
   // See these document below for details:
   //   https://kubernetes.io/docs/concepts/workloads/pods/downward-api/#available-fields
   //   https://kubernetes.io/zh-cn/docs/concepts/workloads/pods/downward-api/#available-fields
-  atapp_metadata metadata = 108;
-  atapp_runtime runtime = 109;
+  atapp_metadata metadata = 109;
+  atapp_runtime runtime = 110;
 
   string hostname = 121;
   // The same identity means the same instance of a app.

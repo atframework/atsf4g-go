@@ -22,13 +22,20 @@ type ConfigManager struct {
 	reloading    atomic.Bool
 	reloadFinish atomic.Bool
 
-	resourceDir string
-	logger      *slog.Logger
+	configFile           string
+	overwriteResourceDir string
+	logger               *slog.Logger
 }
 
 // 管理所有配置
-var globalConfigManagerInst = ConfigManager{
-	resourceDir: path.Join("..", "..", "resource"),
+var globalConfigManagerInst = ConfigManager{}
+
+func (configManagerInst *ConfigManager) SetConfigFile(path string) {
+	configManagerInst.configFile = path
+}
+
+func (configManagerInst *ConfigManager) SetResourceDir(path string) {
+	configManagerInst.overwriteResourceDir = path
 }
 
 func (configManagerInst *ConfigManager) GetLogger() *slog.Logger {
@@ -39,22 +46,15 @@ func (configManagerInst *ConfigManager) GetLogger() *slog.Logger {
 	return configManagerInst.logger
 }
 
-func (configManagerInst *ConfigManager) GetResourceDir() string {
-	return configManagerInst.resourceDir
-}
-
-func (configManagerInst *ConfigManager) SetResourceDir(path string) {
-	configManagerInst.resourceDir = path
-}
-
 func (configManagerInst *ConfigManager) Init(parent context.Context) error {
 	configManagerInst.currentConfigGroup = new(generate_config.ConfigGroup)
+	configManagerInst.currentConfigGroup.ExcelResourceDir = configManagerInst.overwriteResourceDir
 	return configManagerInst.loadImpl(configManagerInst.currentConfigGroup)
 }
 
 // 同步接口
 func (configManagerInst *ConfigManager) Reload() error {
-	if configManagerInst.init == false {
+	if !configManagerInst.init {
 		return nil
 	}
 	return configManagerInst.reloadImpl(nil)
@@ -79,6 +79,7 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 	configManagerInst.reloadFinish.Store(false)
 
 	newConfigGroup := new(generate_config.ConfigGroup)
+	newConfigGroup.ExcelResourceDir = configManagerInst.overwriteResourceDir
 	err := configManagerInst.loadImpl(newConfigGroup)
 	defer func() {
 		if resultChan != nil {
@@ -103,7 +104,7 @@ func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_confi
 	// 加载配置逻辑
 	configManagerInst.GetLogger().Info("Excel Loading Begin")
 	var callback ExcelConfigCallback
-	err := loadConfigGroup.Init(callback)
+	err := loadConfigGroup.Init(configManagerInst.configFile, callback)
 	if err != nil {
 		return err
 	}
@@ -141,8 +142,8 @@ func GetConfigManager() *ConfigManager {
 
 type ExcelConfigCallback struct{}
 
-func (callback ExcelConfigCallback) LoadFile(pbinName string) ([]byte, error) {
-	filePath := path.Join(GetConfigManager().GetResourceDir(), "excel", pbinName)
+func (callback ExcelConfigCallback) LoadFile(prefixPath string, pbinName string) ([]byte, error) {
+	filePath := path.Join(prefixPath, pbinName)
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
@@ -180,6 +181,7 @@ func CreateConfigManagerModule(app libatapp.AppImpl) *ConfigManagerModule {
 }
 
 func (m *ConfigManagerModule) Init(parent context.Context) error {
+	GetConfigManager().SetConfigFile(m.GetApp().GetConfigFile())
 	m.SharedConfigManager.logger = m.GetApp().GetDefaultLogger()
 	return m.SharedConfigManager.Init(parent)
 }
