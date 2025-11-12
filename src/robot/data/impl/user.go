@@ -1,9 +1,9 @@
 package atsf4g_go_robot_user_impl
 
 import (
+	"container/list"
 	"fmt"
 	"log"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,12 +35,17 @@ type User struct {
 
 	connectionSequence uint64
 	connection         *websocket.Conn
-	dispatcherLock     sync.Mutex
-	rpcChan            map[uint64]chan string
-	csLog              *libatapp.LogBufferedRotatingWriter
-	heartbeatFn        func(user user_data.User) error
+
+	rpcTimeout list.List
+	rpcSeq     map[uint64]struct{}
+
+	csLog       *libatapp.LogBufferedRotatingWriter
+	heartbeatFn func(user user_data.User) error
 
 	onClosed []func(user user_data.User)
+
+	receiveAction chan func()
+	sendAction    chan func()
 }
 
 func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter,
@@ -54,9 +59,11 @@ func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogB
 		AccessToken:        fmt.Sprintf("access-token-for-%s", openId),
 		connectionSequence: 99,
 		connection:         conn,
-		rpcChan:            make(map[uint64]chan string),
 		csLog:              bufferWriter,
 		heartbeatFn:        heartbeatFn,
+		rpcSeq:             make(map[uint64]struct{}),
+		receiveAction:      make(chan func(), 50),
+		sendAction:         make(chan func(), 50),
 	}
 
 	var _ user_data.User = ret
@@ -104,19 +111,7 @@ func (u *User) Logout() {
 		return
 	}
 	u.Logined = false
-	u.Closed.Store(true)
-	for _, f := range u.onClosed {
-		f(u)
-	}
-
-	if u.connection != nil {
-		// Close our websocket connection
-		err := u.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		if err != nil {
-			log.Println("Error during closing websocket:", err)
-			return
-		}
-	}
+	u.Close()
 }
 
 func (user *User) MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
@@ -136,12 +131,12 @@ func (user *User) MakeMessageHead(rpcName string, typeName string) *public_proto
 func (user *User) ReceiveHandler() {
 	defer func() {
 		log.Printf("User %v:%v connection closed.\n", user.ZoneId, user.UserId)
-		user.Closed.Store(true)
-		for _, f := range user.onClosed {
-			f(user)
+		user.receiveAction <- func() {
+			user.connection = nil
+			user.Close()
 		}
+		close(user.receiveAction)
 	}()
-
 	for {
 		_, bytes, err := user.connection.ReadMessage()
 		if err != nil {
@@ -189,25 +184,58 @@ func (user *User) ReceiveHandler() {
 			return
 		}
 		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
-		user.processResponse(rpcName, csMsg, csBody)
+		user.receiveAction <- func() {
+			// 通知收包
+			delete(user.rpcSeq, csMsg.Head.GetClientSequence())
+			if handle, ok := user_data.GetResponseHandles()[rpcName]; ok {
+				handle(user, rpcName, csMsg, csBody)
+			}
+		}
 	}
 }
 
-func (user *User) processResponse(rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
-	if handle, ok := user_data.GetResponseHandles()[rpcName]; ok {
-		handle(user, rpcName, msg, rawBody)
-	}
+type RpcTimeout struct {
+	sendTime time.Time
+	rpcName  string
+	seq      uint64
+}
 
-	user.dispatcherLock.Lock()
-	defer user.dispatcherLock.Unlock()
-	// 通知收包
-	c, ok := user.rpcChan[msg.GetHead().GetClientSequence()]
-	if ok {
-		c <- ""
+func (user *User) ActionHandler() {
+	for {
+		select {
+		case f := <-user.receiveAction:
+			if f == nil {
+				return
+			}
+			f()
+		case f := <-user.sendAction:
+			if f == nil {
+				return
+			}
+			f()
+		case <-time.After(time.Second):
+			for {
+				if user.rpcTimeout.Len() == 0 {
+					break
+				}
+				firstRpc := user.rpcTimeout.Front().Value.(RpcTimeout)
+				if time.Now().After(firstRpc.sendTime.Add(8 * time.Second)) {
+					_, ok := user.rpcSeq[firstRpc.seq]
+					if ok {
+						fmt.Printf("timeout rpc %s\n", firstRpc.rpcName)
+						delete(user.rpcSeq, firstRpc.seq)
+					}
+					user.rpcTimeout.Remove(user.rpcTimeout.Front())
+				} else {
+					break
+				}
+			}
+		}
 	}
 }
 
-func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message, await bool) error {
+// 这个接口对于同一个User不能并发
+func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message) error {
 	if user == nil {
 		return fmt.Errorf("need login")
 	}
@@ -220,47 +248,48 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 		return fmt.Errorf("connection lost")
 	}
 
-	var csBin []byte
-	csBin, _ = proto.Marshal(csMsg)
-	titleString := fmt.Sprintf(">>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", csMsg.Head.GetRpcRequest().GetRpcName())
-	log.Printf("%s\n", titleString)
+	user.sendAction <- func() {
+		var csBin []byte
+		csBin, _ = proto.Marshal(csMsg)
+		titleString := fmt.Sprintf(">>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", csMsg.Head.GetRpcRequest().GetRpcName())
+		log.Printf("%s\n", titleString)
 
-	fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), titleString)
-	fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
-	fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
+		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), titleString)
+		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
+		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
 
-	var awaitChan chan string
-	if await {
-		user.dispatcherLock.Lock()
-		awaitChan = make(chan string)
-		user.rpcChan[csMsg.GetHead().GetClientSequence()] = awaitChan
-		user.dispatcherLock.Unlock()
-		defer func() {
-			user.dispatcherLock.Lock()
-			delete(user.rpcChan, csMsg.GetHead().GetClientSequence())
-			user.dispatcherLock.Unlock()
-		}()
-	}
-
-	// Send an echo packet every second
-
-	err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
-	if err != nil {
-		log.Println("Error during writing to websocket:", err)
-		return err
-	}
-
-	if await {
-		select {
-		case <-awaitChan:
-			// 收到回包
-			return nil
-		case <-time.After(time.Second * 3):
-			log.Println(csMsg.GetHead().GetRpcRequest().GetTypeUrl(), " Timeout")
-			return fmt.Errorf("Timeout")
+		// Send an echo packet every second
+		err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
+		if err != nil {
+			log.Println("Error during writing to websocket:", err)
+			return
 		}
+
+		user.rpcTimeout.PushBack(RpcTimeout{
+			sendTime: time.Now(),
+			rpcName:  csMsg.Head.GetRpcRequest().GetRpcName(),
+			seq:      csMsg.Head.GetClientSequence(),
+		})
+		user.rpcSeq[csMsg.Head.GetClientSequence()] = struct{}{}
 	}
 	return nil
+}
+
+func (user *User) Close() {
+	if user.Closed.CompareAndSwap(false, true) {
+		user_data.RemoveLoginUser(user)
+		for _, f := range user.onClosed {
+			f(user)
+		}
+		if user.connection != nil {
+			// Close our websocket connection
+			err := user.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				log.Println("Error during closing websocket:", err)
+				return
+			}
+		}
+	}
 }
 
 func (user *User) GetLoginCode() string {

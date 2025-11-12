@@ -31,7 +31,7 @@ func LoginAuthRpc(user user_data.User) error {
 	}
 
 	csMsg, csBody := makeLoginAuthMessage(user)
-	return user.SendReq(csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody)
 }
 
 func LoginRpc(user user_data.User) error {
@@ -44,7 +44,7 @@ func LoginRpc(user user_data.User) error {
 	}
 
 	csMsg, csBody := makeLoginMessage(user)
-	return user.SendReq(csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody)
 }
 
 func PingRpc(user user_data.User) error {
@@ -53,7 +53,7 @@ func PingRpc(user user_data.User) error {
 	}
 
 	csMsg, csBody := makePingMessage(user)
-	return user.SendReq(csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody)
 }
 
 func GetInfoRpc(user user_data.User, args []string) error {
@@ -62,7 +62,7 @@ func GetInfoRpc(user user_data.User, args []string) error {
 	}
 
 	csMsg, csBody := makeUserGetInfoMessage(user, args)
-	return user.SendReq(csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody)
 }
 
 func GMRpc(user user_data.User, args []string) error {
@@ -71,7 +71,7 @@ func GMRpc(user user_data.User, args []string) error {
 	}
 
 	csMsg, csBody := makeUserGMMessage(user, args)
-	return user.SendReq(csMsg, csBody, false)
+	return user.SendReq(csMsg, csBody)
 }
 
 func makeLoginAuthMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
@@ -264,6 +264,8 @@ func ProcessLoginResponse(user user_data.User, rpcName string, msg *public_proto
 		user.SetZoneId(body.GetZoneId())
 	}
 	user.SetLogined(true)
+	user_data.AddLoginUser(user)
+
 	if body.GetHeartbeatInterval() > 0 {
 		user.SetHeartbeatInterval(time.Duration(body.GetHeartbeatInterval()) * time.Second)
 	}
@@ -365,6 +367,7 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 			user_data.SetCurrentUser(nil)
 		}
 	})
+	go ret.ActionHandler()
 	go ret.ReceiveHandler()
 
 	log.Println("Create User:", openId)
