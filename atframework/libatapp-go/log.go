@@ -76,7 +76,6 @@ type logHandlerImpl struct {
 	writers []logHandlerWriter
 
 	frameInfoCache *sync.Map // pc -> runtime.Frame
-	stackCache     *sync.Map // stackKey -> string
 }
 
 type frameInfo struct {
@@ -92,8 +91,9 @@ func (h *logHandlerImpl) getFrameInfo(pc uintptr) *frameInfo {
 	frames := runtime.CallersFrames([]uintptr{pc})
 	frame, _ := frames.Next()
 	info := frameInfo{
-		file: filepath.Base(frame.File),
-		line: frame.Line,
+		function: frame.Function,
+		file:     filepath.Base(frame.File),
+		line:     frame.Line,
 	}
 	h.frameInfoCache.Store(pc, &info)
 	return &info
@@ -101,10 +101,6 @@ func (h *logHandlerImpl) getFrameInfo(pc uintptr) *frameInfo {
 
 // 获取完整堆栈（缓存）
 func (h *logHandlerImpl) getStack(pc uintptr) string {
-	if s, ok := h.stackCache.Load(pc); ok {
-		return s.(string)
-	}
-
 	buf := make([]uintptr, 32)
 	n := runtime.Callers(3, buf)
 	// 找到pc所在位置
@@ -116,15 +112,12 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 		}
 	}
 
-	frames := runtime.CallersFrames(buf[:n])
-
-	var stack []frameInfo
-	for {
-		f, more := frames.Next()
-		stack = append(stack, frameInfo{function: f.Function, file: filepath.Base(f.File), line: f.Line})
-		if !more {
+	var stack []*frameInfo
+	for i := range buf[:n] {
+		if buf[i] == 0 {
 			break
 		}
+		stack = append(stack, h.getFrameInfo(buf[i]))
 	}
 
 	sb := newlogBuffer()
@@ -133,9 +126,7 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 		sb.WriteString(fmt.Sprintf("  at %s (%s:%d)\n", f.function, f.file, f.line))
 	}
 
-	stackStr := sb.String()
-	h.stackCache.Store(pc, stackStr)
-	return stackStr
+	return sb.String()
 }
 
 func (h *logHandlerWriter) Enabled(level slog.Level) bool {

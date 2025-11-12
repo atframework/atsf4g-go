@@ -183,7 +183,6 @@ type AppInstance struct {
 
 	// 日志缓存数据
 	logFrameInfoCache sync.Map
-	logStackCache     sync.Map
 
 	// 日志
 	logger *AppLog
@@ -219,7 +218,6 @@ func CreateAppInstance() AppImpl {
 			},
 		},
 		frameInfoCache: &ret.logFrameInfoCache,
-		stackCache:     &ret.logStackCache,
 	}))
 
 	ret.flagSet = flag.NewFlagSet(
@@ -313,7 +311,6 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 		handler := logHandlerImpl{
 			writers:        make([]logHandlerWriter, 0),
 			frameInfoCache: &app.logFrameInfoCache,
-			stackCache:     &app.logStackCache,
 		}
 
 		for sinkIndex := range config.Category[i].Sink {
@@ -372,7 +369,6 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 					},
 				},
 				frameInfoCache: &app.logFrameInfoCache,
-				stackCache:     &app.logStackCache,
 			})
 		}
 	}
@@ -1008,7 +1004,6 @@ func (app *AppInstance) setupStartupLog() error {
 		handler := logHandlerImpl{
 			writers:        make([]logHandlerWriter, 0),
 			frameInfoCache: &app.logFrameInfoCache,
-			stackCache:     &app.logStackCache,
 		}
 		for _, logFile := range app.config.StartupLog {
 			switch logFile {
