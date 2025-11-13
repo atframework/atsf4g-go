@@ -237,7 +237,7 @@ func (user *User) ActionHandler() {
 // 这个接口对于同一个User不能并发
 func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message) error {
 	if user == nil {
-		return fmt.Errorf("need login")
+		return fmt.Errorf("no login")
 	}
 
 	if user.connection == nil {
@@ -293,53 +293,92 @@ func (user *User) Close() {
 }
 
 func (user *User) GetLoginCode() string {
+	if user == nil {
+		return ""
+	}
 	return user.LoginCode
 }
 
 func (user *User) GetLogined() bool {
+	if user == nil {
+		return false
+	}
 	return user.Logined
 }
 
 func (user *User) GetOpenId() string {
+	if user == nil {
+		return ""
+	}
 	return user.OpenId
 }
 
 func (user *User) GetAccessToken() string {
+	if user == nil {
+		return ""
+	}
 	return user.AccessToken
 }
 
 func (user *User) GetUserId() uint64 {
+	if user == nil {
+		return 0
+	}
 	return user.UserId
 }
 
 func (user *User) GetZoneId() uint32 {
+	if user == nil {
+		return 0
+	}
 	return user.ZoneId
 }
 
 func (user *User) SetLoginCode(d string) {
+	if user == nil {
+		return
+	}
 	user.LoginCode = d
 }
 
 func (user *User) SetUserId(d uint64) {
+	if user == nil {
+		return
+	}
 	user.UserId = d
 }
 
 func (user *User) SetZoneId(d uint32) {
+	if user == nil {
+		return
+	}
 	user.ZoneId = d
 }
 
 func (user *User) SetLogined(d bool) {
+	if user == nil {
+		return
+	}
 	user.Logined = d
 }
 
 func (user *User) SetHeartbeatInterval(d time.Duration) {
+	if user == nil {
+		return
+	}
 	user.HeartbeatInterval = d
 }
 
 func (user *User) SetLastPingTime(d time.Time) {
+	if user == nil {
+		return
+	}
 	user.LastPingTime = d
 }
 
 func (user *User) SetHasGetInfo(d bool) {
+	if user == nil {
+		return
+	}
 	user.HasGetInfo = d
 }

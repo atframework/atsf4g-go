@@ -14,12 +14,13 @@ import (
 type CommandFunc func([]string) string
 
 type CommandNode struct {
-	Children map[string]*CommandNode
-	Name     string
-	FullName string
-	Func     CommandFunc
-	ArgsInfo string
-	Desc     string
+	Children        map[string]*CommandNode
+	Name            string
+	FullName        string
+	Func            CommandFunc
+	ArgsInfo        string
+	Desc            string
+	DynamicComplete readline.DynamicCompleteFunc
 }
 
 func (node *CommandNode) SelfHelpString() []string {
@@ -96,7 +97,7 @@ func MutableCommandRoot() *CommandNode {
 	return root
 }
 
-func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string) {
+func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string, dynamicComplete readline.DynamicCompleteFunc) {
 	current := MutableCommandRoot()
 	for _, key := range path {
 		if current.Children[strings.ToLower(key)] == nil {
@@ -112,6 +113,7 @@ func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string
 	current.Func = fn
 	current.ArgsInfo = argsInfo
 	current.Desc = desc
+	current.DynamicComplete = dynamicComplete
 }
 
 // FindCommand 根据路径查找命令节点
@@ -144,6 +146,9 @@ func NewCompleter() *readline.PrefixCompleter {
 // 递归构建 PrefixCompleter
 func buildCompleterFromNode(node *CommandNode, name string) *readline.PrefixCompleter {
 	if len(node.Children) == 0 {
+		if node.DynamicComplete != nil {
+			return readline.PcItem(name, readline.PcItemDynamic(node.DynamicComplete))
+		}
 		return readline.PcItem(name)
 	}
 	items := []readline.PrefixCompleterInterface{}
@@ -159,6 +164,9 @@ func buildCompleterFromNode(node *CommandNode, name string) *readline.PrefixComp
 
 	for _, child := range sortKey {
 		items = append(items, buildCompleterFromNode(node.Children[child], node.Children[child].Name))
+	}
+	if node.DynamicComplete != nil {
+		items = append(items, readline.PcItemDynamic(node.DynamicComplete))
 	}
 	if name == "" {
 		return readline.NewPrefixCompleter(items...)
@@ -254,7 +262,7 @@ func GetCurrentReadlineInstance() *readline.Instance {
 
 func ReadLine() {
 	// 注册命令
-	RegisterCommand([]string{"quit"}, QuitCmd, "", "退出")
+	RegisterCommand([]string{"quit"}, QuitCmd, "", "退出", nil)
 
 	config := &readline.Config{
 		Prompt:       "\033[32m»\033[0m ", // 设置提示符

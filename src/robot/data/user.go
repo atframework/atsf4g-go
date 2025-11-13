@@ -82,6 +82,29 @@ func RemoveLoginUser(user User) {
 	delete(LoginUserMap, user.GetUserId())
 }
 
+func AutoCompleteUseId(string) []string {
+	LoginUserMapLock.Lock()
+	defer LoginUserMapLock.Unlock()
+	var res []string
+	for k := range LoginUserMap {
+		res = append(res, strconv.FormatUint(k, 10))
+	}
+	return res
+}
+
+func AutoCompleteUseIdWithoutCurrent(string) []string {
+	LoginUserMapLock.Lock()
+	defer LoginUserMapLock.Unlock()
+	var res []string
+	for k := range LoginUserMap {
+		if k == GetCurrentUser().GetUserId() {
+			continue
+		}
+		res = append(res, strconv.FormatUint(k, 10))
+	}
+	return res
+}
+
 func init() {
 	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func([]string) string {
 		LoginUserMapLock.Lock()
@@ -90,7 +113,7 @@ func init() {
 			fmt.Printf("%d\n", v.GetUserId())
 		}
 		return ""
-	}, "", "显示所有登录User")
+	}, "", "显示所有登录User", nil)
 	utils.RegisterCommand([]string{"user", "switch"}, func(cmd []string) string {
 		if len(cmd) < 1 {
 			return "Need User Id"
@@ -110,7 +133,7 @@ func init() {
 
 		SetCurrentUser(v)
 		return ""
-	}, "<userId>", "切换登录User")
+	}, "<userId>", "切换登录User", AutoCompleteUseIdWithoutCurrent)
 }
 
 type ResponseHandle = func(user User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message)

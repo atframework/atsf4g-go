@@ -30,8 +30,7 @@ func LoginAuthRpc(user user_data.User) error {
 		return fmt.Errorf("already login auth")
 	}
 
-	csMsg, csBody := makeLoginAuthMessage(user)
-	return user.SendReq(csMsg, csBody)
+	return user.SendReq(makeLoginAuthMessage(user))
 }
 
 func LoginRpc(user user_data.User) error {
@@ -43,35 +42,31 @@ func LoginRpc(user user_data.User) error {
 		return fmt.Errorf("already login")
 	}
 
-	csMsg, csBody := makeLoginMessage(user)
-	return user.SendReq(csMsg, csBody)
+	return user.SendReq(makeLoginMessage(user))
 }
 
 func PingRpc(user user_data.User) error {
-	if user == nil || !user.IsLogin() {
+	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
-	csMsg, csBody := makePingMessage(user)
-	return user.SendReq(csMsg, csBody)
+	return user.SendReq(makePingMessage(user))
 }
 
 func GetInfoRpc(user user_data.User, args []string) error {
-	if user == nil || !user.IsLogin() {
+	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
-	csMsg, csBody := makeUserGetInfoMessage(user, args)
-	return user.SendReq(csMsg, csBody)
+	return user.SendReq(makeUserGetInfoMessage(user, args))
 }
 
 func GMRpc(user user_data.User, args []string) error {
-	if user == nil || !user.IsLogin() {
+	if !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
-	csMsg, csBody := makeUserGMMessage(user, args)
-	return user.SendReq(csMsg, csBody)
+	return user.SendReq(makeUserGMMessage(user, args))
 }
 
 func makeLoginAuthMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
@@ -302,10 +297,10 @@ func ProcessGetInfoResponse(user user_data.User, rpcName string, msg *public_pro
 
 // ========================= 注册指令 =========================
 func init() {
-	utils.RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议")
-	utils.RegisterCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议")
-	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息")
-	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM")
+	utils.RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议", nil)
+	utils.RegisterCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议", nil)
+	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
+	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
 
 	user_data.RegisterResponseHandle("proy.LobbyClientService.login_auth", ProcessLoginAuthResponse)
 	user_data.RegisterResponseHandle("proy.LobbyClientService.login", ProcessLoginResponse)
