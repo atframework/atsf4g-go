@@ -64,5 +64,10 @@
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelUserInitializeItems</scheme>
       <scheme name="OutputFile" desc="输出文件名">user_initialize_items.bytes</scheme>
     </item>
+    <item name="随机池表" cat="misc" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">RandomPool.xlsx|RandomPool|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelRandomPool</scheme>
+      <scheme name="OutputFile" desc="输出文件名">random_pool.bytes</scheme>
+    </item>
   </list>
 </root>
