@@ -593,6 +593,19 @@ func (u *User) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *pu
 	return mgr.GenerateItemInstanceFromOffset(ctx, itemOffset)
 }
 
+func (u *User) GenerateMultipleItemInstancesFromOffset(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemOffset) ([]*public_protocol_common.DItemInstance, Result) {
+	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemOffset))
+	for _, offset := range itemOffset {
+		itemInst, result := u.GenerateItemInstanceFromOffset(ctx, offset)
+		if result.IsError() {
+			return nil, result
+		}
+		ret = append(ret, itemInst)
+	}
+
+	return ret, cd.CreateRpcResultOk()
+}
+
 func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemBasic.GetTypeId()
 	mgr := u.GetItemManager(typeId)
