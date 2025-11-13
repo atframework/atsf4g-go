@@ -128,6 +128,15 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	g.P(`}`)
 	g.P()
 
+	g.P("// ===== Merge methods for ", msg.GoIdent.GoName, " ===== Message ====")
+	g.P(fmt.Sprintf(`func (m *%s) Merge(src *%s) {`, msg.GoIdent.GoName, msg.GoIdent.GoName))
+	g.P(`  if m == nil {`)
+	g.P(`    return`)
+	g.P(`  }`)
+	g.P(`  proto.Merge(m, src)`)
+	g.P(`}`)
+	g.P()
+
 	for _, field := range msg.Fields {
 		fieldName := field.GoName
 		switch {

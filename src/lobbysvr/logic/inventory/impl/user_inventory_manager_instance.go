@@ -5,8 +5,6 @@ import (
 	"math"
 	"reflect"
 
-	"google.golang.org/protobuf/proto"
-
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
@@ -261,9 +259,7 @@ func (m *UserInventoryManager) InitFromDB(_ctx *cd.RpcContext, dbUser *private_p
 
 		// 通用道具管理
 		itemGroup := m.mutableItemGroup(typeId)
-		itemInstance := itemGroup.MutableGroup(guid)
-		proto.Reset(itemInstance)
-		proto.Merge(itemInstance, itemData)
+		itemGroup.MutableGroup(guid).Merge(itemData)
 	}
 
 	for dirtyTypeId, guidSet := range invalidIds {
@@ -350,9 +346,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 						continue
 					}
 
-					dumpDirtyItem := &public_protocol_common.DItemInstance{}
-					proto.Merge(dumpDirtyItem, itemInstance)
-					dirtyData.MutableDirtyInventory().AppendItem(dumpDirtyItem)
+					dirtyData.MutableDirtyInventory().AppendItem(itemInstance.Clone())
 					ret = true
 				}
 			}

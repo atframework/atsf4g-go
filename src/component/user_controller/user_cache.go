@@ -7,7 +7,6 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
-	"google.golang.org/protobuf/proto"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
@@ -287,15 +286,15 @@ func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, srcTb *priva
 	}
 
 	if srcTb.GetAccountData() != nil {
-		proto.Merge(u.MutableAccountInfo(), srcTb.GetAccountData())
+		u.MutableAccountInfo().Merge(srcTb.GetAccountData())
 	}
 
 	if srcTb.GetUserData() != nil {
-		proto.Merge(u.MutableUserData(), srcTb.GetUserData())
+		u.MutableUserData().Merge(srcTb.GetUserData())
 	}
 
 	if srcTb.GetOptions() != nil {
-		proto.Merge(u.MutableUserOptions(), srcTb.GetOptions())
+		u.MutableUserOptions().Merge(srcTb.GetOptions())
 	}
 
 	// TODO: 数据版本升级 u.dataVersion -> UserDataCurrentVersion
