@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -104,11 +103,11 @@ func main() {
 
 	utils.ReadLine()
 
-	log.Println("Closing all pending connections")
+	utils.StdoutLog("Closing all pending connections\n")
 	currentUser := user_data.GetCurrentUser()
 	if currentUser != nil {
 		currentUser.Logout()
 		<-time.After(1 * time.Second)
-		log.Println("Exiting....")
+		utils.StdoutLog("Exiting....\n")
 	}
 }

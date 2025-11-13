@@ -1,9 +1,7 @@
 package atsf4g_go_robot_user
 
 import (
-	"fmt"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -65,75 +63,6 @@ func SetCurrentUser(user User) {
 			rlInst.Refresh()
 		}
 	}
-}
-
-var LoginUserMap = make(map[uint64]User, 0)
-var LoginUserMapLock sync.Mutex
-
-func AddLoginUser(user User) {
-	LoginUserMapLock.Lock()
-	defer LoginUserMapLock.Unlock()
-	LoginUserMap[user.GetUserId()] = user
-}
-
-func RemoveLoginUser(user User) {
-	LoginUserMapLock.Lock()
-	defer LoginUserMapLock.Unlock()
-	delete(LoginUserMap, user.GetUserId())
-}
-
-func AutoCompleteUseId(string) []string {
-	LoginUserMapLock.Lock()
-	defer LoginUserMapLock.Unlock()
-	var res []string
-	for k := range LoginUserMap {
-		res = append(res, strconv.FormatUint(k, 10))
-	}
-	return res
-}
-
-func AutoCompleteUseIdWithoutCurrent(string) []string {
-	LoginUserMapLock.Lock()
-	defer LoginUserMapLock.Unlock()
-	var res []string
-	for k := range LoginUserMap {
-		if k == GetCurrentUser().GetUserId() {
-			continue
-		}
-		res = append(res, strconv.FormatUint(k, 10))
-	}
-	return res
-}
-
-func init() {
-	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func([]string) string {
-		LoginUserMapLock.Lock()
-		defer LoginUserMapLock.Unlock()
-		for _, v := range LoginUserMap {
-			fmt.Printf("%d\n", v.GetUserId())
-		}
-		return ""
-	}, "", "显示所有登录User", nil)
-	utils.RegisterCommand([]string{"user", "switch"}, func(cmd []string) string {
-		if len(cmd) < 1 {
-			return "Need User Id"
-		}
-
-		userId, err := strconv.ParseInt(cmd[0], 10, 64)
-		if err != nil {
-			return err.Error()
-		}
-
-		LoginUserMapLock.Lock()
-		v, ok := LoginUserMap[uint64(userId)]
-		LoginUserMapLock.Unlock()
-		if !ok {
-			return "not found user"
-		}
-
-		SetCurrentUser(v)
-		return ""
-	}, "<userId>", "切换登录User", AutoCompleteUseIdWithoutCurrent)
 }
 
 type ResponseHandle = func(user User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message)

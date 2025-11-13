@@ -2,7 +2,6 @@ package atsf4g_go_robot_protocol_user
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 	user_impl "github.com/atframework/atsf4g-go/robot/data/impl"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
@@ -46,7 +46,7 @@ func LoginRpc(user user_data.User) error {
 }
 
 func PingRpc(user user_data.User) error {
-	if !user.IsLogin() {
+	if lu.IsNil(user) || !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -54,7 +54,7 @@ func PingRpc(user user_data.User) error {
 }
 
 func GetInfoRpc(user user_data.User, args []string) error {
-	if !user.IsLogin() {
+	if lu.IsNil(user) || !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -62,7 +62,7 @@ func GetInfoRpc(user user_data.User, args []string) error {
 }
 
 func GMRpc(user user_data.User, args []string) error {
-	if !user.IsLogin() {
+	if lu.IsNil(user) || !user.IsLogin() {
 		return fmt.Errorf("need login")
 	}
 
@@ -200,7 +200,7 @@ func makeUserGMMessage(user user_data.User, args []string) (*public_protocol_ext
 func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginAuthRsp)
 	if !ok {
-		log.Println("Can not convert to SCLoginAuthRsp")
+		utils.StdoutLog("Can not convert to SCLoginAuthRsp\n")
 		return
 	}
 
@@ -221,7 +221,7 @@ func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_p
 	}
 
 	if user == nil {
-		log.Println("user is nil in ProcessLoginAuthResponse")
+		utils.StdoutLog("user is nil in ProcessLoginAuthResponse\n")
 		return
 	}
 
@@ -237,8 +237,7 @@ func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_p
 
 	err := LoginRpc(user)
 	if err != nil {
-		log.Println("user login failed", "error", err, "open_id", user.GetOpenId(),
-			"user_id", user.GetUserId(), "zone_id", user.GetZoneId())
+		utils.StdoutLog(fmt.Sprintf("user login failed, error: %v, open_id: %s, user_id: %d, zone_id: %d", err, user.GetOpenId(), user.GetUserId(), user.GetZoneId()))
 		return
 	}
 }
@@ -246,7 +245,7 @@ func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_p
 func ProcessLoginResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginRsp)
 	if !ok {
-		log.Println("Can not convert to SCLoginResp")
+		utils.StdoutLog("Can not convert to SCLoginResp\n")
 		return
 	}
 
@@ -259,7 +258,6 @@ func ProcessLoginResponse(user user_data.User, rpcName string, msg *public_proto
 		user.SetZoneId(body.GetZoneId())
 	}
 	user.SetLogined(true)
-	user_data.AddLoginUser(user)
 
 	if body.GetHeartbeatInterval() > 0 {
 		user.SetHeartbeatInterval(time.Duration(body.GetHeartbeatInterval()) * time.Second)
@@ -283,7 +281,7 @@ func ProcessPongResponse(user user_data.User, rpcName string, msg *public_protoc
 func ProcessGetInfoResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
 	_, ok := rawBody.(*lobysvr_protocol_pbdesc.SCUserGetInfoRsp)
 	if !ok {
-		log.Println("Can not convert to SCUserGetInfoRsp")
+		utils.StdoutLog("Can not convert to SCUserGetInfoRsp\n")
 		return
 	}
 
@@ -306,6 +304,35 @@ func init() {
 	user_data.RegisterResponseHandle("proy.LobbyClientService.login", ProcessLoginResponse)
 	user_data.RegisterResponseHandle("proy.LobbyClientService.ping", ProcessPongResponse)
 	user_data.RegisterResponseHandle("proy.LobbyClientService.user_get_info", ProcessGetInfoResponse)
+
+	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func([]string) string {
+		userMapLock.Lock()
+		defer userMapLock.Unlock()
+		for _, v := range userMapContainer {
+			fmt.Printf("%d\n", v.GetUserId())
+		}
+		return ""
+	}, "", "显示所有登录User", nil)
+	utils.RegisterCommand([]string{"user", "switch"}, func(cmd []string) string {
+		if len(cmd) < 1 {
+			return "Need User Id"
+		}
+
+		userId, err := strconv.ParseInt(cmd[0], 10, 64)
+		if err != nil {
+			return err.Error()
+		}
+
+		userMapLock.Lock()
+		v, ok := userMapContainer[strconv.FormatUint(uint64(userId), 10)]
+		userMapLock.Unlock()
+		if !ok {
+			return "not found user"
+		}
+
+		user_data.SetCurrentUser(v)
+		return ""
+	}, "<userId>", "切换登录User", AutoCompleteUseIdWithoutCurrent)
 }
 
 var (
@@ -318,6 +345,29 @@ func mutableUserMapContainer() map[string]*user_impl.User {
 		userMapContainer = make(map[string]*user_impl.User)
 	}
 	return userMapContainer
+}
+
+func AutoCompleteUseId(string) []string {
+	userMapLock.Lock()
+	defer userMapLock.Unlock()
+	var res []string
+	for _, k := range userMapContainer {
+		res = append(res, strconv.FormatUint(k.GetUserId(), 10))
+	}
+	return res
+}
+
+func AutoCompleteUseIdWithoutCurrent(string) []string {
+	userMapLock.Lock()
+	defer userMapLock.Unlock()
+	var res []string
+	for _, k := range userMapContainer {
+		if k.GetUserId() == user_data.GetCurrentUser().GetUserId() {
+			continue
+		}
+		res = append(res, strconv.FormatUint(k.GetUserId(), 10))
+	}
+	return res
 }
 
 func CreateUser(openId string, socketUrl string) *user_impl.User {
@@ -337,7 +387,8 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
-		log.Fatal("Error connecting to Websocket Server:", err)
+		utils.StdoutLog(fmt.Sprintf("Error connecting to Websocket Server: %v", err))
+		return nil
 	}
 
 	var ret *user_impl.User = nil
@@ -356,7 +407,7 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 			return
 		}
 		delete(mutableUserMapContainer(), openId)
-		log.Println("Remove User:", openId)
+		utils.StdoutLog(fmt.Sprintf("Remove User: %s", openId))
 
 		if user_data.GetCurrentUser() == user {
 			user_data.SetCurrentUser(nil)
@@ -365,7 +416,7 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 	go ret.ActionHandler()
 	go ret.ReceiveHandler()
 
-	log.Println("Create User:", openId)
+	utils.StdoutLog(fmt.Sprintf("Create User: %s\n", openId))
 
 	return ret
 }
@@ -385,6 +436,9 @@ func LoginCmd(cmd []string) string {
 	}
 	// 创建角色
 	u := CreateUser(cmd[0], config.SocketUrl)
+	if u == nil {
+		return "Failed to create user"
+	}
 
 	// 发送登录请求
 	err := LoginAuthRpc(u)

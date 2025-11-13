@@ -23,6 +23,20 @@ type CommandNode struct {
 	DynamicComplete readline.DynamicCompleteFunc
 }
 
+var stdoutLog *log.Logger
+
+func StdoutLog(log string) {
+	stdoutLog.Print(log)
+	rd := GetCurrentReadlineInstance()
+	if rd != nil {
+		rd.Refresh()
+	}
+}
+
+func init() {
+	stdoutLog = log.Default()
+}
+
 func (node *CommandNode) SelfHelpString() []string {
 	return []string{node.FullName, node.ArgsInfo, node.Desc}
 }
@@ -254,7 +268,16 @@ func QuitCmd([]string) string {
 	return ""
 }
 
+func HistoryCmd([]string) string {
+	for _, item := range _historyManager.Items {
+		fmt.Println(item)
+	}
+	_readlineInstance.Load().Refresh()
+	return ""
+}
+
 var _readlineInstance atomic.Pointer[readline.Instance]
+var _historyManager *HistoryManager
 
 func GetCurrentReadlineInstance() *readline.Instance {
 	return _readlineInstance.Load()
@@ -263,16 +286,17 @@ func GetCurrentReadlineInstance() *readline.Instance {
 func ReadLine() {
 	// 注册命令
 	RegisterCommand([]string{"quit"}, QuitCmd, "", "退出", nil)
+	RegisterCommand([]string{"history"}, HistoryCmd, "", "历史命令", nil)
+	_historyManager = NewHistoryManager(historyFilePath, false)
 
 	config := &readline.Config{
 		Prompt:       "\033[32m»\033[0m ", // 设置提示符
 		AutoComplete: NewCompleter(),      // 设置自动补全
-		HistoryFile:  "./cmd_history.tmp",
 	}
 
 	rlIn, err := readline.NewEx(config)
 	if err != nil {
-		log.Println("无法创建 readline 实例:", err)
+		StdoutLog(fmt.Sprintf("无法创建 readline 实例: %v", err))
 		return
 	}
 
@@ -281,6 +305,11 @@ func ReadLine() {
 		_readlineInstance.Store(nil)
 		rlIn.Close()
 	}()
+
+	// 手动加载历史
+	for _, item := range _historyManager.Items {
+		rlIn.SaveHistory(item)
+	}
 
 	fmt.Println("Enter 'quit' to Exit, 'Tab' to AutoComplete")
 
@@ -291,8 +320,19 @@ func ReadLine() {
 		}
 		cmd = strings.TrimSpace(cmd)
 		if cmd == "quit" {
+			_historyManager.save()
 			break
 		}
 		ExecuteCommand(rlIn, cmd)
+
+		if cmd != "history" && cmd != "help" {
+			_historyManager.add(cmd)
+		}
+
+		// ✅ 清空 readline 的历史缓存并重新加载去重后的历史
+		rlIn.ResetHistory()
+		for _, item := range _historyManager.Items {
+			rlIn.SaveHistory(item)
+		}
 	}
 }

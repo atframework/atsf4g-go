@@ -3,12 +3,12 @@ package atsf4g_go_robot_user_impl
 import (
 	"container/list"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	utils "github.com/atframework/atsf4g-go/robot/utils"
 	libatapp "github.com/atframework/libatapp-go"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -98,7 +98,7 @@ func (u *User) CheckPingTask() {
 		if u.heartbeatFn != nil {
 			err := u.heartbeatFn(u)
 			if err != nil {
-				log.Println("ping error stop check")
+				utils.StdoutLog("ping error stop check\n")
 				return
 			}
 		}
@@ -130,7 +130,7 @@ func (user *User) MakeMessageHead(rpcName string, typeName string) *public_proto
 
 func (user *User) ReceiveHandler() {
 	defer func() {
-		log.Printf("User %v:%v connection closed.\n", user.ZoneId, user.UserId)
+		utils.StdoutLog(fmt.Sprintf("User %v:%v connection closed.\n", user.ZoneId, user.UserId))
 		user.receiveAction <- func() {
 			user.connection = nil
 			user.Close()
@@ -140,14 +140,14 @@ func (user *User) ReceiveHandler() {
 	for {
 		_, bytes, err := user.connection.ReadMessage()
 		if err != nil {
-			log.Println("Error in receive:", err)
+			utils.StdoutLog(fmt.Sprintf("Error in receive: %v", err))
 			return
 		}
 
 		csMsg := &public_protocol_extension.CSMsg{}
 		err = proto.Unmarshal(bytes, csMsg)
 		if err != nil {
-			log.Println("Error in Unmarshal:", err)
+			utils.StdoutLog(fmt.Sprintf("Error in Unmarshal: %v", err))
 			return
 		}
 
@@ -161,26 +161,26 @@ func (user *User) ReceiveHandler() {
 			rpcName = csMsg.Head.GetRpcStream().GetRpcName()
 			typeName = csMsg.Head.GetRpcStream().GetTypeUrl()
 		default:
-			log.Printf("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<\n")
-			log.Println(prototext.Format(csMsg.Head))
+			utils.StdoutLog("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<\n")
+			utils.StdoutLog(fmt.Sprintf("%s\n", prototext.Format(csMsg.Head)))
 			continue
 		}
 
-		log.Printf("Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<\n", csMsg.Head.ErrorCode, rpcName)
+		utils.StdoutLog(fmt.Sprintf("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<\n", user.GetUserId(), csMsg.Head.ErrorCode, rpcName))
 
 		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName))
 		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
 
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
 		if err != nil {
-			log.Println("Unsupport in TypeName:", typeName)
+			utils.StdoutLog(fmt.Sprintf("Unsupport in TypeName: %s \n", typeName))
 			continue
 		}
 		csBody := messageType.New().Interface()
 
 		err = proto.Unmarshal(csMsg.BodyBin, csBody)
 		if err != nil {
-			log.Println("Error in Unmarshal:", err)
+			utils.StdoutLog(fmt.Sprintf("Error in Unmarshal: %v", err))
 			return
 		}
 		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
@@ -251,8 +251,8 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 	user.sendAction <- func() {
 		var csBin []byte
 		csBin, _ = proto.Marshal(csMsg)
-		titleString := fmt.Sprintf(">>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", csMsg.Head.GetRpcRequest().GetRpcName())
-		log.Printf("%s\n", titleString)
+		titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
+		utils.StdoutLog(fmt.Sprintf("%s\n", titleString))
 
 		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), titleString)
 		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
@@ -261,7 +261,7 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 		// Send an echo packet every second
 		err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
 		if err != nil {
-			log.Println("Error during writing to websocket:", err)
+			utils.StdoutLog(fmt.Sprintf("Error during writing to websocket: %v", err))
 			return
 		}
 
@@ -277,7 +277,6 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 
 func (user *User) Close() {
 	if user.Closed.CompareAndSwap(false, true) {
-		user_data.RemoveLoginUser(user)
 		for _, f := range user.onClosed {
 			f(user)
 		}
@@ -285,7 +284,7 @@ func (user *User) Close() {
 			// Close our websocket connection
 			err := user.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("Error during closing websocket:", err)
+				utils.StdoutLog(fmt.Sprintf("Error during closing websocket: %v", err))
 				return
 			}
 		}
