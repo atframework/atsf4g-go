@@ -12,16 +12,28 @@ import (
 
 // ---------------- 接口 ----------------
 
-func RandomWithPool(poolID int32, customIndex []int32) (ret int32, result []*public_protocol_common.DItemOffset) {
+func RandomWithPool(poolID int32, count int64, customIndex []int32) (ret int32, result []*public_protocol_common.DItemOffset) {
 	if !isRandomPool(poolID) {
 		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_RANDOM_POOL)
 		return
 	}
 
-	used := make(map[int32]struct{})
-	ret, result = randomWithPoolInternal(poolID, used, customIndex)
-	if ret == 0 {
-		mergeResult(&result)
+	if count == 1 {
+		used := make(map[int32]struct{})
+		ret, result = randomWithPoolInternal(poolID, used, customIndex)
+		if ret != 0 {
+			return
+		}
+	} else {
+		for i := int64(0); i < count; i++ {
+			used := make(map[int32]struct{})
+			var onceResult []*public_protocol_common.DItemOffset
+			ret, onceResult = randomWithPoolInternal(poolID, used, customIndex)
+			if ret != 0 {
+				return
+			}
+			result = append(result, onceResult...)
+		}
 	}
 	return
 }

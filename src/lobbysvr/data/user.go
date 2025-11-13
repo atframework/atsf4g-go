@@ -603,11 +603,76 @@ func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *publ
 	return mgr.GenerateItemInstanceFromBasic(ctx, itemBasic)
 }
 
+func (u *User) GenerateMultipleItemInstancesFromBasic(ctx *cd.RpcContext, itemBasic []*public_protocol_common.DItemBasic) ([]*public_protocol_common.DItemInstance, Result) {
+	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemBasic))
+	for _, basic := range itemBasic {
+		itemInst, result := u.GenerateItemInstanceFromBasic(ctx, basic)
+		if result.IsError() {
+			return nil, result
+		}
+		ret = append(ret, itemInst)
+	}
+
+	return ret, cd.CreateRpcResultOk()
+}
+
+func (u *User) unpackMergeItemOffset(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, Result) {
+	if len(itemOffset) == 0 {
+		return nil, cd.CreateRpcResultOk()
+	}
+
+	mergeItemInstan := make(map[int32]map[int64]*public_protocol_common.DItemInstance)
+	itemOffsetSize := 0
+	for _, offset := range itemOffset {
+		// 解包合并ItemOffset
+		typeId := offset.GetItemBasic().GetTypeId()
+		mgr := u.GetItemManager(typeId)
+		if mgr == nil {
+			ctx.LogWarn("user add item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId, "type_id", typeId)
+			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
+		}
+		items, result := mgr.UnpackItem(ctx, itemOffset)
+		if result.IsError() {
+			return nil, result
+		}
+
+		for _, item := range items {
+			if _, exists := mergeItemInstan[item.GetItemBasic().GetTypeId()]; !exists {
+				mergeItemInstan[item.GetItemBasic().GetTypeId()] = make(map[int64]*public_protocol_common.DItemInstance)
+			}
+			v := mergeItemInstan[item.GetItemBasic().GetTypeId()]
+
+			existItem, exists := v[item.GetItemBasic().GetGuid()]
+			if exists {
+				existItem.GetItemBasic().Count += item.GetItemBasic().GetCount()
+			} else {
+				v[item.GetItemBasic().GetGuid()] = item
+				itemOffsetSize++
+			}
+		}
+	}
+
+	// 输出
+	ret := make([]*public_protocol_common.DItemInstance, 0, itemOffsetSize)
+	for _, guidMap := range mergeItemInstan {
+		for _, item := range guidMap {
+			ret = append(ret, item)
+		}
+	}
+
+	return ret, cd.CreateRpcResultOk()
+}
+
 func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]ItemAddGuard, Result) {
+	unpaclMergeItemOffset, result := u.unpackMergeItemOffset(ctx, itemOffset)
+	if result.IsError() {
+		return nil, result
+	}
+
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
 		data []*public_protocol_common.DItemInstance
 	})
-	for _, offset := range itemOffset {
+	for _, offset := range unpaclMergeItemOffset {
 		typeId := offset.GetItemBasic().GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
@@ -627,7 +692,7 @@ func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_co
 		group.data = append(group.data, offset)
 	}
 
-	ret := make([]ItemAddGuard, 0, len(itemOffset))
+	ret := make([]ItemAddGuard, 0, len(unpaclMergeItemOffset))
 	for mgr, group := range splitByMgr {
 		subRet, subResult := mgr.CheckAddItem(ctx, group.data)
 		if subResult.IsError() {

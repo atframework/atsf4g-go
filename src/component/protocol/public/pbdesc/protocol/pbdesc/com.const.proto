@@ -166,7 +166,9 @@ enum EnErrorCode {
   EN_ERR_SYSTEM_CONFIG_INVALID = -117
                                  [(error_code.description) = "配置错误"];
   EN_ERR_DB_RECORD_NOT_FOUND = -118
-                          [(error_code.description) = "数据未找到"];
+                               [(error_code.description) = "数据未找到"];
+  EN_ERR_NOT_IMPLEMENTED = -119
+                           [(error_code.description) = "功能未实现"];
   // openapi
   EN_ERR_OPENAPI_LIMIT = -201
                          [(error_code.description) = "openapi调用频率限制"];

@@ -53,6 +53,9 @@ type UserItemManagerImpl interface {
 	GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, Result)
 	GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) (*ppc.DItemInstance, Result)
 
+	// 含默认实现 需要转换Item时实现
+	UnpackItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]*ppc.DItemInstance, Result)
+
 	CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result)
 	CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result)
 
@@ -236,9 +239,10 @@ func (umb *UserItemManagerBase) GetItemCongiure(typeId int32) *ppcfg.ExcelItem {
 }
 
 func (umb *UserItemManagerBase) CreateItemAddGuard(itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result) {
-	if umb.HasRepeatedItemInstance(itemOffset) {
-		return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode_EN_ERR_INVALID_PARAM)
-	}
+	// AddItem 调用方保证不重复
+	// if umb.HasRepeatedItemInstance(itemOffset) {
+	// 	return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode_EN_ERR_INVALID_PARAM)
+	// }
 
 	ret := make([]ItemAddGuard, 0, len(itemOffset))
 	for i := 0; i < len(itemOffset); i++ {
@@ -289,4 +293,8 @@ func (umb *UserItemManagerBase) CreateItemSubGuard(itemOffset []*ppc.DItemBasic)
 	}
 
 	return ret, cd.CreateRpcResultOk()
+}
+
+func (umb *UserItemManagerBase) UnpackItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]*ppc.DItemInstance, Result) {
+	return itemOffset, cd.CreateRpcResultOk()
 }
