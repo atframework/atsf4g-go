@@ -186,6 +186,19 @@ enum EnErrorCode {
   EN_ERR_TEXT_HAS_DIRTY_WORD = -301
                                [(error_code.description) = "检测到脏字"];
 
+  EN_ERR_RANDOM_POOL_NOT_RANDOM_POOL = -311
+                                       [(error_code.description) = "非随机池"];
+  EN_ERR_RANDOM_POOL_NOT_FOUND = -312
+                                 [(error_code.description) = "随机池未找到"];
+  EN_ERR_RANDOM_POOL_RECURSIVE = -313
+                                 [(error_code.description) = "随机池循环递归"];
+  EN_ERR_RANDOM_POOL_TYPE_NOT_SUPPORT = -314
+                                        [(error_code.description) = "类型未支持"];
+  EN_ERR_RANDOM_POOL_CUSTOM_TIMES_NOT_MATCH = -315
+                                              [(error_code.description) = "自选个数错误"];
+  EN_ERR_RANDOM_POOL_CUSTOM_INDEX_NOT_MATCH = -316
+                                              [(error_code.description) = "自选位置错误"];
+
   // 登录服务的返回错误码
   EN_ERR_LOGIN_BAN = -401
                      [(error_code.description) = "账号被临时封停"];

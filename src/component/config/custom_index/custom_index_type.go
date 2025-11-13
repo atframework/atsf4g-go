@@ -4,14 +4,21 @@ import (
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 )
 
-type ExcelConfigUserLevelExpIndex struct {
-	MaxLevel uint32
-	MaxExp   int64
-}
-
 type ExcelConfigCustomIndex struct {
 	ConstIndex        ExcelConfigConstIndex
 	UserLevelExpIndex ExcelConfigUserLevelExpIndex
+	RandomPoolIndex   map[int32]*ExcelConfigRandomPool
+}
+
+type ExcelConfigRandomPool struct {
+	Times      int32
+	RandomType public_protocol_config.EnRandomPoolType
+	Elements   []*public_protocol_config.DRandomPoolElement
+}
+
+type ExcelConfigUserLevelExpIndex struct {
+	MaxLevel uint32
+	MaxExp   int64
 }
 
 // 此处定义自定义索引的类型
@@ -32,4 +39,12 @@ func (i *ExcelConfigCustomIndex) GetUserExpLevelConfigIndex() *ExcelConfigUserLe
 	}
 
 	return &i.UserLevelExpIndex
+}
+
+func (i *ExcelConfigCustomIndex) GetRandomPool(typeId int32) *ExcelConfigRandomPool {
+	if i == nil {
+		return nil
+	}
+
+	return i.RandomPoolIndex[typeId]
 }

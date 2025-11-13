@@ -16,5 +16,10 @@ func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup) (err error) {
 		return
 	}
 
+	err = InitExcelRandomPoolConfigIndex(group)
+	if err != nil {
+		return
+	}
+
 	return
 }

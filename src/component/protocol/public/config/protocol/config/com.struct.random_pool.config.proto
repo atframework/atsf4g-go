@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.base.common.proto";
+import "protocol/common/com.struct.item.common.proto";
+
+package proy.config;
+
+enum EnRandomPoolType {
+  EN_RANDOM_POOL_TYPE_INVALID = 0;
+  EN_RANDOM_POOL_TYPE_ALL = 1 [(org.xresloader.enum_alias) = "全部选中"];
+  EN_RANDOM_POOL_TYPE_INDEPENDENT = 2 [(org.xresloader.enum_alias) = "独立事件:多个可重复"];
+  EN_RANDOM_POOL_TYPE_EXCLUSIVE = 3 [(org.xresloader.enum_alias) = "互斥事件:多个不重复"];
+  EN_RANDOM_POOL_TYPE_CUSTOM = 4 [(org.xresloader.enum_alias) = "用户自选"];
+}
+
+message DRandomPoolElement {
+  DItemOffset item_offset = 1;
+  int32 weight = 2 [(org.xresloader.validator) = ">0", (org.xresloader.field_tag) = "server_only"];
+}
+
+message ExcelRandomPool {
+  option (xrescode.loader) = {
+    file_path: "random_pool.bytes"
+    indexes: { fields: "pool_id" index_type: EN_INDEX_KL }
+
+    tags: "client"
+    tags: "server"
+  };
+
+  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelItem_item_id"];
+  EnRandomPoolType random_type = 2;
+  int32 times = 3 [(org.xresloader.validator) = ">0"];
+  DRandomPoolElement element = 4;
+}
