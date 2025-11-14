@@ -1,5 +1,11 @@
 validator:
-  - name: "ExcelItem_item_id"
+  - name: "ExcelItem_ALL_item_id"
+    description: "Item.xlsx|道具描述总表|item_id 值校验"
+    rules:
+      - InTableColumn("Item.xlsx", "道具描述总表", 3, 2, "item_id")
+      - InTableColumn("Item.xlsx", "辅助道具(不可获得)", 3, 2, "item_id")
+
+  - name: "ExcelItem_ADDABLE_item_id"
     description: "Item.xlsx|道具描述总表|item_id 值校验"
     rules:
       - InTableColumn("Item.xlsx", "道具描述总表", 3, 2, "item_id")

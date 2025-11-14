@@ -43,23 +43,27 @@ func RandomWithPool(poolID int32, count int64, customIndex []int32) (ret int32, 
 func InitExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 	// 初始化随机池自定义索引
 	group.GetCustomIndex().RandomPoolIndex = make(map[int32]*atframework_component_config_custom_index_type.ExcelConfigRandomPool)
-	for _, v := range *group.GetExcelRandomPoolAllOfPoolId() {
-		var poolIdData *atframework_component_config_custom_index_type.ExcelConfigRandomPool
-		for _, row := range v {
-			if row.Element.GetWeight() <= 0 {
-				continue
-			}
-			if poolIdData == nil {
-				poolIdData = &atframework_component_config_custom_index_type.ExcelConfigRandomPool{
-					Times:      row.GetTimes(),
-					RandomType: row.GetRandomType(),
-					Elements:   make([]*public_protocol_config.DRandomPoolElement, 0),
-				}
-			}
-			poolIdData.Elements = append(poolIdData.Elements, row.GetElement())
+	for k, v := range *group.GetExcelRandomPoolAllOfPoolId() {
+		if len(v) == 0 {
+			continue
 		}
-		if poolIdData != nil {
-			group.GetCustomIndex().RandomPoolIndex[v[0].GetPoolId()] = poolIdData
+		// 合并相同PoolId的数据
+		data, ok := group.GetCustomIndex().RandomPoolIndex[k.PoolId]
+		if !ok {
+			data = &atframework_component_config_custom_index_type.ExcelConfigRandomPool{
+				Times:      v[0].GetTimes(),
+				RandomType: v[0].GetRandomType(),
+				Elements:   make([]*public_protocol_config.DRandomPoolElement, 0),
+			}
+			group.GetCustomIndex().RandomPoolIndex[k.PoolId] = data
+		}
+		for _, rows := range v {
+			for _, row := range rows.GetElements() {
+				if row.GetWeight() <= 0 {
+					continue
+				}
+				data.Elements = append(data.Elements, row)
+			}
 		}
 	}
 	return nil
@@ -128,7 +132,7 @@ func handleIndependent(elements []*public_protocol_config.DRandomPoolElement, ti
 			}
 			if selectWeight < e.GetWeight() {
 				var currentResult []*public_protocol_common.DItemOffset
-				ret, currentResult = addRandomResult(e.GetItemOffset(), used)
+				ret, currentResult = addRandomResult(e, used)
 				if ret != 0 {
 					return
 				}
@@ -159,7 +163,7 @@ func handleExclusive(elements []*public_protocol_config.DRandomPoolElement, time
 	if int(times) >= len(valid) {
 		for _, e := range valid {
 			var currentResult []*public_protocol_common.DItemOffset
-			ret, currentResult = addRandomResult(e.GetItemOffset(), used)
+			ret, currentResult = addRandomResult(e, used)
 			if ret != 0 {
 				return
 			}
@@ -184,7 +188,7 @@ func handleExclusive(elements []*public_protocol_config.DRandomPoolElement, time
 		opt := valid[idx]
 
 		var currentResult []*public_protocol_common.DItemOffset
-		ret, currentResult = addRandomResult(opt.GetItemOffset(), used)
+		ret, currentResult = addRandomResult(opt, used)
 		if ret != 0 {
 			return
 		}
@@ -212,7 +216,7 @@ func handleCustom(elements []*public_protocol_config.DRandomPoolElement, times i
 		}
 		if validElement(elements[customIndex[i]]) {
 			var currentResult []*public_protocol_common.DItemOffset
-			ret, currentResult = addRandomResult(elements[customIndex[i]].GetItemOffset(), used)
+			ret, currentResult = addRandomResult(elements[customIndex[i]], used)
 			if ret != 0 {
 				return
 			}
@@ -228,7 +232,7 @@ func handleAll(elements []*public_protocol_config.DRandomPoolElement, times int3
 		for _, e := range elements {
 			if validElement(e) {
 				var currentResult []*public_protocol_common.DItemOffset
-				ret, currentResult = addRandomResult(e.GetItemOffset(), used)
+				ret, currentResult = addRandomResult(e, used)
 				if ret != 0 {
 					return
 				}
@@ -241,9 +245,21 @@ func handleAll(elements []*public_protocol_config.DRandomPoolElement, times int3
 
 // ---------------- 工具函数 ----------------
 
-func addRandomResult(item *public_protocol_common.DItemOffset, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func addRandomResult(item *public_protocol_config.DRandomPoolElement, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+	minCount := item.GetCount().GetMinCount()
+	maxCount := item.GetCount().GetMaxCount()
+	if minCount > maxCount {
+		maxCount = minCount
+	}
+
+	var count int64 = 0
+	if minCount == maxCount {
+		count = minCount
+	} else {
+		count = rand.Int64N(maxCount-minCount+1) + minCount
+	}
 	if isRandomPool(item.GetTypeId()) {
-		for i := int32(0); i < int32(item.GetCount()); i++ {
+		for i := int32(0); i < int32(count); i++ {
 			var currentResult []*public_protocol_common.DItemOffset
 			ret, currentResult = randomWithPoolInternal(item.GetTypeId(), used, nil)
 			if ret != 0 {
@@ -253,7 +269,10 @@ func addRandomResult(item *public_protocol_common.DItemOffset, used map[int32]st
 		}
 		return
 	}
-	result = append(result, item)
+	result = append(result, &public_protocol_common.DItemOffset{
+		TypeId: item.GetTypeId(),
+		Count:  count,
+	})
 	return
 }
 
@@ -299,5 +318,5 @@ func mergeResult(out *[]*public_protocol_common.DItemOffset) {
 }
 
 func validElement(element *public_protocol_config.DRandomPoolElement) bool {
-	return element != nil && element.GetItemOffset().GetTypeId() != 0 && element.GetItemOffset().GetCount() > 0 && element.GetWeight() > 0
+	return element != nil && element.GetTypeId() != 0 && element.GetCount().GetMinCount() > 0 && element.GetWeight() > 0
 }

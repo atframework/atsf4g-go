@@ -24,10 +24,18 @@ enum EnRandomPoolType {
   EN_RANDOM_POOL_TYPE_CUSTOM = 4 [(org.xresloader.enum_alias) = "用户自选"];
 }
 
-message DRandomPoolElement {
-  DItemOffset item_offset = 1;
-  int32 weight = 2 [(org.xresloader.validator) = ">0", (org.xresloader.field_tag) = "server_only"];
+message DRandomPoolElementCount {
+  int64 min_count = 1;
+  int64 max_count = 2;
 }
+
+message DRandomPoolElement {
+  int32 type_id = 1 [(org.xresloader.validator) = "ExcelItem_ADDABLE_item_id"];
+  DRandomPoolElementCount count = 2;
+  int32 weight = 3 [(org.xresloader.validator) = ">0", (org.xresloader.field_tag) = "server_only"];
+}
+
+///////////////// 以下接口不应该直接使用 //////////////////////
 
 message ExcelRandomPool {
   option (xrescode.loader) = {
@@ -38,8 +46,8 @@ message ExcelRandomPool {
     tags: "server"
   };
 
-  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelItem_item_id"];
+  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelItem_ADDABLE_item_id"];
   EnRandomPoolType random_type = 2;
   int32 times = 3 [(org.xresloader.validator) = ">0"];
-  DRandomPoolElement element = 4;
+  repeated DRandomPoolElement elements = 4;
 }
