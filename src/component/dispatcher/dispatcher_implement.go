@@ -76,10 +76,9 @@ type DispatcherBase struct {
 	registeredCreator map[string]taskActionCreatorData
 }
 
-func CreateDispatcherBase(owner libatapp.AppImpl, impl DispatcherImpl) DispatcherBase {
+func CreateDispatcherBase(owner libatapp.AppImpl) DispatcherBase {
 	return DispatcherBase{
 		AppModuleBase:     libatapp.CreateAppModuleBase(owner),
-		impl:              impl,
 		sequenceAllocator: atomic.Uint64{},
 		messageFilters:    make([]MessageFilterHandler, 0),
 		registeredService: make(map[string]protoreflect.ServiceDescriptor),

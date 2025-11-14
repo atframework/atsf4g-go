@@ -10,8 +10,10 @@ type NoMessageDispatcher struct {
 
 func CreateNoMessageDispatcher(owner libatapp.AppImpl) *NoMessageDispatcher {
 	// 使用时间戳作为初始值, 避免与重启前的值冲突
-	ret := &NoMessageDispatcher{}
-	ret.DispatcherBase = CreateDispatcherBase(owner, ret)
+	ret := &NoMessageDispatcher{
+		DispatcherBase: CreateDispatcherBase(owner),
+	}
+	ret.DispatcherBase.impl = ret
 
 	return ret
 }

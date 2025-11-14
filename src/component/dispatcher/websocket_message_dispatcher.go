@@ -74,13 +74,14 @@ type WebSocketMessageDispatcher struct {
 func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl, webServerConfigurePath string, webSocketServerConfigurePath string) *WebSocketMessageDispatcher {
 	// 使用时间戳作为初始值, 避免与重启前的值冲突
 	ret := &WebSocketMessageDispatcher{
+		DispatcherBase:               CreateDispatcherBase(owner),
 		webServerConfigurePath:       webServerConfigurePath,
 		webSocketServerConfigurePath: webSocketServerConfigurePath,
 
 		sessions:           make(map[uint64]*WebSocketSession),
 		sessionIdAllocator: atomic.Uint64{},
 	}
-	ret.DispatcherBase = CreateDispatcherBase(owner, ret)
+	ret.DispatcherBase.impl = ret
 
 	ret.sessionIdAllocator.Store(uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()))
 

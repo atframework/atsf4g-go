@@ -21,7 +21,6 @@ type TaskActionAwaitChannelData struct {
 type BeforeYieldAction func() RpcResult
 
 type TaskActionImpl interface {
-	//
 	Name() string
 	GetTaskId() uint64
 	GetTaskStartTime() time.Time

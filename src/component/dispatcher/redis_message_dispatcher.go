@@ -83,9 +83,10 @@ func getFirstMAC() string {
 func CreateRedisMessageDispatcher(owner libatapp.AppImpl) *RedisMessageDispatcher {
 	// 使用时间戳作为初始值, 避免与重启前的值冲突
 	ret := &RedisMessageDispatcher{
-		log: RedisLog{app: owner},
+		DispatcherBase: CreateDispatcherBase(owner),
+		log:            RedisLog{app: owner},
 	}
-	ret.DispatcherBase = CreateDispatcherBase(owner, ret)
+	ret.DispatcherBase.impl = ret
 	ret.sequence.Store(uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()))
 
 	return ret
