@@ -3,9 +3,16 @@ package libatframe_utils_proto_utility
 import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
 
+// 使用atapp-go的日志接口会自动调用MessageReadableText打印Message
+
 func MessageReadableText(msg proto.Message) string {
+	if lu.IsNil(msg) {
+		return "<nil_proto_message>"
+	}
 	marshaler := prototext.MarshalOptions{
 		Multiline: true, // 多行显示
 		Indent:    "  ", // 缩进

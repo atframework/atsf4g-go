@@ -106,6 +106,8 @@ func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 	g.P()
 	if len(f.Messages) != 0 {
 		g.P("import \"google.golang.org/protobuf/proto\"")
+		g.P("import \"log/slog\"")
+		g.P("import pu \"github.com/atframework/atframe-utils-go/proto_utility\"")
 		g.P()
 	}
 
@@ -134,6 +136,12 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	g.P(`    return`)
 	g.P(`  }`)
 	g.P(`  proto.Merge(m, src)`)
+	g.P(`}`)
+	g.P()
+
+	g.P("// ===== SlogValue methods for ", msg.GoIdent.GoName, " ===== Message ====")
+	g.P(fmt.Sprintf(`func (m *%s) LogValue() slog.Value {`, msg.GoIdent.GoName))
+	g.P(`  return slog.StringValue(pu.MessageReadableText(m))`)
 	g.P(`}`)
 	g.P()
 

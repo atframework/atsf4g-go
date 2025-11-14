@@ -107,7 +107,7 @@ func ${message_name}LoadWith${index_key_name}(
 				}
 				return err
 			}
-			ctx.GetApp().GetLogger(2).Debug("HGetAll ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence, "Proto", pu.MessageReadableText(pbResult))
+			ctx.GetApp().GetLogger(2).Debug("HGetAll ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence, "Proto", pbResult)
 			resumeData.PrivateData = pbResult
 			resumeData.Result = cd.CreateRpcResultOk()
 			resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
@@ -171,7 +171,7 @@ func ${message_name}Update${index_key_name}(
 
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "data", pu.MessageReadableText(table))
+			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "data", table)
 			redisError := instance.HSet(ctx.Context, index, redisData).Err()
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
@@ -307,7 +307,7 @@ func ${message_name}LoadWith${index_key_name}PartlyField${partly_field_name}(
 				}
 				return err
 			}
-			ctx.GetApp().GetLogger(2).Debug("HMGet ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence, "Proto", pu.MessageReadableText(pbResult))
+			ctx.GetApp().GetLogger(2).Debug("HMGet ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence, "Proto", pbResult)
 			resumeData.PrivateData = pbResult
 			resumeData.Result = cd.CreateRpcResultOk()
 			resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)

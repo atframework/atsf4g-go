@@ -161,7 +161,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 
 	// 额外字段
 	r.Attrs(func(a slog.Attr) bool {
-		fmt.Fprintf(sb, " %s=%v", a.Key, a.Value)
+		fmt.Fprintf(sb, " %s=%v", a.Key, a.Value.Resolve())
 		return true
 	})
 	fmt.Fprintf(sb, "\n")
