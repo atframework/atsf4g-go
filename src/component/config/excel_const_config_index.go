@@ -5,7 +5,7 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 )
 
-func InitExcelConstConfigIndex(group *generate_config.ConfigGroup) error {
+func initExcelConstConfigIndex(group *generate_config.ConfigGroup) error {
 	// 这边初始化自定义索引
 	source := make(map[string]interface{})
 	for _, v := range *group.ExcelOriginConstConfig.GetAllOfKey() {

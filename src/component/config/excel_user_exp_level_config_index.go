@@ -4,7 +4,7 @@ import (
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 )
 
-func InitExcelUserExpLevelConfigIndex(group *generate_config.ConfigGroup) error {
+func initExcelUserExpLevelConfigIndex(group *generate_config.ConfigGroup) error {
 	// 这边初始化自定义索引
 	maxLevel := int32(0)
 	maxExp := int64(0)

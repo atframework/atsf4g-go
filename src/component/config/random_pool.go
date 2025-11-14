@@ -40,7 +40,7 @@ func RandomWithPool(poolID int32, count int64, customIndex []int32) (ret int32, 
 
 // ---------------- 内部随机逻辑 ----------------
 
-func InitExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
+func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 	// 初始化随机池自定义索引
 	group.GetCustomIndex().RandomPoolIndex = make(map[int32]*atframework_component_config_custom_index_type.ExcelConfigRandomPool)
 	for k, v := range *group.GetExcelRandomPoolAllOfPoolId() {

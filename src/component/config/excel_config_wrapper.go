@@ -6,17 +6,17 @@ import (
 
 func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup) (err error) {
 	// 这边初始化自定义索引
-	err = InitExcelConstConfigIndex(group)
+	err = initExcelConstConfigIndex(group)
 	if err != nil {
 		return
 	}
 
-	err = InitExcelUserExpLevelConfigIndex(group)
+	err = initExcelUserExpLevelConfigIndex(group)
 	if err != nil {
 		return
 	}
 
-	err = InitExcelRandomPoolConfigIndex(group)
+	err = initExcelRandomPoolConfigIndex(group)
 	if err != nil {
 		return
 	}
