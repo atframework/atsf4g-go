@@ -636,7 +636,7 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 		return nil
 	}
 
-	if app.mode != AppModeCustom && app.mode == AppModeStart {
+	if app.mode != AppModeCustom && app.mode != AppModeStart {
 		return nil
 	}
 
