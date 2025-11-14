@@ -26,11 +26,11 @@ type ExcelConfigConstIndex struct {
 	ExcelConstConfig public_protocol_config.ExcelConstConfig
 }
 
-func (i *ExcelConfigCustomIndex) GetConstIndex() *ExcelConfigConstIndex {
+func (i *ExcelConfigCustomIndex) GetConstIndex() *public_protocol_config.ExcelConstConfig {
 	if i == nil {
 		return nil
 	}
-	return &i.ConstIndex
+	return &i.ConstIndex.ExcelConstConfig
 }
 
 func (i *ExcelConfigCustomIndex) GetUserExpLevelConfigIndex() *ExcelConfigUserLevelExpIndex {
