@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 	"github.com/redis/go-redis/v9"
 )
@@ -82,9 +83,11 @@ func getFirstMAC() string {
 func CreateRedisMessageDispatcher(owner libatapp.AppImpl) *RedisMessageDispatcher {
 	// 使用时间戳作为初始值, 避免与重启前的值冲突
 	ret := &RedisMessageDispatcher{
-		DispatcherBase: CreateDispatcherBase(owner),
-		log:            RedisLog{app: owner},
+		log: RedisLog{app: owner},
 	}
+	ret.DispatcherBase = CreateDispatcherBase(owner, ret)
+	ret.sequence.Store(uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()))
+
 	return ret
 }
 
@@ -159,4 +162,12 @@ func (d *RedisMessageDispatcher) CreateDispatcherAwaitOptions() *DispatcherAwait
 
 func (d *RedisMessageDispatcher) GetRecordPrefix() string {
 	return d.recordPrefix
+}
+
+func (d *RedisMessageDispatcher) PickMessageRpcName(msg *DispatcherRawMessage) string {
+	return ""
+}
+
+func (d *RedisMessageDispatcher) PickMessageTaskId(msg *DispatcherRawMessage) uint64 {
+	return 0
 }

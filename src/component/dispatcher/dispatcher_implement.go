@@ -30,22 +30,22 @@ type DispatcherImpl interface {
 	libatapp.AppModuleImpl
 
 	GetInstanceIdent() uint64
-	IsClosing(rd DispatcherImpl) bool
+	IsClosing() bool
 
 	AllocTaskId() uint64
 	AllocSequence() uint64
 	GetNow() time.Time
 	GetLogger() *slog.Logger
 
-	OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
-	OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error)
+	OnSendMessageFailed(rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
+	OnCreateTaskFailed(startData *DispatcherStartData, err error)
 
-	OnReceiveMessage(rd DispatcherImpl, parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error
+	OnReceiveMessage(parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error
 
 	PickMessageTaskId(msg *DispatcherRawMessage) uint64
 	PickMessageRpcName(msg *DispatcherRawMessage) string
 
-	CreateTask(rd DispatcherImpl, startData *DispatcherStartData) (TaskActionImpl, error)
+	CreateTask(startData *DispatcherStartData) (TaskActionImpl, error)
 
 	RegisterAction(ServiceDescriptor protoreflect.ServiceDescriptor, rpcFullName string, creator TaskActionCreator) error
 	GetRegisteredService(serviceFullName string) protoreflect.ServiceDescriptor
@@ -54,7 +54,7 @@ type DispatcherImpl interface {
 	PushFrontMessageFilter(handle MessageFilterHandler)
 	PushBackMessageFilter(handle MessageFilterHandler)
 
-	CreateRpcContext(rd DispatcherImpl) *RpcContext
+	CreateRpcContext() *RpcContext
 }
 
 type taskActionCreatorData struct {
@@ -66,6 +66,7 @@ type taskActionCreatorData struct {
 
 type DispatcherBase struct {
 	libatapp.AppModuleBase
+	impl DispatcherImpl
 
 	sequenceAllocator atomic.Uint64
 	messageFilters    []MessageFilterHandler
@@ -75,9 +76,10 @@ type DispatcherBase struct {
 	registeredCreator map[string]taskActionCreatorData
 }
 
-func CreateDispatcherBase(owner libatapp.AppImpl) DispatcherBase {
+func CreateDispatcherBase(owner libatapp.AppImpl, impl DispatcherImpl) DispatcherBase {
 	return DispatcherBase{
 		AppModuleBase:     libatapp.CreateAppModuleBase(owner),
+		impl:              impl,
 		sequenceAllocator: atomic.Uint64{},
 		messageFilters:    make([]MessageFilterHandler, 0),
 		registeredService: make(map[string]protoreflect.ServiceDescriptor),
@@ -98,7 +100,7 @@ func (dispatcher *DispatcherBase) GetInstanceIdent() uint64 {
 	return uint64(uintptr(unsafe.Pointer(dispatcher)))
 }
 
-func (dispatcher *DispatcherBase) IsClosing(_rd DispatcherImpl) bool {
+func (dispatcher *DispatcherBase) IsClosing() bool {
 	return dispatcher.GetApp().IsClosing()
 }
 
@@ -135,41 +137,41 @@ func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {
 	return app.GetDefaultLogger()
 }
 
-func (dispatcher *DispatcherBase) OnSendMessageFailed(rd DispatcherImpl, rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
-	rd.GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
+func (dispatcher *DispatcherBase) OnSendMessageFailed(rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
+	dispatcher.impl.GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
 }
 
-func (dispatcher *DispatcherBase) OnCreateTaskFailed(rd DispatcherImpl, startData *DispatcherStartData, err error) {
-	rd.GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", rd.PickMessageRpcName(startData.Message))
+func (dispatcher *DispatcherBase) OnCreateTaskFailed(startData *DispatcherStartData, err error) {
+	dispatcher.impl.GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", dispatcher.impl.PickMessageRpcName(startData.Message))
 }
 
-func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
+func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
 	if msg == nil || lu.IsNil(msg.Instance) {
 		dispatcher.GetLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message can not be nil")
 	}
 
-	if msg.Type != rd.GetInstanceIdent() {
-		dispatcher.GetLogger().Error("OnReceiveMessage message type mismatch", "expect", rd.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
-		return fmt.Errorf("OnReceiveMessage message type mismatch, expect %d, got %d", rd.GetInstanceIdent(), msg.Type)
+	if msg.Type != dispatcher.impl.GetInstanceIdent() {
+		dispatcher.GetLogger().Error("OnReceiveMessage message type mismatch", "expect", dispatcher.impl.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
+		return fmt.Errorf("OnReceiveMessage message type mismatch, expect %d, got %d", dispatcher.impl.GetInstanceIdent(), msg.Type)
 	}
 
 	if len(dispatcher.messageFilters) > 0 {
 		for _, filter := range dispatcher.messageFilters {
-			if !filter(rd, msg) {
+			if !filter(dispatcher.impl, msg) {
 				// 被过滤掉了
 				return nil
 			}
 		}
 	}
 
-	resumeTaskId := rd.PickMessageTaskId(msg)
+	resumeTaskId := dispatcher.impl.PickMessageTaskId(msg)
 	if resumeTaskId != 0 {
 		// TODO: 处理恢复任务
 		return nil
 	}
 
-	rpcContext := dispatcher.CreateRpcContext(rd)
+	rpcContext := dispatcher.CreateRpcContext()
 	if parentContext != nil {
 		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(parentContext)
 	}
@@ -180,10 +182,10 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 		MessageRpcContext: rpcContext,
 	}
 
-	action, err := rd.CreateTask(rd, startData)
+	action, err := dispatcher.impl.CreateTask(startData)
 	if err != nil {
-		dispatcher.GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg))
-		dispatcher.OnCreateTaskFailed(rd, startData, err)
+		dispatcher.GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg))
+		dispatcher.OnCreateTaskFailed(startData, err)
 
 		if rpcContext.CancelFn != nil {
 			cancelFn := rpcContext.CancelFn
@@ -194,9 +196,9 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 	}
 	rpcContext.taskAction = action
 
-	err = RunTaskAction(rd.GetApp(), action, startData)
+	err = RunTaskAction(dispatcher.impl.GetApp(), action, startData)
 	if err != nil {
-		dispatcher.GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", rd.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
+		dispatcher.GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
 		if rpcContext.CancelFn != nil {
 			cancelFn := rpcContext.CancelFn
 			rpcContext.CancelFn = nil
@@ -207,12 +209,8 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(rd DispatcherImpl, parentCont
 	return nil
 }
 
-func (dispatcher *DispatcherBase) CreateTask(rd DispatcherImpl, startData *DispatcherStartData) (TaskActionImpl, error) {
-	if lu.IsNil(rd) {
-		return nil, fmt.Errorf("CreateTask dispatcher can not be nil")
-	}
-
-	rpcFullName := rd.PickMessageRpcName(startData.Message)
+func (dispatcher *DispatcherBase) CreateTask(startData *DispatcherStartData) (TaskActionImpl, error) {
+	rpcFullName := dispatcher.impl.PickMessageRpcName(startData.Message)
 	if rpcFullName == "" {
 		return nil, fmt.Errorf("CreateTask rpc name can not be empty")
 	}
@@ -222,7 +220,7 @@ func (dispatcher *DispatcherBase) CreateTask(rd DispatcherImpl, startData *Dispa
 		return nil, fmt.Errorf("CreateTask rpc %s not registered", rpcFullName)
 	}
 
-	return creator.creator(rd, startData)
+	return creator.creator(dispatcher.impl, startData)
 }
 
 func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string, creator TaskActionCreator) error {
@@ -279,10 +277,10 @@ func (dispatcher *DispatcherBase) PushBackMessageFilter(handle MessageFilterHand
 	dispatcher.messageFilters = append(dispatcher.messageFilters, handle)
 }
 
-func (dispatcher *DispatcherBase) CreateRpcContext(rd DispatcherImpl) *RpcContext {
+func (dispatcher *DispatcherBase) CreateRpcContext() *RpcContext {
 	return &RpcContext{
 		app:        dispatcher.GetApp(),
-		dispatcher: rd,
+		dispatcher: dispatcher.impl,
 	}
 }
 

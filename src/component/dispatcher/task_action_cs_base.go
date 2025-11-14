@@ -294,7 +294,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 				"response_code", t.GetResponseCode(),
 				"error", err.Error())
 
-			t.GetDispatcher().OnSendMessageFailed(t.GetDispatcher(), t.GetRpcContext(), &DispatcherRawMessage{
+			t.GetDispatcher().OnSendMessageFailed(t.GetRpcContext(), &DispatcherRawMessage{
 				Type:     t.GetDispatcher().GetInstanceIdent(),
 				Instance: responseMsg,
 			}, responseMsg.Head.ServerSequence, err)

@@ -68,7 +68,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx *cd.RpcContext, s
 		session:                 session,
 	}
 
-	rpcContext := rd.CreateRpcContext(rd)
+	rpcContext := rd.CreateRpcContext()
 	if ctx != nil && ctx.Context != nil {
 		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(ctx.Context)
 	}

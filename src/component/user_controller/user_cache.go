@@ -20,6 +20,7 @@ const (
 )
 
 type UserImpl interface {
+	//
 	cd.TaskActionCSUser
 
 	BindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
