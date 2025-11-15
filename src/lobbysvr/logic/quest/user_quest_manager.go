@@ -6,7 +6,7 @@ import (
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 )
 
-// DaySeconds 一天的秒数
+// DaySeconds 一天的秒数.
 const DaySeconds int64 = 24 * 3600
 
 // TriggerParams 对应 C++ 的 trigger_params_t。
@@ -30,6 +30,6 @@ type UserQuestManager interface {
 	QueryQuestStatus(questID int32) public_protocol_common.EnQuestStatus
 	QueryQuestIsFinish(questID int32) bool
 	// AddItem(questID int32) cd.RpcResult
-	ReceivedQuestSReward(_ctx *cd.RpcContext, questId []int32, autoReceived bool) cd.RpcResult
-	ReceivedQuestReward(_ctx *cd.RpcContext, questId int32, autoReceived bool) cd.RpcResult
+	ReceivedQuestSReward(_ctx *cd.RpcContext, questIDs []int32, autoReceived bool) cd.RpcResult
+	ReceivedQuestReward(_ctx *cd.RpcContext, questID int32, autoReceived bool) cd.RpcResult
 }

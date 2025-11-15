@@ -11,7 +11,8 @@ import (
 )
 
 type CheckProgressFilterConditionFunc = func(ctx *cd.RpcContext, params logic_quest.TriggerParams,
-	progress_config *public_protocol_config.DQuestConditionProgress, user_quest_data *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
+	progressCfg *public_protocol_config.DQuestConditionProgress,
+	userQuestData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
 
 func buildQuestProgressFilterCheckers() map[reflect.Type]*CheckProgressFilterConditionFunc {
 	ret := map[reflect.Type]*CheckProgressFilterConditionFunc{}
@@ -21,11 +22,13 @@ func buildQuestProgressFilterCheckers() map[reflect.Type]*CheckProgressFilterCon
 var ProgressFilterCheckers = buildQuestProgressFilterCheckers()
 
 func initQuestProgressFilterHandler() {
-	addProgressFilterHandler(reflect.TypeOf(public_protocol_common.QuestProgressConditionData_RoleLevel{}), updateProgressFilterByPlayerLevel)
+	addProgressFilterHandler(
+		reflect.TypeOf(public_protocol_common.QuestProgressConditionData_RoleLevel{}),
+		updateProgressFilterByPlayerLevel)
 }
 
-func addProgressFilterHandler(ProgressFilterType reflect.Type, update_f CheckProgressFilterConditionFunc) {
-	ProgressFilterCheckers[ProgressFilterType] = &update_f
+func addProgressFilterHandler(progressFilterType reflect.Type, updateF CheckProgressFilterConditionFunc) {
+	ProgressFilterCheckers[progressFilterType] = &updateF
 }
 
 func GetQuestProgressFilterUpdateHandler(t reflect.Type) CheckProgressFilterConditionFunc {
@@ -35,8 +38,9 @@ func GetQuestProgressFilterUpdateHandler(t reflect.Type) CheckProgressFilterCond
 	return *ProgressFilterCheckers[t]
 }
 
-func updateProgressFilterByPlayerLevel(ctx *cd.RpcContext, params logic_quest.TriggerParams,
-	progress_config *public_protocol_config.DQuestConditionProgress, user_quest_data *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
+func updateProgressFilterByPlayerLevel(_ *cd.RpcContext, _ logic_quest.TriggerParams,
+	_ *public_protocol_config.DQuestConditionProgress,
+	_ *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
 	// TODO: 从配置中获取所需的玩家等级
 	return cd.CreateRpcResultOk()
 }

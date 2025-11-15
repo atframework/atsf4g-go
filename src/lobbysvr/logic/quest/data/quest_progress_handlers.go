@@ -10,9 +10,12 @@ import (
 )
 
 type UpdateProgressConditionFunc = func(ctx *cd.RpcContext, params TriggerParams,
-	progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
+	progressCfg *public_protocol_config.DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
 
-type InitProgressConditionFunc = func(ctx *cd.RpcContext, progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult
+type InitProgressConditionFunc = func(ctx *cd.RpcContext,
+	progressCfg *public_protocol_config.DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult
 
 type QuestProgressStruct struct {
 	UpdateHandler UpdateProgressConditionFunc
@@ -27,12 +30,14 @@ func buildQuestProgressCheckers() map[public_protocol_common.EnQuestProgressType
 var conditionRuleCheckers = buildQuestProgressCheckers()
 
 func initQuestProgressHandler() {
-	addHandler(public_protocol_common.EnQuestProgressType_EN_QUEST_PROGRESS_TYPE_PLAYER_LEVEL, updateProgressByPlayerLevel, initProgressByPlayerLevel)
+	addHandler(public_protocol_common.EnQuestProgressType_EN_QUEST_PROGRESS_TYPE_PLAYER_LEVEL,
+		updateProgressByPlayerLevel, initProgressByPlayerLevel)
 }
 
-func addHandler(progressType public_protocol_common.EnQuestProgressType, update_f UpdateProgressConditionFunc, init_f InitProgressConditionFunc) {
-	conditionRuleCheckers[progressType].UpdateHandler = update_f
-	conditionRuleCheckers[progressType].InitHandler = init_f
+func addHandler(progressType public_protocol_common.EnQuestProgressType,
+	updateF UpdateProgressConditionFunc, initF InitProgressConditionFunc) {
+	conditionRuleCheckers[progressType].UpdateHandler = updateF
+	conditionRuleCheckers[progressType].InitHandler = initF
 }
 
 func GetQuestProgressHandler(progressType public_protocol_common.EnQuestProgressType) QuestProgressStruct {
@@ -42,8 +47,9 @@ func GetQuestProgressHandler(progressType public_protocol_common.EnQuestProgress
 	return *conditionRuleCheckers[progressType]
 }
 
-func updateProgressByPlayerLevel(ctx *cd.RpcContext, params TriggerParams,
-	progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
+func updateProgressByPlayerLevel(_ *cd.RpcContext, params TriggerParams,
+	_ *public_protocol_config.DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
 	// params.Y 是玩家当前等级，更新任务进度为当前等级
 	if questData == nil {
 		return cd.CreateRpcResultOk()
@@ -54,7 +60,9 @@ func updateProgressByPlayerLevel(ctx *cd.RpcContext, params TriggerParams,
 	return cd.CreateRpcResultOk()
 }
 
-func initProgressByPlayerLevel(ctx *cd.RpcContext, progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult {
+func initProgressByPlayerLevel(_ *cd.RpcContext,
+	_ *public_protocol_config.DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult {
 	// 获取玩家当前等级，初始化任务进度
 	if questData == nil {
 		return cd.CreateRpcResultOk()

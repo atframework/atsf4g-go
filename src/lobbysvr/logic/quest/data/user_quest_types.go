@@ -4,7 +4,7 @@ import (
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 )
 
-// 重新导出公开包中的类型，方便 impl 包内使用
+// 重新导出公开包中的类型，方便 impl 包内使用.
 type TriggerParams = logic_quest.TriggerParams
 
 // 一些常用的构造帮助函数，模仿 C++ 中不同的构造函数用法。
@@ -24,7 +24,7 @@ func NewTriggerParamsWithXYAndItem(x, y int64) TriggerParams {
 	}
 }
 
-// NewTriggerParamsWithXAndLimitAndQuest 用于：输入 x, limit, 可选 quest id
+// NewTriggerParamsWithXAndLimitAndQuest 用于：输入 x, limit, 可选 quest id.
 func NewTriggerParamsWithXAndLimitAndQuest(x int64, questID int32) TriggerParams {
 	return TriggerParams{
 		X:                 x,
@@ -38,7 +38,7 @@ func NewTriggerParamsWithXAndLimitAndQuest(x int64, questID int32) TriggerParams
 	}
 }
 
-// NewTriggerParamsWithXYSAndLimitAndQuest 用于：输入 x,y,str,limit,可选 quest id
+// NewTriggerParamsWithXYSAndLimitAndQuest 用于：输入 x,y,str,limit,可选 quest id.
 func NewTriggerParamsWithXYSAndLimitAndQuest(x, y int64, s string, questID int32) TriggerParams {
 	return TriggerParams{
 		X:                 x,
@@ -52,7 +52,7 @@ func NewTriggerParamsWithXYSAndLimitAndQuest(x, y int64, s string, questID int32
 	}
 }
 
-// NewTriggerParamsWithStrAndLimitAndQuest 用于：只用字符串和 limit 的构造
+// NewTriggerParamsWithStrAndLimitAndQuest 用于：只用字符串和 limit 的构造.
 func NewTriggerParamsWithStrAndLimitAndQuest(s string, questID int32) TriggerParams {
 	return TriggerParams{
 		X:                 0,

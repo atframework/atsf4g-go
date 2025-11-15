@@ -11,7 +11,8 @@ import (
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
-type CheckUnlockConditionFunc = func(ctx *cd.RpcContext, rule *public_protocol_common.DQuestUnlockConditionItem, owner *data.User) cd.RpcResult
+type CheckUnlockConditionFunc = func(ctx *cd.RpcContext,
+	rule *public_protocol_common.DQuestUnlockConditionItem, owner *data.User) cd.RpcResult
 
 func QuestUnlockRuleCheckers() map[reflect.Type]*CheckUnlockConditionFunc {
 	ret := map[reflect.Type]*CheckUnlockConditionFunc{}
@@ -38,18 +39,21 @@ func GetQuestUnlockHandle() map[reflect.Type]*CheckUnlockConditionFunc {
 	return conditionUnlockCheckers
 }
 
-func UnlockByPlayerLevel(ctx *cd.RpcContext, rule *public_protocol_common.DQuestUnlockConditionItem, owner *data.User) cd.RpcResult {
+func UnlockByPlayerLevel(_ *cd.RpcContext, rule *public_protocol_common.DQuestUnlockConditionItem,
+	owner *data.User) cd.RpcResult {
 	if owner == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("owner is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+		return cd.CreateRpcResultError(fmt.Errorf("owner is nil"),
+			public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
 	mgr := data.UserGetModuleManager[logic_user.UserBasicManager](owner)
 	if mgr == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"),
+			public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	userLevel := mgr.GetUserLevel()
-	requiredLevel := uint32(rule.GetPlayerLevel())
+	requiredLevel := uint32(rule.GetPlayerLevel()) //nolint:gosec
 	if userLevel >= requiredLevel {
 		return cd.CreateRpcResultOk()
 	}
