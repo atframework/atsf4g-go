@@ -2,12 +2,13 @@ package libatapp
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -48,8 +49,58 @@ func (b *logBuffer) WriteString(s string) (int, error) {
 	return len(s), nil
 }
 
+func (b *logBuffer) WriteByte(c byte) {
+	*b = append(*b, c)
+}
+
+func (b *logBuffer) Bytes() []byte {
+	return *b
+}
+
 func (b *logBuffer) Len() int {
 	return len(*b)
+}
+
+func (b *logBuffer) AppendLogLevel(level slog.Level) {
+	switch {
+	case level >= slog.LevelError:
+		b.WriteString("[ERROR]")
+	case level >= slog.LevelWarn:
+		b.WriteString("[ WARN]")
+	case level >= slog.LevelInfo:
+		b.WriteString("[ INFO]")
+	default:
+		b.WriteString("[DEBUG]")
+	}
+}
+
+type timestampCacheEntry struct {
+	second int64
+	prefix string
+}
+
+var appendTimestampCache atomic.Value
+
+func init() {
+	appendTimestampCache.Store(timestampCacheEntry{second: -1})
+}
+
+func appendTimestamp(b *logBuffer, t time.Time) {
+	entry := appendTimestampCache.Load().(timestampCacheEntry)
+	second := t.Unix()
+	if entry.second != second {
+		prefix := t.Format("2006-01-02 15:04:05")
+		entry = timestampCacheEntry{second: second, prefix: prefix}
+		appendTimestampCache.Store(entry)
+	}
+
+	*b = append(*b, entry.prefix...)
+	*b = append(*b, '.')
+	millis := int(t.Nanosecond() / 1_000_000)
+	*b = append(*b, byte('0'+millis/100))
+	millis %= 100
+	*b = append(*b, byte('0'+millis/10))
+	*b = append(*b, byte('0'+millis%10))
 }
 
 type LogWriter interface {
@@ -123,7 +174,13 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 	sb := newlogBuffer()
 	defer sb.Free()
 	for _, f := range stack {
-		sb.WriteString(fmt.Sprintf("  at %s (%s:%d)\n", f.function, f.file, f.line))
+		sb.WriteString("  at ")
+		sb.WriteString(f.function)
+		sb.WriteString(" (")
+		sb.WriteString(f.file)
+		sb.WriteByte(':')
+		sb.WriteString(strconv.Itoa(f.line))
+		sb.WriteString(")\n")
 	}
 
 	return sb.String()
@@ -144,27 +201,34 @@ func (h *logHandlerImpl) Enabled(_ context.Context, level slog.Level) bool {
 
 // Handle不需要是线程安全
 func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
-	// 时间
-	ts := r.Time.Format(time.DateTime)
-
-	// 文件 + 行号
-	var file string
-	if r.PC != 0 {
-		frameInfo := h.getFrameInfo(r.PC)
-		file = fmt.Sprintf("%s:%d", frameInfo.file, frameInfo.line)
-	}
-
 	// 主信息
 	sb := newlogBuffer()
 	defer sb.Free()
-	fmt.Fprintf(sb, "[%s][%s](%s): %s", ts, r.Level.String(), file, r.Message)
+	sb.WriteByte('[')
+	appendTimestamp(sb, r.Time)
+	sb.WriteString("]")
+	sb.AppendLogLevel(r.Level)
+	sb.WriteString("(")
+	if r.PC != 0 {
+		frameInfo := h.getFrameInfo(r.PC)
+		sb.WriteString(frameInfo.file)
+		sb.WriteByte(':')
+		sb.WriteString(strconv.Itoa(frameInfo.line))
+	} else {
+		sb.WriteString("unknown:0")
+	}
+	sb.WriteString("): ")
+	sb.WriteString(r.Message)
 
 	// 额外字段
 	r.Attrs(func(a slog.Attr) bool {
-		fmt.Fprintf(sb, " %s=%v", a.Key, a.Value.Resolve())
+		sb.WriteByte(' ')
+		sb.WriteString(a.Key)
+		sb.WriteByte('=')
+		sb.WriteString(a.Value.Resolve().String())
 		return true
 	})
-	fmt.Fprintf(sb, "\n")
+	sb.WriteByte('\n')
 
 	var stackTrace *logBuffer
 	for k := range h.writers {
@@ -177,17 +241,22 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 			if stackTrace == nil {
 				// 生成
 				stackTrace = newlogBuffer()
-				fmt.Fprintf(stackTrace, "%sStacktrace:\n%s", sb.String(), h.getStack(r.PC))
+				stackTrace.Write(sb.Bytes())
+				stackTrace.WriteString("Stacktrace:\n")
+				stackTrace.WriteString(h.getStack(r.PC))
 			}
 			// 写入StackTrace
-			h.writers[k].out.Write([]byte(stackTrace.String()))
+			h.writers[k].out.Write(stackTrace.Bytes())
 		} else {
-			h.writers[k].out.Write([]byte(sb.String()))
+			h.writers[k].out.Write(sb.Bytes())
 		}
 
 		if r.Level >= h.writers[k].autoFlushLevel {
 			h.writers[k].out.Flush()
 		}
+	}
+	if stackTrace != nil {
+		stackTrace.Free()
 	}
 	return nil
 }

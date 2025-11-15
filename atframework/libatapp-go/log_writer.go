@@ -67,10 +67,11 @@ type LogBufferedRotatingWriter struct {
 	maxSize  uint64
 	retain   uint32
 
-	currentFileIndex uint32
-	currentSize      uint64
-	init             bool
-	hardLink         bool
+	currentFileIndex   uint32
+	currentSize        atomic.Uint64
+	init               bool
+	hardLink           bool
+	needTruncateOnOpen bool
 
 	flushInterval time.Duration
 	nextFlushTime time.Time
@@ -102,7 +103,7 @@ func NewlogBufferedRotatingWriter(path string, fileName string, maxSize uint64, 
 	return w, nil
 }
 
-func (w *LogBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, error) {
+func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 	// 读锁
 	w.fileMu.RLock()
 	if w.currentFile != nil {
@@ -142,8 +143,10 @@ func (w *LogBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, er
 		}
 		// 修正Index
 		w.currentFileIndex = index
-		destoryContent = false
+		truncate = false
 	}
+
+	truncate = truncate || w.needTruncateOnOpen
 
 	newFile := w.getFilename(w.currentFileIndex, now)
 	dir := filepath.Dir(newFile)
@@ -153,7 +156,7 @@ func (w *LogBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, er
 	}
 
 	var f *os.File
-	if destoryContent {
+	if truncate {
 		f, err = os.OpenFile(newFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			return nil, err
@@ -174,18 +177,15 @@ func (w *LogBufferedRotatingWriter) openLogFile(destoryContent bool) (*RefFD, er
 		// 创建硬链接
 		linkFileName := w.getLinkFilename(now)
 		os.Remove(linkFileName)
-		err = os.Link(newFile, linkFileName)
-		if err != nil {
-			f.Close()
-			return nil, err
-		}
+		os.Link(newFile, linkFileName)
 	}
 
 	// 创建好文件
 	ref := &RefFD{}
 	ref.fd = f
 	w.currentFile = ref.Copy()
-	w.currentSize = uint64(info.Size())
+	w.currentSize.Store(uint64(info.Size()))
+	w.needTruncateOnOpen = false
 
 	w.currentTimeRotateTime = now
 
@@ -223,11 +223,11 @@ func (w *LogBufferedRotatingWriter) rotateFile() error {
 		w.currentFileIndex = 0
 	}
 	if w.currentFile != nil {
-		w.currentFile.fd.Write([]byte("Open Next Log File"))
 		w.currentFile.Relese()
 		w.currentFile = nil
 	}
-	w.currentSize = 0
+	w.currentSize.Store(0)
+	w.needTruncateOnOpen = true
 	return nil
 }
 
@@ -238,14 +238,14 @@ func (w *LogBufferedRotatingWriter) mayRotateFile() {
 }
 
 func (w *LogBufferedRotatingWriter) needRotateFile() bool {
-	if w.currentSize >= w.maxSize {
+	if w.currentSize.Load() >= w.maxSize {
 		return true
 	}
 	if w.timeRotateInterval != 0 {
 		now := time.Now()
 		if now.Unix()/int64(w.timeRotateCheckInterval) != w.lastCheckRotateTime/int64(w.timeRotateCheckInterval) {
 			// 需要检查时间Format
-			if strings.Compare(w.currentTimeRotateTime.Format("2006-01-02"), w.currentTimeRotateTime.Format("2006-01-02")) != 0 {
+			if !w.currentTimeRotateTime.IsZero() && strings.Compare(w.currentTimeRotateTime.Format("2006-01-02"), now.Format("2006-01-02")) != 0 {
 				// Format变化 Rotating
 				return true
 			}
@@ -259,7 +259,7 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	w.mayRotateFile()
 	// 这里可能被滚动过
 	// 或者第一次进入
-	f, err := w.openLogFile(true)
+	f, err := w.openLogFile(false)
 	if err != nil {
 		fmt.Println("open File Failed", err)
 		return 0, err
@@ -268,12 +268,12 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	// 模拟智能指针手动释放
 
 	n, err := f.fd.Write(p)
-	w.currentSize += uint64(n)
+	w.currentSize.Add(uint64(n))
 
 	now := time.Now()
 	if now.After(w.nextFlushTime) {
-		f.fd.Sync()
 		w.updateFlushTime(now)
+		f.fd.Sync()
 	}
 	return n, err
 }
@@ -284,14 +284,14 @@ func (w *LogBufferedRotatingWriter) updateFlushTime(now time.Time) {
 
 // Flush 手动刷新缓冲区
 func (w *LogBufferedRotatingWriter) Flush() error {
-	f, err := w.openLogFile(true)
+	f, err := w.openLogFile(false)
 	if err != nil {
 		return err
 	}
 	defer f.Relese()
 
-	f.fd.Sync()
 	w.updateFlushTime(time.Now())
+	f.fd.Sync()
 	return nil
 }
 
@@ -303,5 +303,5 @@ func (w *LogBufferedRotatingWriter) Close() {
 		w.currentFile.Relese()
 		w.currentFile = nil
 	}
-	w.currentSize = 0
+	w.currentSize.Store(0)
 }
