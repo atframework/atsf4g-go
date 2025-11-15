@@ -8,6 +8,10 @@ type ExcelConfigCustomIndex struct {
 	ConstIndex        ExcelConfigConstIndex
 	UserLevelExpIndex ExcelConfigUserLevelExpIndex
 	RandomPoolIndex   map[int32]*ExcelConfigRandomPool
+	QuestUnlockConditionMap            map[int32]map[int32][]QuestUnlockConditionPair
+	QuestSequence                      []*public_protocol_config.ExcelQuestList
+	QuestCurrentMaxId                  int32
+	QuestTriggerArgsPredealMap         map[int32]map[int32]bool
 }
 
 type ExcelConfigRandomPool struct {
@@ -19,6 +23,11 @@ type ExcelConfigRandomPool struct {
 type ExcelConfigUserLevelExpIndex struct {
 	MaxLevel uint32
 	MaxExp   int64
+}
+
+type QuestUnlockConditionPair struct {
+	Value   int64
+	QuestId int32
 }
 
 // 此处定义自定义索引的类型

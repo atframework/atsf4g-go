@@ -12,6 +12,8 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-private
 import "protocol/common/com.struct.item.common.proto";
 
 import "protocol/pbdesc/com.struct.proto";
+import "protocol/pbdesc/com.struct.quest.proto";
+import "protocol/common/com.struct.quest.common.proto";
 
 package proy;
 
@@ -68,4 +70,43 @@ message user_async_jobs_data {
 
 message user_inventory_data {
   repeated DItemInstance item = 1;
+}
+message user_quest_progress_value {
+  map<int64, int64> value = 1;
+}
+
+message user_quest_season_progress_value {
+  map<int32, user_quest_progress_value> season_progress = 1;
+}
+
+message user_quest_progress_reset_entry {
+  int64 reset_timepoint = 1;
+  int32 quest_id = 2;
+}
+
+message user_quest_progress_reset_data {
+  repeated user_quest_progress_reset_entry reset_entrys = 1;  // 之前的reset_index
+  bool is_changed = 2;
+}
+
+message user_quest_specific_end_timepoint_entry {
+  int32 quest_id = 1;
+  int64 end_timepoint = 2;
+}
+
+message user_quest_specific_end_timepoint_data {
+  repeated user_quest_specific_end_timepoint_entry endtime_entrys = 1;
+  bool is_changed = 2;
+}
+
+
+// 用于manager存放数据，以及db存放数据
+message user_quest_data {
+  DUserQuestsData user_quest_list = 1;  // 玩家活动数据（客户端需要处理的数据）
+
+  user_quest_progress_reset_data progress_reset_data = 11;
+  user_quest_specific_end_timepoint_data specific_end_timepoint_data = 12;  // 已经解锁的有明确有效期的任务记录
+  map<int32, user_quest_season_progress_value> unlock_progress_value_by_type = 13;  // 解锁条件类型->类型的值
+
+  map<int32, EnQuestStatus> exist_quest_ids = 21;
 }

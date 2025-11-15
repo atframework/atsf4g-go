@@ -17,6 +17,10 @@ import "protocol/pbdesc/com.struct.proto";
 
 import "protocol/pbdesc/com.struct.inventory.proto";
 
+import "protocol/pbdesc/com.struct.quest.proto";
+
+// import "protocol/pbdesc/lobbysvr.com.protocol.character.proto";
+
 package proy;
 
 /////////////////////////////////////////////////////

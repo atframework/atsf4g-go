@@ -23,5 +23,9 @@ func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup, logger *slog.
 		return
 	}
 
+	err = InitExcelQuestConfigIndex(group)
+	if err != nil {
+		return
+	}
 	return
 }
