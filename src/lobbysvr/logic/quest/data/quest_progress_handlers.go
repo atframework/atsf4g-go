@@ -5,12 +5,14 @@ import (
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
 type UpdateProgressConditionFunc = func(ctx *cd.RpcContext, params TriggerParams,
 	progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
 
-type InitProgressConditionFunc = func(ctx *cd.RpcContext, progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
+type InitProgressConditionFunc = func(ctx *cd.RpcContext, progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult
 
 type QuestProgressStruct struct {
 	UpdateHandler UpdateProgressConditionFunc
@@ -42,11 +44,36 @@ func GetQuestProgressHandler(progressType public_protocol_common.EnQuestProgress
 
 func updateProgressByPlayerLevel(ctx *cd.RpcContext, params TriggerParams,
 	progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
-	// TODO: 从配置中获取所需的玩家等级
+	// params.Y 是玩家当前等级，更新任务进度为当前等级
+	if questData == nil {
+		return cd.CreateRpcResultOk()
+	}
+
+	questData.Value = params.Y
+
 	return cd.CreateRpcResultOk()
 }
 
-func initProgressByPlayerLevel(ctx *cd.RpcContext, progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
-	// TODO: 从配置中获取所需的玩家等级
+func initProgressByPlayerLevel(ctx *cd.RpcContext, progressCfg *public_protocol_config.DQuestConditionProgress, questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult {
+	// 获取玩家当前等级，初始化任务进度
+	if questData == nil {
+		return cd.CreateRpcResultOk()
+	}
+
+	if owner == nil {
+		questData.Value = 0
+		return cd.CreateRpcResultOk()
+	}
+
+	// 获取玩家当前等级
+	mgr := data.UserGetModuleManager[logic_user.UserBasicManager](owner)
+	if mgr == nil {
+		questData.Value = 0
+		return cd.CreateRpcResultOk()
+	}
+
+	userLevel := mgr.GetUserLevel()
+	questData.Value = int64(userLevel)
+
 	return cd.CreateRpcResultOk()
 }

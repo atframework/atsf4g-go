@@ -547,7 +547,7 @@ func (m *UserQuestManager) CheckQuestIsUnlock(_ctx *cd.RpcContext, questCfg *pub
 			return false
 		}
 
-		rpcResult := (*questUnlockHandler[reflect.TypeOf(cond.GetUnlockType())])(_ctx, cond)
+		rpcResult := (*questUnlockHandler[reflect.TypeOf(cond.GetUnlockType())])(_ctx, cond, m.GetOwner())
 		if !rpcResult.IsOK() {
 			_ctx.LogDebug("quest unlock condition not met", "zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(), "quest_id", questCfg.GetId(), "condition", cond, "error", rpcResult.Error)
 			return false
@@ -605,7 +605,7 @@ func (m *UserQuestManager) AddQuest(_ctx *cd.RpcContext, questCfg *public_protoc
 		questProgressHandler := logic_quest_data.GetQuestProgressHandler(progressCfg.GetTypeId())
 
 		if questProgressHandler.InitHandler != nil {
-			rpcResult := questProgressHandler.InitHandler(_ctx, progressCfg, &Progress)
+			rpcResult := questProgressHandler.InitHandler(_ctx, progressCfg, &Progress, m.GetOwner())
 			if !rpcResult.IsOK() {
 				_ctx.LogError("init quest progress value failed", "zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(), "quest_id", questCfg.GetId(), "progress_type", progressCfg.GetTypeId(), "error", rpcResult.Error)
 				return
@@ -1091,7 +1091,6 @@ func (m *UserQuestManager) dumpQuestDirtyData(ctx *cd.RpcContext, dirty *data.Us
 			"event_id", questEvent.GetEventId(),
 		)
 	}
-
 	return true
 }
 
