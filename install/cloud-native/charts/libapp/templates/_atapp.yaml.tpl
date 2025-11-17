@@ -1,5 +1,5 @@
 {{- define "atapp.yaml" -}}
-{{- $bus_addr := .Values.bus_addr -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 {{- $uniq_id := .Values.uniq_id -}}
 atapp:
   # =========== bus configure ===========
@@ -10,7 +10,7 @@ atapp:
   type_id: {{ required ".Values.type_id who entry required!" .Values.type_id }} # server type id
   type_name: {{ .Values.type_name | default (include "libapp.name" .) }}         # server type name
   area:
-    zone_id: {{ int .Values.logic_id }} # svr_zone_id
+    zone_id: {{ include "libapp.logicID" . }} # svr_zone_id
 {{ include "atapp.default.metadata.yaml" . | indent 4 }}
   remove_pidfile_after_exit: false     # keep pid file after exited
   {{- with .Values.inner_ip }}

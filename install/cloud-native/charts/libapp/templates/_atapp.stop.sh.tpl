@@ -1,5 +1,5 @@
 {{- define "atapp.stop.sh" -}}
-{{- $bus_addr := .Values.bus_addr -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 {{- $proc_name := .Values.proc_name -}}
 {{- $type_name := (.Values.type_name | default (include "libapp.name" .)) -}}
 
@@ -13,7 +13,7 @@ kill $(cat ./{{ $type_name }}_{{ $bus_addr }}.pid)
 {{- end }}
 
 {{- define "atapp.stop.bat" -}}
-{{- $bus_addr := .Values.bus_addr -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 {{- $proc_name := .Values.proc_name -}}
 {{- $type_name := (.Values.type_name | default (include "libapp.name" .)) -}}
 @echo off

@@ -1,5 +1,5 @@
 {{- define "atapp.start.sh" -}}
-{{- $bus_addr := .Values.bus_addr -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 {{- $proc_name := .Values.proc_name -}}
 {{- $type_name := (.Values.type_name | default (include "libapp.name" .)) -}}
 
@@ -12,7 +12,7 @@ cd "$SCRIPT_DIR";
 {{- end }}
 
 {{- define "atapp.start.bat" -}}
-{{- $bus_addr := .Values.bus_addr -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 {{- $proc_name := .Values.proc_name -}}
 {{- $type_name := (.Values.type_name | default (include "libapp.name" .)) -}}
 @echo off
