@@ -60,24 +60,24 @@ func (m *UserRandomPoolManager) GetOwner() *data.User {
 
 /////////////////////// ITEM MANAGER //////////////////////////////
 
-func (m *UserRandomPoolManager) UnpackItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, data.Result) {
-	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemOffset)*2)
-	for _, item := range itemOffset {
-		result, unpackItem := config.RandomWithPool(item.GetItemBasic().GetTypeId(), item.GetItemBasic().GetCount(), nil)
-		if result != 0 {
-			ctx.LogError("unpack random pool item failed", "user_id", m.owner.GetUserId(), "zone_id", m.owner.GetZoneId(), "type_id", item.GetItemBasic().GetTypeId(), "error_code", result)
-			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(result))
-		}
-
-		itemInst, genResult := m.GetOwner().GenerateMultipleItemInstancesFromOffset(ctx, unpackItem)
-		if genResult.IsError() {
-			ctx.LogError("user cUnpackItem GenerateMultipleItemInstancesFromOffset failed", "error", genResult.Error,
-				"user_id", m.GetOwner().GetUserId(), "zone_id", m.GetOwner().GetZoneId())
-			return nil, genResult
-		}
-		ret = append(ret, itemInst...)
+func (m *UserRandomPoolManager) UnpackItem(ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, data.Result) {
+	if itemOffset == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
-	return ret, cd.CreateRpcResultOk()
+
+	result, unpackItem := config.RandomWithPool(itemOffset.GetItemBasic().GetTypeId(), itemOffset.GetItemBasic().GetCount(), nil)
+	if result != 0 {
+		ctx.LogError("unpack random pool item failed", "user_id", m.owner.GetUserId(), "zone_id", m.owner.GetZoneId(), "type_id", itemOffset.GetItemBasic().GetTypeId(), "error_code", result)
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(result))
+	}
+
+	itemInst, genResult := m.GetOwner().GenerateMultipleItemInstancesFromOffset(ctx, unpackItem)
+	if genResult.IsError() {
+		ctx.LogError("user cUnpackItem GenerateMultipleItemInstancesFromOffset failed", "error", genResult.Error,
+			"user_id", m.GetOwner().GetUserId(), "zone_id", m.GetOwner().GetZoneId())
+		return nil, genResult
+	}
+	return itemInst, cd.CreateRpcResultOk()
 }
 
 /////////////////////// NOT_IMPLEMENTED //////////////////////////////

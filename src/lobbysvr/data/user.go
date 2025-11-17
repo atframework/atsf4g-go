@@ -644,7 +644,7 @@ func (u *User) unpackMergeItemOffset(ctx *cd.RpcContext, itemOffset []*public_pr
 			ctx.LogWarn("user add item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId, "type_id", typeId)
 			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
-		items, result := mgr.UnpackItem(ctx, itemOffset)
+		items, result := mgr.UnpackItem(ctx, offset)
 		if result.IsError() {
 			return nil, result
 		}

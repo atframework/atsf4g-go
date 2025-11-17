@@ -54,7 +54,7 @@ type UserItemManagerImpl interface {
 	GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) (*ppc.DItemInstance, Result)
 
 	// 含默认实现 需要转换Item时实现
-	UnpackItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]*ppc.DItemInstance, Result)
+	UnpackItem(ctx *cd.RpcContext, itemOffset *ppc.DItemInstance) ([]*ppc.DItemInstance, Result)
 
 	CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result)
 	CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result)
@@ -295,6 +295,6 @@ func (umb *UserItemManagerBase) CreateItemSubGuard(itemOffset []*ppc.DItemBasic)
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (umb *UserItemManagerBase) UnpackItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]*ppc.DItemInstance, Result) {
-	return itemOffset, cd.CreateRpcResultOk()
+func (umb *UserItemManagerBase) UnpackItem(ctx *cd.RpcContext, itemOffset *ppc.DItemInstance) ([]*ppc.DItemInstance, Result) {
+	return []*ppc.DItemInstance{itemOffset}, cd.CreateRpcResultOk()
 }
