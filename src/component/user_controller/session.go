@@ -79,7 +79,7 @@ func (s *Session) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) 
 
 	// 解绑User
 	if !lu.IsNil(s.user) {
-		s.user.UnbindSession(s.user, ctx, s)
+		s.user.UnbindSession(ctx, s)
 	}
 }
 
@@ -119,7 +119,7 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 
 	if lu.IsNil(bindUser) {
 		if !lu.IsNil(s.user) {
-			s.user.UnbindSession(s.user, ctx, s)
+			s.user.UnbindSession(ctx, s)
 		}
 		s.user = nil
 		return
@@ -134,7 +134,7 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 
 	// 覆盖旧绑定,必须先设置成员变量再触发关联绑定，以解决重入问题
 	s.user = convertUser
-	convertUser.BindSession(convertUser, ctx, s)
+	convertUser.BindSession(ctx, s)
 
 	if !lu.IsNil(s.user) && !lu.IsNil(s.networkHandle) {
 		s.networkHandle.SetAuthorized(true)
@@ -142,7 +142,7 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 
 	// 关联解绑
 	if !lu.IsNil(oldUser) {
-		oldUser.UnbindSession(oldUser, ctx, s)
+		oldUser.UnbindSession(ctx, s)
 	}
 }
 
@@ -157,7 +157,7 @@ func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 
 	// 关联解绑
 	if !lu.IsNil(oldUser) {
-		oldUser.UnbindSession(oldUser, ctx, s)
+		oldUser.UnbindSession(ctx, s)
 	}
 }
 

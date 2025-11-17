@@ -20,29 +20,28 @@ const (
 )
 
 type UserImpl interface {
-	//
 	cd.TaskActionCSUser
 
-	BindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
-	UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session)
+	BindSession(ctx *cd.RpcContext, session *Session)
+	UnbindSession(ctx *cd.RpcContext, session *Session)
 	AllocSessionSequence() uint64
 
 	IsWriteable() bool
 
-	InitFromDB(self UserImpl, ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
-	DumpToDB(self UserImpl, ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	InitFromDB(ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	DumpToDB(ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 
-	CreateInit(self UserImpl, ctx *cd.RpcContext, versionType uint32)
-	LoginInit(self UserImpl, ctx *cd.RpcContext)
+	CreateInit(ctx *cd.RpcContext, versionType uint32)
+	LoginInit(ctx *cd.RpcContext)
 
-	OnLogin(self UserImpl, ctx *cd.RpcContext)
-	OnLogout(self UserImpl, ctx *cd.RpcContext)
-	OnSaved(self UserImpl, ctx *cd.RpcContext, version uint64)
-	OnUpdateSession(self UserImpl, ctx *cd.RpcContext, from *Session, to *Session)
+	OnLogin(ctx *cd.RpcContext)
+	OnLogout(ctx *cd.RpcContext)
+	OnSaved(ctx *cd.RpcContext, version uint64)
+	OnUpdateSession(ctx *cd.RpcContext, from *Session, to *Session)
 
 	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
 	GetLoginVersion() uint64
-	LoadLoginInfo(self UserImpl, loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
+	LoadLoginInfo(loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
 }
 
 type UserDirtyWrapper[T any] struct {
@@ -79,6 +78,8 @@ func (u *UserDirtyWrapper[T]) SetDirty(version uint64) {
 }
 
 type UserCache struct {
+	Impl UserImpl
+
 	zoneId uint32
 	userId uint64
 	openId string
@@ -109,7 +110,7 @@ func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId st
 			writer.Close()
 		})
 	}
-	return UserCache{
+	cache := &UserCache{
 		zoneId:        zoneId,
 		userId:        userId,
 		openId:        openId,
@@ -128,6 +129,8 @@ func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId st
 		},
 		cs_actor_log_writer: writer,
 	}
+	cache.Impl = cache
+	return *cache
 }
 
 func (u *UserCache) Init(actorInstance interface{}) {
@@ -197,7 +200,7 @@ func (u *UserCache) SendAllSyncData(_ctx *cd.RpcContext) error {
 	return nil
 }
 
-func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
+func (u *UserCache) BindSession(ctx *cd.RpcContext, session *Session) {
 	if u == nil {
 		return
 	}
@@ -207,7 +210,7 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 	}
 
 	if lu.IsNil(session) {
-		u.UnbindSession(self, ctx, u.session)
+		u.UnbindSession(ctx, u.session)
 		return
 	}
 
@@ -215,7 +218,7 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 
 	// 覆盖旧绑定,必须先设置成员变量再触发关联绑定，以解决重入问题
 	u.session = session
-	session.BindUser(ctx, self)
+	session.BindUser(ctx, u.Impl)
 
 	logWriter := u.GetCsActorLogWriter()
 	if logWriter != nil {
@@ -223,17 +226,17 @@ func (u *UserCache) BindSession(self UserImpl, ctx *cd.RpcContext, session *Sess
 			fmt.Fprint(logWriter, log)
 		}
 		session.pendingCsLog = nil
-		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d \n", time.Now().Format(time.DateTime), u.session.GetSessionId())
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d \n", time.Now().Format(time.DateTime), session.GetSessionId())
 	}
 
-	u.OnUpdateSession(self, ctx, old_session, session)
+	u.OnUpdateSession(ctx, old_session, session)
 
 	if !lu.IsNil(old_session) {
-		old_session.UnbindUser(ctx, self)
+		old_session.UnbindUser(ctx, u.Impl)
 	}
 }
 
-func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Session) {
+func (u *UserCache) UnbindSession(ctx *cd.RpcContext, session *Session) {
 	if u == nil {
 		return
 	}
@@ -254,15 +257,15 @@ func (u *UserCache) UnbindSession(self UserImpl, ctx *cd.RpcContext, session *Se
 	old_session := u.session
 	u.session = nil
 
-	u.OnUpdateSession(self, ctx, old_session, nil)
+	u.OnUpdateSession(ctx, old_session, nil)
 
 	if !lu.IsNil(old_session) {
-		old_session.UnbindUser(ctx, self)
+		old_session.UnbindUser(ctx, u.Impl)
 	}
 
 	// TODO: 触发登出保存
-	if self.IsWriteable() {
-		self.OnLogout(self, ctx)
+	if u.Impl.IsWriteable() {
+		u.OnLogout(ctx)
 
 		// TODO: 触发登出保存
 	}
@@ -280,7 +283,7 @@ func (u *UserCache) IsWriteable() bool {
 func (u *UserCache) RefreshLimit(_ctx *cd.RpcContext, _now time.Time) {
 }
 
-func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *UserCache) InitFromDB(_ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	u.dataVersion = srcTb.DataVersion
 	if srcTb.GetUserData().GetSessionSequence() > u.sessionSequence {
 		u.sessionSequence = srcTb.GetUserData().GetSessionSequence()
@@ -303,7 +306,7 @@ func (u *UserCache) InitFromDB(_self UserImpl, _ctx *cd.RpcContext, srcTb *priva
 	return cd.CreateRpcResultOk()
 }
 
-func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *UserCache) DumpToDB(_ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	if dstTb == nil {
 		return cd.RpcResult{
 			Error:        fmt.Errorf("dstTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()),
@@ -326,7 +329,7 @@ func (u *UserCache) DumpToDB(_self UserImpl, _ctx *cd.RpcContext, dstTb *private
 	return cd.CreateRpcResultOk()
 }
 
-func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, versionType uint32) {
+func (u *UserCache) CreateInit(_ctx *cd.RpcContext, versionType uint32) {
 	if u == nil {
 		return
 	}
@@ -334,7 +337,7 @@ func (u *UserCache) CreateInit(_self UserImpl, _ctx *cd.RpcContext, versionType 
 	u.MutableAccountInfo().VersionType = versionType
 }
 
-func (u *UserCache) LoginInit(_self UserImpl, ctx *cd.RpcContext) {
+func (u *UserCache) LoginInit(ctx *cd.RpcContext) {
 	if u == nil {
 		return
 	}
@@ -342,13 +345,13 @@ func (u *UserCache) LoginInit(_self UserImpl, ctx *cd.RpcContext) {
 	u.updateLoginData(ctx)
 }
 
-func (u *UserCache) OnLogin(_self UserImpl, _ctx *cd.RpcContext) {
+func (u *UserCache) OnLogin(__ctx *cd.RpcContext) {
 	if u == nil {
 		return
 	}
 }
 
-func (u *UserCache) OnLogout(_self UserImpl, ctx *cd.RpcContext) {
+func (u *UserCache) OnLogout(ctx *cd.RpcContext) {
 	if u == nil {
 		return
 	}
@@ -359,7 +362,7 @@ func (u *UserCache) OnLogout(_self UserImpl, ctx *cd.RpcContext) {
 	loginInfo.BusinessLogoutTime = nowSec
 }
 
-func (u *UserCache) OnSaved(_self UserImpl, _ctx *cd.RpcContext, version uint64) {
+func (u *UserCache) OnSaved(_ctx *cd.RpcContext, version uint64) {
 	if u == nil {
 		return
 	}
@@ -369,7 +372,7 @@ func (u *UserCache) OnSaved(_self UserImpl, _ctx *cd.RpcContext, version uint64)
 	u.user_options_.ClearDirty(version)
 }
 
-func (u *UserCache) OnUpdateSession(_self UserImpl, ctx *cd.RpcContext, from *Session, to *Session) {
+func (u *UserCache) OnUpdateSession(_ctx *cd.RpcContext, from *Session, to *Session) {
 }
 
 func (u *UserCache) GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin {
@@ -401,7 +404,7 @@ func (u *UserCache) GetLoginVersion() uint64 {
 	return u.loginVersion
 }
 
-func (u *UserCache) LoadLoginInfo(_self UserImpl, info *private_protocol_pbdesc.DatabaseTableLogin, version uint64) {
+func (u *UserCache) LoadLoginInfo(info *private_protocol_pbdesc.DatabaseTableLogin, version uint64) {
 	if u == nil || info == nil {
 		return
 	}

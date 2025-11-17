@@ -84,6 +84,7 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 
 		dirtyHandles: make(map[interface{}]userDirtyHandles),
 	}
+	ret.UserCache.Impl = ret
 
 	for _, creator := range userModuleManagerCreators {
 		mgr := creator.fn(ctx, ret)
@@ -187,8 +188,8 @@ func (u *User) RefreshLimit(ctx *cd.RpcContext, now time.Time) {
 	}
 }
 
-func (u *User) InitFromDB(self uc.UserImpl, ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
-	result := u.UserCache.InitFromDB(self, ctx, srcTb)
+func (u *User) InitFromDB(ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	result := u.UserCache.InitFromDB(ctx, srcTb)
 	if result.IsError() {
 		return result
 	}
@@ -206,8 +207,8 @@ func (u *User) InitFromDB(self uc.UserImpl, ctx *cd.RpcContext, srcTb *private_p
 	}
 }
 
-func (u *User) DumpToDB(self uc.UserImpl, ctx *cd.RpcContext, dstDb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
-	result := u.UserCache.DumpToDB(self, ctx, dstDb)
+func (u *User) DumpToDB(ctx *cd.RpcContext, dstDb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	result := u.UserCache.DumpToDB(ctx, dstDb)
 	if result.IsError() {
 		return result
 	}
@@ -264,8 +265,8 @@ func (u *User) createInitItemOneByOne(ctx *cd.RpcContext,
 	return cd.CreateRpcResultOk()
 }
 
-func (u *User) CreateInit(self uc.UserImpl, ctx *cd.RpcContext, versionType uint32) {
-	u.UserCache.CreateInit(self, ctx, versionType)
+func (u *User) CreateInit(ctx *cd.RpcContext, versionType uint32) {
+	u.UserCache.CreateInit(ctx, versionType)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.CreateInit(ctx, versionType)
@@ -305,36 +306,36 @@ func (u *User) CreateInit(self uc.UserImpl, ctx *cd.RpcContext, versionType uint
 	}
 }
 
-func (u *User) LoginInit(self uc.UserImpl, ctx *cd.RpcContext) {
-	u.UserCache.LoginInit(self, ctx)
+func (u *User) LoginInit(ctx *cd.RpcContext) {
+	u.UserCache.LoginInit(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.LoginInit(ctx)
 	}
 
-	u.OnLogin(u, ctx)
+	u.OnLogin(ctx)
 }
 
-func (u *User) OnLogin(self uc.UserImpl, ctx *cd.RpcContext) {
+func (u *User) OnLogin(ctx *cd.RpcContext) {
 	u.isLoginInited = true
 
-	u.UserCache.OnLogin(self, ctx)
+	u.UserCache.OnLogin(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnLogin(ctx)
 	}
 }
 
-func (u *User) OnLogout(self uc.UserImpl, ctx *cd.RpcContext) {
-	u.UserCache.OnLogout(self, ctx)
+func (u *User) OnLogout(ctx *cd.RpcContext) {
+	u.UserCache.OnLogout(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnLogout(ctx)
 	}
 }
 
-func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version uint64) {
-	u.UserCache.OnSaved(self, ctx, version)
+func (u *User) OnSaved(ctx *cd.RpcContext, version uint64) {
+	u.UserCache.OnSaved(ctx, version)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnSaved(ctx, version)
@@ -345,8 +346,8 @@ func (u *User) OnSaved(self uc.UserImpl, ctx *cd.RpcContext, version uint64) {
 	}
 }
 
-func (u *User) OnUpdateSession(self uc.UserImpl, ctx *cd.RpcContext, from *uc.Session, to *uc.Session) {
-	u.UserCache.OnUpdateSession(self, ctx, from, to)
+func (u *User) OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Session) {
+	u.UserCache.OnUpdateSession(ctx, from, to)
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnUpdateSession(ctx, from, to)

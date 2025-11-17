@@ -193,12 +193,12 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 	// 创建初始化
 	if u.GetLoginVersion() <= 0 {
 		// 新用户初始化逻辑
-		u.CreateInit(u, ctx, uint32(public_protocol_common.EnVersionType_EN_VERSION_DEFAULT))
+		u.CreateInit(ctx, uint32(public_protocol_common.EnVersionType_EN_VERSION_DEFAULT))
 
 		// 设置版本号
 		u.GetLoginInfo().RouterVersion = 0
 		// 更新Login Table版本号
-		u.LoadLoginInfo(u, u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
+		u.LoadLoginInfo(u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
 
 		result = um.internalSave(ctx, u)
 		if result.IsError() {
@@ -268,10 +268,10 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 	ctx.LogInfo("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 
 	// Login Table
-	u.LoadLoginInfo(u, loginTb, loginTbVersion)
+	u.LoadLoginInfo(loginTb, loginTbVersion)
 
 	// Init from DB
-	result := u.InitFromDB(u, ctx, userTb)
+	result := u.InitFromDB(ctx, userTb)
 	if result.IsError() {
 		result.LogError(ctx, "init user from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
 		return result
@@ -291,7 +291,7 @@ func (um *UserManager) internalSave(ctx *cd.RpcContext, userImpl UserImpl) cd.Rp
 	}
 
 	dstTb := &private_protocol_pbdesc.DatabaseTableUser{}
-	result := userImpl.DumpToDB(userImpl, ctx, dstTb)
+	result := userImpl.DumpToDB(ctx, dstTb)
 
 	if result.IsError() {
 		result.LogError(ctx, "dump user to db failed", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
@@ -317,9 +317,9 @@ func (um *UserManager) internalSave(ctx *cd.RpcContext, userImpl UserImpl) cd.Rp
 		userImpl.GetLoginInfo().RouterVersion = routerVersion
 
 		// 更新Login Table版本号
-		userImpl.LoadLoginInfo(userImpl, userImpl.GetLoginInfo(), routerVersion)
+		userImpl.LoadLoginInfo(userImpl.GetLoginInfo(), routerVersion)
 	}
-	userImpl.OnSaved(userImpl, ctx, routerVersion)
+	userImpl.OnSaved(ctx, routerVersion)
 
 	result.LogInfo(ctx, "save user to db success", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
 	return cd.CreateRpcResultOk()

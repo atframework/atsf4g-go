@@ -153,7 +153,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	t.GetSession().BindUser(t.GetRpcContext(), user)
 
 	// 登入初始化
-	user.LoginInit(user, t.GetRpcContext())
+	user.LoginInit(t.GetRpcContext())
 
 	return nil
 }
@@ -209,7 +209,7 @@ func (t *TaskActionLogin) replaceSession(user *data.User, session *uc.Session) b
 	}
 
 	// 先解锁旧的Session
-	user.BindSession(user, t.GetRpcContext(), session)
+	user.BindSession(t.GetRpcContext(), session)
 	return true
 }
 
