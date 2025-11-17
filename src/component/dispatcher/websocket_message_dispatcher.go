@@ -38,8 +38,8 @@ type WebSocketSession struct {
 }
 
 type (
-	WebSocketCallbackOnNewSession    = func(ctx *RpcContext, session *WebSocketSession) error
-	WebSocketCallbackOnRemoveSession = func(ctx *RpcContext, session *WebSocketSession)
+	WebSocketCallbackOnNewSession    = func(ctx RpcContext, session *WebSocketSession) error
+	WebSocketCallbackOnRemoveSession = func(ctx RpcContext, session *WebSocketSession)
 	WebSocketCallbackOnNewMessage    = func(session *WebSocketSession, message *public_protocol_extension.CSMsg) error
 )
 
@@ -242,7 +242,7 @@ func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
 	onRemoveSession := d.onRemoveSession.Load()
 	if onRemoveSession != nil {
 		ctx := d.CreateRpcContext()
-		ctx.Context = context.Background()
+		ctx.SetContext(context.Background())
 		onRemoveSession.(WebSocketCallbackOnRemoveSession)(ctx, session)
 	}
 
@@ -394,7 +394,7 @@ func (d *WebSocketMessageDispatcher) writeMessageToConnection(session *WebSocket
 	return nil
 }
 
-func (d *WebSocketMessageDispatcher) Close(_ctx *RpcContext, session *WebSocketSession, closeCode int, text string) {
+func (d *WebSocketMessageDispatcher) Close(_ctx RpcContext, session *WebSocketSession, closeCode int, text string) {
 	if !session.sentCloseMessage {
 		d.GetApp().GetDefaultLogger().Info("Closing WebSocket session", "session_id", session.SessionId, "reason", text)
 

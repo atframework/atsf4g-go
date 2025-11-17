@@ -16,10 +16,10 @@ type UserBasicManager interface {
 
 	ForeachItem(_fn func(item *public_protocol_common.DItemInstance) bool) bool
 
-	CheckAddUserExp(ctx *cd.RpcContext, v int64) data.Result
-	CheckSubUserExp(ctx *cd.RpcContext, v int64) data.Result
-	AddUserExp(ctx *cd.RpcContext, v int64) data.Result
-	SubUserExp(ctx *cd.RpcContext, v int64) data.Result
+	CheckAddUserExp(ctx cd.RpcContext, v int64) data.Result
+	CheckSubUserExp(ctx cd.RpcContext, v int64) data.Result
+	AddUserExp(ctx cd.RpcContext, v int64) data.Result
+	SubUserExp(ctx cd.RpcContext, v int64) data.Result
 	GetUserExp() int64
 	GetUserLevel() uint32
 }

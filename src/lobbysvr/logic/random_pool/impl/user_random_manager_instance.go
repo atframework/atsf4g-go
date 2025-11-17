@@ -17,7 +17,7 @@ import (
 func init() {
 	var _ logic_random_pool.UserRandomPoolManager = (*UserRandomPoolManager)(nil)
 
-	data.RegisterUserModuleManagerCreator[logic_random_pool.UserRandomPoolManager](func(ctx *cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
+	data.RegisterUserModuleManagerCreator[logic_random_pool.UserRandomPoolManager](func(ctx cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
 		return CreateUserRandomPoolManager(owner)
 	})
 
@@ -25,7 +25,7 @@ func init() {
 		data.MakeUserItemTypeIdRange(
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_RANDOM_POOL_BEGIN),
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_RANDOM_POOL_END)),
-	}, func(ctx *cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
+	}, func(ctx cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[logic_random_pool.UserRandomPoolManager](owner)
 		if mgr == nil {
 			ctx.LogError("can not find user RandomPool manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
@@ -60,7 +60,7 @@ func (m *UserRandomPoolManager) GetOwner() *data.User {
 
 /////////////////////// ITEM MANAGER //////////////////////////////
 
-func (m *UserRandomPoolManager) UnpackItem(ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserRandomPoolManager) UnpackItem(ctx cd.RpcContext, itemOffset *public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -82,7 +82,7 @@ func (m *UserRandomPoolManager) UnpackItem(ctx *cd.RpcContext, itemOffset *publi
 
 /////////////////////// NOT_IMPLEMENTED //////////////////////////////
 
-func (m *UserRandomPoolManager) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserRandomPoolManager) GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -95,23 +95,23 @@ func (m *UserRandomPoolManager) GenerateItemInstanceFromOffset(ctx *cd.RpcContex
 	}, cd.CreateRpcResultOk()
 }
 
-func (m *UserRandomPoolManager) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserRandomPoolManager) GenerateItemInstanceFromBasic(ctx cd.RpcContext, itemOffset *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
 	return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 
-func (m *UserRandomPoolManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]data.ItemAddGuard, data.Result) {
+func (m *UserRandomPoolManager) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]data.ItemAddGuard, data.Result) {
 	return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 
-func (m *UserRandomPoolManager) AddItem(ctx *cd.RpcContext, itemOffset []data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
+func (m *UserRandomPoolManager) AddItem(ctx cd.RpcContext, itemOffset []data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 
-func (m *UserRandomPoolManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]data.ItemSubGuard, data.Result) {
+func (m *UserRandomPoolManager) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]data.ItemSubGuard, data.Result) {
 	return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 
-func (m *UserRandomPoolManager) SubItem(ctx *cd.RpcContext, itemOffset []data.ItemSubGuard, reason *data.ItemFlowReason) data.Result {
+func (m *UserRandomPoolManager) SubItem(ctx cd.RpcContext, itemOffset []data.ItemSubGuard, reason *data.ItemFlowReason) data.Result {
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 

@@ -26,7 +26,7 @@ type TaskActionCSSession interface {
 	GetActorLogWriter() libatapp.LogWriter
 
 	GetUser() TaskActionCSUser
-	BindUser(ctx *RpcContext, user TaskActionCSUser)
+	BindUser(ctx RpcContext, user TaskActionCSUser)
 
 	GetDispatcher() DispatcherImpl
 	SendMessage(*public_protocol_extension.CSMsg) error
@@ -43,10 +43,10 @@ type TaskActionCSUser interface {
 	GetCsActorLogWriter() libatapp.LogWriter
 	GetActorExecutor() *ActorExecutor
 
-	SendAllSyncData(ctx *RpcContext) error
+	SendAllSyncData(ctx RpcContext) error
 
 	// 每次执行任务前刷新
-	RefreshLimit(*RpcContext, time.Time)
+	RefreshLimit(RpcContext, time.Time)
 }
 
 type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] struct {

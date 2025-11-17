@@ -22,22 +22,22 @@ const (
 type UserImpl interface {
 	cd.TaskActionCSUser
 
-	BindSession(ctx *cd.RpcContext, session *Session)
-	UnbindSession(ctx *cd.RpcContext, session *Session)
+	BindSession(ctx cd.RpcContext, session *Session)
+	UnbindSession(ctx cd.RpcContext, session *Session)
 	AllocSessionSequence() uint64
 
 	IsWriteable() bool
 
-	InitFromDB(ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
-	DumpToDB(ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	InitFromDB(ctx cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	DumpToDB(ctx cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 
-	CreateInit(ctx *cd.RpcContext, versionType uint32)
-	LoginInit(ctx *cd.RpcContext)
+	CreateInit(ctx cd.RpcContext, versionType uint32)
+	LoginInit(ctx cd.RpcContext)
 
-	OnLogin(ctx *cd.RpcContext)
-	OnLogout(ctx *cd.RpcContext)
-	OnSaved(ctx *cd.RpcContext, version uint64)
-	OnUpdateSession(ctx *cd.RpcContext, from *Session, to *Session)
+	OnLogin(ctx cd.RpcContext)
+	OnLogout(ctx cd.RpcContext)
+	OnSaved(ctx cd.RpcContext, version uint64)
+	OnUpdateSession(ctx cd.RpcContext, from *Session, to *Session)
 
 	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
 	GetLoginVersion() uint64
@@ -109,7 +109,7 @@ type UserCache struct {
 	userCASVersion  uint64
 }
 
-func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
+func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
 		writer, _ = libatapp.NewlogBufferedRotatingWriter(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
@@ -204,11 +204,11 @@ func (u *UserCache) GetActorExecutor() *cd.ActorExecutor {
 	return u.actorExecutor
 }
 
-func (u *UserCache) SendAllSyncData(_ctx *cd.RpcContext) error {
+func (u *UserCache) SendAllSyncData(_ctx cd.RpcContext) error {
 	return nil
 }
 
-func (u *UserCache) BindSession(ctx *cd.RpcContext, session *Session) {
+func (u *UserCache) BindSession(ctx cd.RpcContext, session *Session) {
 	if u == nil {
 		return
 	}
@@ -244,7 +244,7 @@ func (u *UserCache) BindSession(ctx *cd.RpcContext, session *Session) {
 	}
 }
 
-func (u *UserCache) UnbindSession(ctx *cd.RpcContext, session *Session) {
+func (u *UserCache) UnbindSession(ctx cd.RpcContext, session *Session) {
 	if u == nil {
 		return
 	}
@@ -288,10 +288,10 @@ func (u *UserCache) IsWriteable() bool {
 	return false
 }
 
-func (u *UserCache) RefreshLimit(_ctx *cd.RpcContext, _now time.Time) {
+func (u *UserCache) RefreshLimit(_ctx cd.RpcContext, _now time.Time) {
 }
 
-func (u *UserCache) InitFromDB(_ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *UserCache) InitFromDB(_ctx cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	u.dataVersion = srcTb.DataVersion
 	if srcTb.GetUserData().GetSessionSequence() > u.sessionSequence {
 		u.sessionSequence = srcTb.GetUserData().GetSessionSequence()
@@ -314,7 +314,7 @@ func (u *UserCache) InitFromDB(_ctx *cd.RpcContext, srcTb *private_protocol_pbde
 	return cd.CreateRpcResultOk()
 }
 
-func (u *UserCache) DumpToDB(_ctx *cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *UserCache) DumpToDB(_ctx cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	if dstTb == nil {
 		return cd.RpcResult{
 			Error:        fmt.Errorf("dstTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()),
@@ -337,7 +337,7 @@ func (u *UserCache) DumpToDB(_ctx *cd.RpcContext, dstTb *private_protocol_pbdesc
 	return cd.CreateRpcResultOk()
 }
 
-func (u *UserCache) CreateInit(_ctx *cd.RpcContext, versionType uint32) {
+func (u *UserCache) CreateInit(_ctx cd.RpcContext, versionType uint32) {
 	if u == nil {
 		return
 	}
@@ -345,7 +345,7 @@ func (u *UserCache) CreateInit(_ctx *cd.RpcContext, versionType uint32) {
 	u.MutableAccountInfo().VersionType = versionType
 }
 
-func (u *UserCache) LoginInit(ctx *cd.RpcContext) {
+func (u *UserCache) LoginInit(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
@@ -353,13 +353,13 @@ func (u *UserCache) LoginInit(ctx *cd.RpcContext) {
 	u.updateLoginData(ctx)
 }
 
-func (u *UserCache) OnLogin(__ctx *cd.RpcContext) {
+func (u *UserCache) OnLogin(__ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
 }
 
-func (u *UserCache) OnLogout(ctx *cd.RpcContext) {
+func (u *UserCache) OnLogout(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
@@ -370,7 +370,7 @@ func (u *UserCache) OnLogout(ctx *cd.RpcContext) {
 	loginInfo.BusinessLogoutTime = nowSec
 }
 
-func (u *UserCache) OnSaved(_ctx *cd.RpcContext, version uint64) {
+func (u *UserCache) OnSaved(_ctx cd.RpcContext, version uint64) {
 	if u == nil {
 		return
 	}
@@ -380,7 +380,7 @@ func (u *UserCache) OnSaved(_ctx *cd.RpcContext, version uint64) {
 	u.user_options_.ClearDirty(version)
 }
 
-func (u *UserCache) OnUpdateSession(_ctx *cd.RpcContext, from *Session, to *Session) {
+func (u *UserCache) OnUpdateSession(_ctx cd.RpcContext, from *Session, to *Session) {
 }
 
 func (u *UserCache) GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin {
@@ -538,7 +538,7 @@ func (u *UserCache) SetUserCASVersion(version uint64) {
 	u.userCASVersion = version
 }
 
-func (u *UserCache) updateLoginData(ctx *cd.RpcContext) {
+func (u *UserCache) updateLoginData(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}

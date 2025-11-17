@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	data.RegisterUserModuleManagerCreator[logic_user.UserBasicManager](func(_ctx *cd.RpcContext,
+	data.RegisterUserModuleManagerCreator[logic_user.UserBasicManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
 		return CreateUserBasicManager(owner)
@@ -45,15 +45,15 @@ func CreateUserBasicManager(owner *data.User) *UserBasicManager {
 	return ret
 }
 
-func (m *UserBasicManager) InitFromDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserBasicManager) InitFromDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserBasicManager) DumpToDB(_ctx *cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserBasicManager) DumpToDB(_ctx cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserBasicManager) RefreshLimitSecond(_ctx *cd.RpcContext) {
+func (m *UserBasicManager) RefreshLimitSecond(_ctx cd.RpcContext) {
 }
 
 func (m *UserBasicManager) DumpUserInfo(to *public_protocol_pbdesc.DUserInfo) {
@@ -69,7 +69,7 @@ func (m *UserBasicManager) DumpUserInfo(to *public_protocol_pbdesc.DUserInfo) {
 
 func (m *UserBasicManager) insertDirtyHandle() {
 	m.GetOwner().InsertDirtyHandleIfNotExists(m,
-		func(ctx *cd.RpcContext, dirty *data.UserDirtyData) bool {
+		func(ctx cd.RpcContext, dirty *data.UserDirtyData) bool {
 			ret := false
 			dirtyData := dirty.MutableNormalDirtyChangeMessage()
 			if m.dirtyExp {
@@ -89,14 +89,14 @@ func (m *UserBasicManager) insertDirtyHandle() {
 
 			return ret
 		},
-		func(_ctx *cd.RpcContext) {
+		func(_ctx cd.RpcContext) {
 			m.dirtyExp = false
 			m.dirtyUserInfo = false
 		},
 	)
 }
 
-func (m *UserBasicManager) CheckAddUserExp(_ctx *cd.RpcContext, v int64) data.Result {
+func (m *UserBasicManager) CheckAddUserExp(_ctx cd.RpcContext, v int64) data.Result {
 	if v < 0 {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -104,7 +104,7 @@ func (m *UserBasicManager) CheckAddUserExp(_ctx *cd.RpcContext, v int64) data.Re
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserBasicManager) CheckSubUserExp(ctx *cd.RpcContext, v int64) data.Result {
+func (m *UserBasicManager) CheckSubUserExp(ctx cd.RpcContext, v int64) data.Result {
 	if v < 0 {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -116,7 +116,7 @@ func (m *UserBasicManager) CheckSubUserExp(ctx *cd.RpcContext, v int64) data.Res
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserBasicManager) addLevelUpReward(ctx *cd.RpcContext, cfg *public_protocol_config.ExcelUserLevel) {
+func (m *UserBasicManager) addLevelUpReward(ctx cd.RpcContext, cfg *public_protocol_config.ExcelUserLevel) {
 	if cfg == nil {
 		return
 	}
@@ -168,7 +168,7 @@ func (m *UserBasicManager) addLevelUpReward(ctx *cd.RpcContext, cfg *public_prot
 	}
 }
 
-func (m *UserBasicManager) AddUserExp(ctx *cd.RpcContext, v int64) data.Result {
+func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 	if v < 0 {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -229,7 +229,7 @@ func (m *UserBasicManager) AddUserExp(ctx *cd.RpcContext, v int64) data.Result {
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserBasicManager) SubUserExp(_ctx *cd.RpcContext, v int64) data.Result {
+func (m *UserBasicManager) SubUserExp(_ctx cd.RpcContext, v int64) data.Result {
 	if v < 0 {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -279,7 +279,7 @@ func registerCondition() {
 	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_UserLevel{}), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
 }
 
-func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	loginChannel := uint64(m.GetOwner().GetLoginInfo().GetAccount().GetChannelId())
@@ -298,7 +298,7 @@ func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx *cd.R
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_INVALID_PLATFORM)
 }
 
-func checkRuleUserSystemPlatform(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+func checkRuleUserSystemPlatform(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	loginChannel := uint64(m.GetOwner().GetClientInfo().GetSystemId())
@@ -317,7 +317,7 @@ func checkRuleUserSystemPlatform(m logic_condition.UserConditionManager, ctx *cd
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_INVALID_CHANNEL)
 }
 
-func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule.GetUserLevel().GetLeft() <= 1 {
@@ -338,7 +338,7 @@ func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx *cd.Rp
 	return cd.CreateRpcResultOk()
 }
 
-func checkRuleUserLevelDynamic(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+func checkRuleUserLevelDynamic(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule.GetUserLevel().GetRight() <= 0 {

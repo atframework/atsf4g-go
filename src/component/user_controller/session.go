@@ -17,7 +17,7 @@ type SessionNetworkHandleImpl interface {
 
 	SendMessage(*public_protocol_extension.CSMsg) error
 	SetAuthorized(bool)
-	Close(ctx *cd.RpcContext, reason int32, reasonMessage string)
+	Close(ctx cd.RpcContext, reason int32, reasonMessage string)
 	GetRemoteAddr() string
 }
 
@@ -71,7 +71,7 @@ func (s *Session) GetKey() *SessionKey {
 	return &s.key
 }
 
-func (s *Session) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) {
+func (s *Session) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
 	if !s.networkClosed {
 		s.networkClosed = true
 		s.networkHandle.Close(ctx, reason, reasonMessage)
@@ -112,7 +112,7 @@ func (s *Session) GetUser() cd.TaskActionCSUser {
 	return s.user
 }
 
-func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
+func (s *Session) BindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	if s.user == bindUser {
 		return
 	}
@@ -146,7 +146,7 @@ func (s *Session) BindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	}
 }
 
-func (s *Session) UnbindUser(ctx *cd.RpcContext, bindUser cd.TaskActionCSUser) {
+func (s *Session) UnbindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	if !lu.IsNil(bindUser) && s.user != bindUser {
 		return
 	}

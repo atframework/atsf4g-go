@@ -13,30 +13,30 @@ type UserModuleManagerImpl interface {
 	GetOwner() *User
 
 	// 每次执行任务前刷新
-	RefreshLimit(*cd.RpcContext)
+	RefreshLimit(cd.RpcContext)
 	// 每秒刷新
-	RefreshLimitSecond(*cd.RpcContext)
+	RefreshLimitSecond(cd.RpcContext)
 	// 每分钟刷新
-	RefreshLimitMinute(*cd.RpcContext)
+	RefreshLimitMinute(cd.RpcContext)
 
-	InitFromDB(*cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
-	DumpToDB(*cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	InitFromDB(cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
+	DumpToDB(cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 
-	CreateInit(ctx *cd.RpcContext, versionType uint32)
-	LoginInit(*cd.RpcContext)
+	CreateInit(ctx cd.RpcContext, versionType uint32)
+	LoginInit(cd.RpcContext)
 
-	OnLogin(*cd.RpcContext)
-	OnLogout(*cd.RpcContext)
-	OnSaved(*cd.RpcContext, uint64)
-	OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Session)
+	OnLogin(cd.RpcContext)
+	OnLogout(cd.RpcContext)
+	OnSaved(cd.RpcContext, uint64)
+	OnUpdateSession(ctx cd.RpcContext, from *uc.Session, to *uc.Session)
 }
 
 var userModuleManagerCreators = make(map[reflect.Type]struct {
 	typeInst reflect.Type
-	fn       func(*cd.RpcContext, *User) UserModuleManagerImpl
+	fn       func(cd.RpcContext, *User) UserModuleManagerImpl
 })
 
-func RegisterUserModuleManagerCreator[ManagerType UserModuleManagerImpl](creator func(*cd.RpcContext, *User) UserModuleManagerImpl) {
+func RegisterUserModuleManagerCreator[ManagerType UserModuleManagerImpl](creator func(cd.RpcContext, *User) UserModuleManagerImpl) {
 	if creator == nil {
 		panic("nil user module manager creator")
 	}
@@ -48,7 +48,7 @@ func RegisterUserModuleManagerCreator[ManagerType UserModuleManagerImpl](creator
 
 	userModuleManagerCreators[typeInst] = struct {
 		typeInst reflect.Type
-		fn       func(*cd.RpcContext, *User) UserModuleManagerImpl
+		fn       func(cd.RpcContext, *User) UserModuleManagerImpl
 	}{
 		typeInst: typeInst,
 		fn:       creator,
@@ -70,45 +70,45 @@ func (m *UserModuleManagerBase) GetOwner() *User {
 	return m.owner
 }
 
-func (m *UserModuleManagerBase) RefreshLimit(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) RefreshLimit(_ctx cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) RefreshLimitSecond(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) RefreshLimitSecond(_ctx cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) RefreshLimitMinute(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) RefreshLimitMinute(_ctx cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) InitFromDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserModuleManagerBase) InitFromDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	return cd.RpcResult{
 		Error:        nil,
 		ResponseCode: 0,
 	}
 }
 
-func (m *UserModuleManagerBase) DumpToDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserModuleManagerBase) DumpToDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	return cd.RpcResult{
 		Error:        nil,
 		ResponseCode: 0,
 	}
 }
 
-func (m *UserModuleManagerBase) CreateInit(_ctx *cd.RpcContext, _versionType uint32) {
+func (m *UserModuleManagerBase) CreateInit(_ctx cd.RpcContext, _versionType uint32) {
 }
 
-func (m *UserModuleManagerBase) LoginInit(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) LoginInit(_ctx cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) OnLogin(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) OnLogin(_ctx cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) OnLogout(_ctx *cd.RpcContext) {
+func (m *UserModuleManagerBase) OnLogout(_ctx cd.RpcContext) {
 }
 
-func (m *UserModuleManagerBase) OnSaved(_ctx *cd.RpcContext, _version uint64) {
+func (m *UserModuleManagerBase) OnSaved(_ctx cd.RpcContext, _version uint64) {
 }
 
-func (m *UserModuleManagerBase) OnUpdateSession(_ctx *cd.RpcContext, _from *uc.Session, _to *uc.Session) {
+func (m *UserModuleManagerBase) OnUpdateSession(_ctx cd.RpcContext, _from *uc.Session, _to *uc.Session) {
 }
 
 func (m *UserModuleManagerBase) SyncClientDirtyCache() {

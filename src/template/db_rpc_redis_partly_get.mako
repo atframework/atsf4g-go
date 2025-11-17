@@ -6,7 +6,7 @@
     cas_enabled = index_meta["cas_enabled"]
 %>
 func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_field_name}(
-	ctx *cd.RpcContext,
+	ctx cd.RpcContext,
 % for field in key_fields:
 	${field["ident"]} ${field["go_type"]},
 % endfor
@@ -30,7 +30,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 		retResult = cd.CreateRpcResultError(fmt.Errorf("action not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().Context) {
+	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().GetContext()) {
 		ctx.LogError("not found context")
 		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
@@ -57,7 +57,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 % endfor
 			}
 			ctx.GetApp().GetLogger(2).Debug("HMGet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index)
-			result, redisError := instance.HMGet(ctx.Context, index, redisField...).Result()
+			result, redisError := instance.HMGet(ctx.GetContext(), index, redisField...).Result()
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
 					Type: awaitOption.Type,

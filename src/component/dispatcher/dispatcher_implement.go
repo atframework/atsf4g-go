@@ -37,7 +37,7 @@ type DispatcherImpl interface {
 	GetNow() time.Time
 	GetLogger() *slog.Logger
 
-	OnSendMessageFailed(rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
+	OnSendMessageFailed(rpcContext RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
 	OnCreateTaskFailed(startData *DispatcherStartData, err error)
 
 	OnReceiveMessage(parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error
@@ -54,7 +54,7 @@ type DispatcherImpl interface {
 	PushFrontMessageFilter(handle MessageFilterHandler)
 	PushBackMessageFilter(handle MessageFilterHandler)
 
-	CreateRpcContext() *RpcContext
+	CreateRpcContext() RpcContext
 }
 
 type taskActionCreatorData struct {
@@ -136,7 +136,7 @@ func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {
 	return app.GetDefaultLogger()
 }
 
-func (dispatcher *DispatcherBase) OnSendMessageFailed(rpcContext *RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
+func (dispatcher *DispatcherBase) OnSendMessageFailed(rpcContext RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
 	dispatcher.impl.GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
 }
 
@@ -172,7 +172,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 
 	rpcContext := dispatcher.CreateRpcContext()
 	if parentContext != nil {
-		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(parentContext)
+		rpcContext.SetContextCancelFn(context.WithCancel(parentContext))
 	}
 
 	startData := &DispatcherStartData{
@@ -186,21 +186,21 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 		dispatcher.GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg))
 		dispatcher.OnCreateTaskFailed(startData, err)
 
-		if rpcContext.CancelFn != nil {
-			cancelFn := rpcContext.CancelFn
-			rpcContext.CancelFn = nil
+		if rpcContext.GetCancelFn() != nil {
+			cancelFn := rpcContext.GetCancelFn()
+			rpcContext.SetCancelFn(nil)
 			cancelFn()
 		}
 		return err
 	}
-	rpcContext.taskAction = action
+	rpcContext.SetTaskAction(action)
 
 	err = RunTaskAction(dispatcher.impl.GetApp(), action, startData)
 	if err != nil {
 		dispatcher.GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
-		if rpcContext.CancelFn != nil {
-			cancelFn := rpcContext.CancelFn
-			rpcContext.CancelFn = nil
+		if rpcContext.GetCancelFn() != nil {
+			cancelFn := rpcContext.GetCancelFn()
+			rpcContext.SetCancelFn(nil)
 			cancelFn()
 		}
 		return err
@@ -276,8 +276,8 @@ func (dispatcher *DispatcherBase) PushBackMessageFilter(handle MessageFilterHand
 	dispatcher.messageFilters = append(dispatcher.messageFilters, handle)
 }
 
-func (dispatcher *DispatcherBase) CreateRpcContext() *RpcContext {
-	return &RpcContext{
+func (dispatcher *DispatcherBase) CreateRpcContext() RpcContext {
+	return &RpcContextImpl{
 		app:        dispatcher.GetApp(),
 		dispatcher: dispatcher.impl,
 	}
@@ -361,7 +361,7 @@ func (der *RpcResult) GetErrorString() string {
 	return der.GetResponseMessage()
 }
 
-func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, ctx RpcContext, msg string, args ...any) {
 	if der.IsOK() {
 		if ctx != nil {
 			ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
@@ -385,44 +385,44 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 	}
 }
 
-func (der *RpcResult) LogWithLevelWithCaller(pc uintptr, level slog.Level, ctx *RpcContext, msg string, args ...any) {
-	if ctx == nil || ctx.Context == nil {
+func (der *RpcResult) LogWithLevelWithCaller(pc uintptr, level slog.Level, ctx RpcContext, msg string, args ...any) {
+	if lu.IsNil(ctx) || ctx.GetContext() == nil {
 		der.LogWithLevelContextWithCaller(pc, context.Background(), level, ctx, msg, args...)
 		return
 	}
-	der.LogWithLevelContextWithCaller(pc, ctx.Context, level, ctx, msg, args...)
+	der.LogWithLevelContextWithCaller(pc, ctx.GetContext(), level, ctx, msg, args...)
 }
 
 // ====================== 业务日志接口 =========================
 
-func (der *RpcResult) LogErrorContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogErrorContext(c context.Context, ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelError, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogError(ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogError(ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelError, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogWarnContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogWarnContext(c context.Context, ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelWarn, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogWarn(ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogWarn(ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelWarn, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogInfoContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogInfoContext(c context.Context, ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelInfo, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogInfo(ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogInfo(ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelInfo, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogDebugContext(c context.Context, ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogDebugContext(c context.Context, ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelContextWithCaller(libatapp.GetCaller(1), c, slog.LevelDebug, ctx, msg, args...)
 }
 
-func (der *RpcResult) LogDebug(ctx *RpcContext, msg string, args ...any) {
+func (der *RpcResult) LogDebug(ctx RpcContext, msg string, args ...any) {
 	der.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelDebug, ctx, msg, args...)
 }

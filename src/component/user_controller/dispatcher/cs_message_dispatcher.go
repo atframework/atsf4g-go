@@ -53,7 +53,7 @@ func (h *SessionNetworkWebsocketHandle) SetAuthorized(authorized bool) {
 	h.networkSession.Authorized = authorized
 }
 
-func (h *SessionNetworkWebsocketHandle) Close(ctx *cd.RpcContext, reason int32, reasonMessage string) {
+func (h *SessionNetworkWebsocketHandle) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
 	if h == nil {
 		ctx.LogError("SessionNetworkWebsocketHandle is nil")
 		return
@@ -90,7 +90,7 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl, webServerConfigu
 		return nil
 	}
 
-	d.SetOnNewSession(func(ctx *cd.RpcContext, session *cd.WebSocketSession) error {
+	d.SetOnNewSession(func(ctx cd.RpcContext, session *cd.WebSocketSession) error {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
 		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
 		session.PrivateData = uc.GlobalSessionManager.CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
@@ -101,7 +101,7 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl, webServerConfigu
 		return nil
 	})
 
-	d.SetOnRemoveSession(func(ctx *cd.RpcContext, session *cd.WebSocketSession) {
+	d.SetOnRemoveSession(func(ctx cd.RpcContext, session *cd.WebSocketSession) {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
 		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
 

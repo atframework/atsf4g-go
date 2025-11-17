@@ -21,7 +21,7 @@ import (
 
 func init() {
 	var _ logic_inventory.UserInventoryManager = (*UserInventoryManager)(nil)
-	data.RegisterUserModuleManagerCreator[logic_inventory.UserInventoryManager](func(_ctx *cd.RpcContext,
+	data.RegisterUserModuleManagerCreator[logic_inventory.UserInventoryManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
 		return CreateUserInventoryManager(owner)
@@ -40,7 +40,7 @@ func init() {
 		data.MakeUserItemTypeIdRange(
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_BEGIN),
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_END)),
-	}, func(ctx *cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
+	}, func(ctx cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[logic_inventory.UserInventoryManager](owner)
 		if mgr == nil {
 			ctx.LogError("can not find user inventory manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
@@ -211,7 +211,7 @@ func (m *UserInventoryManager) GetOwner() *data.User {
 	return m.UserItemManagerBase.GetOwner()
 }
 
-func (m *UserInventoryManager) InitFromDB(_ctx *cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserInventoryManager) InitFromDB(_ctx cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	invalidIds := make(map[int32]map[int64]struct{})
 
 	for typeId, group := range m.itemGroups {
@@ -285,7 +285,7 @@ func (m *UserInventoryManager) InitFromDB(_ctx *cd.RpcContext, dbUser *private_p
 	}
 }
 
-func (m *UserInventoryManager) DumpToDB(_ctx *cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserInventoryManager) DumpToDB(_ctx cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	itemDbData := dbUser.MutableInventoryData().MutableItem()
 
 	for _, group := range m.itemGroups {
@@ -302,7 +302,7 @@ func (m *UserInventoryManager) DumpToDB(_ctx *cd.RpcContext, dbUser *private_pro
 	}
 }
 
-func (m *UserInventoryManager) RefreshLimitSecond(ctx *cd.RpcContext) {
+func (m *UserInventoryManager) RefreshLimitSecond(ctx cd.RpcContext) {
 	m.virtualItemManager.RefreshLimitSecond(ctx)
 
 	// TODO: 限时道具移除
@@ -320,7 +320,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 	m.dirtyItems[typeId][guid] = struct{}{}
 
 	m.GetOwner().InsertDirtyHandleIfNotExists(m,
-		func(ctx *cd.RpcContext, dirty *data.UserDirtyData) bool {
+		func(ctx cd.RpcContext, dirty *data.UserDirtyData) bool {
 			ret := false
 			dirtyData := dirty.MutableNormalDirtyChangeMessage()
 			for typeId, guidSet := range m.dirtyItems {
@@ -352,13 +352,13 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 			}
 			return ret
 		},
-		func(_ctx *cd.RpcContext) {
+		func(_ctx cd.RpcContext) {
 			clear(m.dirtyItems)
 		},
 	)
 }
 
-func (m *UserInventoryManager) AddItem(ctx *cd.RpcContext, itemOffset []data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
+func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
 	for i := 0; i < len(itemOffset); i++ {
 		add := &itemOffset[i]
 
@@ -406,7 +406,7 @@ func (m *UserInventoryManager) AddItem(ctx *cd.RpcContext, itemOffset []data.Ite
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserInventoryManager) SubItem(ctx *cd.RpcContext, itemOffset []data.ItemSubGuard, reason *data.ItemFlowReason) data.Result {
+func (m *UserInventoryManager) SubItem(ctx cd.RpcContext, itemOffset []data.ItemSubGuard, reason *data.ItemFlowReason) data.Result {
 	for i := 0; i < len(itemOffset); i++ {
 		sub := &itemOffset[i]
 
@@ -448,7 +448,7 @@ func (m *UserInventoryManager) SubItem(ctx *cd.RpcContext, itemOffset []data.Ite
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserInventoryManager) GenerateItemInstanceFromOffset(_ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserInventoryManager) GenerateItemInstanceFromOffset(_ctx cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 	}
@@ -470,7 +470,7 @@ func (m *UserInventoryManager) GenerateItemInstanceFromOffset(_ctx *cd.RpcContex
 	}, cd.CreateRpcResultOk()
 }
 
-func (m *UserInventoryManager) GenerateItemInstanceFromBasic(_ctx *cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserInventoryManager) GenerateItemInstanceFromBasic(_ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
 	if itemBasic == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemBasic is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 	}
@@ -492,7 +492,7 @@ func (m *UserInventoryManager) GenerateItemInstanceFromBasic(_ctx *cd.RpcContext
 	}, cd.CreateRpcResultOk()
 }
 
-func (m *UserInventoryManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]data.ItemAddGuard, data.Result) {
+func (m *UserInventoryManager) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]data.ItemAddGuard, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 	}
@@ -514,7 +514,7 @@ func (m *UserInventoryManager) CheckAddItem(ctx *cd.RpcContext, itemOffset []*pu
 	return m.CreateItemAddGuard(itemOffset)
 }
 
-func (m *UserInventoryManager) CheckSubItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]data.ItemSubGuard, data.Result) {
+func (m *UserInventoryManager) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]data.ItemSubGuard, data.Result) {
 	// 虚拟道具分发
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
@@ -645,7 +645,7 @@ func registerCondition() {
 	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_HasItem{}), nil, checkRuleHasItem)
 }
 
-func checkRuleHasItem(m logic_condition.UserConditionManager, ctx *cd.RpcContext,
+func checkRuleHasItem(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if len(rule.GetHasItem().GetValues()) == 0 {

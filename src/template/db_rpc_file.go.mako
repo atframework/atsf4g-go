@@ -11,7 +11,7 @@ import time
     for key in index.key_fields:
         db_fmt_key = db_fmt_key + "." + message.fields_by_name[key].get_go_fmt_type() %>
 func ${message_name}LoadWith${index_key_name}(
-	ctx *cd.RpcContext,
+	ctx cd.RpcContext,
 %           for key in index.key_fields:
 	${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)} ${message.fields_by_name[key].get_go_type()},
 %           endfor
@@ -46,7 +46,7 @@ func ${message_name}LoadWith${index_key_name}(
 }
 
 func ${message_name}Update${index_key_name}(
-	ctx *cd.RpcContext,
+	ctx cd.RpcContext,
 	table *private_protocol_pbdesc.${message_name},
 ) cd.RpcResult {
 	index := fmt.Sprintf("%s${db_fmt_key}.db", "../data/",

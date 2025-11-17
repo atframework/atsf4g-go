@@ -72,24 +72,24 @@ func (m *UserVirtualItemManager) mutableVirtualItemStatistics(typeID int32) *dat
 	return ret
 }
 
-func (m *UserVirtualItemManager) RefreshLimitSecond(_ctx *cd.RpcContext) {
+func (m *UserVirtualItemManager) RefreshLimitSecond(_ctx cd.RpcContext) {
 }
 
-func (m *UserVirtualItemManager) InitFromDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser, _itemOffset *ppc.DItemInstance) (bool, cd.RpcResult) {
+func (m *UserVirtualItemManager) InitFromDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser, _itemOffset *ppc.DItemInstance) (bool, cd.RpcResult) {
 	return false, cd.RpcResult{
 		Error:        nil,
 		ResponseCode: 0,
 	}
 }
 
-func (m *UserVirtualItemManager) DumpToDB(_ctx *cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) (bool, cd.RpcResult) {
+func (m *UserVirtualItemManager) DumpToDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) (bool, cd.RpcResult) {
 	return false, cd.RpcResult{
 		Error:        nil,
 		ResponseCode: 0,
 	}
 }
 
-func (m *UserVirtualItemManager) AddItem(ctx *cd.RpcContext, itemOffset *data.ItemAddGuard, reason *data.ItemFlowReason) (bool, data.Result) {
+func (m *UserVirtualItemManager) AddItem(ctx cd.RpcContext, itemOffset *data.ItemAddGuard, reason *data.ItemFlowReason) (bool, data.Result) {
 	if itemOffset == nil || itemOffset.Item == nil {
 		return true, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -108,7 +108,7 @@ func (m *UserVirtualItemManager) AddItem(ctx *cd.RpcContext, itemOffset *data.It
 	return false, cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) SubItem(ctx *cd.RpcContext, itemOffset *data.ItemSubGuard, reason *data.ItemFlowReason) (bool, data.Result) {
+func (m *UserVirtualItemManager) SubItem(ctx cd.RpcContext, itemOffset *data.ItemSubGuard, reason *data.ItemFlowReason) (bool, data.Result) {
 	if itemOffset == nil || itemOffset.Item == nil {
 		return true, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -127,7 +127,7 @@ func (m *UserVirtualItemManager) SubItem(ctx *cd.RpcContext, itemOffset *data.It
 	return false, cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) CheckAddItem(ctx *cd.RpcContext, itemOffset *ppc.DItemInstance) data.Result {
+func (m *UserVirtualItemManager) CheckAddItem(ctx cd.RpcContext, itemOffset *ppc.DItemInstance) data.Result {
 	if itemOffset == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -157,7 +157,7 @@ func (m *UserVirtualItemManager) CheckAddItem(ctx *cd.RpcContext, itemOffset *pp
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) CheckSubItem(ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) data.Result {
+func (m *UserVirtualItemManager) CheckSubItem(ctx cd.RpcContext, itemOffset *ppc.DItemBasic) data.Result {
 	if itemOffset == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}

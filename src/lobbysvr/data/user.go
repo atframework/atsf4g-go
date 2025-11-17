@@ -43,8 +43,8 @@ func (d *UserDirtyData) MutableNormalDirtyChangeMessage() *lobbysvr_protocol_pbd
 }
 
 type userDirtyHandles struct {
-	dumpDirty  func(*cd.RpcContext, *UserDirtyData) bool
-	clearCache func(*cd.RpcContext)
+	dumpDirty  func(cd.RpcContext, *UserDirtyData) bool
+	clearCache func(cd.RpcContext)
 }
 
 type User struct {
@@ -72,7 +72,7 @@ func (u *User) IsWriteable() bool {
 	return u.isLoginInited
 }
 
-func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
+func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
 		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId),
 
@@ -134,7 +134,7 @@ func createUser(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string)
 }
 
 func init() {
-	uc.GlobalUserManager.SetCreateUserCallback(func(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) uc.UserImpl {
+	uc.GlobalUserManager.SetCreateUserCallback(func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) uc.UserImpl {
 		ret := createUser(ctx, zoneId, userId, openId)
 		return ret
 	})
@@ -162,7 +162,7 @@ func (u *User) GetLoginTaskId() uint64 {
 	return u.loginTaskId
 }
 
-func (u *User) RefreshLimit(ctx *cd.RpcContext, now time.Time) {
+func (u *User) RefreshLimit(ctx cd.RpcContext, now time.Time) {
 	// Base action
 	u.UserCache.RefreshLimit(ctx, now)
 
@@ -188,7 +188,7 @@ func (u *User) RefreshLimit(ctx *cd.RpcContext, now time.Time) {
 	}
 }
 
-func (u *User) InitFromDB(ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *User) InitFromDB(ctx cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	result := u.UserCache.InitFromDB(ctx, srcTb)
 	if result.IsError() {
 		return result
@@ -207,7 +207,7 @@ func (u *User) InitFromDB(ctx *cd.RpcContext, srcTb *private_protocol_pbdesc.Dat
 	}
 }
 
-func (u *User) DumpToDB(ctx *cd.RpcContext, dstDb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *User) DumpToDB(ctx cd.RpcContext, dstDb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	result := u.UserCache.DumpToDB(ctx, dstDb)
 	if result.IsError() {
 		return result
@@ -226,7 +226,7 @@ func (u *User) DumpToDB(ctx *cd.RpcContext, dstDb *private_protocol_pbdesc.Datab
 	}
 }
 
-func (u *User) createInitItemBatch(ctx *cd.RpcContext,
+func (u *User) createInitItemBatch(ctx cd.RpcContext,
 	itemInsts []*public_protocol_common.DItemInstance,
 ) cd.RpcResult {
 	addGuard, result := u.CheckAddItem(ctx, itemInsts)
@@ -241,7 +241,7 @@ func (u *User) createInitItemBatch(ctx *cd.RpcContext,
 	return cd.CreateRpcResultOk()
 }
 
-func (u *User) createInitItemOneByOne(ctx *cd.RpcContext,
+func (u *User) createInitItemOneByOne(ctx cd.RpcContext,
 	itemInsts []*public_protocol_common.DItemInstance,
 ) cd.RpcResult {
 	if len(itemInsts) == 0 {
@@ -265,7 +265,7 @@ func (u *User) createInitItemOneByOne(ctx *cd.RpcContext,
 	return cd.CreateRpcResultOk()
 }
 
-func (u *User) CreateInit(ctx *cd.RpcContext, versionType uint32) {
+func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 	u.UserCache.CreateInit(ctx, versionType)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -306,7 +306,7 @@ func (u *User) CreateInit(ctx *cd.RpcContext, versionType uint32) {
 	}
 }
 
-func (u *User) LoginInit(ctx *cd.RpcContext) {
+func (u *User) LoginInit(ctx cd.RpcContext) {
 	u.UserCache.LoginInit(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -316,7 +316,7 @@ func (u *User) LoginInit(ctx *cd.RpcContext) {
 	u.OnLogin(ctx)
 }
 
-func (u *User) OnLogin(ctx *cd.RpcContext) {
+func (u *User) OnLogin(ctx cd.RpcContext) {
 	u.isLoginInited = true
 
 	u.UserCache.OnLogin(ctx)
@@ -326,7 +326,7 @@ func (u *User) OnLogin(ctx *cd.RpcContext) {
 	}
 }
 
-func (u *User) OnLogout(ctx *cd.RpcContext) {
+func (u *User) OnLogout(ctx cd.RpcContext) {
 	u.UserCache.OnLogout(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -334,7 +334,7 @@ func (u *User) OnLogout(ctx *cd.RpcContext) {
 	}
 }
 
-func (u *User) OnSaved(ctx *cd.RpcContext, version uint64) {
+func (u *User) OnSaved(ctx cd.RpcContext, version uint64) {
 	u.UserCache.OnSaved(ctx, version)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -346,7 +346,7 @@ func (u *User) OnSaved(ctx *cd.RpcContext, version uint64) {
 	}
 }
 
-func (u *User) OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Session) {
+func (u *User) OnUpdateSession(ctx cd.RpcContext, from *uc.Session, to *uc.Session) {
 	u.UserCache.OnUpdateSession(ctx, from, to)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -355,8 +355,8 @@ func (u *User) OnUpdateSession(ctx *cd.RpcContext, from *uc.Session, to *uc.Sess
 }
 
 func (u *User) InsertDirtyHandleIfNotExists(key interface{},
-	dumpDataHandle func(*cd.RpcContext, *UserDirtyData) bool,
-	clearCacheHandle func(*cd.RpcContext),
+	dumpDataHandle func(cd.RpcContext, *UserDirtyData) bool,
+	clearCacheHandle func(cd.RpcContext),
 ) {
 	if lu.IsNil(key) {
 		return
@@ -384,7 +384,7 @@ func (u *User) InsertDirtyHandleIfNotExists(key interface{},
 	}
 }
 
-func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
+func (u *User) SyncClientDirtyCache(ctx cd.RpcContext) {
 	u.UserCache.SyncClientDirtyCache()
 
 	if len(u.dirtyHandles) == 0 {
@@ -418,7 +418,7 @@ func (u *User) SyncClientDirtyCache(ctx *cd.RpcContext) {
 	}
 }
 
-func (u *User) CleanupClientDirtyCache(ctx *cd.RpcContext) {
+func (u *User) CleanupClientDirtyCache(ctx cd.RpcContext) {
 	u.UserCache.CleanupClientDirtyCache()
 
 	// 清理脏数据推送handle
@@ -433,14 +433,14 @@ func (u *User) CleanupClientDirtyCache(ctx *cd.RpcContext) {
 	clear(u.dirtyHandles)
 }
 
-func (u *User) SendAllSyncData(ctx *cd.RpcContext) error {
+func (u *User) SendAllSyncData(ctx cd.RpcContext) error {
 	u.SyncClientDirtyCache(ctx)
 
 	u.CleanupClientDirtyCache(ctx)
 	return nil
 }
 
-func (u *User) UpdateHeartbeat(ctx *cd.RpcContext) {
+func (u *User) UpdateHeartbeat(ctx cd.RpcContext) {
 	// TODO: 加速器检查
 
 	// 续期LoginCode,
@@ -512,7 +512,7 @@ func (u *User) GetItemManager(typeId int32) UserItemManagerImpl {
 	return u.itemManagerList[index].manager
 }
 
-func (u *User) AddItem(ctx *cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result {
+func (u *User) AddItem(ctx cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
 		data []ItemAddGuard
 	})
@@ -548,7 +548,7 @@ func (u *User) AddItem(ctx *cd.RpcContext, itemOffset []ItemAddGuard, reason *It
 	return result
 }
 
-func (u *User) SubItem(ctx *cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result {
+func (u *User) SubItem(ctx cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
 		data []ItemSubGuard
 	})
@@ -584,7 +584,7 @@ func (u *User) SubItem(ctx *cd.RpcContext, itemOffset []ItemSubGuard, reason *It
 	return result
 }
 
-func (u *User) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, Result) {
+func (u *User) GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemOffset.GetTypeId()
 	mgr := u.GetItemManager(typeId)
 	if mgr == nil {
@@ -594,7 +594,7 @@ func (u *User) GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *pu
 	return mgr.GenerateItemInstanceFromOffset(ctx, itemOffset)
 }
 
-func (u *User) GenerateMultipleItemInstancesFromOffset(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemOffset) ([]*public_protocol_common.DItemInstance, Result) {
+func (u *User) GenerateMultipleItemInstancesFromOffset(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemOffset) ([]*public_protocol_common.DItemInstance, Result) {
 	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemOffset))
 	for _, offset := range itemOffset {
 		itemInst, result := u.GenerateItemInstanceFromOffset(ctx, offset)
@@ -607,7 +607,7 @@ func (u *User) GenerateMultipleItemInstancesFromOffset(ctx *cd.RpcContext, itemO
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
+func (u *User) GenerateItemInstanceFromBasic(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemBasic.GetTypeId()
 	mgr := u.GetItemManager(typeId)
 	if mgr == nil {
@@ -617,7 +617,7 @@ func (u *User) GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemBasic *publ
 	return mgr.GenerateItemInstanceFromBasic(ctx, itemBasic)
 }
 
-func (u *User) GenerateMultipleItemInstancesFromBasic(ctx *cd.RpcContext, itemBasic []*public_protocol_common.DItemBasic) ([]*public_protocol_common.DItemInstance, Result) {
+func (u *User) GenerateMultipleItemInstancesFromBasic(ctx cd.RpcContext, itemBasic []*public_protocol_common.DItemBasic) ([]*public_protocol_common.DItemInstance, Result) {
 	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemBasic))
 	for _, basic := range itemBasic {
 		itemInst, result := u.GenerateItemInstanceFromBasic(ctx, basic)
@@ -630,7 +630,7 @@ func (u *User) GenerateMultipleItemInstancesFromBasic(ctx *cd.RpcContext, itemBa
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) unpackMergeItemOffset(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, Result) {
+func (u *User) unpackMergeItemOffset(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]*public_protocol_common.DItemInstance, Result) {
 	if len(itemOffset) == 0 {
 		return nil, cd.CreateRpcResultOk()
 	}
@@ -677,7 +677,7 @@ func (u *User) unpackMergeItemOffset(ctx *cd.RpcContext, itemOffset []*public_pr
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]ItemAddGuard, Result) {
+func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]ItemAddGuard, Result) {
 	unpaclMergeItemOffset, result := u.unpackMergeItemOffset(ctx, itemOffset)
 	if result.IsError() {
 		return nil, result
@@ -717,7 +717,7 @@ func (u *User) CheckAddItem(ctx *cd.RpcContext, itemOffset []*public_protocol_co
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) CheckSubItem(ctx *cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]ItemSubGuard, Result) {
+func (u *User) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]ItemSubGuard, Result) {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
 		data []*public_protocol_common.DItemBasic
 	})
@@ -794,7 +794,7 @@ func (u *User) CheckTypeIdValid(typeId int32) bool {
 }
 
 // 检查期望消耗是否满足配置要求
-func (u *User) CheckCostItem(ctx *cd.RpcContext,
+func (u *User) CheckCostItem(ctx cd.RpcContext,
 	realCost []*public_protocol_common.DItemBasic,
 	expectCost []*public_protocol_common.DItemOffset,
 ) Result {

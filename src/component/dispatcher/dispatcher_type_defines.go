@@ -19,7 +19,7 @@ type DispatcherResumeData struct {
 	Result      RpcResult
 	PrivateData interface{}
 
-	MessageRpcContext *RpcContext
+	MessageRpcContext RpcContext
 }
 
 type DispatcherStartData struct {
@@ -27,7 +27,7 @@ type DispatcherStartData struct {
 	PrivateData interface{}
 
 	// TODO: options
-	MessageRpcContext *RpcContext
+	MessageRpcContext RpcContext
 }
 
 type RpcResult struct {

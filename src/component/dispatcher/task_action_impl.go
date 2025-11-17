@@ -56,7 +56,7 @@ type TaskActionImpl interface {
 	// TODO: 链路跟踪逻辑
 	GetTraceInheritOption(TaskActionImpl) *TraceInheritOption
 	GetTraceStartOption(TaskActionImpl) *TraceStartOption
-	GetRpcContext() *RpcContext
+	GetRpcContext() RpcContext
 
 	// 回包控制
 	DisableResponse()
@@ -171,9 +171,9 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 				actor.releaseCurrentRunningAction(app, action, false)
 			}
 
-			if startData != nil && startData.MessageRpcContext.CancelFn != nil {
-				cancelFn := startData.MessageRpcContext.CancelFn
-				startData.MessageRpcContext.CancelFn = nil
+			if startData != nil && startData.MessageRpcContext.GetCancelFn() != nil {
+				cancelFn := startData.MessageRpcContext.GetCancelFn()
+				startData.MessageRpcContext.SetCancelFn(nil)
 				cancelFn()
 			}
 

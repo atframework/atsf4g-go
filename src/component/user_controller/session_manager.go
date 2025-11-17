@@ -42,7 +42,7 @@ func (sm *SessionManager) GetSession(key *SessionKey) *Session {
 	return nil
 }
 
-func (sm *SessionManager) CreateSession(ctx *cd.RpcContext, key SessionKey, handle SessionNetworkHandleImpl) *Session {
+func (sm *SessionManager) CreateSession(ctx cd.RpcContext, key SessionKey, handle SessionNetworkHandleImpl) *Session {
 	if handle == nil {
 		return nil
 	}
@@ -81,7 +81,7 @@ func (sm *SessionManager) CreateSession(ctx *cd.RpcContext, key SessionKey, hand
 	return session
 }
 
-func (sm *SessionManager) RemoveSession(ctx *cd.RpcContext, key *SessionKey, reason int32, reasonMessage string) {
+func (sm *SessionManager) RemoveSession(ctx cd.RpcContext, key *SessionKey, reason int32, reasonMessage string) {
 	if key == nil {
 		return
 	}

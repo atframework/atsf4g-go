@@ -39,7 +39,7 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 	return nil
 }
 
-func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx *cd.RpcContext, sessionKey *uc.SessionKey) {
+func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, sessionKey *uc.SessionKey) {
 	session := uc.GlobalSessionManager.GetSession(sessionKey)
 
 	userCSImpl := session.GetUser()
@@ -69,8 +69,8 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx *cd.RpcContext, s
 	}
 
 	rpcContext := rd.CreateRpcContext()
-	if ctx != nil && ctx.Context != nil {
-		rpcContext.Context, rpcContext.CancelFn = context.WithCancel(ctx.Context)
+	if ctx != nil && ctx.GetContext() != nil {
+		rpcContext.SetContextCancelFn(context.WithCancel(ctx.GetContext()))
 	}
 	rpcContext.BindAction(logoutTask)
 

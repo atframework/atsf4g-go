@@ -47,17 +47,17 @@ type UserItemManagerImpl interface {
 
 	BindDescriptor(descriptor *UserItemManagerDescriptor)
 
-	AddItem(ctx *cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result
-	SubItem(ctx *cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result
+	AddItem(ctx cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result
+	SubItem(ctx cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result
 
-	GenerateItemInstanceFromOffset(ctx *cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, Result)
-	GenerateItemInstanceFromBasic(ctx *cd.RpcContext, itemOffset *ppc.DItemBasic) (*ppc.DItemInstance, Result)
+	GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, Result)
+	GenerateItemInstanceFromBasic(ctx cd.RpcContext, itemOffset *ppc.DItemBasic) (*ppc.DItemInstance, Result)
 
 	// 含默认实现 需要转换Item时实现
-	UnpackItem(ctx *cd.RpcContext, itemOffset *ppc.DItemInstance) ([]*ppc.DItemInstance, Result)
+	UnpackItem(ctx cd.RpcContext, itemOffset *ppc.DItemInstance) ([]*ppc.DItemInstance, Result)
 
-	CheckAddItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result)
-	CheckSubItem(ctx *cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result)
+	CheckAddItem(ctx cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]ItemAddGuard, Result)
+	CheckSubItem(ctx cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]ItemSubGuard, Result)
 
 	GetTypeStatistics(typeId int32) *ItemTypeStatistics
 	GetItemFromBasic(itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, Result)
@@ -84,12 +84,12 @@ func MakeUserItemTypeIdRange(beginTypeId int32, endTypeId int32) UserItemTypeIdR
 
 type userItemManagerCreator struct {
 	descriptor *UserItemManagerDescriptor
-	fn         func(*cd.RpcContext, *User) UserItemManagerImpl
+	fn         func(cd.RpcContext, *User) UserItemManagerImpl
 }
 
 var userItemManagerCreators = make([]userItemManagerCreator, 0)
 
-func RegisterUserItemManagerCreator(typeIdRanges []UserItemTypeIdRange, creator func(*cd.RpcContext, *User) UserItemManagerImpl) {
+func RegisterUserItemManagerCreator(typeIdRanges []UserItemTypeIdRange, creator func(cd.RpcContext, *User) UserItemManagerImpl) {
 	if creator == nil {
 		panic("nil user item manager creator")
 	}
@@ -295,6 +295,6 @@ func (umb *UserItemManagerBase) CreateItemSubGuard(itemOffset []*ppc.DItemBasic)
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (umb *UserItemManagerBase) UnpackItem(ctx *cd.RpcContext, itemOffset *ppc.DItemInstance) ([]*ppc.DItemInstance, Result) {
+func (umb *UserItemManagerBase) UnpackItem(ctx cd.RpcContext, itemOffset *ppc.DItemInstance) ([]*ppc.DItemInstance, Result) {
 	return []*ppc.DItemInstance{itemOffset}, cd.CreateRpcResultOk()
 }

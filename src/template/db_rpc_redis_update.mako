@@ -6,7 +6,7 @@
     cas_enabled = index_meta["cas_enabled"]
 %>
 func ${message_name}Update${index_meta["index_key_name"]}(
-	ctx *cd.RpcContext,
+	ctx cd.RpcContext,
     table *private_protocol_pbdesc.${message_name},
 % if cas_enabled:
 	currentCASVersion *uint64,
@@ -27,7 +27,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		retResult = cd.CreateRpcResultError(fmt.Errorf("action not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().Context) {
+	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().GetContext()) {
 		ctx.LogError("not found context")
 		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
@@ -44,10 +44,10 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
 % if cas_enabled:
 			ctx.GetApp().GetLogger(2).Debug("EvalSha HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "currentCASVersion", OldCASVersion, "data", table)
-			cmdResult, redisError := instance.EvalSha(ctx.Context, dispatcher.GetCASLuaSHA(), []string{index}, redisData).Result()
+			cmdResult, redisError := instance.EvalSha(ctx.GetContext(), dispatcher.GetCASLuaSHA(), []string{index}, redisData).Result()
 % else:
 			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "data", table)
-			redisError := instance.HSet(ctx.Context, index, redisData).Err()
+			redisError := instance.HSet(ctx.GetContext(), index, redisData).Err()
 % endif
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{

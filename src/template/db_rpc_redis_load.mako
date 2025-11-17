@@ -7,7 +7,7 @@
     cas_enabled = index_meta["cas_enabled"]
 %>
 func ${message_name}LoadWith${index_key_name}(
-	ctx *cd.RpcContext,
+	ctx cd.RpcContext,
 % for field in key_fields:
     ${field["ident"]} ${field["go_type"]},
 % endfor
@@ -31,7 +31,7 @@ func ${message_name}LoadWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(fmt.Errorf("action not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().Context) {
+	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().GetContext()) {
 		ctx.LogError("not found context")
 		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
@@ -47,7 +47,7 @@ func ${message_name}LoadWith${index_key_name}(
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
 			ctx.GetApp().GetLogger(2).Debug("HGetAll ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index)
-			result, redisError := instance.HGetAll(ctx.Context, index).Result()
+			result, redisError := instance.HGetAll(ctx.GetContext(), index).Result()
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
 					Type: awaitOption.Type,

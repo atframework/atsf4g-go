@@ -296,7 +296,7 @@ func GetCaller(skip int) uintptr {
 }
 
 func LogInner(logger *slog.Logger, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
-	if ctx == nil {
+	if lu.IsNil(ctx) {
 		ctx = context.Background()
 	}
 	if !logger.Enabled(ctx, level) {

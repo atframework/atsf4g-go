@@ -15,7 +15,7 @@ type TaskActionBase struct {
 
 	responseCode   int32
 	prepareHookRun bool
-	rpcContext     *RpcContext
+	rpcContext     RpcContext
 	startTime      time.Time
 
 	actorExecutor *ActorExecutor
@@ -158,7 +158,7 @@ func (t *TaskActionBase) GetTraceStartOption(_action TaskActionImpl) *TraceStart
 	return &TraceStartOption{}
 }
 
-func (t *TaskActionBase) GetRpcContext() *RpcContext {
+func (t *TaskActionBase) GetRpcContext() RpcContext {
 	return t.rpcContext
 }
 
