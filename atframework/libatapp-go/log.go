@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
 
 type logBuffer []byte
@@ -36,7 +38,7 @@ func (b *logBuffer) Free() {
 }
 
 func (b *logBuffer) String() string {
-	return string(*b)
+	return lu.BytestoString(*b)
 }
 
 func (b *logBuffer) Write(p []byte) (int, error) {

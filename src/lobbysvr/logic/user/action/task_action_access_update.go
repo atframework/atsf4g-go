@@ -6,11 +6,12 @@ import (
 	"fmt"
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	db "github.com/atframework/atsf4g-go/component-db"
 )
 
 type TaskActionAccessUpdate struct {
@@ -36,7 +37,11 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 		return nil
 	}
 
-	accessSecret, _ := uc.UserGetAuthDataFromFile(t.GetRpcContext(), user.GetZoneId(), user.GetUserId())
+	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetRpcContext(), user.GetZoneId(), user.GetUserId())
+	accessSecret := ""
+	if authTable != nil {
+		accessSecret = authTable.GetAccessSecret()
+	}
 	if accessSecret == "" || accessSecret != request_body.GetOldAccess() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE))
 		t.GetLogger().Warn("invalid old access secret", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
@@ -46,7 +51,13 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 	accessSecret = request_body.GetNewAccess()
 	loginCode := user.GetLoginInfo().GetLoginCode()
 
-	err := uc.UserUpdateAuthDataToFile(t.GetRpcContext(), user.GetZoneId(), user.GetUserId(), accessSecret, loginCode)
+	table := private_protocol_pbdesc.DatabaseTableAccess{
+		ZoneId:       user.GetZoneId(),
+		UserId:       user.GetUserId(),
+		AccessSecret: accessSecret,
+		LoginCode:    loginCode,
+	}
+	err := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetRpcContext(), &table)
 	if err.IsError() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
 		t.GetLogger().Warn("save access secret failed", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "error", err)

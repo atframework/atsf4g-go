@@ -41,6 +41,7 @@ message database_table_login {
       name: "login"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
       split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
+      enable_cas: true
       key_fields: "zone_id"
       key_fields: "user_id"
     }
@@ -109,6 +110,7 @@ message database_table_user {
       name: "user"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
       split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
+      enable_cas: true
       key_fields: "zone_id"
       key_fields: "user_id"
     }
@@ -139,6 +141,7 @@ message database_table_distribute_transaction {
       name: "distribute_transaction"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
       split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD
+      enable_cas: true
       key_fields: "zone_id"
       key_fields: "transaction_uuid"
     }

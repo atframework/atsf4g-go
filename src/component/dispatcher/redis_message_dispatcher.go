@@ -37,6 +37,7 @@ type RedisMessageDispatcher struct {
 	redisInstance *redis.Client
 	sequence      atomic.Uint64
 	recordPrefix  string
+	casLuaSHA     string
 }
 
 // GetStableHostID 返回一个稳定的 8 位字符串
@@ -94,6 +95,23 @@ func CreateRedisMessageDispatcher(owner libatapp.AppImpl) *RedisMessageDispatche
 
 func (d *RedisMessageDispatcher) Name() string { return "RedisMessageDispatcher" }
 
+var CASLuaScript = `local real_version_str = redis.call('HGET', KEYS[1], ARGV[1])
+local real_version = 0
+if real_version_str ~= false and real_version_str ~= nil then
+    real_version = tonumber(real_version_str)
+end
+
+local expect_version = tonumber(ARGV[2])
+local unpack_fn = table.unpack or unpack  -- Lua 5.1 - 5.3
+
+if real_version == 0 or expect_version == 0 or expect_version == real_version then
+    ARGV[2] = real_version + 1;
+    redis.call('HSET', KEYS[1], unpack_fn(ARGV));
+    return  { ok = tostring(ARGV[2]) };
+else
+    return  { ok = tostring(real_version) };
+end`
+
 func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	err := d.DispatcherBase.Init(initCtx)
 	if err != nil {
@@ -130,11 +148,14 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		return fmt.Errorf("create redis cluster client failed")
 	}
 
-	_, err = d.redisInstance.Ping(initCtx).Result()
+	sha, err := d.redisInstance.ScriptLoad(initCtx, CASLuaScript).Result()
 	if err != nil {
-		d.DispatcherBase.GetLogger().Error("check redis cluster client failed", "err", err)
+		d.GetLogger().Error("register CAS lua script failed", "err", err)
 		return err
 	}
+	d.casLuaSHA = sha
+	d.GetLogger().Info("CAS lua script registered", "sha", sha)
+
 	d.DispatcherBase.GetLogger().Info("Init Redis success")
 	return nil
 }
@@ -171,4 +192,8 @@ func (d *RedisMessageDispatcher) PickMessageRpcName(msg *DispatcherRawMessage) s
 
 func (d *RedisMessageDispatcher) PickMessageTaskId(msg *DispatcherRawMessage) uint64 {
 	return 0
+}
+
+func (d *RedisMessageDispatcher) GetCASLuaSHA() string {
+	return d.casLuaSHA
 }

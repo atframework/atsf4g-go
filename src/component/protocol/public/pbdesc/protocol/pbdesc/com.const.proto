@@ -169,6 +169,8 @@ enum EnErrorCode {
                                [(error_code.description) = "数据未找到"];
   EN_ERR_NOT_IMPLEMENTED = -119
                            [(error_code.description) = "功能未实现"];
+  EN_ERR_DB_CAS_CHECK_FAILED = -120
+                               [(error_code.description) = "数据库CAS检查失败"];
   // openapi
   EN_ERR_OPENAPI_LIMIT = -201
                          [(error_code.description) = "openapi调用频率限制"];

@@ -128,7 +128,7 @@ func UserManagerFindUserAs[T UserImpl](um *UserManager, zoneID uint32, userID ui
 func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 	um *UserManager, zoneID uint32, userID uint64, openID string,
 	loginTb *private_protocol_pbdesc.DatabaseTableLogin,
-	loginTbVersion uint64,
+	loginTbVersion uint64, loginCASVersion uint64,
 	tryLockUserResource func(user T) cd.RpcResult,
 	unlockUserResource func(user T),
 ) (T, cd.RpcResult) {
@@ -183,7 +183,7 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 		}
 	}
 
-	result := UserLoadUserTableFromFile(ctx, u, loginTb, loginTbVersion)
+	result := UserLoadUserTable(ctx, u, loginTb, loginTbVersion)
 	if result.IsError() {
 		return zero, result
 	}
@@ -199,39 +199,20 @@ func UserManagerCreateUserAs[T UserImpl](ctx *cd.RpcContext,
 		u.GetLoginInfo().RouterVersion = 0
 		// 更新Login Table版本号
 		u.LoadLoginInfo(u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
+		u.SetLoginCASVersion(loginCASVersion)
 
 		result = um.internalSave(ctx, u)
 		if result.IsError() {
 			return zero, result
 		}
+	} else {
+		u.SetLoginCASVersion(loginCASVersion)
 	}
 
 	return ret, cd.CreateRpcResultOk()
 }
 
-// TODO: 临时的鉴权数据读取
-func UserGetAuthDataFromFile(ctx *cd.RpcContext, zoneID uint32, userID uint64) (string, string) {
-	table, err := db.DatabaseTableAccessLoadWithZoneIdUserId(ctx, zoneID, userID)
-	if err.IsError() {
-		return "", ""
-	}
-	return table.GetAccessSecret(), table.GetLoginCode()
-}
-
-// TODO: 临时的鉴权数据更新
-func UserUpdateAuthDataToFile(ctx *cd.RpcContext, zoneID uint32, userID uint64, accessSecret string, loginCode string) cd.RpcResult {
-	table := private_protocol_pbdesc.DatabaseTableAccess{
-		ZoneId:       zoneID,
-		UserId:       userID,
-		AccessSecret: accessSecret,
-		LoginCode:    loginCode,
-	}
-
-	return db.DatabaseTableAccessUpdateZoneIdUserId(ctx, &table)
-}
-
-// TODO: 临时的数据读取
-func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_protocol_pbdesc.DatabaseTableLogin, loginTbVersion uint64) cd.RpcResult {
+func UserLoadUserTable(ctx *cd.RpcContext, u UserImpl, loginTb *private_protocol_pbdesc.DatabaseTableLogin, loginTbVersion uint64) cd.RpcResult {
 	if u == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("user should not be nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -240,33 +221,39 @@ func UserLoadUserTableFromFile(ctx *cd.RpcContext, u UserImpl, loginTb *private_
 		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	userTb, err := db.DatabaseTableUserLoadWithZoneIdUserId(ctx, u.GetZoneId(), u.GetUserId())
+	userTb, casVersion, err := db.DatabaseTableUserLoadWithZoneIdUserId(ctx, u.GetZoneId(), u.GetUserId())
 	if err.IsError() {
-		// 新创建得记录初始化
-		userTb = new(private_protocol_pbdesc.DatabaseTableUser)
-		userTb.AccountData = &private_protocol_pbdesc.AccountInformation{
-			AccountType: loginTb.GetAccount().GetAccountType(),
-			Access:      loginTb.GetAccount().GetAccess(),
-			Profile: &public_protocol_pbdesc.DUserProfile{
-				OpenId: loginTb.GetOpenId(),
-				UserId: u.GetUserId(),
-			},
-			ChannelId:   loginTb.GetAccount().GetChannelId(),
-			VersionType: loginTb.GetAccount().GetVersionType(),
+		if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
+			// 新创建得记录初始化
+			userTb = new(private_protocol_pbdesc.DatabaseTableUser)
+			userTb.AccountData = &private_protocol_pbdesc.AccountInformation{
+				AccountType: loginTb.GetAccount().GetAccountType(),
+				Access:      loginTb.GetAccount().GetAccess(),
+				Profile: &public_protocol_pbdesc.DUserProfile{
+					OpenId: loginTb.GetOpenId(),
+					UserId: u.GetUserId(),
+				},
+				ChannelId:   loginTb.GetAccount().GetChannelId(),
+				VersionType: loginTb.GetAccount().GetVersionType(),
+			}
+			userTb.UserData = &private_protocol_pbdesc.UserData{
+				UserLevel:       1,
+				SessionSequence: 1,
+			}
+			userTb.DataVersion = UserDataCurrentVersion
+		} else {
+			err.LogError(ctx, "load user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+			return err
 		}
-		userTb.UserData = &private_protocol_pbdesc.UserData{
-			UserLevel:       1,
-			SessionSequence: 1,
-		}
-		userTb.DataVersion = UserDataCurrentVersion
 	}
 
 	userTb.OpenId = loginTb.GetOpenId()
 	userTb.ZoneId = u.GetZoneId()
 	userTb.UserId = u.GetUserId()
 
-	ctx.LogInfo("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+	ctx.LogInfo("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "cas_version", casVersion)
 
+	u.SetUserCASVersion(casVersion)
 	// Login Table
 	u.LoadLoginInfo(loginTb, loginTbVersion)
 
@@ -302,13 +289,17 @@ func (um *UserManager) internalSave(ctx *cd.RpcContext, userImpl UserImpl) cd.Rp
 	routerVersion := userImpl.GetLoginInfo().RouterVersion + 1
 	userImpl.GetLoginInfo().RouterVersion = routerVersion
 
-	err := db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb)
+	userCASVersion := userImpl.GetUserCASVersion()
+	err := db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb, &userCASVersion)
+	userImpl.SetUserCASVersion(userCASVersion)
 	if err.IsError() {
 		userImpl.GetLoginInfo().RouterVersion = routerVersion - 1
 		return err
 	}
 
-	err = db.DatabaseTableLoginUpdateZoneIdUserId(ctx, userImpl.GetLoginInfo())
+	loginCASVersion := userImpl.GetLoginCASVersion()
+	err = db.DatabaseTableLoginUpdateZoneIdUserId(ctx, userImpl.GetLoginInfo(), &loginCASVersion)
+	userImpl.SetLoginCASVersion(loginCASVersion)
 	if err.IsError() {
 		return err
 	}

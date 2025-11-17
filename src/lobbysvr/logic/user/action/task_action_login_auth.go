@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	db "github.com/atframework/atsf4g-go/component-db"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -59,7 +61,11 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		}
 	}()
 
-	accessSecret, _ := uc.UserGetAuthDataFromFile(t.GetRpcContext(), zoneId, userId)
+	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
+	accessSecret := ""
+	if authTable != nil {
+		accessSecret = authTable.GetAccessSecret()
+	}
 	if accessSecret != "" && accessSecret != "*" && accessSecret != request_body.GetAccount().GetAccess() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
 		t.GetLogger().Warn("user already login", "zone_id", zoneId, "user_id", userId)
@@ -77,7 +83,14 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	if accessSecret == "" {
 		accessSecret = "*"
 	}
-	rpcErr := uc.UserUpdateAuthDataToFile(t.GetRpcContext(), zoneId, userId, accessSecret, loginCode)
+
+	table := private_protocol_pbdesc.DatabaseTableAccess{
+		ZoneId:       zoneId,
+		UserId:       userId,
+		AccessSecret: accessSecret,
+		LoginCode:    loginCode,
+	}
+	rpcErr := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetRpcContext(), &table)
 	if rpcErr.IsError() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		t.GetLogger().Warn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", rpcErr)

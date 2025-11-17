@@ -293,27 +293,25 @@ func TestRedisPb(t *testing.T) {
 		},
 	}
 
-	redis := PBMapToRedis(&message)
-	if len(redis) != 12 {
+	var casVersion uint64 = 10
+	redis := PBMapToRedis(&message, &casVersion)
+	if len(redis) != 26 {
 		t.Fatalf("len not match %d", len(redis))
 	}
 	data := make(map[string]string)
-	for k, v := range redis {
-		str, ok := v.(string)
-		if ok {
-			data[k] = str
-			continue
-		}
-		bytes, ok := v.([]byte)
-		if ok {
-			data[k] = string(bytes)
-			continue
-		}
+	for i := 0; i < len(redis); i += 2 {
+		key := redis[i]
+		value := redis[i+1]
+		data[key] = value
 	}
+
 	newMessage := &Test{}
-	err := RedisMapToPB(data, newMessage)
+	retVersion, err := RedisMapToPB(data, newMessage)
 	if err != nil {
 		t.Fatalf("failed %s", err)
+	}
+	if retVersion != casVersion {
+		t.Error("not match")
 	}
 	if newMessage.Field_1 != message.Field_1 {
 		t.Error("not match")

@@ -1,5 +1,10 @@
 module github.com/xresloader/xres-code-generator
 
-go 1.25.0
+go 1.25.1
 
-require google.golang.org/protobuf v1.36.9
+replace github.com/atframework/atframe-utils-go => ../../../../atframework/atframe-utils-go
+
+require (
+	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+	google.golang.org/protobuf v1.36.9
+)

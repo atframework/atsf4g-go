@@ -21,5 +21,5 @@ func MessageReadableText(msg proto.Message) string {
 	if err != nil {
 		return ""
 	}
-	return string(data)
+	return lu.BytestoString(data)
 }

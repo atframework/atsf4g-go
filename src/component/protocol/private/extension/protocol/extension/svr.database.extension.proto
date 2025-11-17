@@ -31,6 +31,7 @@ message database_table_index {
   string name = 1;
   database_index_type type = 2;
   database_table_split_type split_type = 3;
+  bool enable_cas = 4;
 
   repeated string key_fields = 11;
   repeated database_partly_field partly_get = 12;

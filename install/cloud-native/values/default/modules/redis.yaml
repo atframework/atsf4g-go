@@ -3,7 +3,7 @@
 # encoding: utf-8
 
 enabled: true
-addr: 10.100.0.6:6379
+addr: 10.100.0.9:6379
 password: 74widaoRLNUbxQ
 pool_size: 50
 record_prefix:

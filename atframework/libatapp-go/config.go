@@ -773,7 +773,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 							if ok {
 								// 需要String视为Yaml解析
 								yamlData = make(map[string]interface{})
-								err := yaml.Unmarshal([]byte(innerString), yamlData)
+								err := yaml.Unmarshal(lu.StringtoBytes(innerString), yamlData)
 								if err != nil {
 									return err
 								}
@@ -823,7 +823,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 						if ok {
 							// 需要String视为Yaml解析
 							yamlData = make(map[string]interface{})
-							err := yaml.Unmarshal([]byte(innerString), yamlData)
+							err := yaml.Unmarshal(lu.StringtoBytes(innerString), yamlData)
 							if err != nil {
 								return err
 							}

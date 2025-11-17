@@ -72,7 +72,11 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 
 	// 登入鉴权
-	_, loginCode := uc.UserGetAuthDataFromFile(t.GetRpcContext(), zoneId, userId)
+	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
+	loginCode := ""
+	if authTable != nil {
+		loginCode = authTable.GetLoginCode()
+	}
 	if loginCode == "" || loginCode != request_body.GetLoginCode() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
 		t.GetLogger().Warn("invalid login code", "zone_id", zoneId, "user_id", userId, "code", loginCode, "req", request_body.GetLoginCode())
@@ -87,7 +91,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		return nil
 	}
 
-	loginTb, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
+	loginTb, loginCASVersion, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
 	if result.IsError() {
 		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
 			loginTb = &private_protocol_pbdesc.DatabaseTableLogin{
@@ -116,7 +120,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	user, result = uc.UserManagerCreateUserAs(
 		t.GetRpcContext(), uc.GlobalUserManager, zoneId, userId, request_body.GetOpenId(),
-		loginTb, loginTbVersion, func(user *data.User) cd.RpcResult {
+		loginTb, loginTbVersion, loginCASVersion, func(user *data.User) cd.RpcResult {
 			if user == nil {
 				return cd.CreateRpcResultError(
 					fmt.Errorf("user is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)

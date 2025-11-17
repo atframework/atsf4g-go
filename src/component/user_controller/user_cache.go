@@ -42,6 +42,11 @@ type UserImpl interface {
 	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
 	GetLoginVersion() uint64
 	LoadLoginInfo(loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
+
+	GetUserCASVersion() uint64
+	SetUserCASVersion(version uint64)
+	GetLoginCASVersion() uint64
+	SetLoginCASVersion(version uint64)
 }
 
 type UserDirtyWrapper[T any] struct {
@@ -99,6 +104,9 @@ type UserCache struct {
 	user_options_ UserDirtyWrapper[private_protocol_pbdesc.UserOptions]
 
 	cs_actor_log_writer libatapp.LogWriter
+
+	loginCASVersion uint64
+	userCASVersion  uint64
 }
 
 func CreateUserCache(ctx *cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
@@ -496,6 +504,38 @@ func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
 		return nil
 	}
 	return u.cs_actor_log_writer
+}
+
+func (u *UserCache) GetLoginCASVersion() uint64 {
+	if u == nil {
+		return 0
+	}
+
+	return u.loginCASVersion
+}
+
+func (u *UserCache) SetLoginCASVersion(version uint64) {
+	if u == nil {
+		return
+	}
+
+	u.loginCASVersion = version
+}
+
+func (u *UserCache) GetUserCASVersion() uint64 {
+	if u == nil {
+		return 0
+	}
+
+	return u.userCASVersion
+}
+
+func (u *UserCache) SetUserCASVersion(version uint64) {
+	if u == nil {
+		return
+	}
+
+	u.userCASVersion = version
 }
 
 func (u *UserCache) updateLoginData(ctx *cd.RpcContext) {
