@@ -281,7 +281,7 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 				d.GetApp().GetDefaultLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
 			}
 		} else {
-			d.GetApp().GetDefaultLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg)
+			d.GetApp().GetDefaultLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.Head)
 		}
 
 		if err == nil {
