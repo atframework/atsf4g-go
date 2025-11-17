@@ -37,7 +37,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 		return nil
 	}
 
-	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetRpcContext(), user.GetZoneId(), user.GetUserId())
+	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetAwaitableContext(), user.GetZoneId(), user.GetUserId())
 	accessSecret := ""
 	if authTable != nil {
 		accessSecret = authTable.GetAccessSecret()
@@ -57,7 +57,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 		AccessSecret: accessSecret,
 		LoginCode:    loginCode,
 	}
-	err := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetRpcContext(), &table)
+	err := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetAwaitableContext(), &table)
 	if err.IsError() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
 		t.GetLogger().Warn("save access secret failed", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "error", err)

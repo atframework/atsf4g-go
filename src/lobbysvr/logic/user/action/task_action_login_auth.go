@@ -61,7 +61,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		}
 	}()
 
-	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
+	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetAwaitableContext(), zoneId, userId)
 	accessSecret := ""
 	if authTable != nil {
 		accessSecret = authTable.GetAccessSecret()
@@ -90,7 +90,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		AccessSecret: accessSecret,
 		LoginCode:    loginCode,
 	}
-	rpcErr := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetRpcContext(), &table)
+	rpcErr := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetAwaitableContext(), &table)
 	if rpcErr.IsError() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		t.GetLogger().Warn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", rpcErr)

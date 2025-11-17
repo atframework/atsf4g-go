@@ -6,7 +6,7 @@
     cas_enabled = index_meta["cas_enabled"]
 %>
 func ${message_name}Update${index_meta["index_key_name"]}(
-	ctx cd.RpcContext,
+	ctx cd.AwaitableContext,
     table *private_protocol_pbdesc.${message_name},
 % if cas_enabled:
 	currentCASVersion *uint64,

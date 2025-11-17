@@ -72,7 +72,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 
 	// 登入鉴权
-	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
+	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetAwaitableContext(), zoneId, userId)
 	loginCode := ""
 	if authTable != nil {
 		loginCode = authTable.GetLoginCode()
@@ -91,7 +91,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		return nil
 	}
 
-	loginTb, loginCASVersion, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetRpcContext(), zoneId, userId)
+	loginTb, loginCASVersion, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetAwaitableContext(), zoneId, userId)
 	if result.IsError() {
 		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
 			loginTb = &private_protocol_pbdesc.DatabaseTableLogin{
@@ -119,7 +119,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	t.mergeLoginInfo(loginTb, userId)
 
 	user, result = uc.UserManagerCreateUserAs(
-		t.GetRpcContext(), uc.GlobalUserManager, zoneId, userId, request_body.GetOpenId(),
+		t.GetAwaitableContext(), uc.GlobalUserManager, zoneId, userId, request_body.GetOpenId(),
 		loginTb, loginTbVersion, loginCASVersion, func(user *data.User) cd.RpcResult {
 			if user == nil {
 				return cd.CreateRpcResultError(

@@ -55,6 +55,7 @@ type DispatcherImpl interface {
 	PushBackMessageFilter(handle MessageFilterHandler)
 
 	CreateRpcContext() RpcContext
+	CreateAwaitableContext() AwaitableContext
 }
 
 type taskActionCreatorData struct {
@@ -170,15 +171,15 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 		return nil
 	}
 
-	rpcContext := dispatcher.CreateRpcContext()
+	awaitableContext := dispatcher.CreateAwaitableContext()
 	if parentContext != nil {
-		rpcContext.SetContextCancelFn(context.WithCancel(parentContext))
+		awaitableContext.SetContextCancelFn(context.WithCancel(parentContext))
 	}
 
 	startData := &DispatcherStartData{
 		Message:           msg,
 		PrivateData:       privateData,
-		MessageRpcContext: rpcContext,
+		MessageRpcContext: awaitableContext,
 	}
 
 	action, err := dispatcher.impl.CreateTask(startData)
@@ -186,21 +187,21 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 		dispatcher.GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg))
 		dispatcher.OnCreateTaskFailed(startData, err)
 
-		if rpcContext.GetCancelFn() != nil {
-			cancelFn := rpcContext.GetCancelFn()
-			rpcContext.SetCancelFn(nil)
+		if awaitableContext.GetCancelFn() != nil {
+			cancelFn := awaitableContext.GetCancelFn()
+			awaitableContext.SetCancelFn(nil)
 			cancelFn()
 		}
 		return err
 	}
-	rpcContext.SetTaskAction(action)
+	awaitableContext.SetTaskAction(action)
 
 	err = RunTaskAction(dispatcher.impl.GetApp(), action, startData)
 	if err != nil {
 		dispatcher.GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
-		if rpcContext.GetCancelFn() != nil {
-			cancelFn := rpcContext.GetCancelFn()
-			rpcContext.SetCancelFn(nil)
+		if awaitableContext.GetCancelFn() != nil {
+			cancelFn := awaitableContext.GetCancelFn()
+			awaitableContext.SetCancelFn(nil)
 			cancelFn()
 		}
 		return err
@@ -280,6 +281,15 @@ func (dispatcher *DispatcherBase) CreateRpcContext() RpcContext {
 	return &RpcContextImpl{
 		app:        dispatcher.GetApp(),
 		dispatcher: dispatcher.impl,
+	}
+}
+
+func (dispatcher *DispatcherBase) CreateAwaitableContext() AwaitableContext {
+	return &AwaitableContextImpl{
+		RpcContextImpl{
+			app:        dispatcher.GetApp(),
+			dispatcher: dispatcher.impl,
+		},
 	}
 }
 

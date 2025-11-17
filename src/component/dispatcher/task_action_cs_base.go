@@ -355,7 +355,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 	user := t.GetUser()
 	if !lu.IsNil(user) {
 		// 每次执行任务前刷新
-		user.RefreshLimit(t.rpcContext, t.GetNow())
+		user.RefreshLimit(t.GetRpcContext(), t.GetNow())
 	}
 
 	err := t.TaskActionBase.HookRun(action, startData)

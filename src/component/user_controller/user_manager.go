@@ -80,7 +80,7 @@ func (um *UserManager) Find(zoneID uint32, userID uint64) UserImpl {
 	return user
 }
 
-func (um *UserManager) Remove(ctx cd.RpcContext, zoneID uint32, userID uint64, checked UserImpl, _forceKickoff bool) UserImpl {
+func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uint64, checked UserImpl, _forceKickoff bool) UserImpl {
 	um.userLock.Lock()
 	defer um.userLock.Unlock()
 
@@ -125,7 +125,7 @@ func UserManagerFindUserAs[T UserImpl](um *UserManager, zoneID uint32, userID ui
 	return casted
 }
 
-func UserManagerCreateUserAs[T UserImpl](ctx cd.RpcContext,
+func UserManagerCreateUserAs[T UserImpl](ctx cd.AwaitableContext,
 	um *UserManager, zoneID uint32, userID uint64, openID string,
 	loginTb *private_protocol_pbdesc.DatabaseTableLogin,
 	loginTbVersion uint64, loginCASVersion uint64,
@@ -212,7 +212,7 @@ func UserManagerCreateUserAs[T UserImpl](ctx cd.RpcContext,
 	return ret, cd.CreateRpcResultOk()
 }
 
-func UserLoadUserTable(ctx cd.RpcContext, u UserImpl, loginTb *private_protocol_pbdesc.DatabaseTableLogin, loginTbVersion uint64) cd.RpcResult {
+func UserLoadUserTable(ctx cd.AwaitableContext, u UserImpl, loginTb *private_protocol_pbdesc.DatabaseTableLogin, loginTbVersion uint64) cd.RpcResult {
 	if u == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("user should not be nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -268,7 +268,7 @@ func UserLoadUserTable(ctx cd.RpcContext, u UserImpl, loginTb *private_protocol_
 	return cd.CreateRpcResultOk()
 }
 
-func (um *UserManager) internalSave(ctx cd.RpcContext, userImpl UserImpl) cd.RpcResult {
+func (um *UserManager) internalSave(ctx cd.AwaitableContext, userImpl UserImpl) cd.RpcResult {
 	// TODO: 托管给路由系统
 	if userImpl == nil {
 		return cd.RpcResult{
@@ -316,7 +316,7 @@ func (um *UserManager) internalSave(ctx cd.RpcContext, userImpl UserImpl) cd.Rpc
 	return cd.CreateRpcResultOk()
 }
 
-func (um *UserManager) Save(ctx cd.RpcContext, zoneID uint32, userID uint64, checkUser UserImpl) cd.RpcResult {
+func (um *UserManager) Save(ctx cd.AwaitableContext, zoneID uint32, userID uint64, checkUser UserImpl) cd.RpcResult {
 	// TODO: 托管给路由系统
 
 	// TODO: 托管给路由对象检查
@@ -338,7 +338,7 @@ func (um *UserManager) Save(ctx cd.RpcContext, zoneID uint32, userID uint64, che
 	return um.internalSave(ctx, userImpl)
 }
 
-func (um *UserManager) ScheduleImmediateSave(ctx cd.RpcContext, zoneID uint32, userID uint64, kickOff bool) cd.RpcResult {
+func (um *UserManager) ScheduleImmediateSave(ctx cd.AwaitableContext, zoneID uint32, userID uint64, kickOff bool) cd.RpcResult {
 	// TODO: Implement scheduling logic
 	userImpl := um.Find(zoneID, userID)
 	if userImpl == nil {
@@ -367,7 +367,7 @@ func (um *UserManager) ScheduleImmediateSave(ctx cd.RpcContext, zoneID uint32, u
 	return cd.CreateRpcResultOk()
 }
 
-func (um *UserManager) ScheduleQuickSave(ctx cd.RpcContext, zoneID uint32, userID uint64, kickOff bool) cd.RpcResult {
+func (um *UserManager) ScheduleQuickSave(ctx cd.AwaitableContext, zoneID uint32, userID uint64, kickOff bool) cd.RpcResult {
 	// TODO: Implement scheduling logic
 	return um.ScheduleImmediateSave(ctx, zoneID, userID, kickOff)
 }

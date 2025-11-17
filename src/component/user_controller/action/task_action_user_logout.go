@@ -35,7 +35,7 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 	// TODO: 等待当前任务执行完毕
 
 	if userWritable {
-		uc.GlobalUserManager.Remove(t.GetRpcContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
+		uc.GlobalUserManager.Remove(t.GetAwaitableContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
 	}
 	return nil
 }
@@ -69,16 +69,16 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 		session:                 session,
 	}
 
-	rpcContext := rd.CreateRpcContext()
+	awaitableContext := rd.CreateAwaitableContext()
 	if !lu.IsNil(ctx) && ctx.GetContext() != nil {
-		rpcContext.SetContextCancelFn(context.WithCancel(ctx.GetContext()))
+		awaitableContext.SetContextCancelFn(context.WithCancel(ctx.GetContext()))
 	}
-	rpcContext.BindAction(logoutTask)
+	awaitableContext.BindAction(logoutTask)
 
 	startData := &cd.DispatcherStartData{
 		Message:           nil,
 		PrivateData:       nil,
-		MessageRpcContext: rpcContext,
+		MessageRpcContext: awaitableContext,
 	}
 
 	err := cd.RunTaskAction(rd.GetApp(), logoutTask, startData)

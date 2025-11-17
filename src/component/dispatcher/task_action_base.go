@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -13,10 +14,10 @@ import (
 type TaskActionBase struct {
 	taskId uint64
 
-	responseCode   int32
-	prepareHookRun bool
-	rpcContext     RpcContext
-	startTime      time.Time
+	responseCode     int32
+	prepareHookRun   bool
+	awaitableContext AwaitableContext
+	startTime        time.Time
 
 	actorExecutor *ActorExecutor
 	dispatcher    DispatcherImpl
@@ -32,14 +33,14 @@ type TaskActionBase struct {
 
 func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskActionBase {
 	return TaskActionBase{
-		taskId:          rd.AllocTaskId(),
-		responseCode:    0,
-		prepareHookRun:  false,
-		rpcContext:      nil,
-		startTime:       rd.GetNow(),
-		actorExecutor:   actorExecutor,
-		dispatcher:      rd,
-		disableResponse: false,
+		taskId:           rd.AllocTaskId(),
+		responseCode:     0,
+		prepareHookRun:   false,
+		awaitableContext: nil,
+		startTime:        rd.GetNow(),
+		actorExecutor:    actorExecutor,
+		dispatcher:       rd,
+		disableResponse:  false,
 		currentAwaiting: &struct {
 			Lock    sync.Mutex
 			Option  *DispatcherAwaitOptions
@@ -61,8 +62,8 @@ func (t *TaskActionBase) GetTaskStartTime() time.Time {
 }
 
 func (t *TaskActionBase) GetNow() time.Time {
-	if t.rpcContext != nil {
-		return t.rpcContext.GetNow()
+	if !lu.IsNil(t.awaitableContext) {
+		return t.awaitableContext.GetNow()
 	}
 
 	return t.dispatcher.GetNow()
@@ -82,8 +83,8 @@ func (t *TaskActionBase) PrepareHookRun(action TaskActionImpl, startData *Dispat
 	}
 	t.prepareHookRun = true
 
-	if startData != nil && t.rpcContext == nil {
-		t.rpcContext = startData.MessageRpcContext
+	if startData != nil && lu.IsNil(t.awaitableContext) {
+		t.awaitableContext = startData.MessageRpcContext
 	}
 }
 
@@ -159,7 +160,11 @@ func (t *TaskActionBase) GetTraceStartOption(_action TaskActionImpl) *TraceStart
 }
 
 func (t *TaskActionBase) GetRpcContext() RpcContext {
-	return t.rpcContext
+	return t.awaitableContext
+}
+
+func (t *TaskActionBase) GetAwaitableContext() AwaitableContext {
+	return t.awaitableContext
 }
 
 func (t *TaskActionBase) trySetAwait(action TaskActionImpl, awaitOptions *DispatcherAwaitOptions) error {

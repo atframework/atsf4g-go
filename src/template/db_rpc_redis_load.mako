@@ -7,7 +7,7 @@
     cas_enabled = index_meta["cas_enabled"]
 %>
 func ${message_name}LoadWith${index_key_name}(
-	ctx cd.RpcContext,
+	ctx cd.AwaitableContext,
 % for field in key_fields:
     ${field["ident"]} ${field["go_type"]},
 % endfor
