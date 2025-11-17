@@ -6,6 +6,7 @@ import (
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
@@ -69,7 +70,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 	}
 
 	rpcContext := rd.CreateRpcContext()
-	if ctx != nil && ctx.GetContext() != nil {
+	if !lu.IsNil(ctx) && ctx.GetContext() != nil {
 		rpcContext.SetContextCancelFn(context.WithCancel(ctx.GetContext()))
 	}
 	rpcContext.BindAction(logoutTask)

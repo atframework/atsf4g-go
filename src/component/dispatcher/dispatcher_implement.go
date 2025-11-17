@@ -363,7 +363,7 @@ func (der *RpcResult) GetErrorString() string {
 
 func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, ctx RpcContext, msg string, args ...any) {
 	if der.IsOK() {
-		if ctx != nil {
+		if !lu.IsNil(ctx) {
 			ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 		} else {
 			libatapp.LogInner(slog.Default(), pc, c, level, msg, args...)
@@ -378,7 +378,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 		args = append(args, slog.Int64("response_code", int64(der.ResponseCode)), slog.String("response_message", der.GetResponseMessage()))
 	}
 
-	if ctx != nil {
+	if !lu.IsNil(ctx) {
 		ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 	} else {
 		libatapp.LogInner(slog.Default(), pc, c, level, msg, args...)

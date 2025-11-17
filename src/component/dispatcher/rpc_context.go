@@ -114,7 +114,7 @@ func (ctx *RpcContextImpl) SetTaskAction(action TaskActionImpl) {
 
 func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, msg string, args ...any) {
 	var logger *slog.Logger = nil
-	if ctx != nil {
+	if !lu.IsNil(ctx) {
 		logger = ctx.getInternalLogger()
 
 		if c == nil {
@@ -125,7 +125,7 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 		logger = slog.Default()
 	}
 
-	if ctx != nil {
+	if !lu.IsNil(ctx) {
 		if ctx.taskAction != nil {
 			args = append(args, slog.Uint64("task_id", ctx.taskAction.GetTaskId()), slog.String("task_name", ctx.taskAction.Name()))
 		} else if ctx.dispatcher != nil {
