@@ -57,7 +57,9 @@ func RegisterLobbyClientService(
 	uc_d.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "${ rpc.get_full_name() }",
 		func(base cd.TaskActionCSBase[*sp.${ rpc.get_request().get_name() }, *sp.${ rpc.get_response().get_name() }]) cd.TaskActionImpl {
-			return &${sub_module_name}.TaskAction${ rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL) }{TaskActionCSBase: base}
+			ret :=  &${sub_module_name}.TaskAction${ rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL) }{TaskActionCSBase: base}
+			ret.Impl = ret
+			return ret
 		},
 	)
 %   endif

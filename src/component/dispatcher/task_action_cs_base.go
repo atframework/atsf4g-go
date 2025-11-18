@@ -305,8 +305,8 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	return nil
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission(action TaskActionImpl) (int32, error) {
-	if !action.AllowNoActor() && lu.IsNil(t.GetUser()) {
+func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission() (int32, error) {
+	if !t.Impl.AllowNoActor() && lu.IsNil(t.GetUser()) {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
 	}
 
@@ -317,8 +317,8 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) AllowNoActor() bool {
 	return false
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionImpl, startData *DispatcherStartData) error {
-	t.PrepareHookRun(action, startData)
+func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *DispatcherStartData) error {
+	t.PrepareHookRun(startData)
 
 	csMsg, ok := startData.Message.Instance.(*public_protocol_extension.CSMsg)
 	if !ok {
@@ -358,14 +358,14 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(action TaskActionI
 		user.RefreshLimit(t.GetRpcContext(), t.GetNow())
 	}
 
-	err := t.TaskActionBase.HookRun(action, startData)
+	err := t.TaskActionBase.HookRun(startData)
 
 	// 脏数据自动推送
 	if lu.IsNil(user) {
 		user = t.GetUser()
 	}
 	if !lu.IsNil(user) {
-		user.SendAllSyncData(action.GetRpcContext())
+		user.SendAllSyncData(t.GetRpcContext())
 	}
 
 	return err

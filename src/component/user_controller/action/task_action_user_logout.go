@@ -2,11 +2,9 @@ package atframework_component_user_controller_action
 
 import (
 	// libatapp "github.com/atframework/libatapp-go"
-	"context"
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
@@ -63,25 +61,20 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 		return
 	}
 
-	logoutTask := &TaskActionUserLogout{
-		TaskActionNoMessageBase: cd.CreateTaskActionNoMessageBase(rd, userImpl.GetActorExecutor()),
-		user:                    userImpl,
-		session:                 session,
-	}
+	logoutTask, startData := cd.CreateTaskActionNoMessageBase(
+		rd, ctx, userImpl.GetActorExecutor(),
+		func(base cd.TaskActionNoMessageBase) *TaskActionUserLogout {
+			ta := TaskActionUserLogout{
+				TaskActionNoMessageBase: base,
+				user:                    userImpl,
+				session:                 session,
+			}
+			ta.TaskActionBase.Impl = &ta
+			return &ta
+		},
+	)
 
-	awaitableContext := rd.CreateAwaitableContext()
-	if !lu.IsNil(ctx) && ctx.GetContext() != nil {
-		awaitableContext.SetContextCancelFn(context.WithCancel(ctx.GetContext()))
-	}
-	awaitableContext.BindAction(logoutTask)
-
-	startData := &cd.DispatcherStartData{
-		Message:           nil,
-		PrivateData:       nil,
-		MessageRpcContext: awaitableContext,
-	}
-
-	err := cd.RunTaskAction(rd.GetApp(), logoutTask, startData)
+	err := cd.RunTaskAction(rd.GetApp(), logoutTask, &startData)
 	if err != nil {
 		rd.GetApp().GetDefaultLogger().Error("TaskActionUserLogout RunTaskAction failed", "error", err,
 			"zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId(), "session_id", sessionKey.SessionId, "session_node_id", sessionKey.NodeId)
