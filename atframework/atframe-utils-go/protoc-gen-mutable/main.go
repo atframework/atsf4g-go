@@ -95,6 +95,8 @@ func main() {
 	})
 }
 
+var initGenerate []string
+
 func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 	filename := f.GeneratedFilenamePrefix + "_mutable.pb.go"
 	g := plugin.NewGeneratedFile(filename, f.GoImportPath)
@@ -112,8 +114,44 @@ func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 	}
 
 	for _, msg := range f.Messages {
+		if findOneofForMessage(msg) {
+			g.P("import \"reflect\"")
+			g.P()
+			break
+		}
+	}
+
+	for _, msg := range f.Messages {
 		generateMutableForMessage(g, msg)
 	}
+
+	if len(initGenerate) != 0 {
+		g.P("func init() {")
+		for _, initCode := range initGenerate {
+			g.P(initCode)
+		}
+		g.P("}")
+		g.P()
+	}
+	initGenerate = nil
+}
+
+func findOneofForMessage(msg *protogen.Message) bool {
+	if msg.Desc.IsMapEntry() {
+		return false
+	}
+
+	if len(msg.Oneofs) != 0 {
+		return true
+	}
+
+	for _, nested := range msg.Messages {
+		if findOneofForMessage(nested) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message) {
@@ -271,6 +309,14 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 			g.P(fmt.Sprintf(`  return %s_En%sID_%s`, msg.GoIdent.GoName, oneofName, fieldName))
 			g.P(`}`)
 			g.P()
+
+			g.P("// ===== Get reflect Type for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
+			g.P(fmt.Sprintf(`	var ReflectType%s reflect.Type`, fullFieldName))
+			g.P(fmt.Sprintf(`func GetReflectType%s() reflect.Type {`, fullFieldName))
+			g.P(fmt.Sprintf(`	return ReflectType%s`, fullFieldName))
+			g.P(`}`)
+			g.P()
+			initGenerate = append(initGenerate, fmt.Sprintf(`	ReflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, fullFieldName, fullFieldName))
 		case field.Message != nil:
 			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Message =====")
 			fieldType := GoTypeString(g, field, true)
