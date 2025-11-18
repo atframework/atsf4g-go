@@ -145,6 +145,35 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	g.P(`}`)
 	g.P()
 
+	for _, oneof := range msg.Oneofs {
+		oneofName := oneof.GoName
+
+		g.P("// ===== Case Enum for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
+		g.P(fmt.Sprintf(`type %s_En%sID int32`, msg.GoIdent.GoName, oneofName))
+		g.P("const (")
+		g.P(fmt.Sprintf(`	%s_En%sID_%s %s_En%sID = 0 // none`, msg.GoIdent.GoName, oneofName, "NONE", msg.GoIdent.GoName, oneofName))
+		for _, o := range oneof.Fields {
+			g.P(fmt.Sprintf(`	%s_En%sID_%s %s_En%sID = %d // %s`, msg.GoIdent.GoName, oneofName, o.GoName, msg.GoIdent.GoName, oneofName, o.Desc.Number(), o.Desc.TextName()))
+		}
+		g.P(")")
+		g.P()
+
+		g.P("// ===== GetCase interface for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
+		g.P(fmt.Sprintf(`type get%s_%s interface {`, msg.GoIdent.GoName, oneofName))
+		g.P(fmt.Sprintf(`	Get%s_%s() %s_En%sID`, msg.GoIdent.GoName, oneofName, msg.GoIdent.GoName, oneofName))
+		g.P("}")
+		g.P()
+
+		g.P("// ===== GetCase methods for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
+		g.P(fmt.Sprintf(`func (m *%s) Get%sOneofCase() %s_En%sID {`, msg.GoIdent.GoName, oneofName, msg.GoIdent.GoName, oneofName))
+		g.P(`  if m == nil {`)
+		g.P(`    return 0`)
+		g.P(`  }`)
+		g.P(fmt.Sprintf(`	return m.%s.(get%s_%s).Get%s_%s()`, oneofName, msg.GoIdent.GoName, oneofName, msg.GoIdent.GoName, oneofName))
+		g.P(`}`)
+		g.P()
+	}
+
 	for _, field := range msg.Fields {
 		fieldName := field.GoName
 		switch {
@@ -225,8 +254,23 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 			g.P()
 		case field.Oneof != nil:
 			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Oneof =====")
+			oneofName := field.Oneof.GoName
+			fullFieldName := fmt.Sprintf("%s_%s", msg.GoIdent.GoName, fieldName)
+			g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fullFieldName))
+			g.P(fmt.Sprintf(`  if x, ok := m.%s.(*%s); ok {`, oneofName, fullFieldName))
+			g.P(`    return x`)
+			g.P(`  }`)
+			g.P(fmt.Sprintf(`  x := new(%s)`, fullFieldName))
+			g.P(fmt.Sprintf(`  m.%s = x`, oneofName))
+			g.P(`  return x`)
+			g.P(`}`)
+			g.P()
 
-			generateMutableForOneof(g, msg, field, fieldName)
+			g.P("// ===== Oneof Interface for ", msg.GoIdent.GoName, " Oneof ", fullFieldName, " ===== Oneof =====")
+			g.P(fmt.Sprintf(`func (m *%s) Get%s_%s() %s_En%sID {`, fullFieldName, msg.GoIdent.GoName, oneofName, msg.GoIdent.GoName, oneofName))
+			g.P(fmt.Sprintf(`  return %s_En%sID_%s`, msg.GoIdent.GoName, oneofName, fieldName))
+			g.P(`}`)
+			g.P()
 		case field.Message != nil:
 			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Message =====")
 			fieldType := GoTypeString(g, field, true)
@@ -241,22 +285,8 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 			// 基本类型不生成 Mutable 方法
 		}
 	}
-	g.P()
+
 	for _, nested := range msg.Messages {
 		generateMutableForMessage(g, nested)
 	}
-}
-
-func generateMutableForOneof(g *protogen.GeneratedFile, msg *protogen.Message, field *protogen.Field, fieldName string) {
-	oneofName := field.Oneof.GoName
-	fullFieldName := fmt.Sprintf("%s_%s", msg.GoIdent.GoName, fieldName)
-	g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fullFieldName))
-	g.P(fmt.Sprintf(`  if x, ok := m.%s.(*%s); ok {`, oneofName, fullFieldName))
-	g.P(`    return x`)
-	g.P(`  }`)
-	g.P(fmt.Sprintf(`  x := new(%s)`, fullFieldName))
-	g.P(fmt.Sprintf(`  m.%s = x`, oneofName))
-	g.P(`  return x`)
-	g.P(`}`)
-	g.P()
 }
