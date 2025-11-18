@@ -2,7 +2,6 @@ package lobbysvr_logic_condition_impl
 
 import (
 	"fmt"
-	"reflect"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
@@ -81,14 +80,13 @@ func (m *UserConditionManager) CheckStaticRules(ctx cd.RpcContext, rules []*publ
 	}
 
 	for _, rule := range rules {
-		ruleType := reflect.TypeOf(rule.GetRuleType())
-		checkHandle := logic_condition.GetStaticRuleChecker(ruleType)
+		checkHandle := logic_condition.GetStaticRuleChecker(rule.GetRuleTypeReflectType())
 		if checkHandle == nil {
 			continue
 		}
 
 		mi := (logic_condition.UserConditionManager)(m)
-		result := checkHandle(mi, ctx, rule, runtime.MakeCurrentRuntime(ruleType))
+		result := checkHandle(mi, ctx, rule, runtime.MakeCurrentRuntime(rule.GetRuleTypeReflectType()))
 		if !result.IsOK() {
 			return result
 		}
@@ -103,14 +101,13 @@ func (m *UserConditionManager) CheckDynamicRules(ctx cd.RpcContext, rules []*pub
 	}
 
 	for _, rule := range rules {
-		ruleType := reflect.TypeOf(rule.GetRuleType())
-		checkHandle := logic_condition.GetDynamicRuleChecker(ruleType)
+		checkHandle := logic_condition.GetDynamicRuleChecker(rule.GetRuleTypeReflectType())
 		if checkHandle == nil {
 			continue
 		}
 
 		mi := (logic_condition.UserConditionManager)(m)
-		result := checkHandle(mi, ctx, rule, runtime.MakeCurrentRuntime(ruleType))
+		result := checkHandle(mi, ctx, rule, runtime.MakeCurrentRuntime(rule.GetRuleTypeReflectType()))
 		if !result.IsOK() {
 			return result
 		}

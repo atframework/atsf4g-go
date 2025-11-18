@@ -2,7 +2,6 @@ package lobbysvr_logic_user_impl
 
 import (
 	"fmt"
-	"reflect"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
@@ -274,9 +273,9 @@ func (m *UserBasicManager) ForeachItem(fn func(item *public_protocol_common.DIte
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_LoginChannel{}), checkRuleUserLoginChannel, nil)
-	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_SystemPlatform{}), checkRuleUserSystemPlatform, nil)
-	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_UserLevel{}), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_LoginChannel(), checkRuleUserLoginChannel, nil)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_SystemPlatform(), checkRuleUserSystemPlatform, nil)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_UserLevel(), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
 }
 
 func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.RpcContext,

@@ -3,7 +3,6 @@ package lobbysvr_logic_inventory_impl
 import (
 	"fmt"
 	"math"
-	"reflect"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
@@ -642,7 +641,7 @@ func (m *UserInventoryManager) ForeachItem(fn func(item *public_protocol_common.
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(reflect.TypeOf(&public_protocol_common.DConditionRule_HasItem{}), nil, checkRuleHasItem)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_HasItem(), nil, checkRuleHasItem)
 }
 
 func checkRuleHasItem(m logic_condition.UserConditionManager, ctx cd.RpcContext,
