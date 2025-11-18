@@ -110,15 +110,8 @@ func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 		g.P("import \"google.golang.org/protobuf/proto\"")
 		g.P("import \"log/slog\"")
 		g.P("import pu \"github.com/atframework/atframe-utils-go/proto_utility\"")
+		g.P("import \"reflect\"")
 		g.P()
-	}
-
-	for _, msg := range f.Messages {
-		if findOneofForMessage(msg) {
-			g.P("import \"reflect\"")
-			g.P()
-			break
-		}
 	}
 
 	for _, msg := range f.Messages {
@@ -182,6 +175,14 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	g.P(`  return slog.StringValue(pu.MessageReadableText(m))`)
 	g.P(`}`)
 	g.P()
+
+	g.P("// ===== GetMessageReflectType methods for ", msg.GoIdent.GoName, " ===== Message =====")
+	g.P(fmt.Sprintf(`	var ReflectType%s reflect.Type`, msg.GoIdent.GoName))
+	g.P(fmt.Sprintf(`func GetReflectType%s() reflect.Type {`, msg.GoIdent.GoName))
+	g.P(fmt.Sprintf(`  return ReflectType%s`, msg.GoIdent.GoName))
+	g.P(`}`)
+	g.P()
+	initGenerate = append(initGenerate, fmt.Sprintf(`	ReflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, msg.GoIdent.GoName, msg.GoIdent.GoName))
 
 	for _, oneof := range msg.Oneofs {
 		oneofName := oneof.GoName
