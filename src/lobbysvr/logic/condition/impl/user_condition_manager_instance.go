@@ -74,7 +74,7 @@ func (m *UserConditionManager) CheckRuleId(ctx cd.RpcContext, ruleId int32, runt
 	return m.CheckDynamicRuleId(ctx, ruleId, runtime)
 }
 
-func (m *UserConditionManager) CheckStaticRules(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
+func (m *UserConditionManager) CheckStaticRules(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	if len(rules) == 0 {
 		return cd.CreateRpcResultOk()
 	}
@@ -95,7 +95,7 @@ func (m *UserConditionManager) CheckStaticRules(ctx cd.RpcContext, rules []*publ
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserConditionManager) CheckDynamicRules(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
+func (m *UserConditionManager) CheckDynamicRules(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	if len(rules) == 0 {
 		return cd.CreateRpcResultOk()
 	}
@@ -116,7 +116,7 @@ func (m *UserConditionManager) CheckDynamicRules(ctx cd.RpcContext, rules []*pub
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserConditionManager) CheckRules(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
+func (m *UserConditionManager) CheckRules(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	result := m.CheckStaticRules(ctx, rules, runtime)
 	if !result.IsOK() {
 		return result
@@ -125,7 +125,7 @@ func (m *UserConditionManager) CheckRules(ctx cd.RpcContext, rules []*public_pro
 	return m.CheckDynamicRules(ctx, rules, runtime)
 }
 
-func (m *UserConditionManager) CheckDateTimeStaticLimit(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRuleRangeDatetime) cd.RpcResult {
+func (m *UserConditionManager) CheckDateTimeStaticLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult {
 	if len(rules) == 0 {
 		return cd.CreateRpcResultOk()
 	}
@@ -155,7 +155,7 @@ func (m *UserConditionManager) CheckDateTimeStaticLimit(ctx cd.RpcContext, rules
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 }
 
-func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRuleRangeDatetime) cd.RpcResult {
+func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult {
 	if len(rules) == 0 {
 		return cd.CreateRpcResultOk()
 	}
@@ -183,7 +183,7 @@ func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rule
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 }
 
-func (m *UserConditionManager) CheckDateTimeLimit(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRuleRangeDatetime) cd.RpcResult {
+func (m *UserConditionManager) CheckDateTimeLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult {
 	result := m.CheckDateTimeStaticLimit(ctx, rules)
 	if !result.IsOK() {
 		return result
@@ -192,7 +192,7 @@ func (m *UserConditionManager) CheckDateTimeLimit(ctx cd.RpcContext, rules []*pu
 	return m.CheckDateTimeDynamicLimit(ctx, rules)
 }
 
-func (m *UserConditionManager) CheckBasicStaticLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionBasicLimit, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
+func (m *UserConditionManager) CheckBasicStaticLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	if limit == nil {
 		return cd.CreateRpcResultOk()
 	}
@@ -214,7 +214,7 @@ func (m *UserConditionManager) CheckBasicStaticLimit(ctx cd.RpcContext, limit *p
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserConditionManager) CheckBasicDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionBasicLimit, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
+func (m *UserConditionManager) CheckBasicDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	if limit == nil {
 		return cd.CreateRpcResultOk()
 	}
@@ -236,7 +236,7 @@ func (m *UserConditionManager) CheckBasicDynamicLimit(ctx cd.RpcContext, limit *
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserConditionManager) CheckBasicLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionBasicLimit, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
+func (m *UserConditionManager) CheckBasicLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	result := m.CheckBasicStaticLimit(ctx, limit, runtime)
 	if !result.IsOK() {
 		return result

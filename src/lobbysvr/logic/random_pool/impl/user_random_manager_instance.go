@@ -82,6 +82,19 @@ func (m *UserRandomPoolManager) UnpackItem(ctx cd.RpcContext, itemOffset *public
 
 /////////////////////// NOT_IMPLEMENTED //////////////////////////////
 
+func (m *UserRandomPoolManager) GenerateItemInstanceFromCfgOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.Readonly_DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
+	if itemOffset == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	return &public_protocol_common.DItemInstance{
+		ItemBasic: &public_protocol_common.DItemBasic{
+			TypeId: itemOffset.GetTypeId(),
+			Count:  itemOffset.GetCount(),
+		},
+	}, cd.CreateRpcResultOk()
+}
+
 func (m *UserRandomPoolManager) GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)

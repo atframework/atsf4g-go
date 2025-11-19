@@ -28,7 +28,7 @@ type ItemTypeStatistics struct {
 }
 
 type ItemAddGuard struct {
-	Configure *ppcfg.ExcelItem
+	Configure *ppcfg.Readonly_ExcelItem
 	Item      *ppc.DItemInstance
 }
 
@@ -50,6 +50,7 @@ type UserItemManagerImpl interface {
 	AddItem(ctx cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result
 	SubItem(ctx cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result
 
+	GenerateItemInstanceFromCfgOffset(ctx cd.RpcContext, itemOffset *ppc.Readonly_DItemOffset) (*ppc.DItemInstance, Result)
 	GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *ppc.DItemOffset) (*ppc.DItemInstance, Result)
 	GenerateItemInstanceFromBasic(ctx cd.RpcContext, itemOffset *ppc.DItemBasic) (*ppc.DItemInstance, Result)
 
@@ -234,7 +235,7 @@ func (umb *UserItemManagerBase) HasRepeatedItemBasic(itemOffset []*ppc.DItemBasi
 	return false
 }
 
-func (umb *UserItemManagerBase) GetItemCongiure(typeId int32) *ppcfg.ExcelItem {
+func (umb *UserItemManagerBase) GetItemCongiure(typeId int32) *ppcfg.Readonly_ExcelItem {
 	return cc.GetConfigManager().GetCurrentConfigGroup().GetExcelItemByItemId(typeId)
 }
 

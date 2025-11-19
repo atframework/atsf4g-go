@@ -13,7 +13,7 @@ type ExcelConfigCustomIndex struct {
 type ExcelConfigRandomPool struct {
 	Times      int32
 	RandomType public_protocol_config.EnRandomPoolType
-	Elements   []*public_protocol_config.DRandomPoolElement
+	Elements   []*public_protocol_config.Readonly_DRandomPoolElement
 }
 
 type ExcelConfigUserLevelExpIndex struct {

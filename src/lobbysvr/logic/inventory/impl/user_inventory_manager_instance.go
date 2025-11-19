@@ -447,6 +447,28 @@ func (m *UserInventoryManager) SubItem(ctx cd.RpcContext, itemOffset []data.Item
 	return cd.CreateRpcResultOk()
 }
 
+func (m *UserInventoryManager) GenerateItemInstanceFromCfgOffset(_ctx cd.RpcContext, itemOffset *public_protocol_common.Readonly_DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
+	if itemOffset == nil {
+		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	if itemOffset.GetCount() <= 0 {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
+	}
+
+	if !m.CheckTypeIdValid(itemOffset.GetTypeId()) {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID))
+	}
+
+	return &public_protocol_common.DItemInstance{
+		ItemBasic: &public_protocol_common.DItemBasic{
+			TypeId: itemOffset.GetTypeId(),
+			Count:  itemOffset.GetCount(),
+			Guid:   0,
+		},
+	}, cd.CreateRpcResultOk()
+}
+
 func (m *UserInventoryManager) GenerateItemInstanceFromOffset(_ctx cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
@@ -645,7 +667,7 @@ func registerCondition() {
 }
 
 func checkRuleHasItem(m logic_condition.UserConditionManager, ctx cd.RpcContext,
-	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if len(rule.GetHasItem().GetValues()) == 0 {
 		return cd.CreateRpcResultOk()

@@ -115,18 +115,18 @@ func (m *UserBasicManager) CheckSubUserExp(ctx cd.RpcContext, v int64) data.Resu
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserBasicManager) addLevelUpReward(ctx cd.RpcContext, cfg *public_protocol_config.ExcelUserLevel) {
+func (m *UserBasicManager) addLevelUpReward(ctx cd.RpcContext, cfg *public_protocol_config.Readonly_ExcelUserLevel) {
 	if cfg == nil {
 		return
 	}
 
-	if len(cfg.LevelUpReward) == 0 {
+	if len(cfg.GetLevelUpReward()) == 0 {
 		return
 	}
 
-	rewardInstances := make([]*public_protocol_common.DItemInstance, 0, len(cfg.LevelUpReward))
-	for _, itemOffset := range cfg.LevelUpReward {
-		itemInst, result := m.GetOwner().GenerateItemInstanceFromOffset(ctx, itemOffset)
+	rewardInstances := make([]*public_protocol_common.DItemInstance, 0, len(cfg.GetLevelUpReward()))
+	for _, itemOffset := range cfg.GetLevelUpReward() {
+		itemInst, result := m.GetOwner().GenerateItemInstanceFromCfgOffset(ctx, itemOffset)
 		if result.IsError() {
 			result.LogError(ctx, "generate level up reward item instance failed",
 				"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
@@ -207,7 +207,7 @@ func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 			continue
 		}
 
-		if newExp < levelConfig.Exp {
+		if newExp < levelConfig.GetExp() {
 			break
 		}
 
@@ -279,7 +279,7 @@ func registerCondition() {
 }
 
 func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.RpcContext,
-	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	loginChannel := uint64(m.GetOwner().GetLoginInfo().GetAccount().GetChannelId())
 
@@ -298,7 +298,7 @@ func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.Rp
 }
 
 func checkRuleUserSystemPlatform(m logic_condition.UserConditionManager, ctx cd.RpcContext,
-	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	loginChannel := uint64(m.GetOwner().GetClientInfo().GetSystemId())
 
@@ -317,7 +317,7 @@ func checkRuleUserSystemPlatform(m logic_condition.UserConditionManager, ctx cd.
 }
 
 func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx cd.RpcContext,
-	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule.GetUserLevel().GetLeft() <= 1 {
 		return cd.CreateRpcResultOk()
@@ -338,7 +338,7 @@ func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx cd.Rpc
 }
 
 func checkRuleUserLevelDynamic(m logic_condition.UserConditionManager, ctx cd.RpcContext,
-	rule *public_protocol_common.DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule.GetUserLevel().GetRight() <= 0 {
 		return cd.CreateRpcResultOk()

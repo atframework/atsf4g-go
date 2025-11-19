@@ -13,7 +13,7 @@ import (
 	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 )
 
-type CheckConditionFunc = func(m UserConditionManager, ctx cd.RpcContext, rule *public_protocol_common.DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
+type CheckConditionFunc = func(m UserConditionManager, ctx cd.RpcContext, rule *public_protocol_common.Readonly_DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
 
 // 所有Static接口指用户不重新登入，不可能变化的条件检查。比如平台限制，等级上限等。
 // 所有Dynamic接口指用户在不重新登入情况下，可能变化的条件检查。比如等级下限等，解锁关卡等。
@@ -24,17 +24,17 @@ type UserConditionManager interface {
 	CheckDynamicRuleId(ctx cd.RpcContext, ruleId int32, runtime *RuleCheckerRuntime) cd.RpcResult
 	CheckRuleId(ctx cd.RpcContext, ruleId int32, runtime *RuleCheckerRuntime) cd.RpcResult
 
-	CheckStaticRules(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
-	CheckDynamicRules(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
-	CheckRules(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
+	CheckStaticRules(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
+	CheckDynamicRules(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
+	CheckRules(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult
 
-	CheckDateTimeStaticLimit(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRuleRangeDatetime) cd.RpcResult
-	CheckDateTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRuleRangeDatetime) cd.RpcResult
-	CheckDateTimeLimit(ctx cd.RpcContext, rules []*public_protocol_common.DConditionRuleRangeDatetime) cd.RpcResult
+	CheckDateTimeStaticLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult
+	CheckDateTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult
+	CheckDateTimeLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult
 
-	CheckBasicStaticLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
-	CheckBasicDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
-	CheckBasicLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
+	CheckBasicStaticLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
+	CheckBasicDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
+	CheckBasicLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
 
 	CheckCounterStaticLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionCounterLimit, storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
 	CheckCounterDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionCounterLimit, storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
@@ -43,7 +43,7 @@ type UserConditionManager interface {
 	AddCounter(ctx cd.RpcContext, storage *public_protocol_common.DConditionCounterStorage, offset int64) cd.RpcResult
 }
 
-func HasLimitData(limit *public_protocol_common.DConditionBasicLimit) bool {
+func HasLimitData(limit *public_protocol_common.Readonly_DConditionBasicLimit) bool {
 	if limit == nil {
 		return false
 	}

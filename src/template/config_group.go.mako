@@ -91,11 +91,14 @@ func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback)
 % for pb_msg in pb_set.generate_message:
 // ${loader.get_go_pb_name()}
 	% for loader in pb_msg.loaders:
+<%
+		LoaderConfigPbName = "public_protocol_config.Readonly_" + loader.get_go_pb_name()
+%>
 		% for code_index in loader.code.indexes:
 			% if code_index.is_list():
-func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) []*public_protocol_config.${loader.get_go_pb_name()} {
+func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) []*${LoaderConfigPbName} {
 			% else:
-func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) *public_protocol_config.${loader.get_go_pb_name()} {
+func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) *${LoaderConfigPbName} {
 			% endif
 	if configGroup == nil {
 		return nil
@@ -109,9 +112,9 @@ func Get${loader.get_go_pb_name()}AllOf${pb_loader.MakoToCamelName(code_index.na
 	return configGroup.${loader.get_go_pb_unexported_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
 }
 			% if code_index.is_list():
-func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) []*public_protocol_config.${loader.get_go_pb_name()} {
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) []*${LoaderConfigPbName} {
 			% else:
-func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) *public_protocol_config.${loader.get_go_pb_name()} {
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) *${LoaderConfigPbName} {
 			% endif
 	if configGroup == nil {
 		return nil

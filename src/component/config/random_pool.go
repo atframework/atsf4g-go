@@ -53,7 +53,7 @@ func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 			data = &atframework_component_config_custom_index_type.ExcelConfigRandomPool{
 				Times:      v[0].GetTimes(),
 				RandomType: v[0].GetRandomType(),
-				Elements:   make([]*public_protocol_config.DRandomPoolElement, 0),
+				Elements:   make([]*public_protocol_config.Readonly_DRandomPoolElement, 0),
 			}
 			group.GetCustomIndex().RandomPoolIndex[k.PoolId] = data
 		}
@@ -111,7 +111,7 @@ func randomWithPoolInternal(poolID int32, used map[int32]struct{},
 }
 
 // N选1, 执行M次
-func handleIndependent(elements []*public_protocol_config.DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func handleIndependent(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
 	var sumWeight int32
 
 	for _, e := range elements {
@@ -146,8 +146,8 @@ func handleIndependent(elements []*public_protocol_config.DRandomPoolElement, ti
 }
 
 // N选M 不重复
-func handleExclusive(elements []*public_protocol_config.DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
-	valid := make([]*public_protocol_config.DRandomPoolElement, 0)
+func handleExclusive(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+	valid := make([]*public_protocol_config.Readonly_DRandomPoolElement, 0)
 	var sumWeight int32
 	for _, e := range elements {
 		if validElement(e) {
@@ -202,7 +202,7 @@ func handleExclusive(elements []*public_protocol_config.DRandomPoolElement, time
 }
 
 // 自选池
-func handleCustom(elements []*public_protocol_config.DRandomPoolElement, times int32, used map[int32]struct{},
+func handleCustom(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{},
 	customIndex []int32) (ret int32, result []*public_protocol_common.DItemOffset) {
 	if len(customIndex) != int(times) {
 		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_CUSTOM_TIMES_NOT_MATCH)
@@ -227,7 +227,7 @@ func handleCustom(elements []*public_protocol_config.DRandomPoolElement, times i
 }
 
 // 下发所有道具
-func handleAll(elements []*public_protocol_config.DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func handleAll(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
 	for i := 0; i < int(times); i++ {
 		for _, e := range elements {
 			if validElement(e) {
@@ -245,7 +245,7 @@ func handleAll(elements []*public_protocol_config.DRandomPoolElement, times int3
 
 // ---------------- 工具函数 ----------------
 
-func addRandomResult(item *public_protocol_config.DRandomPoolElement, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func addRandomResult(item *public_protocol_config.Readonly_DRandomPoolElement, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
 	minCount := item.GetCount().GetMinCount()
 	maxCount := item.GetCount().GetMaxCount()
 	if minCount > maxCount {
@@ -281,42 +281,6 @@ type itemCountExpire struct {
 	expireOffset int64
 }
 
-func mergeResult(out *[]*public_protocol_common.DItemOffset) {
-	tmp := make(map[int32][]itemCountExpire)
-	length := 0
-	for i := range *out {
-		item := (*out)[i]
-		v, ok := tmp[item.GetTypeId()]
-		find := false
-		if ok {
-			for i, t := range v {
-				if t.expireOffset == item.GetExpireOffset() {
-					v[i].count += item.GetCount()
-					find = true
-					break
-				}
-			}
-		}
-		if !find {
-			tmp[item.GetTypeId()] = append(tmp[item.GetTypeId()], itemCountExpire{
-				count:        item.GetCount(),
-				expireOffset: item.GetExpireOffset(),
-			})
-			length++
-		}
-	}
-	*out = make([]*public_protocol_common.DItemOffset, 0, length)
-	for k, v := range tmp {
-		for i := range v {
-			*out = append(*out, &public_protocol_common.DItemOffset{
-				TypeId:       k,
-				Count:        v[i].count,
-				ExpireOffset: v[i].expireOffset,
-			})
-		}
-	}
-}
-
-func validElement(element *public_protocol_config.DRandomPoolElement) bool {
+func validElement(element *public_protocol_config.Readonly_DRandomPoolElement) bool {
 	return element != nil && element.GetTypeId() != 0 && element.GetCount().GetMinCount() > 0 && element.GetWeight() > 0
 }

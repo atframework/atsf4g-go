@@ -275,7 +275,7 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 	// 玩家出身表
 	initItemCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelUserInitializeItemsAllOfIndex()
 	if initItemCfg != nil {
-		var initItems []*public_protocol_common.DItemOffset
+		var initItems []*public_protocol_common.Readonly_DItemOffset
 		for _, itemCfg := range *initItemCfg {
 			if itemCfg.GetItem().GetTypeId() == 0 || itemCfg.GetItem().GetCount() <= 0 {
 				continue
@@ -287,7 +287,7 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 		var itemInsts []*public_protocol_common.DItemInstance
 
 		for _, initItem := range initItems {
-			itemInst, result := u.GenerateItemInstanceFromOffset(ctx, initItem)
+			itemInst, result := u.GenerateItemInstanceFromCfgOffset(ctx, initItem)
 			if result.IsError() {
 				ctx.LogError("user create init generate item from offset failed", "error", result.Error,
 					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
@@ -584,6 +584,16 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []ItemSubGuard, reason *Ite
 	return result
 }
 
+func (u *User) GenerateItemInstanceFromCfgOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.Readonly_DItemOffset) (*public_protocol_common.DItemInstance, Result) {
+	typeId := itemOffset.GetTypeId()
+	mgr := u.GetItemManager(typeId)
+	if mgr == nil {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
+	}
+
+	return mgr.GenerateItemInstanceFromCfgOffset(ctx, itemOffset)
+}
+
 func (u *User) GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemOffset.GetTypeId()
 	mgr := u.GetItemManager(typeId)
@@ -824,8 +834,8 @@ func (u *User) CheckCostItem(ctx cd.RpcContext,
 	return cd.CreateRpcResultOk()
 }
 
-// 检查期望消耗是否满足配置要求
-func (u *User) MergeCostItem(expectCost ...[]*public_protocol_common.DItemOffset) []*public_protocol_common.DItemOffset {
+// 检查期望消耗是否满足配置要求.
+func (u *User) MergeCostItem(expectCost ...[]*public_protocol_common.Readonly_DItemOffset) []*public_protocol_common.Readonly_DItemOffset {
 	if len(expectCost) == 0 {
 		return nil
 	}
@@ -846,12 +856,13 @@ func (u *User) MergeCostItem(expectCost ...[]*public_protocol_common.DItemOffset
 		}
 	}
 
-	ret := make([]*public_protocol_common.DItemOffset, 0, len(countByTypeId))
+	ret := make([]*public_protocol_common.Readonly_DItemOffset, 0, len(countByTypeId))
 	for typeId, count := range countByTypeId {
-		ret = append(ret, &public_protocol_common.DItemOffset{
+		o := &public_protocol_common.DItemOffset{
 			TypeId: typeId,
 			Count:  count,
-		})
+		}
+		ret = append(ret, o.ToReadonly())
 	}
 
 	return ret

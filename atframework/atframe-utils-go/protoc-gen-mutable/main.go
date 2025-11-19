@@ -2,9 +2,15 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // GoTypeString 返回该字段在生成的 Go 代码中的类型名（字符串形式）
@@ -83,6 +89,65 @@ func scalarGoType(f *protogen.Field) string {
 	}
 }
 
+func readonlyFieldVarName(f *protogen.Field) string {
+	return fmt.Sprintf("field%s", f.GoName)
+}
+
+func readonlyOneofCaseFieldName(oneof *protogen.Oneof) string {
+	return fmt.Sprintf("field%sCase", oneof.GoName)
+}
+
+func hasReadonlyWrapper(parent *protogen.Message, target *protogen.Message) bool {
+	if parent == nil || target == nil {
+		return false
+	}
+
+	if target.Desc.FullName() == (&durationpb.Duration{}).ProtoReflect().Descriptor().FullName() ||
+		target.Desc.FullName() == (&timestamppb.Timestamp{}).ProtoReflect().Descriptor().FullName() ||
+		target.Desc.FullName() == (&anypb.Any{}).ProtoReflect().Descriptor().FullName() ||
+		target.Desc.FullName() == (&emptypb.Empty{}).ProtoReflect().Descriptor().FullName() {
+		return false
+	}
+
+	return true
+}
+
+func qualifiedReadonlyGoIdent(gf *protogen.GeneratedFile, gi protogen.GoIdent) string {
+	name := gf.QualifiedGoIdent(gi)
+	index := strings.Index(name, ".")
+	if index == -1 {
+		return "Readonly_" + name
+	}
+
+	// 将字符串分割并插入
+	return name[:index+1] + "Readonly_" + name[index+1:]
+}
+
+func readonlyElementGoType(g *protogen.GeneratedFile, parent *protogen.Message, f *protogen.Field) string {
+	switch f.Desc.Kind() {
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		if hasReadonlyWrapper(parent, f.Message) {
+			return "*" + qualifiedReadonlyGoIdent(g, f.Message.GoIdent)
+		}
+		return "*" + g.QualifiedGoIdent(f.Message.GoIdent)
+	default:
+		return elementGoType(g, f, false)
+	}
+}
+
+func readonlyFieldGoType(g *protogen.GeneratedFile, parent *protogen.Message, f *protogen.Field) string {
+	switch {
+	case f.Desc.IsMap():
+		keyField := f.Message.Fields[0]
+		valField := f.Message.Fields[1]
+		return fmt.Sprintf("map[%s]%s", scalarGoType(keyField), readonlyElementGoType(g, parent, valField))
+	case f.Desc.IsList():
+		return "[]" + readonlyElementGoType(g, parent, f)
+	default:
+		return readonlyElementGoType(g, parent, f)
+	}
+}
+
 func main() {
 	protogen.Options{}.Run(func(plugin *protogen.Plugin) error {
 		for _, f := range plugin.Files {
@@ -111,11 +176,25 @@ func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 		g.P("import \"log/slog\"")
 		g.P("import pu \"github.com/atframework/atframe-utils-go/proto_utility\"")
 		g.P("import \"reflect\"")
+		g.P("import protoreflect \"google.golang.org/protobuf/reflect/protoreflect\"")
 		g.P()
+
+		g.P(fmt.Sprintf(`type inner%sReadonlyMessage interface {`, f.GoDescriptorIdent.GoName))
+		g.P("	Descriptor() protoreflect.MessageDescriptor")
+		g.P("	Type() protoreflect.MessageType")
+		g.P("	New() protoreflect.Message")
+		g.P("	Interface() protoreflect.ProtoMessage")
+		g.P("	Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool)")
+		g.P("	Has(protoreflect.FieldDescriptor) bool")
+		g.P("	Get(protoreflect.FieldDescriptor) protoreflect.Value")
+		g.P("	WhichOneof(protoreflect.OneofDescriptor) protoreflect.FieldDescriptor")
+		g.P("	GetUnknown() protoreflect.RawFields")
+		g.P("	IsValid() bool")
+		g.P("}")
 	}
 
 	for _, msg := range f.Messages {
-		generateMutableForMessage(g, msg)
+		generateMutableForMessage(f, g, msg)
 	}
 
 	if len(initGenerate) != 0 {
@@ -129,25 +208,7 @@ func generateFile(plugin *protogen.Plugin, f *protogen.File) {
 	initGenerate = nil
 }
 
-func findOneofForMessage(msg *protogen.Message) bool {
-	if msg.Desc.IsMapEntry() {
-		return false
-	}
-
-	if len(msg.Oneofs) != 0 {
-		return true
-	}
-
-	for _, nested := range msg.Messages {
-		if findOneofForMessage(nested) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message) {
+func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
 	if msg.Desc.IsMapEntry() {
 		return
 	}
@@ -183,6 +244,8 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	g.P(`}`)
 	g.P()
 	initGenerate = append(initGenerate, fmt.Sprintf(`	ReflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, msg.GoIdent.GoName, msg.GoIdent.GoName))
+
+	generateReadonlyForMessage(f, g, msg)
 
 	for _, oneof := range msg.Oneofs {
 		oneofName := oneof.GoName
@@ -356,6 +419,195 @@ func generateMutableForMessage(g *protogen.GeneratedFile, msg *protogen.Message)
 	}
 
 	for _, nested := range msg.Messages {
-		generateMutableForMessage(g, nested)
+		generateMutableForMessage(f, g, nested)
 	}
+}
+
+func generateReadonlyForMessage(f *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
+	roName := "Readonly_" + msg.GoIdent.GoName
+	g.P("// ===== Readonly wrapper for ", msg.GoIdent.GoName, " ===== Message ====")
+	g.P(fmt.Sprintf("type %s struct {", roName))
+	g.P(fmt.Sprintf("  protoData *%s", msg.GoIdent.GoName))
+	for _, field := range msg.Fields {
+		g.P(fmt.Sprintf("  %s %s", readonlyFieldVarName(field), readonlyFieldGoType(g, msg, field)))
+	}
+	for _, oneof := range msg.Oneofs {
+		g.P(fmt.Sprintf("  %s %s_En%sID", readonlyOneofCaseFieldName(oneof), msg.GoIdent.GoName, oneof.GoName))
+	}
+	g.P("}")
+	g.P()
+
+	g.P(fmt.Sprintf("func (r *%s) ReadonlyProtoReflect() inner%sReadonlyMessage {", roName, f.GoDescriptorIdent.GoName))
+	g.P("  if r == nil || r.protoData == nil {")
+	g.P("    return nil")
+	g.P("  }")
+	g.P("  return r.protoData.ProtoReflect()")
+	g.P("}")
+	g.P()
+
+	g.P(fmt.Sprintf("func (m *%s) ToReadonly() *%s {", msg.GoIdent.GoName, roName))
+	g.P("  if m == nil {")
+	g.P("    return nil")
+	g.P("  }")
+	g.P("  clone := m.Clone()")
+	g.P(fmt.Sprintf("  ro := &%s{protoData: clone}", roName))
+	g.P("  ro.initFromProto(clone)")
+	g.P("  return ro")
+	g.P("}")
+	g.P()
+
+	g.P(fmt.Sprintf("func (r *%s) CloneMessage() *%s {", roName, msg.GoIdent.GoName))
+	g.P("  if r == nil {")
+	g.P(fmt.Sprintf("    return new(%s)", msg.GoIdent.GoName))
+	g.P("  }")
+	g.P("  return r.protoData.Clone()")
+	g.P("}")
+	g.P()
+
+	g.P(fmt.Sprintf("func (r *%s) ToMessage() *%s {", roName, msg.GoIdent.GoName))
+	g.P("  return r.CloneMessage()")
+	g.P("}")
+	g.P()
+
+	g.P(fmt.Sprintf("func (r *%s) initFromProto(src *%s) {", roName, msg.GoIdent.GoName))
+	g.P("  if r == nil || src == nil {")
+	g.P("    return")
+	g.P("  }")
+	for _, field := range msg.Fields {
+		generateReadonlyFieldCopy(g, msg, field)
+	}
+	g.P("}")
+	g.P()
+
+	for _, field := range msg.Fields {
+		generateReadonlyGetter(g, roName, field)
+	}
+	for _, oneof := range msg.Oneofs {
+		g.P(fmt.Sprintf("func (r *%s) Get%sOneofCase() %s_En%sID {", roName, oneof.GoName, msg.GoIdent.GoName, oneof.GoName))
+		g.P("  if r == nil {")
+		g.P("    return 0")
+		g.P("  }")
+		g.P(fmt.Sprintf("  return r.protoData.Get%sOneofCase()", oneof.GoName))
+		g.P("}")
+		g.P()
+
+		g.P(fmt.Sprintf("func (r *%s) Get%sReflectType() reflect.Type {", roName, oneof.GoName))
+		g.P("  if r == nil {")
+		g.P("    return nil")
+		g.P("  }")
+		g.P(fmt.Sprintf("  return r.protoData.Get%sReflectType()", oneof.GoName))
+		g.P("}")
+		g.P()
+	}
+}
+
+func generateReadonlyFieldCopy(g *protogen.GeneratedFile, msg *protogen.Message, field *protogen.Field) {
+	fieldVar := readonlyFieldVarName(field)
+	switch {
+	case field.Desc.IsMap():
+		keyField := field.Message.Fields[0]
+		valField := field.Message.Fields[1]
+		g.P(fmt.Sprintf("  if v := src.Get%s(); len(v) != 0 {", field.GoName))
+		g.P(fmt.Sprintf("    copied := make(map[%s]%s, len(v))", scalarGoType(keyField), readonlyElementGoType(g, msg, valField)))
+		g.P("    for mk, mv := range v {")
+		switch {
+		case valField.Message != nil:
+			g.P("      if mv == nil {")
+			g.P("        copied[mk] = nil")
+			g.P("        continue")
+			g.P("      }")
+			if hasReadonlyWrapper(msg, valField.Message) {
+				g.P("      copied[mk] = mv.ToReadonly()")
+			} else {
+				g.P("      copied[mk] = proto.Clone(mv).(*", g.QualifiedGoIdent(valField.Message.GoIdent), ")")
+			}
+		case valField.Desc.Kind() == protoreflect.BytesKind:
+			g.P("      if len(mv) != 0 {")
+			g.P("        copied[mk] = append([]byte(nil), mv...)")
+			g.P("      } else {")
+			g.P("        copied[mk] = nil")
+			g.P("      }")
+		default:
+			g.P("      copied[mk] = mv")
+		}
+		g.P("    }")
+		g.P(fmt.Sprintf("    r.%s = copied", fieldVar))
+		g.P("  } else {")
+		g.P(fmt.Sprintf("    r.%s = nil", fieldVar))
+		g.P("  }")
+	case field.Desc.IsList():
+		g.P(fmt.Sprintf("  if v := src.Get%s(); len(v) != 0 {", field.GoName))
+		switch {
+		case field.Message != nil:
+			g.P(fmt.Sprintf("    out := make([]%s, 0, len(v))", readonlyElementGoType(g, msg, field)))
+			g.P("    for _, item := range v {")
+			g.P("      if item == nil {")
+			g.P("        out = append(out, nil)")
+			g.P("        continue")
+			g.P("      }")
+			if hasReadonlyWrapper(msg, field.Message) {
+				g.P("      out = append(out, item.ToReadonly())")
+			} else {
+				g.P("      out = append(out, proto.Clone(item).(*", g.QualifiedGoIdent(field.Message.GoIdent), "))")
+			}
+			g.P("    }")
+		case field.Desc.Kind() == protoreflect.BytesKind:
+			g.P("    out := make([][]byte, len(v))")
+			g.P("    for i := range v {")
+			g.P("      if len(v[i]) != 0 {")
+			g.P("        out[i] = append([]byte(nil), v[i]...)")
+			g.P("      }")
+			g.P("    }")
+		default:
+			g.P(fmt.Sprintf("    copied := make([]%s, len(v))", elementGoType(g, field, false)))
+			g.P("    copy(copied, v)")
+			g.P("    r.", fieldVar, " = copied")
+		}
+		if field.Message != nil || field.Desc.Kind() == protoreflect.BytesKind {
+			g.P(fmt.Sprintf("    r.%s = out", fieldVar))
+		}
+		g.P("  } else {")
+		g.P(fmt.Sprintf("    r.%s = nil", fieldVar))
+		g.P("  }")
+	case field.Message != nil:
+		g.P(fmt.Sprintf("  if v := src.Get%s(); v != nil {", field.GoName))
+		if hasReadonlyWrapper(msg, field.Message) {
+			g.P(fmt.Sprintf("    r.%s = v.ToReadonly()", fieldVar))
+		} else {
+			g.P(fmt.Sprintf("    r.%s = proto.Clone(v).(*%s)", fieldVar, g.QualifiedGoIdent(field.Message.GoIdent)))
+		}
+		g.P("  } else {")
+		g.P(fmt.Sprintf("    r.%s = nil", fieldVar))
+		g.P("  }")
+	case field.Desc.Kind() == protoreflect.BytesKind:
+		g.P(fmt.Sprintf("  if v := src.Get%s(); len(v) != 0 {", field.GoName))
+		g.P(fmt.Sprintf("    r.%s = append([]byte(nil), v...)", fieldVar))
+		g.P("  } else {")
+		g.P(fmt.Sprintf("    r.%s = nil", fieldVar))
+		g.P("  }")
+	default:
+		g.P(fmt.Sprintf("  r.%s = src.Get%s()", fieldVar, field.GoName))
+	}
+}
+
+func generateReadonlyGetter(g *protogen.GeneratedFile, roName string, field *protogen.Field) {
+	fieldType := readonlyFieldGoType(g, field.Parent, field)
+	fieldVar := readonlyFieldVarName(field)
+	g.P(fmt.Sprintf("func (r *%s) Get%s() %s {", roName, field.GoName, fieldType))
+	g.P("  if r == nil {")
+	g.P(fmt.Sprintf("    var zero %s", fieldType))
+	g.P("    return zero")
+	g.P("  }")
+	if !field.Desc.IsMap() && !field.Desc.IsList() && field.Desc.Kind() == protoreflect.BytesKind {
+		g.P(fmt.Sprintf("  if len(r.%s) == 0 {", fieldVar))
+		g.P(fmt.Sprintf("    return r.%s", fieldVar))
+		g.P("  }")
+		g.P(fmt.Sprintf("  dup := make([]byte, len(r.%s))", fieldVar))
+		g.P(fmt.Sprintf("  copy(dup, r.%s)", fieldVar))
+		g.P("  return dup")
+	} else {
+		g.P(fmt.Sprintf("  return r.%s", fieldVar))
+	}
+	g.P("}")
+	g.P()
 }

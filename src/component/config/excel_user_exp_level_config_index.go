@@ -14,9 +14,9 @@ func initExcelUserExpLevelConfigIndex(group *generate_config.ConfigGroup) error 
 			continue
 		}
 
-		if v.Level > maxLevel {
-			maxLevel = v.Level
-			maxExp = v.Exp
+		if v.GetLevel() > maxLevel {
+			maxLevel = v.GetLevel()
+			maxExp = v.GetExp()
 		}
 	}
 

@@ -103,15 +103,15 @@ func (d *WebSocketMessageDispatcher) setupUpgrader() {
 	defer d.upgraderLock.Unlock()
 
 	d.upgrader = &websocket.Upgrader{
-		HandshakeTimeout: d.wsConfig.HandshakeTimeout.AsDuration(),
-		ReadBufferSize:   int(d.wsConfig.ReadBufferSize),
-		WriteBufferSize:  int(d.wsConfig.WriteBufferSize),
-		Subprotocols:     d.wsConfig.SubProtocols,
+		HandshakeTimeout: d.wsConfig.GetHandshakeTimeout().AsDuration(),
+		ReadBufferSize:   int(d.wsConfig.GetReadBufferSize()),
+		WriteBufferSize:  int(d.wsConfig.GetWriteBufferSize()),
+		Subprotocols:     d.wsConfig.GetSubProtocols(),
 		CheckOrigin: func(r *http.Request) bool {
 			// Configure origin checking for production
 			return true
 		},
-		EnableCompression: d.wsConfig.EnableCompression,
+		EnableCompression: d.wsConfig.GetEnableCompression(),
 	}
 }
 
@@ -125,7 +125,7 @@ func (d *WebSocketMessageDispatcher) setupListen() error {
 	if d.webServerHandle == nil {
 		d.webServerHandle = http.NewServeMux()
 		d.webServerHandle.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasPrefix(r.URL.Path, d.wsConfig.Path) {
+			if !strings.HasPrefix(r.URL.Path, d.wsConfig.GetPath()) {
 				http.NotFound(w, r)
 				return
 			}
@@ -134,19 +134,19 @@ func (d *WebSocketMessageDispatcher) setupListen() error {
 		})
 	}
 
-	if d.webServerInstance != nil && d.webServerAddress != d.serverConfig.Host+":"+fmt.Sprintf("%d", d.serverConfig.Port) {
+	if d.webServerInstance != nil && d.webServerAddress != d.serverConfig.GetHost()+":"+fmt.Sprintf("%d", d.serverConfig.GetPort()) {
 		d.webServerInstance.Close()
 		d.webServerInstance = nil
 	}
 
 	if d.webServerInstance == nil {
-		d.webServerAddress = d.serverConfig.Host + ":" + fmt.Sprintf("%d", d.serverConfig.Port)
+		d.webServerAddress = d.serverConfig.GetHost() + ":" + fmt.Sprintf("%d", d.serverConfig.GetPort())
 		d.webServerInstance = &http.Server{
 			Addr:         d.webServerAddress,
 			Handler:      d.webServerHandle,
-			ReadTimeout:  d.serverConfig.ReadTimeout.AsDuration(),
-			WriteTimeout: d.serverConfig.WriteTimeout.AsDuration(),
-			IdleTimeout:  d.serverConfig.IdleTimeout.AsDuration(),
+			ReadTimeout:  d.serverConfig.GetReadTimeout().AsDuration(),
+			WriteTimeout: d.serverConfig.GetWriteTimeout().AsDuration(),
+			IdleTimeout:  d.serverConfig.GetIdleTimeout().AsDuration(),
 		}
 	}
 
@@ -161,8 +161,8 @@ func (d *WebSocketMessageDispatcher) runServer() error {
 	}
 
 	var err error
-	if d.serverConfig.TlsCertFile != "" && d.serverConfig.TlsKeyFile != "" {
-		err = d.webServerInstance.ListenAndServeTLS(d.serverConfig.TlsCertFile, d.serverConfig.TlsKeyFile)
+	if d.serverConfig.GetTlsCertFile() != "" && d.serverConfig.GetTlsKeyFile() != "" {
+		err = d.webServerInstance.ListenAndServeTLS(d.serverConfig.GetTlsCertFile(), d.serverConfig.GetTlsKeyFile())
 	} else {
 		err = d.webServerInstance.ListenAndServe()
 	}
@@ -179,7 +179,7 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 	d.sessionLock.Lock()
 	defer d.sessionLock.Unlock()
 
-	if len(d.sessions) >= int(d.wsConfig.MaxConnections) {
+	if len(d.sessions) >= int(d.wsConfig.GetMaxConnections()) {
 		http.Error(w, "Max connections reached", http.StatusBadGateway)
 		return
 	}
@@ -193,13 +193,13 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 		d.GetApp().GetDefaultLogger().Error("WebSocket upgrade failed", "error", err)
 		return
 	}
-	conn.SetReadLimit(int64(d.wsConfig.MaxMessageSize))
+	conn.SetReadLimit(int64(d.wsConfig.GetMaxMessageSize()))
 
 	session := &WebSocketSession{
 		SessionId:  d.AllocateSessionId(),
 		Connection: conn,
 		Authorized: false,
-		sendQueue:  make(chan *public_protocol_extension.CSMsg, d.wsConfig.MaxWriteMessageCount),
+		sendQueue:  make(chan *public_protocol_extension.CSMsg, d.wsConfig.GetMaxWriteMessageCount()),
 	}
 
 	session.runningContext, session.runningCancel = context.WithCancel(d.GetApp().GetAppContext())
@@ -298,7 +298,7 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 	defer d.removeSession(session)
 	defer session.Connection.Close()
 
-	authTimeoutContext, cancelFn := context.WithTimeout(session.runningContext, d.wsConfig.HandshakeTimeout.AsDuration())
+	authTimeoutContext, cancelFn := context.WithTimeout(session.runningContext, d.wsConfig.GetHandshakeTimeout().AsDuration())
 
 	cleanTimeout := func() {
 		if cancelFn != nil {
@@ -461,8 +461,8 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 		err = loadErr
 	}
 
-	if d.serverConfig.Port <= 0 || d.serverConfig.Port > 65535 {
-		err = fmt.Errorf("invalid web server port: %d", d.serverConfig.Port)
+	if d.serverConfig.GetPort() <= 0 || d.serverConfig.GetPort() > 65535 {
+		err = fmt.Errorf("invalid web server port: %d", d.serverConfig.GetPort())
 		d.serverConfig.Port = 7001
 	}
 
