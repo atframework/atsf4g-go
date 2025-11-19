@@ -24,11 +24,11 @@ type ConfigCallback interface {
 
 type ConfigGroup struct {
 	ExcelResourceDir string
-	ServerConfig 	 *private_protocol_config.LogicSectionCfg
+	serverConfig 	 *private_protocol_config.LogicSectionCfg
 
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
-	${loader.get_go_pb_name()} ConfigSet${loader.get_go_pb_name()};
+	${loader.get_go_pb_unexported_name()} ConfigSet${loader.get_go_pb_name()};
 	% endfor
 % endfor
 	customIndex custom_index_type.ExcelConfigCustomIndex
@@ -45,14 +45,14 @@ func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Logic
 	if configGroup == nil {
 		return nil
 	}
-	return configGroup.ServerConfig
+	return configGroup.serverConfig
 }
 
 func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback) (err error) {
 	if configFile != "" {
 		callback.GetLogger().Info("Load config from file", "file", configFile)
-		configGroup.ServerConfig = &private_protocol_config.LogicSectionCfg{}
-		_, err = libatapp.LoadConfigFromYaml(configFile, "logic", configGroup.ServerConfig, callback.GetLogger())
+		configGroup.serverConfig = &private_protocol_config.LogicSectionCfg{}
+		_, err = libatapp.LoadConfigFromYaml(configFile, "logic", configGroup.serverConfig, callback.GetLogger())
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
@@ -60,26 +60,26 @@ func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback)
 	} else {
 		// 使用默认配置
 		callback.GetLogger().Info("Load config from default")
-		configGroup.ServerConfig = &private_protocol_config.LogicSectionCfg{}
-		err = libatapp.ParseMessage(nil, configGroup.ServerConfig, callback.GetLogger())
+		configGroup.serverConfig = &private_protocol_config.LogicSectionCfg{}
+		err = libatapp.ParseMessage(nil, configGroup.serverConfig, callback.GetLogger())
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
 		}
 	}
 
-	if !configGroup.ServerConfig.GetExcel().GetEnable() {
+	if !configGroup.serverConfig.GetExcel().GetEnable() {
 		callback.GetLogger().Warn("Disable Excel")
 		return
 	}
 	callback.GetLogger().Warn("Enable Excel")
 	if configGroup.ExcelResourceDir == "" {
-		configGroup.ExcelResourceDir = configGroup.ServerConfig.GetExcel().GetBindir()
+		configGroup.ExcelResourceDir = configGroup.serverConfig.GetExcel().GetBindir()
 	}
 
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
-	if err = configGroup.${loader.get_go_pb_name()}.Init(configGroup, callback); err != nil {
+	if err = configGroup.${loader.get_go_pb_unexported_name()}.Init(configGroup, callback); err != nil {
 		return
 	}
 	% endfor
@@ -100,13 +100,13 @@ func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)
 	if configGroup == nil {
 		return nil
 	}
-	return configGroup.${loader.get_go_pb_name()}.GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_params()})
+	return configGroup.${loader.get_go_pb_unexported_name()}.GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_params()})
 }
 func Get${loader.get_go_pb_name()}AllOf${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup) *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
 	if configGroup == nil {
 		return nil
 	}
-	return configGroup.${loader.get_go_pb_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
+	return configGroup.${loader.get_go_pb_unexported_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
 }
 			% if code_index.is_list():
 func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_decl()}) []*public_protocol_config.${loader.get_go_pb_name()} {
@@ -116,13 +116,13 @@ func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}By${pb_loader.MakoT
 	if configGroup == nil {
 		return nil
 	}
-	return configGroup.${loader.get_go_pb_name()}.GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_params()})
+	return configGroup.${loader.get_go_pb_unexported_name()}.GetBy${pb_loader.MakoToCamelName(code_index.name)}(${code_index.get_go_key_params()})
 }
 func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}AllOf${pb_loader.MakoToCamelName(code_index.name)}() *IndexContainer_${loader.get_go_pb_name()}_${code_index.name} {
 	if configGroup == nil {
 		return nil
 	}
-	return configGroup.${loader.get_go_pb_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
+	return configGroup.${loader.get_go_pb_unexported_name()}.GetAllOf${pb_loader.MakoToCamelName(code_index.name)}()
 }
 
 		% endfor

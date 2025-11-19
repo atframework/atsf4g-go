@@ -10,7 +10,7 @@ import (
 func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *slog.Logger) error {
 	// 这边初始化自定义索引
 	source := make(map[string]interface{})
-	for _, v := range *group.ExcelOriginConstConfig.GetAllOfKey() {
+	for _, v := range *group.GetExcelOriginConstConfigAllOfKey() {
 		// 把 KV 转为 Map 然后使用解析PB的工具
 		source[v.Key] = v.Value
 	}
