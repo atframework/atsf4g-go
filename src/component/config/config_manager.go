@@ -164,7 +164,7 @@ func (callback ExcelConfigCallback) GetLogger() *slog.Logger {
 }
 
 func (callback ExcelConfigCallback) OnLoaded(config_group *generate_config.ConfigGroup) error {
-	return ExcelConfigCallbackOnLoad(config_group)
+	return ExcelConfigCallbackOnLoad(config_group, callback.GetLogger())
 }
 
 type ConfigManagerModule struct {

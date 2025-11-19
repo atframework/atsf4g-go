@@ -3,6 +3,7 @@ package libatapp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	atfw_utils_fs "github.com/atframework/atframe-utils-go/file_system"
@@ -175,7 +176,7 @@ func TestConfigManagement(t *testing.T) {
 	source["bus"] = string(data)
 
 	var constConfig atframe_protocol.AtappConfigure
-	err = ParseMessage(source, &constConfig, nil)
+	err = ParseMessage(source, &constConfig, slog.Default())
 	if err != nil {
 		t.Errorf("Read Error %v", err)
 	}

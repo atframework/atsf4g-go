@@ -831,6 +831,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 								return err
 							}
 						} else {
+							logger.Warn("ParseMessage message field not found, use default", "field", fieldName)
 							if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 								return err
 							}
@@ -843,7 +844,11 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 
 		var fieldData interface{}
 		if yamlData != nil {
-			fieldData = yamlData[fieldName]
+			ok := false
+			fieldData, ok = yamlData[fieldName]
+			if !ok {
+				logger.Warn("ParseMessage field not found, use default", "field", fieldName)
+			}
 		}
 		value, err := parseField(fieldData, fd, logger)
 		if err != nil {
