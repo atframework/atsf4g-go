@@ -6,12 +6,23 @@ import (
 	"log/slog"
 	"os"
 	"path"
+	"reflect"
 	"sync"
 	"sync/atomic"
 
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
 )
+
+var configManagerModuleReflectType reflect.Type
+
+func init() {
+	configManagerModuleReflectType = reflect.TypeOf((*ConfigManagerModule)(nil)).Elem()
+}
+
+func GetReflectTypeConfigManagerModule() reflect.Type {
+	return configManagerModuleReflectType
+}
 
 type ConfigManager struct {
 	currentConfigGroup        *generate_config.ConfigGroup
@@ -188,6 +199,10 @@ func (m *ConfigManagerModule) Init(parent context.Context) error {
 
 func (m *ConfigManagerModule) Name() string {
 	return "ConfigManagerModule"
+}
+
+func (m *ConfigManagerModule) GetReflectType() reflect.Type {
+	return configManagerModuleReflectType
 }
 
 // 同步接口

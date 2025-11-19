@@ -12,7 +12,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 	currentCASVersion *uint64,
 % endif
 ) (retResult cd.RpcResult) {
-	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
+	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](cd.GetReflectTypeRedisMessageDispatcher(), ctx.GetApp())
 	instance := dispatcher.GetRedisInstance()
 	if instance == nil {
         ctx.LogError("get redis instance failed")

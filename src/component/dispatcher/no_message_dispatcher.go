@@ -1,8 +1,20 @@
 package atframework_component_dispatcher
 
 import (
+	"reflect"
+
 	libatapp "github.com/atframework/libatapp-go"
 )
+
+var noMessageDispatcherReflectType reflect.Type
+
+func init() {
+	noMessageDispatcherReflectType = reflect.TypeOf((*NoMessageDispatcher)(nil)).Elem()
+}
+
+func GetReflectTypeNoMessageDispatcher() reflect.Type {
+	return noMessageDispatcherReflectType
+}
 
 type NoMessageDispatcher struct {
 	DispatcherBase
@@ -19,6 +31,10 @@ func CreateNoMessageDispatcher(owner libatapp.AppImpl) *NoMessageDispatcher {
 }
 
 func (d *NoMessageDispatcher) Name() string { return "NoMessageDispatcher" }
+
+func (m *NoMessageDispatcher) GetReflectType() reflect.Type {
+	return noMessageDispatcherReflectType
+}
 
 func (d *NoMessageDispatcher) PickMessageRpcName(msg *DispatcherRawMessage) string {
 	return ""

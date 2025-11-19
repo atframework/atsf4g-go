@@ -246,12 +246,12 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 	g.P()
 
 	g.P("// ===== GetMessageReflectType methods for ", msg.GoIdent.GoName, " ===== Message =====")
-	g.P(fmt.Sprintf(`	var ReflectType%s reflect.Type`, msg.GoIdent.GoName))
+	g.P(fmt.Sprintf(`	var reflectType%s reflect.Type`, msg.GoIdent.GoName))
 	g.P(fmt.Sprintf(`func GetReflectType%s() reflect.Type {`, msg.GoIdent.GoName))
-	g.P(fmt.Sprintf(`  return ReflectType%s`, msg.GoIdent.GoName))
+	g.P(fmt.Sprintf(`  return reflectType%s`, msg.GoIdent.GoName))
 	g.P(`}`)
 	g.P()
-	initGenerate = append(initGenerate, fmt.Sprintf(`	ReflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, msg.GoIdent.GoName, msg.GoIdent.GoName))
+	initGenerate = append(initGenerate, fmt.Sprintf(`	reflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, msg.GoIdent.GoName, msg.GoIdent.GoName))
 
 	generateReadonlyForMessage(f, g, msg)
 
@@ -396,19 +396,19 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 			g.P()
 
 			g.P("// ===== Get reflect Type for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
-			g.P(fmt.Sprintf(`	var ReflectType%s reflect.Type`, fullFieldName))
+			g.P(fmt.Sprintf(`	var reflectType%s reflect.Type`, fullFieldName))
 			g.P(fmt.Sprintf(`func GetReflectType%s() reflect.Type {`, fullFieldName))
-			g.P(fmt.Sprintf(`	return ReflectType%s`, fullFieldName))
+			g.P(fmt.Sprintf(`	return reflectType%s`, fullFieldName))
 			g.P(`}`)
 			g.P()
-			initGenerate = append(initGenerate, fmt.Sprintf(`	ReflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, fullFieldName, fullFieldName))
+			initGenerate = append(initGenerate, fmt.Sprintf(`	reflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, fullFieldName, fullFieldName))
 
 			g.P("// ===== Oneof Interface for ", msg.GoIdent.GoName, " Oneof ", fullFieldName, " ===== Oneof =====")
 			g.P(fmt.Sprintf(`func (m *%s) Get%s_%s() %s_En%sID {`, fullFieldName, msg.GoIdent.GoName, oneofName, msg.GoIdent.GoName, oneofName))
 			g.P(fmt.Sprintf(`  return %s_En%sID_%s`, msg.GoIdent.GoName, oneofName, fieldName))
 			g.P(`}`)
 			g.P(fmt.Sprintf(`func (m *%s) GetReflectType%s_%s() reflect.Type {`, fullFieldName, msg.GoIdent.GoName, oneofName))
-			g.P(fmt.Sprintf(`  return ReflectType%s`, fullFieldName))
+			g.P(fmt.Sprintf(`  return reflectType%s`, fullFieldName))
 			g.P(`}`)
 			g.P()
 		case field.Message != nil:

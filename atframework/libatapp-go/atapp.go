@@ -401,8 +401,7 @@ func AtappAddModule[ModuleType AppModuleImpl](app AppImpl, module ModuleType) er
 		return fmt.Errorf("app is nil")
 	}
 
-	var zero ModuleType
-	return app.AddModule(reflect.TypeOf(zero).Elem(), module)
+	return app.AddModule(module.GetReflectType(), module)
 }
 
 func (app *AppInstance) GetModule(typeInst reflect.Type) AppModuleImpl {
@@ -414,13 +413,13 @@ func (app *AppInstance) GetModule(typeInst reflect.Type) AppModuleImpl {
 	return mod
 }
 
-func AtappGetModule[ModuleType AppModuleImpl](app AppImpl) ModuleType {
+func AtappGetModule[ModuleType AppModuleImpl](typeInst reflect.Type, app AppImpl) ModuleType {
 	var zero ModuleType
 	if lu.IsNil(app) {
 		return zero
 	}
 
-	ret := app.GetModule(reflect.TypeOf(zero).Elem())
+	ret := app.GetModule(typeInst)
 	if ret == nil {
 		return zero
 	}

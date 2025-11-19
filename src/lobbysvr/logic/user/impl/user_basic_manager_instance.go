@@ -20,6 +20,7 @@ import (
 )
 
 func init() {
+	var _ logic_user.UserBasicManager = (*UserBasicManager)(nil)
 	data.RegisterUserModuleManagerCreator[logic_user.UserBasicManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
