@@ -15,6 +15,7 @@ import "google/protobuf/empty.proto";
 import "protocol/extension/atframework.proto";
 
 import "protocol/pbdesc/lobbysvr.com.protocol.user.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.quest.proto";
 
 package proy;
 
@@ -71,4 +72,14 @@ service LobbyClientService {
     };
   };
   /////////////////////////// user /////////////////////////////
+  
+  /////////////////////////// quest /////////////////////////////
+  rpc quest_receive_reward(CSQuestReceiveRewardReq) returns (SCQuestReceiveRewardRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "quest"
+      api_name: "领取任务奖励"
+    };
+  };
+  /////////////////////////// quest /////////////////////////////
+
 }

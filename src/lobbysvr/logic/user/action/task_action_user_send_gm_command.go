@@ -13,6 +13,8 @@ import (
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+
+	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 )
 
 type TaskActionUserSendGmCommand struct {
@@ -86,6 +88,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(&callbacks, "help", "", "Show this help message", (*TaskActionUserSendGmCommand).runGMCmdHelp)
 	registerGmCommandHandle(&callbacks, "add-item", "<item_id> [count=1]", "Add an item to the user's inventory", (*TaskActionUserSendGmCommand).runGMCmdItemAddItem)
 	registerGmCommandHandle(&callbacks, "remove-item", "<item_id> <count> [guid=0]", "Remove an item from the user's inventory", (*TaskActionUserSendGmCommand).runGMCmdItemRemoveItem)
+	registerGmCommandHandle(callbacks, "query-quest-status", "<questID>] ", "query quest status", (*TaskActionUserSendGmCommand).runGMCmdQueryQuestStatus)
 
 	return callbacks
 }
@@ -218,4 +221,24 @@ func (t *TaskActionUserSendGmCommand) runGMCmdItemRemoveItem(user *data.User, ar
 	}
 
 	return []string{fmt.Sprintf("Sub item success item_id=%d count=%d", itemId, count)}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdQueryQuestStatus(user *data.User, args []string) ([]string, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("invalid arguments for query-quest-status command")
+	}
+
+	questID, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid query_id: %w", err)
+	}
+
+	mgr := data.UserGetModuleManager[logic_quest.UserQuestManager](user)
+	if mgr == nil {
+		return nil, fmt.Errorf("user quest manager not found")
+	}
+
+	result := mgr.QueryQuestStatus(int32(questID))
+
+	return []string{fmt.Sprintf("Add item success status=%d", result)}, nil
 }

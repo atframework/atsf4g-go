@@ -16,6 +16,7 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
+	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
@@ -219,6 +220,20 @@ func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 
 		// 升级奖励
 		m.addLevelUpReward(ctx, levelConfig)
+	}
+
+	// 触发任务
+	questMgr := data.UserGetModuleManager[logic_quest.UserQuestManager](m.GetOwner())
+	if questMgr != nil {
+		questMgr.QuestTriggerEvent(ctx, public_protocol_common.EnQuestTriggerType_EN_QUEST_TRIGGER_TYPE_PLAYER_LEVEL_PROMOTE,
+			&private_protocol_pbdesc.QuestTriggerParams{
+				Param: &private_protocol_pbdesc.QuestTriggerParams_PlayerLevel{
+					PlayerLevel: &private_protocol_pbdesc.QuestTargetParamsPlayerLevel{
+						PreLevel: int64(oldLevel),
+						CurLevel: int64(m.GetUserLevel()),
+					},
+				},
+			})
 	}
 
 	if hasDirty {

@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	kQuestDefSeason = -1
 	// 解锁条件类型：开始时间点
 	unlockConditionTypeStartTimepoint = 1
 )
@@ -18,7 +17,7 @@ const (
 // InitExcelQuestConfigIndex 初始化任务配置索引
 // 构建任务解锁条件映射、任务序列和任务触发器参数映射
 func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
-	tmpUnlockConditionMap := make(map[int32]map[int32][]custom_index_type.QuestUnlockConditionPair)
+	tmpUnlockConditionMap := make(map[int32][]custom_index_type.QuestUnlockConditionPair)
 	maxQuestId := int32(0)
 	questSequence := make([]*public_protocol_config.ExcelQuestList, 0)
 
@@ -40,15 +39,10 @@ func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
 			}
 
 			conditionTypeCase := getUnlockConditionTypeCase(unlockCondition)
-			seasonId := unlockCondition.SeasonId
-
-			if tmpUnlockConditionMap[conditionTypeCase] == nil {
-				tmpUnlockConditionMap[conditionTypeCase] = make(map[int32][]custom_index_type.QuestUnlockConditionPair)
-			}
 
 			condValue := getUnlockConditionValue(unlockCondition)
-			tmpUnlockConditionMap[conditionTypeCase][seasonId] = append(
-				tmpUnlockConditionMap[conditionTypeCase][seasonId],
+			tmpUnlockConditionMap[conditionTypeCase] = append(
+				tmpUnlockConditionMap[conditionTypeCase],
 				custom_index_type.QuestUnlockConditionPair{
 					Value:   condValue,
 					QuestId: questConf.Id,
@@ -58,14 +52,9 @@ func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
 
 		// 处理特定时间段的可用性
 		if questConf.AvailablePeriod != nil && questConf.AvailablePeriod.GetSpecificPeriod() != nil {
-			seasonId := getQuestSessionId(questConf)
-			if tmpUnlockConditionMap[unlockConditionTypeStartTimepoint] == nil {
-				tmpUnlockConditionMap[unlockConditionTypeStartTimepoint] = make(map[int32][]custom_index_type.QuestUnlockConditionPair)
-			}
-
 			startTime := questConf.AvailablePeriod.GetSpecificPeriod().Start.Seconds
-			tmpUnlockConditionMap[unlockConditionTypeStartTimepoint][seasonId] = append(
-				tmpUnlockConditionMap[unlockConditionTypeStartTimepoint][seasonId],
+			tmpUnlockConditionMap[unlockConditionTypeStartTimepoint] = append(
+				tmpUnlockConditionMap[unlockConditionTypeStartTimepoint],
 				custom_index_type.QuestUnlockConditionPair{
 					Value:   startTime,
 					QuestId: questConf.Id,
@@ -88,15 +77,13 @@ func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
 	})
 
 	// 排序每个分类中的解锁条件对
-	for _, condMap := range tmpUnlockConditionMap {
-		for _, pairs := range condMap {
-			sort.Slice(pairs, func(i, j int) bool {
-				if pairs[i].Value == pairs[j].Value {
-					return pairs[i].QuestId < pairs[j].QuestId
-				}
-				return pairs[i].Value < pairs[j].Value
-			})
-		}
+	for _, pairs := range tmpUnlockConditionMap {
+		sort.Slice(pairs, func(i, j int) bool {
+			if pairs[i].Value == pairs[j].Value {
+				return pairs[i].QuestId < pairs[j].QuestId
+			}
+			return pairs[i].Value < pairs[j].Value
+		})
 	}
 
 	// 保存到自定义索引中
@@ -124,33 +111,24 @@ func GetBoundUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionT
 		return nil
 	}
 
-	condTypeMap, ok := customIndex.QuestUnlockConditionMap[unlockConditionType]
+	pairs, ok := customIndex.QuestUnlockConditionMap[unlockConditionType]
 	if !ok {
 		return nil
 	}
 
-	seasonIds := []int32{kQuestDefSeason, 0}
-
 	var unlockQuestIds []int32
 
-	for _, season := range seasonIds {
-		pairs, ok := condTypeMap[season]
-		if !ok {
-			continue
-		}
+	// 使用二分查找获取范围 (previous, newValue]
+	startIdx := sort.Search(len(pairs), func(i int) bool {
+		return pairs[i].Value > previous
+	})
 
-		// 使用二分查找获取范围 (previous, newValue]
-		startIdx := sort.Search(len(pairs), func(i int) bool {
-			return pairs[i].Value > previous
-		})
+	endIdx := sort.Search(len(pairs), func(i int) bool {
+		return pairs[i].Value > newValue
+	})
 
-		endIdx := sort.Search(len(pairs), func(i int) bool {
-			return pairs[i].Value > newValue
-		})
-
-		for i := startIdx; i < endIdx && i < len(pairs); i++ {
-			unlockQuestIds = append(unlockQuestIds, pairs[i].QuestId)
-		}
+	for i := startIdx; i < endIdx && i < len(pairs); i++ {
+		unlockQuestIds = append(unlockQuestIds, pairs[i].QuestId)
 	}
 
 	if len(unlockQuestIds) == 0 {
@@ -162,7 +140,7 @@ func GetBoundUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionT
 
 // GetEqualUnlockQuestIds 获取精确值解锁的任务ID列表
 // 返回解锁条件值等于指定值的任务ID
-func GetEqualUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionType, seasonId int32, value int64) []int32 {
+func GetEqualUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionType int32, value int64) []int32 {
 	if group == nil {
 		return nil
 	}
@@ -172,36 +150,24 @@ func GetEqualUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionT
 		return nil
 	}
 
-	condTypeMap, ok := customIndex.QuestUnlockConditionMap[unlockConditionType]
+	pairs, ok := customIndex.QuestUnlockConditionMap[unlockConditionType]
 	if !ok {
 		return nil
 	}
 
-	seasonIds := map[int32]bool{
-		kQuestDefSeason: true,
-		seasonId:        true,
-	}
-
 	var unlockQuestIds []int32
 
-	for season := range seasonIds {
-		pairs, ok := condTypeMap[season]
-		if !ok {
-			continue
-		}
+	// 使用二分查找获取精确值
+	startIdx := sort.Search(len(pairs), func(i int) bool {
+		return pairs[i].Value >= value
+	})
 
-		// 使用二分查找获取精确值
-		startIdx := sort.Search(len(pairs), func(i int) bool {
-			return pairs[i].Value >= value
-		})
+	endIdx := sort.Search(len(pairs), func(i int) bool {
+		return pairs[i].Value > value
+	})
 
-		endIdx := sort.Search(len(pairs), func(i int) bool {
-			return pairs[i].Value > value
-		})
-
-		for i := startIdx; i < endIdx && i < len(pairs); i++ {
-			unlockQuestIds = append(unlockQuestIds, pairs[i].QuestId)
-		}
+	for i := startIdx; i < endIdx && i < len(pairs); i++ {
+		unlockQuestIds = append(unlockQuestIds, pairs[i].QuestId)
 	}
 
 	if len(unlockQuestIds) == 0 {
@@ -311,23 +277,6 @@ func getUnlockConditionValue(unlockCondition *public_protocol_common.DQuestUnloc
 	}
 	if v := unlockCondition.GetHasSpecifyCharacter(); unlockCondition.GetUnlockType() == (*public_protocol_common.DQuestUnlockConditionItem_HasSpecifyCharacter)(nil) || v != 0 {
 		return v
-	}
-
-	return 0
-}
-
-// getQuestSessionId 获取任务对应的赛季ID
-// 从任务进度中获取第一个进度的赛季ID
-func getQuestSessionId(quest *public_protocol_config.ExcelQuestList) int32 {
-	if quest == nil || len(quest.Progress) == 0 {
-		return 0
-	}
-
-	// 从第一个进度获取赛季ID
-	for _, progress := range quest.Progress {
-		if progress != nil {
-			return progress.SeasonId
-		}
 	}
 
 	return 0

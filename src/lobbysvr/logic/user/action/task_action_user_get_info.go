@@ -16,6 +16,7 @@ import (
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
 
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
+	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 )
 
 type TaskActionUserGetInfo struct {
@@ -66,6 +67,13 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 			return true
 		})
 	}
-
+	if request_body.GetNeedUserQuest() {
+		questManager := data.UserGetModuleManager[logic_quest.UserQuestManager](user)
+		if questManager == nil {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			return fmt.Errorf("user quest manager not found")
+		}
+		questManager.DumpQuestInfo(response_body.MutableUserQuest())
+	}
 	return nil
 }
