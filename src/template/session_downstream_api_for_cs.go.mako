@@ -78,7 +78,7 @@ func Send${rpc_name}(session cd.TaskActionCSSession, body *sp.${rpc.get_response
 		return fmt.Errorf("session dispatcher is nil")
 	}
 
-	now := rd.GetNow()
+	now := rd.GetSysNow()
 
 	return sendMessage(responseCode, session, rd, now, &ppe.RpcStreamMeta{
 		Version:         "0.1.0",  // TODO: make it configurable

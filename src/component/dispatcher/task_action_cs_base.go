@@ -251,8 +251,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	}
 
 	// 构造响应消息
-	// TODO: 使用全局时间戳 Timestamp
-	now := t.GetNow()
+	now := t.GetSysNow()
 	responseMsg, err := CreateCSMessage(t.GetResponseCode(), now, clientSequence, t.GetDispatcher(), t.session,
 		&public_protocol_extension.RpcResponseMeta{
 			// TODO: 配置模块加载

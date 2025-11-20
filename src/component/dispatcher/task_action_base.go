@@ -42,7 +42,7 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskA
 		responseCode:     0,
 		prepareHookRun:   false,
 		awaitableContext: nil,
-		startTime:        rd.GetNow(),
+		startTime:        rd.GetSysNow(),
 		actorExecutor:    actorExecutor,
 		dispatcher:       rd,
 		disableResponse:  false,
@@ -72,6 +72,14 @@ func (t *TaskActionBase) GetNow() time.Time {
 	}
 
 	return t.dispatcher.GetNow()
+}
+
+func (t *TaskActionBase) GetSysNow() time.Time {
+	if !lu.IsNil(t.awaitableContext) {
+		return t.awaitableContext.GetSysNow()
+	}
+
+	return t.dispatcher.GetSysNow()
 }
 
 func (t *TaskActionBase) GetStatus() TaskActionStatus {

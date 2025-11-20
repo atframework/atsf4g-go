@@ -445,7 +445,7 @@ func (u *User) UpdateHeartbeat(ctx cd.RpcContext) {
 
 	// 续期LoginCode,
 	// TODO: 有效期来自配置
-	u.GetLoginInfo().LoginCodeExpired = ctx.GetNow().Unix() + int64(20*60)
+	u.GetLoginInfo().LoginCodeExpired = ctx.GetSysNow().Unix() + int64(20*60)
 }
 
 func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {

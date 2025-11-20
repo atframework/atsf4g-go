@@ -196,14 +196,14 @@ func (obj *RouterObjectBase) GetRouterObjectBase() *RouterObjectBase {
 }
 
 func (obj *RouterObjectBase) RefreshVisitTime(ctx cd.RpcContext) {
-	obj.lastVisitTime = ctx.GetNow().Unix()
+	obj.lastVisitTime = ctx.GetSysNow().Unix()
 
 	// 刷新访问事件要取消移除缓存的计划任务
 	obj.UnsetFlag(FlagRemovingCache)
 }
 
 func (obj *RouterObjectBase) RefreshSaveTime(ctx cd.RpcContext) {
-	obj.lastSaveTime = ctx.GetNow().Unix()
+	obj.lastSaveTime = ctx.GetSysNow().Unix()
 }
 
 func (obj *RouterObjectBase) GetLastVisitTime() int64 {
@@ -245,7 +245,7 @@ func (obj *RouterObjectBase) IsCacheAvailable(ctx cd.RpcContext) bool {
 	}
 
 	if obj.lastSaveTime+
-		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheUpdateInterval().GetSeconds() < ctx.GetNow().Unix() {
+		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheUpdateInterval().GetSeconds() < ctx.GetSysNow().Unix() {
 		return false
 	}
 

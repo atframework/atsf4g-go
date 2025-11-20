@@ -166,7 +166,7 @@ func (t *TaskActionLogin) mergeLoginInfo(loginTb *private_protocol_pbdesc.Databa
 	request_body := t.GetRequestBody()
 
 	loginTb.LoginCode = request_body.GetLoginCode()
-	loginTb.LoginCodeExpired = t.GetNow().Unix() + int64(20*60)
+	loginTb.LoginCodeExpired = t.GetSysNow().Unix() + int64(20*60)
 	loginTb.Account = &private_protocol_pbdesc.AccountInformation{
 		AccountType: request_body.GetAccount().GetAccountType(),
 		// Access: request_body.Account.Access,

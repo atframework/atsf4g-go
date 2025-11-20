@@ -366,7 +366,7 @@ func (u *UserCache) OnLogout(ctx cd.RpcContext) {
 
 	loginInfo := lu.Mutable(&u.loginInfo)
 
-	nowSec := ctx.GetNow().Unix()
+	nowSec := ctx.GetSysNow().Unix()
 	loginInfo.BusinessLogoutTime = nowSec
 }
 
@@ -548,7 +548,7 @@ func (u *UserCache) updateLoginData(ctx cd.RpcContext) {
 	}
 
 	// Patch login table
-	nowSec := ctx.GetNow().Unix()
+	nowSec := ctx.GetSysNow().Unix()
 	// TODO: 有效期来自配置
 	u.loginInfo.LoginCodeExpired = nowSec + int64(20*60)
 

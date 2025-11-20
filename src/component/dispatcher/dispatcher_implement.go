@@ -35,6 +35,7 @@ type DispatcherImpl interface {
 	AllocTaskId() uint64
 	AllocSequence() uint64
 	GetNow() time.Time
+	GetSysNow() time.Time
 	GetLogger() *slog.Logger
 
 	OnSendMessageFailed(rpcContext RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
@@ -124,8 +125,28 @@ func (dispatcher *DispatcherBase) AllocSequence() uint64 {
 }
 
 func (dispatcher *DispatcherBase) GetNow() time.Time {
-	// TODO: 使用逻辑时间戳 Timestamp
-	return time.Now()
+	return dispatcher.AppModuleBase.GetNow()
+}
+
+func (dispatcher *DispatcherBase) GetSysNow() time.Time {
+	return dispatcher.AppModuleBase.GetSysNow()
+}
+
+// ====================== GM 接口 - 调整服务器时间 =========================
+
+// GmSetServerTime 设置服务器时间为指定时间，所有后续的 GetNow() 调用都会返回调整后的时间
+func (dispatcher *DispatcherBase) GmSetServerTime(newTime time.Time) {
+	dispatcher.AppModuleBase.SetAppTime(newTime)
+}
+
+// GmGetServerTimeOffset 获取当前的时间偏移量
+func (dispatcher *DispatcherBase) GmGetServerTimeOffset() time.Duration {
+	return dispatcher.AppModuleBase.GetAppTimeOffset()
+}
+
+// GmResetServerTime 重置服务器时间为系统时间
+func (dispatcher *DispatcherBase) GmResetServerTime() {
+	dispatcher.AppModuleBase.ResetAppTime()
 }
 
 func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {

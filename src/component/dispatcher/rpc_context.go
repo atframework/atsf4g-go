@@ -24,6 +24,7 @@ type AwaitableContextImpl struct {
 
 type RpcContext interface {
 	GetNow() time.Time
+	GetSysNow() time.Time
 	GetApp() libatapp.AppImpl
 	GetAction() TaskActionImpl
 	BindAction(action TaskActionImpl)
@@ -68,6 +69,14 @@ func (ctx *RpcContextImpl) getInternalLogger() *slog.Logger {
 func (ctx *RpcContextImpl) GetNow() time.Time {
 	if ctx.dispatcher != nil {
 		return ctx.dispatcher.GetNow()
+	}
+
+	return time.Now()
+}
+
+func (ctx *RpcContextImpl) GetSysNow() time.Time {
+	if ctx.dispatcher != nil {
+		return ctx.dispatcher.GetSysNow()
 	}
 
 	return time.Now()

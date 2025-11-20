@@ -110,6 +110,12 @@ type AppImpl interface {
 	GetZoneId() uint32
 	GetLogicId() uint32
 
+	SetAppTime(newTime time.Time)
+	GetAppTimeOffset() time.Duration
+	ResetAppTime()
+	GetNow() time.Time
+	GetSysNow() time.Time
+
 	AddModule(typeInst reflect.Type, module AppModuleImpl) error
 
 	GetModule(typeInst reflect.Type) AppModuleImpl
@@ -196,6 +202,8 @@ type AppInstance struct {
 		tickCount          uint64
 		moduleReloadCount  uint64
 	}
+
+	timeOffset time.Duration // 时间偏移
 }
 
 func CreateAppInstance() AppImpl {
@@ -836,6 +844,27 @@ func (app *AppInstance) GetWorldId() uint32      { return app.config.ConfigPb.Ge
 func (app *AppInstance) GetZoneId() uint32       { return app.config.ConfigPb.GetZoneId() }
 func (app *AppInstance) GetLogicId() uint32      { return app.config.ConfigPb.GetArea().GetZoneId() }
 func (app *AppInstance) GetConfigFile() string   { return app.config.ConfigFile }
+
+func (app *AppInstance) SetAppTime(newTime time.Time) {
+	app.timeOffset = time.Until(newTime)
+}
+
+func (app *AppInstance) GetAppTimeOffset() time.Duration {
+	return app.timeOffset
+}
+
+func (app *AppInstance) ResetAppTime() {
+	app.timeOffset = 0
+}
+
+func (app *AppInstance) GetNow() time.Time {
+	// TODO: 使用逻辑时间戳 Timestamp
+	return time.Now().Add(app.timeOffset)
+}
+func (app *AppInstance) GetSysNow() time.Time {
+	// TODO: 使用逻辑时间戳 Timestamp
+	return time.Now()
+}
 
 // 配置管理
 func (app *AppInstance) LoadConfig(configFile string) (err error) {
