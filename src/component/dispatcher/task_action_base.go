@@ -1,6 +1,8 @@
 package atframework_component_dispatcher
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -14,6 +16,7 @@ import (
 type TaskActionBase struct {
 	Impl   TaskActionImpl
 	taskId uint64
+	status TaskActionStatus
 
 	responseCode     int32
 	prepareHookRun   bool
@@ -35,6 +38,7 @@ type TaskActionBase struct {
 func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskActionBase {
 	return TaskActionBase{
 		taskId:           rd.AllocTaskId(),
+		status:           TaskActionStatusCreated,
 		responseCode:     0,
 		prepareHookRun:   false,
 		awaitableContext: nil,
@@ -70,6 +74,30 @@ func (t *TaskActionBase) GetNow() time.Time {
 	return t.dispatcher.GetNow()
 }
 
+func (t *TaskActionBase) GetStatus() TaskActionStatus {
+	if t == nil {
+		return TaskActionStatusInvalid
+	}
+
+	return t.status
+}
+
+func (t *TaskActionBase) IsExiting() bool {
+	return t.GetStatus() >= TaskActionStatusDone
+}
+
+func (t *TaskActionBase) IsRunning() bool {
+	return t.GetStatus() == TaskActionStatusRunning
+}
+
+func (t *TaskActionBase) IsFault() bool {
+	return t.GetStatus() >= TaskActionStatusKilled
+}
+
+func (t *TaskActionBase) IsTimeout() bool {
+	return t.GetStatus() == TaskActionStatusTimeout
+}
+
 func (t *TaskActionBase) CheckPermission() (int32, error) {
 	if !t.Impl.AllowNoActor() && t.Impl.GetActorExecutor() == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY), nil
@@ -78,7 +106,19 @@ func (t *TaskActionBase) CheckPermission() (int32, error) {
 	return 0, nil
 }
 
+func (t *TaskActionBase) setStatus(status TaskActionStatus) {
+	if t == nil {
+		return
+	}
+
+	t.status = status
+}
+
 func (t *TaskActionBase) PrepareHookRun(startData *DispatcherStartData) {
+	if t == nil {
+		return
+	}
+
 	if t.prepareHookRun {
 		return
 	}
@@ -86,6 +126,10 @@ func (t *TaskActionBase) PrepareHookRun(startData *DispatcherStartData) {
 
 	if startData != nil && lu.IsNil(t.awaitableContext) {
 		t.awaitableContext = startData.MessageRpcContext
+	}
+
+	if t.GetStatus() <= TaskActionStatusCreated {
+		t.setStatus(TaskActionStatusRunning)
 	}
 }
 
@@ -95,10 +139,24 @@ func (t *TaskActionBase) HookRun(startData *DispatcherStartData) error {
 	responseCode, err := t.Impl.CheckPermission()
 	if err != nil || responseCode < 0 {
 		t.Impl.SetResponseCode(responseCode)
+		t.setStatus(TaskActionStatusKilled)
 		return err
 	}
 
-	return t.Impl.Run(startData)
+	err = t.Impl.Run(startData)
+	if t.GetStatus() <= TaskActionStatusRunning {
+		if err != nil || t.GetResponseCode() < 0 {
+			if t.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) || errors.Is(err, context.DeadlineExceeded) {
+				t.setStatus(TaskActionStatusTimeout)
+			} else {
+				t.setStatus(TaskActionStatusKilled)
+			}
+		} else {
+			t.setStatus(TaskActionStatusDone)
+		}
+	}
+
+	return err
 }
 
 func (t *TaskActionBase) GetActorExecutor() *ActorExecutor {

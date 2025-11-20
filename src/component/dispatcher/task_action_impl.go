@@ -20,11 +20,28 @@ type TaskActionAwaitChannelData struct {
 
 type BeforeYieldAction func() RpcResult
 
+type TaskActionStatus int32
+
+const (
+	TaskActionStatusInvalid TaskActionStatus = 0
+	TaskActionStatusCreated TaskActionStatus = 1
+	TaskActionStatusRunning TaskActionStatus = 2
+	TaskActionStatusDone    TaskActionStatus = 3
+	TaskActionStatusKilled  TaskActionStatus = 4
+	TaskActionStatusTimeout TaskActionStatus = 5
+)
+
 type TaskActionImpl interface {
 	Name() string
 	GetTaskId() uint64
 	GetTaskStartTime() time.Time
 	GetNow() time.Time
+
+	GetStatus() TaskActionStatus
+	IsExiting() bool
+	IsRunning() bool
+	IsFault() bool
+	IsTimeout() bool
 
 	// 最终业务流程执行
 	Run(*DispatcherStartData) error
