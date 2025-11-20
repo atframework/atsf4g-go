@@ -480,6 +480,14 @@ func generateReadonlyForMessage(f *protogen.File, g *protogen.GeneratedFile, msg
 	g.P("}")
 	g.P()
 
+	g.P(fmt.Sprintf("func (r *%s) LogValue() slog.Value {", roName))
+	g.P("  if r == nil {")
+	g.P("    return slog.Value{}")
+	g.P("  }")
+	g.P("  return r.protoData.LogValue()")
+	g.P("}")
+	g.P()
+
 	g.P(fmt.Sprintf("func (r *%s) initFromProto(src *%s) {", roName, msg.GoIdent.GoName))
 	g.P("  if r == nil || src == nil {")
 	g.P("    return")
