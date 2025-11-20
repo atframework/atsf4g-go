@@ -11,6 +11,10 @@ import (
 // DaySeconds 一天的秒数.
 const DaySeconds int64 = 24 * 3600
 
+const InitLoginDays int32 = 1
+
+const DeleteCacheKeepSeconds int64 = 24 * 3600
+
 type UserQuestManager interface {
 	data.UserItemManagerImpl
 	data.UserModuleManagerImpl
@@ -21,7 +25,7 @@ type UserQuestManager interface {
 	QueryQuestIsFinish(questID int32) bool
 
 	// 领取任务奖励
-	ReceivedQuestSReward(_ctx cd.RpcContext, questIDs []int32, autoReceived bool) cd.RpcResult
+	ReceivedQuestsReward(_ctx cd.RpcContext, questIDs []int32, autoReceived bool) cd.RpcResult
 	ReceivedQuestReward(_ctx cd.RpcContext, questID int32, autoReceived bool) cd.RpcResult
 
 	// 触发任务事件

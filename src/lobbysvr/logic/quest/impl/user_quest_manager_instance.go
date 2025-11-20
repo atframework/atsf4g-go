@@ -2,15 +2,14 @@ package lobbysvr_logic_quest_internal
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 
 	config "github.com/atframework/atsf4g-go/component-config"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -21,24 +20,10 @@ import (
 	logic_quest_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest/data"
 )
 
-// 类型别名以简化长类型定义.
-type (
-	ExcelQuestList          = public_protocol_config.ExcelQuestList
-	DQuestConditionProgress = public_protocol_config.DQuestConditionProgress
-	DQuestProgressDataList  = public_protocol_pbdesc.DQuestProgressDataList
-	DUserQuestData          = public_protocol_pbdesc.DUserQuestData
-	EnQuestTriggerType      = public_protocol_common.EnQuestTriggerType
-	EnQuestProgressType     = public_protocol_common.EnQuestProgressType
-	EnQuestStatus           = public_protocol_common.EnQuestStatus
-	ItemAddGuard            = data.ItemAddGuard
-	ItemSubGuard            = data.ItemSubGuard
-	QuestTriggerParams      = private_protocol_pbdesc.QuestTriggerParams
-)
-
 func init() {
 	var _ logic_quest.UserQuestManager = (*UserQuestManager)(nil)
 
-	data.RegisterUserModuleManagerCreator[logic_quest.UserQuestManager](func(_ *cd.RpcContext,
+	data.RegisterUserModuleManagerCreator[logic_quest.UserQuestManager](func(_ cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
 		return CreateUserQuestManager(owner)
@@ -48,7 +33,7 @@ func init() {
 		data.MakeUserItemTypeIdRange(
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_QUEST_BEGIN),
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_QUEST_END)),
-	}, func(ctx *cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
+	}, func(ctx cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[logic_quest.UserQuestManager](owner)
 		if mgr == nil {
 			ctx.LogError("can not find user quest manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
@@ -103,10 +88,9 @@ func registerCondition() {
 
 // 道具相关api实现
 
-func (m *UserQuestManager) AddItem(_ctx cd.RpcContext, ItemAddGuard []data.ItemAddGuard, _ *data.ItemFlowReason) data.Result {
-	for _, AddGuard := range ItemAddGuard {
-		// penddingquests = append(penddingquests, item.ItemBasic.TypeId)
-		questCfg := config.GetConfigManager().GetCurrentConfigGroup().ExcelQuestList.GetById(AddGuard.Item.ItemBasic.TypeId)
+func (m *UserQuestManager) AddItem(_ctx cd.RpcContext, itemAddGuard []data.ItemAddGuard, _ *data.ItemFlowReason) data.Result {
+	for _, addGuard := range itemAddGuard {
+		questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(addGuard.Item.ItemBasic.TypeId)
 		if questCfg == nil {
 
 		}
@@ -117,7 +101,7 @@ func (m *UserQuestManager) AddItem(_ctx cd.RpcContext, ItemAddGuard []data.ItemA
 }
 
 func (m *UserQuestManager) CheckAddItem(_ cd.RpcContext,
-	itemOffset []*public_protocol_common.DItemInstance) ([]ItemAddGuard, data.Result) {
+	itemOffset []*public_protocol_common.DItemInstance) ([]data.ItemAddGuard, data.Result) {
 	if itemOffset == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"),
 			public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
@@ -133,25 +117,34 @@ func (m *UserQuestManager) CheckAddItem(_ cd.RpcContext,
 	return m.CreateItemAddGuard(itemOffset)
 }
 
-func (m *UserQuestManager) SubItem(_ *cd.RpcContext, _ []data.ItemSubGuard, _ *data.ItemFlowReason) data.Result {
+func (m *UserQuestManager) SubItem(_ cd.RpcContext, _ []data.ItemSubGuard, _ *data.ItemFlowReason) data.Result {
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserQuestManager) CheckSubItem(_ *cd.RpcContext,
-	_ []*public_protocol_common.DItemBasic) ([]ItemSubGuard, data.Result) {
+func (m *UserQuestManager) CheckSubItem(_ cd.RpcContext,
+	_ []*public_protocol_common.DItemBasic,
+) ([]data.ItemSubGuard, data.Result) {
 	return m.CreateItemSubGuard(nil)
 }
 
 func (m *UserQuestManager) ForeachItem(_ func(item *public_protocol_common.DItemInstance) bool) {
 }
 
-func (m *UserQuestManager) GenerateItemInstanceFromBasic(_ *cd.RpcContext,
-	_ *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserQuestManager) GenerateItemInstanceFromBasic(_ cd.RpcContext,
+	_ *public_protocol_common.DItemBasic,
+) (*public_protocol_common.DItemInstance, data.Result) {
 	return nil, cd.CreateRpcResultOk()
 }
 
-func (m *UserQuestManager) GenerateItemInstanceFromOffset(_ *cd.RpcContext,
-	_ *public_protocol_common.DItemOffset) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserQuestManager) GenerateItemInstanceFromCfgOffset(_ cd.RpcContext,
+	_ *public_protocol_common.Readonly_DItemOffset,
+) (*public_protocol_common.DItemInstance, data.Result) {
+	return nil, cd.CreateRpcResultOk()
+}
+
+func (m *UserQuestManager) GenerateItemInstanceFromOffset(_ cd.RpcContext,
+	_ *public_protocol_common.DItemOffset,
+) (*public_protocol_common.DItemInstance, data.Result) {
 	return nil, cd.CreateRpcResultOk()
 }
 
@@ -160,7 +153,8 @@ func (m *UserQuestManager) GetTypeStatistics(_ int32) *data.ItemTypeStatistics {
 }
 
 func (m *UserQuestManager) GetItemFromBasic(_ *public_protocol_common.DItemBasic) (
-	*public_protocol_common.DItemInstance, data.Result) {
+	*public_protocol_common.DItemInstance, data.Result,
+) {
 	return nil, cd.CreateRpcResultOk()
 }
 
@@ -174,13 +168,16 @@ func (m *UserQuestManager) CheckTypeIDValid(_ int32) bool {
 
 // db load & save
 
-func (m *UserQuestManager) InitFromDB(_ *cd.RpcContext,
-	dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (m *UserQuestManager) InitFromDB(_ cd.RpcContext,
+	dbUser *private_protocol_pbdesc.DatabaseTableUser,
+) cd.RpcResult {
 	m.quests = *dbUser.GetQuestData().Clone()
 	return cd.CreateRpcResultOk()
 }
-func (m *UserQuestManager) DumpToDB(_ *cd.RpcContext,
-	dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+
+func (m *UserQuestManager) DumpToDB(_ cd.RpcContext,
+	dbUser *private_protocol_pbdesc.DatabaseTableUser,
+) cd.RpcResult {
 	if dbUser == nil {
 		return cd.CreateRpcResultOk()
 	}
@@ -194,17 +191,16 @@ func (m *UserQuestManager) DumpQuestInfo(questData *public_protocol_pbdesc.DUser
 	questData.LastEventId = m.quests.MutableUserQuestList().GetLastEventId()
 	questData.ProcessingQuests = m.quests.MutableUserQuestList().MutableProcessingQuests()
 	questData.ReceivedQuests = m.quests.MutableUserQuestList().MutableReceivedQuests()
-	// questData.UnlockingQuests = m.quests.MutableUserQuestList().MutableUnlockingQuests()
-
-	//  = *m.quests.Clone()
 }
 
 func (m *UserQuestManager) LoginInit(_ctx cd.RpcContext) {
 	m.OnResourceVersionChanged(_ctx)
 }
 
-func (m *UserQuestManager) RefreshLimitSecond(_ *cd.RpcContext) {
-	// TODO implement Jijunliang
+func (m *UserQuestManager) RefreshLimitSecond(_ctx cd.RpcContext) {
+	// 处理按照时间解锁的任务
+	param := &private_protocol_pbdesc.QuestTriggerParams{}
+	m.QuestTriggerEvent(_ctx, public_protocol_common.EnQuestTriggerType_EN_QUEST_TRIGGER_TYPE_TASK_TIME_TICK, param)
 }
 
 func (m *UserQuestManager) QueryQuestStatus(questID int32) public_protocol_common.EnQuestStatus {
@@ -223,7 +219,7 @@ func (m *UserQuestManager) QueryQuestIsFinish(questID int32) bool {
 
 // 任务触发.
 func (m *UserQuestManager) QuestTriggerEvent(_ctx cd.RpcContext,
-	triggerType EnQuestTriggerType, param *QuestTriggerParams) {
+	triggerType public_protocol_common.EnQuestTriggerType, param *private_protocol_pbdesc.QuestTriggerParams) {
 	m.eventQueue = append(m.eventQueue, EventQueueItem{
 		eventType: triggerType,
 		params:    param,
@@ -247,8 +243,8 @@ func (m *UserQuestManager) QuestTriggerEvent(_ctx cd.RpcContext,
 	}
 }
 
-func (m *UserQuestManager) TriggerEventInner(_ctx *cd.RpcContext, eventItem EventQueueItem) {
-	triggerCfg := config.GetConfigManager().GetCurrentConfigGroup().ExcelQuestTriggerEventType.GetById(
+func (m *UserQuestManager) TriggerEventInner(_ctx cd.RpcContext, eventItem EventQueueItem) {
+	triggerCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestTriggerEventTypeById(
 		int32(eventItem.eventType)) //nolint:gosec
 	if triggerCfg == nil {
 		_ctx.LogError("quest trigger config not found",
@@ -263,16 +259,16 @@ func (m *UserQuestManager) TriggerEventInner(_ctx *cd.RpcContext, eventItem Even
 	// 任务重置(周期任务)
 	m.StartCheckPeriodQuestRest(_ctx, int32(eventItem.eventType), _ctx.GetNow())
 
-	//任务进度更新
+	// 任务进度更新
 
 	for _, pregressType := range triggerCfg.GetProgressTypes() {
 		m.UpdateQuestProgressByType(_ctx, eventItem.eventType, pregressType, eventItem.params)
 	}
 }
 
-func (m *UserQuestManager) UpdateQuestProgressByType(_ctx *cd.RpcContext,
-	triggerType EnQuestTriggerType, pregressType EnQuestProgressType,
-	params *QuestTriggerParams) {
+func (m *UserQuestManager) UpdateQuestProgressByType(_ctx cd.RpcContext,
+	triggerType public_protocol_common.EnQuestTriggerType, pregressType public_protocol_common.EnQuestProgressType,
+	params *private_protocol_pbdesc.QuestTriggerParams) {
 	// 根据触发类型得到所有可能需要更新进度
 	questProgressList := m.GetQuestProgressListByType(pregressType)
 
@@ -281,7 +277,7 @@ func (m *UserQuestManager) UpdateQuestProgressByType(_ctx *cd.RpcContext,
 		_ctx.LogDebug("updating quest progress", "zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
 			"progress_type", pregressType, "quest_id", questProgress.GetQuestId())
 
-		questCfg := config.GetConfigManager().GetCurrentConfigGroup().ExcelQuestList.GetById(questProgress.GetQuestId())
+		questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(questProgress.GetQuestId())
 
 		if questCfg == nil {
 			_ctx.LogError("quest config not found", "zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
@@ -300,7 +296,6 @@ func (m *UserQuestManager) UpdateQuestProgressByType(_ctx *cd.RpcContext,
 		}
 
 		// 更新任务进度
-		// m.UpdateQuestProgressInner(_ctx, questCfg, questProgress, triggerType, pregressType, params)
 		for _, progressCfg := range questCfg.GetProgress() {
 			if progressCfg.GetTypeId() != pregressType {
 				continue
@@ -320,12 +315,12 @@ func (m *UserQuestManager) UpdateQuestProgressByType(_ctx *cd.RpcContext,
 	m.FinishQuests(_ctx, pendingFinishQuestIDs, false)
 }
 
-func (m *UserQuestManager) AddquestProgressInner(_ctx *cd.RpcContext, _ *ExcelQuestList,
-	questProgress *DUserQuestData, _ EnQuestTriggerType,
-	pregressType EnQuestProgressType, params *QuestTriggerParams,
-	progressCfg *DQuestConditionProgress) {
+func (m *UserQuestManager) AddquestProgressInner(_ctx cd.RpcContext, _ *public_protocol_config.Readonly_ExcelQuestList,
+	questProgress *public_protocol_pbdesc.DUserQuestData, _ public_protocol_common.EnQuestTriggerType,
+	pregressType public_protocol_common.EnQuestProgressType, params *private_protocol_pbdesc.QuestTriggerParams,
+	progressCfg *public_protocol_config.Readonly_DQuestConditionProgress) {
 	cfgMgr := config.GetConfigManager().GetCurrentConfigGroup()
-	progressTypeCfg := cfgMgr.ExcelQuestProgressType.GetById(int32(pregressType))
+	progressTypeCfg := cfgMgr.GetExcelQuestProgressTypeById(int32(pregressType))
 	if progressTypeCfg == nil {
 		zoneID := m.GetOwner().GetZoneId()
 		userID := m.GetOwner().GetUserId()
@@ -335,7 +330,7 @@ func (m *UserQuestManager) AddquestProgressInner(_ctx *cd.RpcContext, _ *ExcelQu
 	}
 
 	for _, conditionID := range progressCfg.GetConditionIds() {
-		conditionCfg := config.GetConfigManager().GetCurrentConfigGroup().ExcelConditionPool.GetByConditionId(
+		conditionCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelConditionPoolByConditionId(
 			int32(conditionID)) //nolint:gosec
 		if conditionCfg == nil {
 			zoneID := m.GetOwner().GetZoneId()
@@ -372,11 +367,19 @@ func (m *UserQuestManager) AddquestProgressInner(_ctx *cd.RpcContext, _ *ExcelQu
 	progressHander.UpdateHandler(_ctx, params, progressCfg, questProgress)
 
 	// 日志
-	// TODO 脏数据同步
+	// 标记脏数据 - 任务进度已更新
+	m.addQuestEventProgressUpdate(_ctx, questProgress.GetQuestId(), &public_protocol_pbdesc.DUserQuestData{
+		QuestId:     questProgress.GetQuestId(),
+		Status:      public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING,
+		Value:       questProgress.GetValue(),
+		CreatedTime: questProgress.GetCreatedTime(),
+		UniqueCount: questProgress.GetUniqueCount(),
+	}, pregressType)
 }
 
-func (m *UserQuestManager) CheckQuestCommonCondition(_ctx *cd.RpcContext,
-	questCfg *ExcelQuestList) bool {
+func (m *UserQuestManager) CheckQuestCommonCondition(_ctx cd.RpcContext,
+	questCfg *public_protocol_config.Readonly_ExcelQuestList,
+) bool {
 	// 获取通用条件配置
 	commonCondition := questCfg.GetCommonCondition()
 	if commonCondition == nil {
@@ -404,17 +407,18 @@ func (m *UserQuestManager) CheckQuestCommonCondition(_ctx *cd.RpcContext,
 }
 
 func (m *UserQuestManager) GetQuestProgressListByType(
-	progressType EnQuestProgressType) *DQuestProgressDataList {
+	progressType public_protocol_common.EnQuestProgressType,
+) *public_protocol_pbdesc.DQuestProgressDataList {
 	return m.quests.MutableUserQuestList().MutableProcessingQuests()[int32(progressType)]
 }
 
 func (m *UserQuestManager) TryUnlockQuestByType(_ctx cd.RpcContext, unlockType int32,
-	params *QuestTriggerParams) {
+	params *private_protocol_pbdesc.QuestTriggerParams) {
 	// 按照解锁的类型找到所有可能进行解锁的任务
 	getUnlockQuestIDsFunc := logic_quest_data.GetQuestUnlockIDHandler(unlockType)
 
 	if getUnlockQuestIDsFunc == nil {
-		_ctx.LogError("quest unlock id handle not found",
+		_ctx.LogDebug("quest unlock id handle not found",
 			"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
 			"unlock_type", unlockType)
 		return
@@ -434,7 +438,7 @@ func (m *UserQuestManager) TryUnlockQuestByType(_ctx cd.RpcContext, unlockType i
 		if questStatus != public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_LOCK {
 			continue
 		}
-		questCfg := config.GetConfigManager().GetCurrentConfigGroup().ExcelQuestList.GetById(questID)
+		questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(questID)
 		if m.CheckQuestIsUnlock(_ctx, questCfg) {
 			m.AddQuest(_ctx, questCfg)
 		}
@@ -463,13 +467,12 @@ func (m *UserQuestManager) StartCheckPeriodQuestRest(_ctx cd.RpcContext, unlockT
 	m.CheckPeriodQuestRestDeal(_ctx, now.Unix())
 }
 
-func (m *UserQuestManager) CheckPeriodQuestRestDeal(_ctx *cd.RpcContext, now int64) {
+func (m *UserQuestManager) CheckPeriodQuestRestDeal(_ctx cd.RpcContext, now int64) {
 	resetIndex := m.quests.MutableProgressResetData().MutableResetEntrys()
-	cfgGroup := config.GetConfigManager().GetCurrentConfigGroup()
 	zoneID := m.GetOwner().GetZoneId()
 	userID := m.GetOwner().GetUserId()
 	for _, resetEntry := range resetIndex {
-		questCfg := cfgGroup.ExcelQuestList.GetById(resetEntry.QuestId)
+		questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(resetEntry.QuestId)
 		if questCfg == nil {
 			_ctx.LogError("quest config not found",
 				"zone_id", zoneID, "user_id", userID, "quest_id", resetEntry.QuestId)
@@ -485,7 +488,7 @@ func (m *UserQuestManager) CheckPeriodQuestRestDeal(_ctx *cd.RpcContext, now int
 			continue
 		}
 
-		if resetEntry.ResetTimepoint < now {
+		if resetEntry.ResetTimepoint > now {
 			continue
 		}
 		// 开始重置
@@ -493,8 +496,9 @@ func (m *UserQuestManager) CheckPeriodQuestRestDeal(_ctx *cd.RpcContext, now int
 	}
 }
 
-func (m *UserQuestManager) PeriodQuestRestDeal(_ctx *cd.RpcContext, questCfg *ExcelQuestList,
-	resetEntry *private_protocol_pbdesc.UserQuestProgressResetEntry, now int64) {
+func (m *UserQuestManager) PeriodQuestRestDeal(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList,
+	resetEntry *private_protocol_pbdesc.UserQuestProgressResetEntry, now int64,
+) {
 	// 重置下次刷新时间
 	periodSec := int64(questCfg.GetProgressResetPeriod().GetPeriodDays()) * logic_quest.DaySeconds
 	if now < resetEntry.GetResetTimepoint() {
@@ -532,7 +536,7 @@ func (m *UserQuestManager) PeriodQuestRestDeal(_ctx *cd.RpcContext, questCfg *Ex
 		m.FinishQuest(_ctx, questCfg.GetId(), true)
 		return
 	}
-
+	m.quests.MutableExistQuestIds()[questCfg.GetId()] = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING
 	for _, progressCfg := range questCfg.GetProgress() {
 		if progressCfg.GetTypeId() == 0 {
 			zoneID := m.GetOwner().GetZoneId()
@@ -566,23 +570,24 @@ func (m *UserQuestManager) PeriodQuestRestDeal(_ctx *cd.RpcContext, questCfg *Ex
 
 		questprogressValue.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING
 		questprogressValue.Value = 0
-		questprogressValue.CreatedTime = time.Now().Unix()
+		questprogressValue.CreatedTime = _ctx.GetNow().Unix()
 		questprogressValue.QuestId = questCfg.GetId()
 		questprogressValue.UniqueCount = make(map[int64]bool)
 	}
 
 	// 标记脏数据 - 任务进度已重置
 	m.addQuestEventProgressUpdate(_ctx, questCfg.GetId(), &public_protocol_pbdesc.DUserQuestData{
-		QuestId: questCfg.GetId(),
-		Status:  public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING,
+		QuestId:     questCfg.GetId(),
+		Status:      public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING,
+		CreatedTime: _ctx.GetNow().Unix(),
 	}, questCfg.GetProgress()[0].GetTypeId())
 }
 
-func (m *UserQuestManager) QuestHasNoProgress(questCfg *public_protocol_config.ExcelQuestList) bool {
+func (m *UserQuestManager) QuestHasNoProgress(questCfg *public_protocol_config.Readonly_ExcelQuestList) bool {
 	return len(questCfg.GetProgress()) == 0
 }
 
-func (m *UserQuestManager) CheckQuestInvalid(_ctx cd.RpcContext, questCfg *public_protocol_config.ExcelQuestList) bool {
+func (m *UserQuestManager) CheckQuestInvalid(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList) bool {
 	// 判断任务是合法 CleanUpQuestIsInvalid 整合一下可以
 	// 清理过去和下架的任务
 	if !questCfg.GetOn() {
@@ -591,7 +596,7 @@ func (m *UserQuestManager) CheckQuestInvalid(_ctx cd.RpcContext, questCfg *publi
 
 	// 删除过期任务
 	if questCfg.GetAvailablePeriod() != nil && questCfg.GetAvailablePeriod().GetSpecificPeriod() != nil {
-		if _ctx.GetNow().Unix() > questCfg.GetAvailablePeriod().GetSpecificPeriod().End.GetSeconds() {
+		if _ctx.GetNow().Unix() > questCfg.GetAvailablePeriod().GetSpecificPeriod().GetEnd().GetSeconds() {
 			return true
 		}
 	}
@@ -599,7 +604,7 @@ func (m *UserQuestManager) CheckQuestInvalid(_ctx cd.RpcContext, questCfg *publi
 }
 
 // 资源版本变化时，检查任务解锁和完成状态.
-func (m *UserQuestManager) OnResourceVersionChanged(_ctx *cd.RpcContext) {
+func (m *UserQuestManager) OnResourceVersionChanged(_ctx cd.RpcContext) {
 	// 登录时资源变化需要重新判断未解锁的任务的解锁&&进行中任务的完成状态
 	now := _ctx.GetNow()
 	// TODO(建个索引)
@@ -634,8 +639,8 @@ func (m *UserQuestManager) OnResourceVersionChanged(_ctx *cd.RpcContext) {
 
 		// 时间条件
 		if questCfg.GetAvailablePeriod() != nil && questCfg.GetAvailablePeriod().GetSpecificPeriod() != nil {
-			start := questCfg.GetAvailablePeriod().GetSpecificPeriod().Start.GetSeconds()
-			end := questCfg.GetAvailablePeriod().GetSpecificPeriod().End.GetSeconds()
+			start := questCfg.GetAvailablePeriod().GetSpecificPeriod().GetStart().GetSeconds()
+			end := questCfg.GetAvailablePeriod().GetSpecificPeriod().GetEnd().GetSeconds()
 			if now.Unix() < start || now.Unix() > end {
 				zoneID := m.GetOwner().GetZoneId()
 				userID := m.GetOwner().GetUserId()
@@ -658,10 +663,11 @@ func (m *UserQuestManager) OnResourceVersionChanged(_ctx *cd.RpcContext) {
 	if len(pendingFinishQuestIDs) > 0 {
 		m.FinishQuests(_ctx, pendingFinishQuestIDs, false)
 	}
-	// todo 检查所有进行中任务是否完成
+
+	m.deleteExpriedDeletequestCache(_ctx)
 }
 
-func (m *UserQuestManager) CheckQuestComplete(_ctx cd.RpcContext, questCfg *ExcelQuestList) bool {
+func (m *UserQuestManager) CheckQuestComplete(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList) bool {
 
 	if m.QuestHasNoProgress(questCfg) {
 		return true
@@ -681,8 +687,9 @@ func (m *UserQuestManager) CheckQuestComplete(_ctx cd.RpcContext, questCfg *Exce
 	return false
 }
 
-func (m *UserQuestManager) CheckQuestIsUnlock(_ctx *cd.RpcContext,
-	questCfg *ExcelQuestList) bool {
+func (m *UserQuestManager) CheckQuestIsUnlock(_ctx cd.RpcContext,
+	questCfg *public_protocol_config.Readonly_ExcelQuestList,
+) bool {
 	if len(questCfg.GetUnlockConditions()) == 0 {
 		// 无解锁条件，默认解锁
 		return true
@@ -698,14 +705,13 @@ func (m *UserQuestManager) CheckQuestIsUnlock(_ctx *cd.RpcContext,
 	questID := questCfg.GetId()
 	for _, cond := range questCfg.GetUnlockConditions() {
 		// 获取 oneof 值的具体类型
-		unlockTypeValue := cond.GetUnlockType()
-		unlockTypeReflectType := reflect.TypeOf(unlockTypeValue)
+		unlockType := cond.GetUnlockTypeOneofCase()
 
-		handlerPtr, exists := questUnlockHandler[unlockTypeReflectType]
+		handlerPtr, exists := questUnlockHandler[unlockType]
 		if !exists || handlerPtr == nil {
 			_ctx.LogError("quest unlock handler not found",
 				"zone_id", zoneID, "user_id", userID, "quest_id", questID,
-				"condition_type", unlockTypeReflectType)
+				"unlockType", unlockType)
 			return false
 		}
 
@@ -721,10 +727,10 @@ func (m *UserQuestManager) CheckQuestIsUnlock(_ctx *cd.RpcContext,
 }
 
 // 检查任务是否已经下架或者失效.
-func (m *UserQuestManager) CleanUpQuestIsInvalid(_ctx *cd.RpcContext, questCfg *public_protocol_config.ExcelQuestList) {
+func (m *UserQuestManager) CleanUpQuestIsInvalid(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList) {
 	// 清理过去和下架的任务
 	if !questCfg.GetOn() {
-		m.DeleteQuestForce(_ctx, questCfg)
+		m.DeleteExpiredQuest(_ctx, questCfg.GetId())
 		zoneID := m.GetOwner().GetZoneId()
 		userID := m.GetOwner().GetUserId()
 		_ctx.LogInfo("quest is off, delete quest",
@@ -733,8 +739,8 @@ func (m *UserQuestManager) CleanUpQuestIsInvalid(_ctx *cd.RpcContext, questCfg *
 
 	// 删除过期任务
 	if questCfg.GetAvailablePeriod() != nil && questCfg.GetAvailablePeriod().GetSpecificPeriod() != nil {
-		if _ctx.GetNow().Unix() > questCfg.GetAvailablePeriod().GetSpecificPeriod().End.GetSeconds() {
-			m.DeleteQuestForce(_ctx, questCfg)
+		if _ctx.GetNow().Unix() > questCfg.GetAvailablePeriod().GetSpecificPeriod().GetEnd().GetSeconds() {
+			m.DeleteExpiredQuest(_ctx, questCfg.GetId())
 			zoneID := m.GetOwner().GetZoneId()
 			userID := m.GetOwner().GetUserId()
 			_ctx.LogInfo("quest is expired, delete quest",
@@ -743,12 +749,7 @@ func (m *UserQuestManager) CleanUpQuestIsInvalid(_ctx *cd.RpcContext, questCfg *
 	}
 }
 
-// 强制删除任务.
-func (m *UserQuestManager) DeleteQuestForce(_ *cd.RpcContext, _ *ExcelQuestList) {
-
-}
-
-func (m *UserQuestManager) AddQuest(_ctx *cd.RpcContext, questCfg *public_protocol_config.ExcelQuestList) {
+func (m *UserQuestManager) AddQuest(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList) {
 	questID := questCfg.GetId()
 	if m.QuestHasNoProgress(questCfg) {
 		// 任务默认解锁就完成
@@ -757,46 +758,63 @@ func (m *UserQuestManager) AddQuest(_ctx *cd.RpcContext, questCfg *public_protoc
 	}
 
 	// 判断下是否解锁就完成了
-	peddingAddProgress := []*public_protocol_pbdesc.DUserQuestData{}
+	peddingAddProgress := map[int32]*public_protocol_pbdesc.DUserQuestData{}
 	peddingAddFinishQuestIDs := []int32{}
-	for _, progressCfg := range questCfg.GetProgress() {
-		if progressCfg.GetTypeId() == 0 {
-			zoneID := m.GetOwner().GetZoneId()
-			userID := m.GetOwner().GetUserId()
-			_ctx.LogError("progress type id is zero",
-				"zone_id", zoneID, "user_id", userID, "quest_id", questCfg.GetId())
+
+	if deleteCahe, ok := m.quests.MutableDeleteCache()[questID]; ok {
+		_ctx.LogDebug("adding quest from delete cache",
+			"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
+			"quest_id", questID)
+		// 如果任务在删除缓存中，按照数据恢复进度
+		if deleteCahe.Status != public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING {
+			// 任务不在进度中，走其他插入
+			m.addQuestFromDeleteCacheWithProgress(_ctx, questCfg, deleteCahe)
 			return
 		}
-		// 获得初始化赋值
-		Progress := public_protocol_pbdesc.DUserQuestData{}
-		Progress.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING
-		questProgressHandler := logic_quest_data.GetQuestProgressHandler(progressCfg.GetTypeId())
+		for _, oldProgressData := range deleteCahe.GetOldQuestData() {
+			peddingAddProgress[oldProgressData.ProgressType] = oldProgressData.Data
+		}
 
-		if questProgressHandler != nil && questProgressHandler.InitHandler != nil {
-			rpcResult := questProgressHandler.InitHandler(_ctx, progressCfg, &Progress, m.GetOwner())
-			if !rpcResult.IsOK() {
-				_ctx.LogError("init quest progress value failed",
-					"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
-					"quest_id", questCfg.GetId(), "progress_type", progressCfg.GetTypeId(),
-					"error", rpcResult.Error)
+	} else {
+		for _, progressCfg := range questCfg.GetProgress() {
+			if progressCfg.GetTypeId() == 0 {
+				zoneID := m.GetOwner().GetZoneId()
+				userID := m.GetOwner().GetUserId()
+				_ctx.LogError("progress type id is zero",
+					"zone_id", zoneID, "user_id", userID, "quest_id", questCfg.GetId())
 				return
 			}
-		}
-		Progress.CreatedTime = time.Now().Unix()
-		Progress.QuestId = questID
-		Progress.UniqueCount = make(map[int64]bool)
-		if m.CheckQuestProgressComplete(_ctx, progressCfg, &Progress) {
-			// 任务解锁就完成
-			peddingAddFinishQuestIDs = append(peddingAddFinishQuestIDs, questID)
-		} else {
-			// 加入任务进度待添加列表
-			peddingAddProgress = append(peddingAddProgress, &Progress)
+			// 获得初始化赋值
+			Progress := public_protocol_pbdesc.DUserQuestData{}
+			Progress.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING
+			questProgressHandler := logic_quest_data.GetQuestProgressHandler(progressCfg.GetTypeId())
+
+			if questProgressHandler != nil && questProgressHandler.InitHandler != nil {
+				rpcResult := questProgressHandler.InitHandler(_ctx, progressCfg, &Progress, m.GetOwner())
+				if !rpcResult.IsOK() {
+					_ctx.LogError("init quest progress value failed",
+						"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
+						"quest_id", questCfg.GetId(), "progress_type", progressCfg.GetTypeId(),
+						"error", rpcResult.Error)
+					return
+				}
+			}
+			Progress.CreatedTime = _ctx.GetNow().Unix()
+			Progress.QuestId = questID
+			Progress.UniqueCount = make(map[int64]bool)
+			if m.CheckQuestProgressComplete(_ctx, progressCfg, &Progress) {
+				// 任务解锁就完成
+				peddingAddFinishQuestIDs = append(peddingAddFinishQuestIDs, questID)
+			} else {
+				// 加入任务进度待添加列表
+				peddingAddProgress[int32(progressCfg.GetTypeId())] = &Progress
+			}
 		}
 	}
 
 	// 插入到任务进度里面
-	for _, progressData := range peddingAddProgress {
-		progressType := int32(questCfg.GetProgress()[0].GetTypeId())
+	for progressType, progressData := range peddingAddProgress {
+		// progressType := int32(questCfg.GetProgress()[0].GetTypeId())
 		processingQuestsList := m.quests.MutableUserQuestList().MutableProcessingQuests()[progressType]
 
 		// 如果该进度类型的列表不存在，需要创建
@@ -816,8 +834,8 @@ func (m *UserQuestManager) AddQuest(_ctx *cd.RpcContext, questCfg *public_protoc
 	}
 
 	// 插入到各种索引里面
-	m.insertQuestExpriedIdx(questCfg)
-	m.insertQuestProgressResetIdx(questCfg)
+	m.insertQuestExpriedIdx(_ctx, questCfg)
+	m.insertQuestProgressResetIdx(_ctx, questCfg)
 	m.insertQuestExsitIdx(questCfg, public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING)
 
 	if len(peddingAddFinishQuestIDs) > 0 {
@@ -830,43 +848,46 @@ func (m *UserQuestManager) AddQuest(_ctx *cd.RpcContext, questCfg *public_protoc
 	}
 }
 
-func (m *UserQuestManager) insertQuestExpriedIdx(questCfg *public_protocol_config.ExcelQuestList) {
-	// 插入任务过期索引
-	if questCfg.GetAvailablePeriod() != nil && questCfg.GetAvailablePeriod().GetSpecificPeriod() != nil {
-		specificEndTimepointData := m.quests.MutableSpecificEndTimepointData()
-		entry := &private_protocol_pbdesc.UserQuestSpecificEndTimepointEntry{
-			QuestId:      questCfg.GetId(),
-			EndTimepoint: questCfg.GetAvailablePeriod().GetSpecificPeriod().End.GetSeconds(),
+func (m *UserQuestManager) addQuestFromDeleteCacheWithProgress(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList,
+	deleteCahe *private_protocol_pbdesc.QuestDeleteCache) {
+	switch deleteCahe.Status {
+	case public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE:
+		m.quests.MutableUserQuestList().MutableCompletedQuests()[questCfg.GetId()] = &public_protocol_pbdesc.DUserQuestCompletedData{
+			QuestId:   questCfg.GetId(),
+			Timepoint: deleteCahe.QuestLastStatusChangeTime,
 		}
-		specificEndTimepointData.EndtimeEntrys = append(specificEndTimepointData.EndtimeEntrys, entry)
-		specificEndTimepointData.IsChanged = true
-	}
-}
+		m.insertQuestExsitIdx(questCfg, public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE)
+		m.addQuestEventComplete(_ctx, questCfg.GetId())
 
-func (m *UserQuestManager) insertQuestProgressResetIdx(questCfg *public_protocol_config.ExcelQuestList) {
-	// 插入任务进度重置索引 Check
-	if questCfg.GetProgressResetPeriod() != nil && questCfg.GetProgressResetPeriod().GetPeriodDays() > 0 {
-		progressResetData := m.quests.MutableProgressResetData()
-		now := time.Now().Unix()
-		entry := &private_protocol_pbdesc.UserQuestProgressResetEntry{
-			QuestId:        questCfg.GetId(),
-			ResetTimepoint: now + int64(questCfg.GetProgressResetPeriod().GetPeriodDays())*logic_quest.DaySeconds,
+	case public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_RECEIVE:
+		m.quests.MutableUserQuestList().MutableReceivedQuests()[questCfg.GetId()] = &public_protocol_pbdesc.DUserQuestReceivedData{
+			QuestId:   questCfg.GetId(),
+			Timepoint: deleteCahe.QuestLastStatusChangeTime,
 		}
-		progressResetData.ResetEntrys = append(progressResetData.ResetEntrys, entry)
-		progressResetData.IsChanged = true
-	}
-}
+		m.insertQuestExsitIdx(questCfg, public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_RECEIVE)
+		m.addQuestEventReceived(_ctx, questCfg.GetId())
 
-func (m *UserQuestManager) insertQuestExsitIdx(questCfg *ExcelQuestList, status EnQuestStatus) {
+	default:
+		_ctx.LogError("unknown quest status in delete cache",
+			"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
+			"quest_id", questCfg.GetId(), "status", deleteCahe.Status)
+		return
+	}
+
+	// 插入到各种索引里面
+	m.insertQuestExpriedIdx(_ctx, questCfg)
+	m.insertQuestProgressResetIdx(_ctx, questCfg)
+
+}
+func (m *UserQuestManager) insertQuestExsitIdx(questCfg *public_protocol_config.Readonly_ExcelQuestList, status public_protocol_common.EnQuestStatus) {
 	// 插入任务存在索引
 	m.quests.MutableExistQuestIds()[questCfg.GetId()] = status
 }
 
-func (m *UserQuestManager) CheckQuestProgressComplete(_ctx cd.RpcContext, progressCfg *DQuestConditionProgress,
-	progressData *DUserQuestData,
+func (m *UserQuestManager) CheckQuestProgressComplete(_ctx cd.RpcContext, progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
+	progressData *public_protocol_pbdesc.DUserQuestData,
 ) bool {
-	cfgGroup := config.GetConfigManager().GetCurrentConfigGroup()
-	questProgessTypeConfig := cfgGroup.ExcelQuestProgressType.GetById(int32(progressCfg.GetTypeId()))
+	questProgessTypeConfig := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestProgressTypeById(int32(progressCfg.GetTypeId()))
 	if questProgessTypeConfig == nil {
 		zoneID := m.GetOwner().GetZoneId()
 		userID := m.GetOwner().GetUserId()
@@ -876,7 +897,7 @@ func (m *UserQuestManager) CheckQuestProgressComplete(_ctx cd.RpcContext, progre
 	}
 	result := false
 
-	switch questProgessTypeConfig.ValueCompareType {
+	switch questProgessTypeConfig.GetValueCompareType() {
 	case public_protocol_common.EnQuestProgressValueCompareType_EN_QUEST_PROGRESS_VALUE_COMPARE_TYPE_AUTO_COMPLETE:
 		result = true
 	case public_protocol_common.EnQuestProgressValueCompareType_EN_QUEST_PROGRESS_VALUE_COMPARE_TYPE_GREATER_OR_EQUAL:
@@ -890,13 +911,13 @@ func (m *UserQuestManager) CheckQuestProgressComplete(_ctx cd.RpcContext, progre
 		userID := m.GetOwner().GetUserId()
 		_ctx.LogError("unknown quest progress value compare type",
 			"zone_id", zoneID, "user_id", userID, "compare_type",
-			questProgessTypeConfig.ValueCompareType)
+			questProgessTypeConfig.GetValueCompareType())
 	}
 
 	return result
 }
 
-func (m *UserQuestManager) CleanUpExpiredQuests(_ctx *cd.RpcContext, now time.Time) {
+func (m *UserQuestManager) CleanUpExpiredQuests(_ctx cd.RpcContext, now time.Time) {
 	expriedQuestIDs := []int32{}
 
 	specificEndTimepointData := m.quests.MutableSpecificEndTimepointData()
@@ -933,13 +954,13 @@ func (m *UserQuestManager) CleanUpExpiredQuests(_ctx *cd.RpcContext, now time.Ti
 	}
 }
 
-func (m *UserQuestManager) DeleteExpiredQuests(_ctx *cd.RpcContext, questList []int32) {
+func (m *UserQuestManager) DeleteExpiredQuests(_ctx cd.RpcContext, questList []int32) {
 	for _, questID := range questList {
 		m.DeleteExpiredQuest(_ctx, questID)
 	}
 }
 
-func (m *UserQuestManager) DeleteExpiredQuest(_ctx *cd.RpcContext, questID int32) {
+func (m *UserQuestManager) DeleteExpiredQuest(_ctx cd.RpcContext, questID int32) {
 	questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(questID)
 	if questCfg == nil {
 		zoneID := m.GetOwner().GetZoneId()
@@ -948,17 +969,62 @@ func (m *UserQuestManager) DeleteExpiredQuest(_ctx *cd.RpcContext, questID int32
 			"zone_id", zoneID, "user_id", userID, "quest_id", questID)
 		return
 	}
+
+	// 任务删除后先加入删除缓存里保存一段时间，防止误下架等事故
+	deleteCache := m.quests.MutableDeleteCache()[questID]
+	if deleteCache == nil {
+		m.quests.MutableDeleteCache()[questID] = &private_protocol_pbdesc.QuestDeleteCache{
+			QuestId: questID,
+		}
+		deleteCache = m.quests.MutableDeleteCache()[questID]
+	}
+
 	deleteSucess := false
+	// TODO deleteQuestProgress
 	for _, cond := range questCfg.GetProgress() {
-		processingQuestsList := m.quests.UserQuestList.ProcessingQuests[int32(cond.GetTypeId())]
-		if processingQuestsList != nil && processingQuestsList.QuestProgressList != nil {
+		processingQuestsList := m.quests.MutableUserQuestList().MutableProcessingQuests()[int32(cond.GetTypeId())]
+		if processingQuestsList != nil && processingQuestsList.GetQuestProgressList() != nil {
 			questData := processingQuestsList.GetQuestProgressList()[questID]
 			if questData != nil {
+				deleteCache.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING
+				deleteCache.QuestLastStatusChangeTime = questData.GetCreatedTime()
+				progressData := &private_protocol_pbdesc.QuestDeleteProgressCache{
+					ProgressType: int32(cond.GetTypeId()),
+					Data:         questData,
+				}
+				deleteCache.OldQuestData = append(deleteCache.GetOldQuestData(), progressData)
 				delete(processingQuestsList.GetQuestProgressList(), questID)
 				deleteSucess = true
 			}
 		}
 	}
+
+	if !deleteSucess {
+		// 尝试从已完成任务里删除
+		complete, ok := m.quests.MutableUserQuestList().MutableCompletedQuests()[questID]
+		if ok {
+			delete(m.quests.MutableUserQuestList().MutableCompletedQuests(), questID)
+			deleteCache.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE
+			deleteCache.QuestLastStatusChangeTime = complete.GetTimepoint()
+		}
+		deleteSucess = true
+	}
+
+	if !deleteSucess {
+		// 尝试从已领取任务里删除
+		received, ok := m.quests.MutableUserQuestList().MutableReceivedQuests()[questID]
+		if ok {
+			delete(m.quests.MutableUserQuestList().MutableReceivedQuests(), questID)
+			deleteCache.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_RECEIVE
+			deleteCache.QuestLastStatusChangeTime = received.GetTimepoint()
+		}
+		deleteSucess = true
+	}
+
+	// 从存在任务列表中删除
+	delete(m.quests.MutableExistQuestIds(), questID)
+	deleteCache.DeleteTimepoint = _ctx.GetNow().Unix()
+
 	if deleteSucess {
 		zoneID := m.GetOwner().GetZoneId()
 		userID := m.GetOwner().GetUserId()
@@ -966,17 +1032,17 @@ func (m *UserQuestManager) DeleteExpiredQuest(_ctx *cd.RpcContext, questID int32
 			"zone_id", zoneID, "user_id", userID, "quest_id", questID)
 
 		// 标记脏数据 - 任务已删除（通过添加 Received 事件表示任务状态变化）
-		m.addQuestEventReceived(_ctx, questID)
+		m.addQuestEventDelete(_ctx, questID)
 	}
 }
 
-func (m *UserQuestManager) FinishQuests(_ctx *cd.RpcContext, questIDs []int32, noProgress bool) {
+func (m *UserQuestManager) FinishQuests(_ctx cd.RpcContext, questIDs []int32, noProgress bool) {
 	for _, questID := range questIDs {
 		m.FinishQuest(_ctx, questID, noProgress)
 	}
 }
 
-func (m *UserQuestManager) FinishQuest(_ctx *cd.RpcContext, questID int32, noProgress bool) {
+func (m *UserQuestManager) FinishQuest(_ctx cd.RpcContext, questID int32, noProgress bool) {
 	// 走到这里的任务说明已经之前检查过完成条件，现在将任务从progressing状态转到finished状态
 	// noProgress 没有任务条件直接完成的任务，
 	if !noProgress {
@@ -987,7 +1053,7 @@ func (m *UserQuestManager) FinishQuest(_ctx *cd.RpcContext, questID int32, noPro
 	// 插入完成任务队列
 	m.quests.MutableUserQuestList().MutableCompletedQuests()[questID] = &public_protocol_pbdesc.DUserQuestCompletedData{
 		QuestId:   questID,
-		Timepoint: time.Now().Unix(),
+		Timepoint: _ctx.GetNow().Unix(),
 	}
 
 	// 任务状态已完成
@@ -1014,12 +1080,13 @@ func (m *UserQuestManager) FinishQuest(_ctx *cd.RpcContext, questID int32, noPro
 	m.addQuestEventComplete(_ctx, questID)
 	// TODO 日志
 	// TODO 触发任务完成条件
+
 }
 
-func (m *UserQuestManager) deleteQuestProgress(_ *cd.RpcContext, questID int32) {
+func (m *UserQuestManager) deleteQuestProgress(_ cd.RpcContext, questID int32) {
 	for _, cond := range config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(questID).GetProgress() {
-		processingQuestsList := m.quests.UserQuestList.ProcessingQuests[int32(cond.GetTypeId())]
-		if processingQuestsList != nil && processingQuestsList.QuestProgressList != nil {
+		processingQuestsList := m.quests.MutableUserQuestList().MutableProcessingQuests()[int32(cond.GetTypeId())]
+		if processingQuestsList != nil && processingQuestsList.GetQuestProgressList() != nil {
 			questData := processingQuestsList.GetQuestProgressList()[questID]
 			if questData != nil {
 				delete(processingQuestsList.GetQuestProgressList(), questID)
@@ -1028,15 +1095,15 @@ func (m *UserQuestManager) deleteQuestProgress(_ *cd.RpcContext, questID int32) 
 	}
 }
 
-func (m *UserQuestManager) ReceivedQuestSReward(_ctx *cd.RpcContext, questIDs []int32, _ bool) cd.RpcResult {
+func (m *UserQuestManager) ReceivedQuestsReward(_ctx cd.RpcContext, questIDs []int32, _ bool) cd.RpcResult {
 	for _, qid := range questIDs {
 		m.ReceivedQuestReward(_ctx, qid, false)
 	}
-	// TODO  这里如何返回需要在考虑下
+	// TODO  这里如何返回需要和客户端商议
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserQuestManager) ReceivedQuestReward(_ctx *cd.RpcContext, questID int32, _ bool) cd.RpcResult {
+func (m *UserQuestManager) ReceivedQuestReward(_ctx cd.RpcContext, questID int32, _ bool) cd.RpcResult {
 	// 任务是否存在
 	questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(questID)
 	if questCfg == nil {
@@ -1068,7 +1135,7 @@ func (m *UserQuestManager) ReceivedQuestReward(_ctx *cd.RpcContext, questID int3
 	// 插入到已领取任务队列
 	m.quests.MutableUserQuestList().MutableReceivedQuests()[questID] = &public_protocol_pbdesc.DUserQuestReceivedData{
 		QuestId:   questID,
-		Timepoint: time.Now().Unix(),
+		Timepoint: _ctx.GetNow().Unix(),
 	}
 
 	// 任务状态已领取
@@ -1081,22 +1148,20 @@ func (m *UserQuestManager) ReceivedQuestReward(_ctx *cd.RpcContext, questID int3
 }
 
 // grantQuestReward 发放任务奖励的辅助函数.
-func (m *UserQuestManager) grantQuestReward(_ctx *cd.RpcContext, questID int32,
-	questReward *public_protocol_config.DQuestReward) cd.RpcResult {
+func (m *UserQuestManager) grantQuestReward(_ctx cd.RpcContext, questID int32,
+	questReward *public_protocol_config.Readonly_DQuestReward,
+) cd.RpcResult {
 	if questReward == nil || len(questReward.GetItems()) == 0 {
-		// 说明是任务无奖励，可能是虚拟的触发任务
 		_ctx.LogDebug("quest has no reward items, skip reward granting",
 			"zone_id", m.GetOwner().GetZoneId(),
 			"user_id", m.GetOwner().GetUserId(),
 			"quest_id", questID,
 		)
-		m.addQuestEventReceived(_ctx, questID)
 		return cd.CreateRpcResultOk()
 	}
 
-	// 步骤 1: 生成奖励道具实例
 	rewardOffsets := questReward.GetItems()
-	rewardItemInsts, result := m.GetOwner().GenerateMultipleItemInstancesFromOffset(_ctx, rewardOffsets)
+	rewardItemInsts, result := m.GetOwner().GenerateMultipleItemInstancesFromCfgOffset(_ctx, rewardOffsets, false)
 	if result.IsError() {
 		_ctx.LogError("generate quest reward items failed",
 			"zone_id", m.GetOwner().GetZoneId(),
@@ -1108,7 +1173,6 @@ func (m *UserQuestManager) grantQuestReward(_ctx *cd.RpcContext, questID int32,
 		return result
 	}
 
-	// 步骤 2: 检查添加
 	addGuards, result := m.GetOwner().CheckAddItem(_ctx, rewardItemInsts)
 	if result.IsError() {
 		_ctx.LogError("check add quest reward failed",
@@ -1121,7 +1185,6 @@ func (m *UserQuestManager) grantQuestReward(_ctx *cd.RpcContext, questID int32,
 		return result
 	}
 
-	// 步骤 3: 添加道具到背包
 	itemFlowReason := &data.ItemFlowReason{
 		// TODO: 道具流水原因
 		// MajorReason: 1001, // QUEST_REWARD 任务奖励
@@ -1148,12 +1211,9 @@ func (m *UserQuestManager) grantQuestReward(_ctx *cd.RpcContext, questID int32,
 		"item_count", len(rewardItemInsts),
 	)
 
-	// 标记脏数据 - 添加任务事件到脏数据列表，用于推送给客户端
-	// 事件类型：received - 任务奖励已领取
 	m.addQuestEventReceived(_ctx, questID)
 
 	// TODO 日志
-	// TODO 触发任务完成条件
 
 	return cd.CreateRpcResultOk()
 }
@@ -1161,8 +1221,9 @@ func (m *UserQuestManager) grantQuestReward(_ctx *cd.RpcContext, questID int32,
 // ===== 脏数据同步 =====
 
 // addQuestEventUnlock - 添加"任务解锁"事件到脏数据.
-func (m *UserQuestManager) addQuestEventUnlock(_ctx *cd.RpcContext, questID int32,
-	questData *DUserQuestData, progressType EnQuestProgressType) {
+func (m *UserQuestManager) addQuestEventUnlock(_ctx cd.RpcContext, questID int32,
+	questData *public_protocol_pbdesc.DUserQuestData, progressType public_protocol_common.EnQuestProgressType,
+) {
 	m.registerQuestDirtyHandle()
 
 	// 初始化脏事件 map
@@ -1186,8 +1247,9 @@ func (m *UserQuestManager) addQuestEventUnlock(_ctx *cd.RpcContext, questID int3
 }
 
 // addQuestEventProgressUpdate - 添加"进度更新"事件到脏数据.
-func (m *UserQuestManager) addQuestEventProgressUpdate(_ctx *cd.RpcContext, questID int32,
-	questData *DUserQuestData, progressType EnQuestProgressType) {
+func (m *UserQuestManager) addQuestEventProgressUpdate(_ctx cd.RpcContext, questID int32,
+	questData *public_protocol_pbdesc.DUserQuestData, progressType public_protocol_common.EnQuestProgressType,
+) {
 	m.registerQuestDirtyHandle()
 
 	// 初始化脏事件 map
@@ -1211,7 +1273,7 @@ func (m *UserQuestManager) addQuestEventProgressUpdate(_ctx *cd.RpcContext, ques
 }
 
 // addQuestEventComplete - 添加"任务完成"事件到脏数据.
-func (m *UserQuestManager) addQuestEventComplete(_ctx *cd.RpcContext, questID int32) {
+func (m *UserQuestManager) addQuestEventComplete(_ctx cd.RpcContext, questID int32) {
 	m.registerQuestDirtyHandle()
 
 	// 初始化脏事件 map
@@ -1224,7 +1286,7 @@ func (m *UserQuestManager) addQuestEventComplete(_ctx *cd.RpcContext, questID in
 	if completedQuest == nil {
 		completedQuest = &public_protocol_pbdesc.DUserQuestCompletedData{
 			QuestId:   questID,
-			Timepoint: time.Now().Unix(),
+			Timepoint: _ctx.GetNow().Unix(),
 		}
 	}
 
@@ -1241,7 +1303,7 @@ func (m *UserQuestManager) addQuestEventComplete(_ctx *cd.RpcContext, questID in
 }
 
 // addQuestEventReceived - 添加"奖励已领取"事件到脏数据.
-func (m *UserQuestManager) addQuestEventReceived(_ctx *cd.RpcContext, questID int32) {
+func (m *UserQuestManager) addQuestEventReceived(_ctx cd.RpcContext, questID int32) {
 	m.registerQuestDirtyHandle()
 	// 初始化脏事件 map
 	if m.dirtyQuestEvent == nil {
@@ -1253,7 +1315,7 @@ func (m *UserQuestManager) addQuestEventReceived(_ctx *cd.RpcContext, questID in
 	if receivedQuest == nil {
 		receivedQuest = &public_protocol_pbdesc.DUserQuestReceivedData{
 			QuestId:   questID,
-			Timepoint: time.Now().Unix(),
+			Timepoint: _ctx.GetNow().Unix(),
 		}
 	}
 
@@ -1269,6 +1331,25 @@ func (m *UserQuestManager) addQuestEventReceived(_ctx *cd.RpcContext, questID in
 	m.dirtyQuestEvent[questID] = questEvent
 }
 
+// addQuestEventReceived - 添加"任务删除"事件到脏数据.
+func (m *UserQuestManager) addQuestEventDelete(_ctx cd.RpcContext, questID int32) {
+	m.registerQuestDirtyHandle()
+	// 初始化脏事件 map
+	if m.dirtyQuestEvent == nil {
+		m.dirtyQuestEvent = make(map[int32]*public_protocol_pbdesc.DUserQuestEvent)
+	}
+	forceDelete := &public_protocol_pbdesc.DUserQuestForceDeleteData{
+		QuestId: questID,
+	}
+	questEvent := &public_protocol_pbdesc.DUserQuestEvent{
+		EventId: _ctx.GetNow().UnixNano(),
+		Event: &public_protocol_pbdesc.DUserQuestEvent_ForceDelete{
+			ForceDelete: forceDelete,
+		},
+	}
+	m.dirtyQuestEvent[questID] = questEvent
+}
+
 // 注册任务脏数据推送 handle（确保只注册一次）.
 func (m *UserQuestManager) registerQuestDirtyHandle() {
 	if m == nil {
@@ -1277,25 +1358,24 @@ func (m *UserQuestManager) registerQuestDirtyHandle() {
 
 	m.GetOwner().InsertDirtyHandleIfNotExists(m,
 		// 导出函数：将脏任务事件数据转换为 protobuf 并发送
-		func(ctx *cd.RpcContext, dirty *data.UserDirtyData) bool {
+		func(ctx cd.RpcContext, dirty *data.UserDirtyData) bool {
 			return m.dumpQuestDirtyData(ctx, dirty)
 		},
 		// 清理函数：导出后清理脏事件列表
-		func(ctx *cd.RpcContext) {
+		func(ctx cd.RpcContext) {
 			m.clearQuestDirtyData(ctx)
 		},
 	)
 }
 
 // 导出脏任务数据.
-func (m *UserQuestManager) dumpQuestDirtyData(ctx *cd.RpcContext, dirty *data.UserDirtyData) bool {
+func (m *UserQuestManager) dumpQuestDirtyData(ctx cd.RpcContext, dirty *data.UserDirtyData) bool {
 	if m == nil || len(m.dirtyQuestEvent) == 0 {
 		return false
 	}
 
 	// 遍历所有脏任务事件，添加到脏数据消息中
 	for questID, questEvent := range m.dirtyQuestEvent {
-		// TODO: 当 proto 中 SCUserDirtyChgSync 添加任务事件字段后，将事件添加到相应的字段
 		events := dirty.MutableNormalDirtyChangeMessage().MutableDirtyQuestEvents()
 		events.Events = append(events.Events, questEvent)
 		ctx.LogDebug("quest event to be synced",
@@ -1309,11 +1389,84 @@ func (m *UserQuestManager) dumpQuestDirtyData(ctx *cd.RpcContext, dirty *data.Us
 }
 
 // 清理脏任务数据标记.
-func (m *UserQuestManager) clearQuestDirtyData(_ *cd.RpcContext) {
+func (m *UserQuestManager) clearQuestDirtyData(_ cd.RpcContext) {
 	if m == nil {
 		return
 	}
-
-	// 清空脏事件 map，为下一次变更做准备
 	m.dirtyQuestEvent = make(map[int32]*public_protocol_pbdesc.DUserQuestEvent)
+}
+
+func (m *UserQuestManager) insertQuestExpriedIdx(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList) {
+	endPoint := int64(0)
+	if questCfg.GetAvailablePeriod() != nil {
+		switch questCfg.GetAvailablePeriod().GetValueOneofCase() {
+		case public_protocol_config.DQuestAvailablePeriodType_EnValueID_Timedesc:
+			endPoint = _ctx.GetNow().Unix() + int64(questCfg.GetAvailablePeriod().GetTimedesc())*logic_quest.DaySeconds
+
+		case public_protocol_config.DQuestAvailablePeriodType_EnValueID_SpecificPeriod:
+			endPoint = questCfg.GetAvailablePeriod().GetSpecificPeriod().GetEnd().GetSeconds()
+
+		}
+	}
+	if endPoint <= 0 {
+		return
+	}
+	m.quests.MutableSpecificEndTimepointData().IsChanged = true
+	progressEndTimeEntrys := m.quests.MutableSpecificEndTimepointData()
+	progressEndTimeEntrys.EndtimeEntrys = append(progressEndTimeEntrys.EndtimeEntrys,
+		&private_protocol_pbdesc.UserQuestSpecificEndTimepointEntry{
+			QuestId:      questCfg.GetId(),
+			EndTimepoint: endPoint,
+		},
+	)
+
+}
+
+func (m *UserQuestManager) insertQuestProgressResetIdx(_ctx cd.RpcContext, questCfg *public_protocol_config.Readonly_ExcelQuestList) {
+	periodDays := questCfg.GetProgressResetPeriod().GetPeriodDays()
+	if periodDays <= 0 {
+		return
+	}
+	dayStartTimepoint := questCfg.GetProgressResetPeriod().GetStartDayResetTimepoint().GetSeconds()
+	if periodDays == logic_quest.InitLoginDays && dayStartTimepoint == 0 {
+		dayStartTimepoint = 0 //TODO 默认的一开开始时间逻辑
+
+	}
+	// logic_quest.GetDayStartTimepoint(_ctx.GetNow().Unix())
+
+	now := _ctx.GetNow().Unix()
+	resetTimepoint := dayStartTimepoint
+	if now > dayStartTimepoint {
+		// 计算下一个重置时间点
+		periodSec := int64(periodDays) * logic_quest.DaySeconds
+		diff := now - dayStartTimepoint
+		resetTimepoint = now + (periodSec - (diff % periodSec))
+	}
+
+	progressResetData := m.quests.MutableProgressResetData()
+	progressResetData.IsChanged = false
+	progressResetData.ResetEntrys = append(progressResetData.ResetEntrys, &private_protocol_pbdesc.UserQuestProgressResetEntry{
+		QuestId:        questCfg.GetId(),
+		ResetTimepoint: resetTimepoint,
+	})
+}
+
+func (m *UserQuestManager) deleteExpriedDeletequestCache(_ctx cd.RpcContext) {
+	now := _ctx.GetNow().Unix()
+
+	deleteCacheKeepSeconds := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetDeleteQuestCacheTime().GetSeconds()
+	if deleteCacheKeepSeconds <= logic_quest.DeleteCacheKeepSeconds {
+		deleteCacheKeepSeconds = logic_quest.DeleteCacheKeepSeconds
+	}
+
+	for questID, deleteCache := range m.quests.MutableDeleteCache() {
+		if now-deleteCache.GetDeleteTimepoint() > logic_quest.DeleteCacheKeepSeconds {
+			delete(m.quests.MutableDeleteCache(), questID)
+			_ctx.LogDebug("delete expired quest delete cache",
+				"zone_id", m.GetOwner().GetZoneId(),
+				"user_id", m.GetOwner().GetUserId(),
+				"quest_id", questID,
+			)
+		}
+	}
 }

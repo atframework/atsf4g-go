@@ -33,6 +33,7 @@ message ExcelConstConfig {
   int32 mail_max_count_per_major_type = 4;
   int32 global_mail_max_count_per_major_type = 5;
   string i18n_system_admin = 6;
+  google.protobuf.Duration delete_quest_cache_time = 8;
 }
 
 message ExcelOriginConstConfig {

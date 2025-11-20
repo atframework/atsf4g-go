@@ -70,5 +70,21 @@
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelRandomPool</scheme>
       <scheme name="OutputFile" desc="输出文件名">random_pool.bytes</scheme>
     </item>
+    <item name="任务列表" cat="quest" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Quest.xlsx|Quest|4,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelQuestList</scheme>
+      <scheme name="OutputFile" desc="输出文件名">quest_list.bytes</scheme>
+      <scheme name="KeyRow" desc="scheme模式参数-Key行号">3</scheme>
+    </item>
+    <item name="任务进度类型" cat="quest" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Quest.xlsx|QuestProgressType|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelQuestProgressType</scheme>
+      <scheme name="OutputFile" desc="输出文件名">quest_progress_type.bytes</scheme>
+    </item>
+    <item name="任务触发事件类型" cat="quest" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Quest.xlsx|QuestTriggerEventType|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelQuestTriggerEventType</scheme>
+      <scheme name="OutputFile" desc="输出文件名">quest_trigger_event_type.bytes</scheme>
+    </item>
   </list>
 </root>

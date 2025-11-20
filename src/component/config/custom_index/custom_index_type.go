@@ -1,17 +1,17 @@
 package atframework_component_config_custom_index_type
 
 import (
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 )
 
 type ExcelConfigCustomIndex struct {
-	ConstIndex        ExcelConfigConstIndex
-	UserLevelExpIndex ExcelConfigUserLevelExpIndex
-	RandomPoolIndex   map[int32]*ExcelConfigRandomPool
-	QuestUnlockConditionMap            map[int32]map[int32][]QuestUnlockConditionPair
-	QuestSequence                      []*public_protocol_config.ExcelQuestList
-	QuestCurrentMaxId                  int32
-	QuestTriggerArgsPredealMap         map[int32]map[int32]bool
+	ConstIndex                 ExcelConfigConstIndex
+	UserLevelExpIndex          ExcelConfigUserLevelExpIndex
+	RandomPoolIndex            map[int32]*ExcelConfigRandomPool
+	QuestUnlockConditionMap    map[public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID][]QuestUnlockConditionPair
+	QuestSequence              []*public_protocol_config.Readonly_ExcelQuestList
+	QuestTriggerArgsPredealMap map[int32]map[int32]bool
 }
 
 type ExcelConfigRandomPool struct {

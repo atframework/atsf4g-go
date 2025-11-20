@@ -115,10 +115,11 @@ message SCUserDirtyChgSync {
   DUserInventoryData dirty_inventory = 1;
 
   RemoveItemData remove_item_keys = 2;
-
+  
   DUserProfile user_profile = 6;
   DUserInfo user_info = 7;
   DUserOptions user_options = 8;
+  DUserQuestEventList dirty_quest_events = 15;
 }
 
 // 心跳包，上行包

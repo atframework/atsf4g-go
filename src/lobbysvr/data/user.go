@@ -604,11 +604,40 @@ func (u *User) GenerateItemInstanceFromOffset(ctx cd.RpcContext, itemOffset *pub
 	return mgr.GenerateItemInstanceFromOffset(ctx, itemOffset)
 }
 
-func (u *User) GenerateMultipleItemInstancesFromOffset(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemOffset) ([]*public_protocol_common.DItemInstance, Result) {
+func (u *User) GenerateMultipleItemInstancesFromCfgOffset(ctx cd.RpcContext, itemOffset []*public_protocol_common.Readonly_DItemOffset, ignoreError bool) ([]*public_protocol_common.DItemInstance, Result) {
+	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemOffset))
+	for _, offset := range itemOffset {
+		itemInst, result := u.GenerateItemInstanceFromCfgOffset(ctx, offset)
+		if result.IsError() {
+			if ignoreError {
+				ctx.LogError("generate item instance from item offset failed",
+					"error", result.Error, "resoponse_code", result.ResponseCode,
+					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
+					"item_type_id", offset.GetTypeId(), "item_count", offset.GetCount(),
+				)
+				continue
+			}
+			return nil, result
+		}
+		ret = append(ret, itemInst)
+	}
+
+	return ret, cd.CreateRpcResultOk()
+}
+
+func (u *User) GenerateMultipleItemInstancesFromOffset(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemOffset, ignoreError bool) ([]*public_protocol_common.DItemInstance, Result) {
 	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemOffset))
 	for _, offset := range itemOffset {
 		itemInst, result := u.GenerateItemInstanceFromOffset(ctx, offset)
 		if result.IsError() {
+			if ignoreError {
+				ctx.LogError("generate item instance from item offset failed",
+					"error", result.Error, "resoponse_code", result.ResponseCode,
+					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
+					"item_type_id", offset.GetTypeId(), "item_count", offset.GetCount(),
+				)
+				continue
+			}
 			return nil, result
 		}
 		ret = append(ret, itemInst)

@@ -183,7 +183,7 @@ func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 	if userExpConfigIndex == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("Can not find UserExpLevelConfigIndex"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
-
+	oldLevel := m.GetUserLevel()
 	oldExp := m.GetOwner().GetUserData().GetUserExp()
 	newExp := oldExp
 	hasDirty := false

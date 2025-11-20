@@ -11,11 +11,11 @@ import (
 )
 
 type UpdateProgressConditionFunc = func(ctx cd.RpcContext, params *private_protocol_pbdesc.QuestTriggerParams,
-	progressCfg *public_protocol_config.DQuestConditionProgress,
+	progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
 	questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult
 
-type InitProgressConditionFunc = func(ctx *cd.RpcContext,
-	progressCfg *public_protocol_config.DQuestConditionProgress,
+type InitProgressConditionFunc = func(ctx cd.RpcContext,
+	progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
 	questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult
 
 type QuestProgressStruct struct {
@@ -55,21 +55,38 @@ func GetQuestProgressHandler(progressType public_protocol_common.EnQuestProgress
 	return handler
 }
 
+func calcValeWithCountType(countType public_protocol_common.EnQuestProgressCountType, oldValue, addValue int64) int64 {
+	switch countType {
+	case public_protocol_common.EnQuestProgressCountType_EN_QUEST_PROGRESS_COUNT_TYPE_SINGLE:
+		return max(oldValue, addValue)
+	case public_protocol_common.EnQuestProgressCountType_EN_QUEST_PROGRESS_COUNT_TYPE_ADD_UP:
+		return oldValue + addValue
+	default:
+		return addValue
+	}
+}
+
 func updateProgressByPlayerLevel(_ cd.RpcContext, params *private_protocol_pbdesc.QuestTriggerParams,
-	_ *public_protocol_config.DQuestConditionProgress,
+	progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
 	questData *public_protocol_pbdesc.DUserQuestData) cd.RpcResult {
 	// params.Y 是玩家当前等级，更新任务进度为当前等级
 	if questData == nil {
 		return cd.CreateRpcResultOk()
 	}
 
-	questData.Value = params.GetPlayerLevel().GetCurLevel()
+	questData.Value = calcValeWithCountType(
+		progressCfg.GetCountType(),
+		questData.Value,
+		int64(params.GetPlayerLevel().GetCurLevel()),
+	)
+	// questData.Value =
+	// params.GetPlayerLevel().GetCurLevel()
 
 	return cd.CreateRpcResultOk()
 }
 
-func initProgressByPlayerLevel(_ *cd.RpcContext,
-	_ *public_protocol_config.DQuestConditionProgress,
+func initProgressByPlayerLevel(_ cd.RpcContext,
+	_ *public_protocol_config.Readonly_DQuestConditionProgress,
 	questData *public_protocol_pbdesc.DUserQuestData, owner *data.User) cd.RpcResult {
 	// 获取玩家当前等级，初始化任务进度
 	if questData == nil {

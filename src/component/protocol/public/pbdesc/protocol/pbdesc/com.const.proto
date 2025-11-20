@@ -283,5 +283,15 @@ enum EnErrorCode {
                                           [(error_code.description) = "时间已结束"];
   EN_ERR_CONDITION_RULE_ID_NOT_FOUND = -803
                                        [(error_code.description) = "规则ID未找到"];
+
+  // 任务错误码 2000-2299
+  EN_ERR_QUEST_CONFIG_NOT_FOUND = -2001
+                                  [(error_code.description) = "任务配置未找到"];
+  EN_ERR_QUEST_NOT_COMPLETED = -2002
+                               [(error_code.description) = "任务未完成"];
+  EN_ERR_QUEST_COMPLETED_DATA_NOT_FOUND = -2003
+                                          [(error_code.description) = "任务完成数据未找到"];
+  EN_ERR_QUEST_ALREADY_ACCEPTED = -2004
+                                  [(error_code.description) = "任务已经接取"];
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码
 }

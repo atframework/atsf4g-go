@@ -19,3 +19,7 @@ validator:
     description: "Role.xlsx|升级经验表|exp_upgrade_id 值校验"
     rules:
       - InTableColumn("Role.xlsx", "升级经验表", 3, 2, "exp_upgrade_id")
+  - name: "ExcelConditionPool_condition_id"
+    description: "Condition.xlsx|限制条件|condition_id 值校验"
+    rules:
+      - InTableColumn("Condition.xlsx", "限制条件", 3, 2, "condition_id")

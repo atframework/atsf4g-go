@@ -50,7 +50,7 @@ func (t *TaskActionQuestReceiveReward) Run(_ *component_dispatcher.DispatcherSta
 		return fmt.Errorf("quest ids is empty")
 	}
 
-	rpcResult := manager.ReceivedQuestSReward(t.GetRpcContext(), questIDs, false)
+	rpcResult := manager.ReceivedQuestsReward(t.GetRpcContext(), questIDs, false)
 	if rpcResult.IsError() {
 		t.SetResponseCode(rpcResult.ResponseCode)
 		return fmt.Errorf("failed to receive quest reward: %w", rpcResult.Error)

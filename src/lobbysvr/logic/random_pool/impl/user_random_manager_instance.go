@@ -71,7 +71,7 @@ func (m *UserRandomPoolManager) UnpackItem(ctx cd.RpcContext, itemOffset *public
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(result))
 	}
 
-	itemInst, genResult := m.GetOwner().GenerateMultipleItemInstancesFromOffset(ctx, unpackItem)
+	itemInst, genResult := m.GetOwner().GenerateMultipleItemInstancesFromOffset(ctx, unpackItem, true)
 	if genResult.IsError() {
 		ctx.LogError("user cUnpackItem GenerateMultipleItemInstancesFromOffset failed", "error", genResult.Error,
 			"user_id", m.GetOwner().GetUserId(), "zone_id", m.GetOwner().GetZoneId())

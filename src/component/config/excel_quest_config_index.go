@@ -14,57 +14,49 @@ const (
 	unlockConditionTypeStartTimepoint = 1
 )
 
-// InitExcelQuestConfigIndex 初始化任务配置索引
 // 构建任务解锁条件映射、任务序列和任务触发器参数映射
 func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
-	tmpUnlockConditionMap := make(map[int32][]custom_index_type.QuestUnlockConditionPair)
-	maxQuestId := int32(0)
-	questSequence := make([]*public_protocol_config.ExcelQuestList, 0)
+	tmpUnlockConditionMap := make(map[public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID][]custom_index_type.QuestUnlockConditionPair)
+	questSequence := make([]*public_protocol_config.Readonly_ExcelQuestList, 0)
 
 	// 遍历所有任务配置
-	for _, questConf := range *group.ExcelQuestList.GetAllOfId() {
+	for _, questConf := range *group.GetExcelQuestListAllOfId() {
 		if questConf == nil {
 			continue
 		}
 
-		// 跳过已下架的任务（下架就当做删除来处理）
-		if !questConf.On {
+		// 跳过已下架的任务
+		if !questConf.GetOn() {
 			continue
 		}
 
-		// 处理解锁条件
-		for _, unlockCondition := range questConf.UnlockConditions {
+		for _, unlockCondition := range questConf.GetUnlockConditions() {
 			if unlockCondition == nil {
 				continue
 			}
 
-			conditionTypeCase := getUnlockConditionTypeCase(unlockCondition)
+			conditionTypeCase := unlockCondition.GetUnlockTypeOneofCase()
 
-			condValue := getUnlockConditionValue(unlockCondition)
+			condValue := getUnlockConditionValue(unlockCondition.ToMessage())
 			tmpUnlockConditionMap[conditionTypeCase] = append(
 				tmpUnlockConditionMap[conditionTypeCase],
 				custom_index_type.QuestUnlockConditionPair{
 					Value:   condValue,
-					QuestId: questConf.Id,
+					QuestId: questConf.GetId(),
 				},
 			)
 		}
 
 		// 处理特定时间段的可用性
-		if questConf.AvailablePeriod != nil && questConf.AvailablePeriod.GetSpecificPeriod() != nil {
-			startTime := questConf.AvailablePeriod.GetSpecificPeriod().Start.Seconds
+		if questConf.GetAvailablePeriod().GetSpecificPeriod().GetStart() != nil {
+			startTime := questConf.GetAvailablePeriod().GetSpecificPeriod().GetStart().Seconds
 			tmpUnlockConditionMap[unlockConditionTypeStartTimepoint] = append(
 				tmpUnlockConditionMap[unlockConditionTypeStartTimepoint],
 				custom_index_type.QuestUnlockConditionPair{
 					Value:   startTime,
-					QuestId: questConf.Id,
+					QuestId: questConf.GetId(),
 				},
 			)
-		}
-
-		// 记录最大任务ID
-		if questConf.Id > maxQuestId {
-			maxQuestId = questConf.Id
 		}
 
 		// 构建任务序列
@@ -73,7 +65,7 @@ func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
 
 	// 按ID排序任务序列
 	sort.Slice(questSequence, func(i, j int) bool {
-		return questSequence[i].Id < questSequence[j].Id
+		return questSequence[i].GetId() < questSequence[j].GetId()
 	})
 
 	// 排序每个分类中的解锁条件对
@@ -86,8 +78,6 @@ func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
 		})
 	}
 
-	// 保存到自定义索引中
-	group.GetCustomIndex().QuestCurrentMaxId = maxQuestId
 	group.GetCustomIndex().QuestUnlockConditionMap = tmpUnlockConditionMap
 	group.GetCustomIndex().QuestSequence = questSequence
 
@@ -101,7 +91,7 @@ func InitExcelQuestConfigIndex(group *generate_config.ConfigGroup) error {
 // previous: 前置值（不包含）
 // newValue: 新值（包含）
 // 返回在(previous, newValue]范围内解锁的任务ID
-func GetBoundUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionType int32, previous, newValue int64) []int32 {
+func GetBoundUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionType public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID, previous, newValue int64) []int32 {
 	if group == nil {
 		return nil
 	}
@@ -140,7 +130,7 @@ func GetBoundUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionT
 
 // GetEqualUnlockQuestIds 获取精确值解锁的任务ID列表
 // 返回解锁条件值等于指定值的任务ID
-func GetEqualUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionType int32, value int64) []int32 {
+func GetEqualUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionType public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID, value int64) []int32 {
 	if group == nil {
 		return nil
 	}
@@ -177,22 +167,8 @@ func GetEqualUnlockQuestIds(group *generate_config.ConfigGroup, unlockConditionT
 	return unlockQuestIds
 }
 
-// GetCurrentMaxQuestId 获取当前最大的任务ID
-func GetCurrentMaxQuestId(group *generate_config.ConfigGroup) int32 {
-	if group == nil {
-		return 0
-	}
-
-	customIndex := group.GetCustomIndex()
-	if customIndex == nil {
-		return 0
-	}
-
-	return customIndex.QuestCurrentMaxId
-}
-
 // GetQuestSequence 获取排序后的任务序列
-func GetQuestSequence(group *generate_config.ConfigGroup) []*public_protocol_config.ExcelQuestList {
+func GetQuestSequence(group *generate_config.ConfigGroup) []*public_protocol_config.Readonly_ExcelQuestList {
 	if group == nil {
 		return nil
 	}
@@ -226,32 +202,6 @@ func CheckIsInQuestTriggerArgs(group *generate_config.ConfigGroup, triggerType i
 	return exists
 }
 
-// 辅助函数
-
-// getUnlockConditionTypeCase 获取解锁条件的oneof字段类型（字段编号）
-// 返回当前设置的oneof字段的编号，如果没有字段被设置则返回0
-func getUnlockConditionTypeCase(unlockCondition *public_protocol_common.DQuestUnlockConditionItem) int32 {
-	if unlockCondition == nil {
-		return 0
-	}
-
-	// 获取oneof字段 - 当前设置的字段
-	// 这对应于protobuf中的unlock_type_case()
-	descriptor := unlockCondition.ProtoReflect().Descriptor()
-	oneofDesc := descriptor.Oneofs().ByName("unlock_type")
-	if oneofDesc == nil {
-		return 0
-	}
-
-	field := unlockCondition.ProtoReflect().WhichOneof(oneofDesc)
-	if field == nil {
-		return 0
-	}
-
-	// 返回当前设置的oneof字段的编号
-	return int32(field.Number())
-}
-
 // getUnlockConditionValue 获取解锁条件的值
 // 根据oneof字段的类型提取对应的值，如果没有字段被设置则返回0
 func getUnlockConditionValue(unlockCondition *public_protocol_common.DQuestUnlockConditionItem) int64 {
@@ -282,46 +232,45 @@ func getUnlockConditionValue(unlockCondition *public_protocol_common.DQuestUnloc
 	return 0
 }
 
-// predealQuestTriggerArgs 预处理任务触发器参数
 // 构建触发器类型与其对应的所有实体参数的映射
 func predealQuestTriggerArgs(group *generate_config.ConfigGroup) {
 	questProgressTypeToTriggerMap := make(map[int32]int32)
 
 	// 构建任务进度类型到触发器类型的映射
-	for _, triggerConf := range *group.ExcelQuestTriggerEventType.GetAllOfId() {
+	for _, triggerConf := range *group.GetExcelQuestTriggerEventTypeAllOfId() {
 		if triggerConf == nil {
 			continue
 		}
 
-		for _, progressType := range triggerConf.ProgressTypes {
-			questProgressTypeToTriggerMap[int32(progressType)] = int32(triggerConf.Id)
+		for _, progressType := range triggerConf.GetProgressTypes() {
+			questProgressTypeToTriggerMap[int32(progressType)] = int32(triggerConf.GetId())
 		}
 	}
 
 	// 构建触发器参数预处理映射
 	tmpQuestTriggerArgsPredealMap := make(map[int32]map[int32]bool)
 
-	for _, questConf := range *group.ExcelQuestList.GetAllOfId() {
+	for _, questConf := range *group.GetExcelQuestListAllOfId() {
 		if questConf == nil {
 			continue
 		}
 
 		// 跳过已下架的任务
-		if !questConf.On {
+		if !questConf.GetOn() {
 			continue
 		}
 
-		for _, progress := range questConf.Progress {
+		for _, progress := range questConf.GetProgress() {
 			if progress == nil {
 				continue
 			}
 
-			triggerTypeId := questProgressTypeToTriggerMap[int32(progress.TypeId)]
+			triggerTypeId := questProgressTypeToTriggerMap[int32(progress.GetTypeId())]
 			if tmpQuestTriggerArgsPredealMap[triggerTypeId] == nil {
 				tmpQuestTriggerArgsPredealMap[triggerTypeId] = make(map[int32]bool)
 			}
 
-			for _, arg := range progress.EntityArgs {
+			for _, arg := range progress.GetEntityArgs() {
 				tmpQuestTriggerArgsPredealMap[triggerTypeId][arg] = true
 			}
 		}

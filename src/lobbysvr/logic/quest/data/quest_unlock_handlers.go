@@ -2,7 +2,6 @@ package lobbysvr_logic_quest_data
 
 import (
 	"fmt"
-	"reflect"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
@@ -11,35 +10,35 @@ import (
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
-type CheckUnlockConditionFunc = func(ctx *cd.RpcContext,
-	rule *public_protocol_common.DQuestUnlockConditionItem, owner *data.User) cd.RpcResult
+type CheckUnlockConditionFunc = func(ctx cd.RpcContext,
+	rule *public_protocol_common.Readonly_DQuestUnlockConditionItem, owner *data.User) cd.RpcResult
 
-func QuestUnlockRuleCheckers() map[reflect.Type]*CheckUnlockConditionFunc {
-	ret := map[reflect.Type]*CheckUnlockConditionFunc{}
+func QuestUnlockRuleCheckers() map[public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID]*CheckUnlockConditionFunc {
+	ret := map[public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID]*CheckUnlockConditionFunc{}
 	return ret
 }
 
 var conditionUnlockCheckers = QuestUnlockRuleCheckers()
 
 func initUnlockHandler() {
-	addUnlockHanlder(reflect.TypeOf((*public_protocol_common.DQuestUnlockConditionItem_PlayerLevel)(nil)), UnlockByPlayerLevel)
+	addUnlockHanlder(public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID_PlayerLevel, UnlockByPlayerLevel)
 }
 
-func addUnlockHanlder(t reflect.Type, f CheckUnlockConditionFunc) {
+func addUnlockHanlder(t public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID, f CheckUnlockConditionFunc) {
 	conditionUnlockCheckers[t] = &f
 }
 
 // GetQuestUnlockHandle 获取所有已注册的解锁条件处理器
 // 注意：如果多个 goroutine 同时修改 handlers（AddHandler、RegisterDefaultUnlockHandler 等），
 // 需要在外部加锁或在内部加入并发保护（例如使用 sync.RWMutex）。
-func GetQuestUnlockHandle() map[reflect.Type]*CheckUnlockConditionFunc {
+func GetQuestUnlockHandle() map[public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID]*CheckUnlockConditionFunc {
 	if len(conditionUnlockCheckers) == 0 {
 		initUnlockHandler()
 	}
 	return conditionUnlockCheckers
 }
 
-func UnlockByPlayerLevel(_ *cd.RpcContext, rule *public_protocol_common.DQuestUnlockConditionItem,
+func UnlockByPlayerLevel(_ cd.RpcContext, rule *public_protocol_common.Readonly_DQuestUnlockConditionItem,
 	owner *data.User) cd.RpcResult {
 	if owner == nil {
 		return cd.CreateRpcResultError(fmt.Errorf("owner is nil"),

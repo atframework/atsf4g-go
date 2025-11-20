@@ -36,6 +36,6 @@ func GetQuestUnlockIDHandler(unlockType int32) *GetUnlockQuestIDFunc {
 
 func triggerByPlayerLevel(_ cd.RpcContext, params *private_protocol_pbdesc.QuestTriggerParams) []int32 {
 	cfgGroup := config.GetConfigManager().GetCurrentConfigGroup()
-	return config.GetBoundUnlockQuestIds(cfgGroup, int32(public_protocol_common.EnQuestUnlockConditionType_EN_QUEST_UNLOCK_CONDITION_TYPE_PLAYER_LEVEL),
+	return config.GetBoundUnlockQuestIds(cfgGroup, public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID_PlayerLevel,
 		params.GetPlayerLevel().PreLevel, params.GetPlayerLevel().CurLevel)
 }

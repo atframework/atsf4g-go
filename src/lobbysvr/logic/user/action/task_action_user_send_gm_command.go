@@ -88,7 +88,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(&callbacks, "help", "", "Show this help message", (*TaskActionUserSendGmCommand).runGMCmdHelp)
 	registerGmCommandHandle(&callbacks, "add-item", "<item_id> [count=1]", "Add an item to the user's inventory", (*TaskActionUserSendGmCommand).runGMCmdItemAddItem)
 	registerGmCommandHandle(&callbacks, "remove-item", "<item_id> <count> [guid=0]", "Remove an item from the user's inventory", (*TaskActionUserSendGmCommand).runGMCmdItemRemoveItem)
-	registerGmCommandHandle(callbacks, "query-quest-status", "<questID>] ", "query quest status", (*TaskActionUserSendGmCommand).runGMCmdQueryQuestStatus)
+	registerGmCommandHandle(&callbacks, "query-quest-status", "<questID>] ", "query quest status", (*TaskActionUserSendGmCommand).runGMCmdQueryQuestStatus)
 
 	return callbacks
 }
