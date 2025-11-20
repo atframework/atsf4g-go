@@ -91,7 +91,7 @@ func appendTimestamp(b *logBuffer, t time.Time) {
 	entry := appendTimestampCache.Load().(timestampCacheEntry)
 	second := t.Unix()
 	if entry.second != second {
-		prefix := t.Format("2006-01-02 15:04:05")
+		prefix := t.Format(time.DateTime)
 		entry = timestampCacheEntry{second: second, prefix: prefix}
 		appendTimestampCache.Store(entry)
 	}
@@ -295,14 +295,14 @@ func GetCaller(skip int) uintptr {
 	return pcs[0]
 }
 
-func LogInner(logger *slog.Logger, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
+func LogInner(sysnow time.Time, logger *slog.Logger, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
 	if lu.IsNil(ctx) {
 		ctx = context.Background()
 	}
 	if !logger.Enabled(ctx, level) {
 		return
 	}
-	r := slog.NewRecord(time.Now(), level, msg, pc)
+	r := slog.NewRecord(sysnow, level, msg, pc)
 	r.Add(args...)
 	_ = logger.Handler().Handle(ctx, r)
 }

@@ -397,7 +397,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 		if !lu.IsNil(ctx) {
 			ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 		} else {
-			libatapp.LogInner(slog.Default(), pc, c, level, msg, args...)
+			libatapp.LogInner(time.Now(), slog.Default(), pc, c, level, msg, args...)
 		}
 		return
 	}
@@ -412,7 +412,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 	if !lu.IsNil(ctx) {
 		ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 	} else {
-		libatapp.LogInner(slog.Default(), pc, c, level, msg, args...)
+		libatapp.LogInner(time.Now(), slog.Default(), pc, c, level, msg, args...)
 	}
 }
 

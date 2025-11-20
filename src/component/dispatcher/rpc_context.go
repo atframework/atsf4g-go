@@ -140,9 +140,10 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 		} else if ctx.dispatcher != nil {
 			args = append(args, slog.String("dispatcher", ctx.dispatcher.Name()))
 		}
+		libatapp.LogInner(ctx.GetNow(), logger, pc, c, level, msg, args...)
+	} else {
+		libatapp.LogInner(time.Now(), logger, pc, c, level, msg, args...)
 	}
-
-	libatapp.LogInner(logger, pc, c, level, msg, args...)
 }
 
 func (ctx *RpcContextImpl) LogWithLevelWithCaller(pc uintptr, level slog.Level, msg string, args ...any) {

@@ -168,7 +168,7 @@ func (user *User) ReceiveHandler() {
 
 		utils.StdoutLog(fmt.Sprintf("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<\n", user.GetUserId(), csMsg.Head.ErrorCode, rpcName))
 
-		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName))
+		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format("2006-01-02 15:04:05.000"), fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName))
 		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
 
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
@@ -254,7 +254,7 @@ func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.M
 		titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
 		utils.StdoutLog(fmt.Sprintf("%s\n", titleString))
 
-		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format(time.DateTime), titleString)
+		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format("2006-01-02 15:04:05.000"), titleString)
 		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
 		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
 

@@ -112,7 +112,7 @@ type UserCache struct {
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
-		writer, _ = libatapp.NewlogBufferedRotatingWriter(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
+		writer, _ = libatapp.NewlogBufferedRotatingWriter(ctx, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
 			openId, 20*1024*1024, 3, time.Second*3, false, true) // TODO: 配置化
 		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
 			writer.Close()
@@ -234,7 +234,7 @@ func (u *UserCache) BindSession(ctx cd.RpcContext, session *Session) {
 			fmt.Fprint(logWriter, log)
 		}
 		session.pendingCsLog = nil
-		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d \n", time.Now().Format(time.DateTime), session.GetSessionId())
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d \n", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
 	}
 
 	u.OnUpdateSession(ctx, old_session, session)
@@ -259,7 +259,7 @@ func (u *UserCache) UnbindSession(ctx cd.RpcContext, session *Session) {
 
 	logWriter := u.GetCsActorLogWriter()
 	if logWriter != nil {
-		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d \n", time.Now().Format(time.DateTime), u.session.GetSessionId())
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d \n", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), u.session.GetSessionId())
 	}
 
 	old_session := u.session

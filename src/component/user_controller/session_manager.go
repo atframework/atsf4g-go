@@ -3,7 +3,6 @@ package atframework_component_user_controller
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
@@ -71,7 +70,7 @@ func (sm *SessionManager) CreateSession(ctx cd.RpcContext, key SessionKey, handl
 	}
 
 	if session.IsEnableActorLog() {
-		session.InsertPendingActorLog(fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Create Session: %d \n", time.Now().Format(time.DateTime), session.GetSessionId()))
+		session.InsertPendingActorLog(fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Create Session: %d \n", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId()))
 	}
 
 	ctx.LogInfo("session created", "session_node_id", key.NodeId, "session_id", key.SessionId)

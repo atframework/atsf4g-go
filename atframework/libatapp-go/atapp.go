@@ -328,7 +328,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
 				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)
-				bufferWriter, err := NewlogBufferedRotatingWriter(
+				bufferWriter, err := NewlogBufferedRotatingWriter(app,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Path,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().File,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Size,
@@ -663,7 +663,7 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 
 	flags := app.getFlags()
 	if checkFlag(flags, AppFlagStopping) && !checkFlag(flags, AppFlagStopped) {
-		now := time.Now()
+		now := app.GetSysNow()
 		if now.After(app.stopTimeout) {
 			app.SetFlag(AppFlagTimeout, true)
 		}
@@ -807,7 +807,7 @@ func (app *AppInstance) Stop() error {
 		return nil
 	}
 
-	app.stopTimeout = time.Now().Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
+	app.stopTimeout = app.GetSysNow().Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
 	app.SetFlag(AppFlagStopping, true)
 	app.stopAppHandle()
 	return nil
@@ -1058,7 +1058,7 @@ func (app *AppInstance) setupStartupLog() error {
 			default:
 				{
 
-					out, _ := NewlogBufferedRotatingWriter(
+					out, _ := NewlogBufferedRotatingWriter(app,
 						"../log", logFile, 50*1024*1024, 1, time.Second*1, false, false)
 					handler.writers = append(handler.writers, logHandlerWriter{
 						minLevel:         slog.LevelDebug,

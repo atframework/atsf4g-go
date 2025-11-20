@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
 
 type LogStdoutWriter struct {
@@ -61,7 +63,18 @@ func (f *RefFD) Relese() {
 	}
 }
 
+type GetTime interface {
+	GetNow() time.Time
+}
+
+type DefaultGetTime struct{}
+
+func (d *DefaultGetTime) GetNow() time.Time {
+	return time.Now()
+}
+
 type LogBufferedRotatingWriter struct {
+	GetTime
 	path     string
 	fileName string
 	maxSize  uint64
@@ -87,8 +100,12 @@ type LogBufferedRotatingWriter struct {
 }
 
 // NewlogBufferedRotatingWriter 创建新的日志 writer
-func NewlogBufferedRotatingWriter(path string, fileName string, maxSize uint64, retain uint32, flushInterval time.Duration, hardLink bool, enableTimeRotating bool) (*LogBufferedRotatingWriter, error) {
+func NewlogBufferedRotatingWriter(getTime GetTime, path string, fileName string, maxSize uint64, retain uint32, flushInterval time.Duration, hardLink bool, enableTimeRotating bool) (*LogBufferedRotatingWriter, error) {
+	if lu.IsNil(getTime) {
+		getTime = &DefaultGetTime{}
+	}
 	w := &LogBufferedRotatingWriter{
+		GetTime:       getTime,
 		path:          path,
 		fileName:      fileName,
 		maxSize:       maxSize,
@@ -120,7 +137,7 @@ func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 		return w.currentFile.Copy(), nil
 	}
 
-	now := time.Now()
+	now := w.GetNow()
 
 	if !w.init {
 		// 第一次创建 不覆盖
@@ -242,7 +259,7 @@ func (w *LogBufferedRotatingWriter) needRotateFile() bool {
 		return true
 	}
 	if w.timeRotateInterval != 0 {
-		now := time.Now()
+		now := w.GetNow()
 		if now.Unix()/int64(w.timeRotateCheckInterval) != w.lastCheckRotateTime/int64(w.timeRotateCheckInterval) {
 			// 需要检查时间Format
 			if !w.currentTimeRotateTime.IsZero() && strings.Compare(w.currentTimeRotateTime.Format("2006-01-02"), now.Format("2006-01-02")) != 0 {
@@ -270,7 +287,7 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	n, err := f.fd.Write(p)
 	w.currentSize.Add(uint64(n))
 
-	now := time.Now()
+	now := w.GetNow()
 	if now.After(w.nextFlushTime) {
 		w.updateFlushTime(now)
 		f.fd.Sync()
@@ -290,7 +307,7 @@ func (w *LogBufferedRotatingWriter) Flush() error {
 	}
 	defer f.Relese()
 
-	w.updateFlushTime(time.Now())
+	w.updateFlushTime(w.GetNow())
 	f.fd.Sync()
 	return nil
 }
