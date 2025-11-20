@@ -164,17 +164,15 @@ func GetReflectTypeSampleContainer() reflect.Type {
 
 // ===== Readonly wrapper for SampleContainer ===== Message ====
 type Readonly_SampleContainer struct {
-	protoData              *SampleContainer
-	fieldId                int32
-	fieldTitle             string
-	fieldNested            *Readonly_SampleNested
-	fieldNestedList        []*Readonly_SampleNested
-	fieldNestedMap         map[string]*Readonly_SampleNested
-	fieldPayload           []byte
-	fieldLabels            []string
-	fieldOptInt            int32
-	fieldOptNested         *Readonly_SampleNested
-	fieldOptionalValueCase SampleContainer_EnOptionalValueID
+	protoData          *SampleContainer
+	fieldId            int32
+	fieldTitle         string
+	fieldNested        *Readonly_SampleNested
+	fieldNestedList    []*Readonly_SampleNested
+	fieldNestedMap     map[string]*Readonly_SampleNested
+	fieldPayload       []byte
+	fieldLabels        []string
+	fieldOptionalValue getReadonlySampleContainer_OptionalValue
 }
 
 func (r *Readonly_SampleContainer) ReadonlyProtoReflect() innerFile_protocol_pbdesc_sample_protoReadonlyMessage {
@@ -254,11 +252,17 @@ func (r *Readonly_SampleContainer) initFromProto(src *SampleContainer) {
 	} else {
 		r.fieldLabels = nil
 	}
-	r.fieldOptInt = src.GetOptInt()
-	if v := src.GetOptNested(); v != nil {
-		r.fieldOptNested = v.ToReadonly()
-	} else {
-		r.fieldOptNested = nil
+	switch v := src.OptionalValue.(type) {
+	case *SampleContainer_OptInt:
+		r.fieldOptionalValue = &Readonly_SampleContainer_OptInt{value: v.OptInt}
+	case *SampleContainer_OptNested:
+		var inner *Readonly_SampleNested
+		if nested := v.OptNested; nested != nil {
+			inner = nested.ToReadonly()
+		}
+		r.fieldOptionalValue = &Readonly_SampleContainer_OptNested{value: inner}
+	default:
+		r.fieldOptionalValue = nil
 	}
 }
 
@@ -328,7 +332,11 @@ func (r *Readonly_SampleContainer) GetOptInt() int32 {
 		var zero int32
 		return zero
 	}
-	return r.fieldOptInt
+	if x, ok := r.fieldOptionalValue.(*Readonly_SampleContainer_OptInt); ok && x != nil {
+		return x.GetOptInt()
+	}
+	var zero int32
+	return zero
 }
 
 func (r *Readonly_SampleContainer) GetOptNested() *Readonly_SampleNested {
@@ -336,21 +344,76 @@ func (r *Readonly_SampleContainer) GetOptNested() *Readonly_SampleNested {
 		var zero *Readonly_SampleNested
 		return zero
 	}
-	return r.fieldOptNested
+	if x, ok := r.fieldOptionalValue.(*Readonly_SampleContainer_OptNested); ok && x != nil {
+		return x.GetOptNested()
+	}
+	var zero *Readonly_SampleNested
+	return zero
 }
 
 func (r *Readonly_SampleContainer) GetOptionalValueOneofCase() SampleContainer_EnOptionalValueID {
 	if r == nil {
 		return 0
 	}
-	return r.protoData.GetOptionalValueOneofCase()
+	if r.fieldOptionalValue == nil {
+		return SampleContainer_EnOptionalValueID_NONE
+	}
+	return r.fieldOptionalValue.GetSampleContainer_OptionalValue()
 }
 
 func (r *Readonly_SampleContainer) GetOptionalValueReflectType() reflect.Type {
 	if r == nil {
 		return nil
 	}
-	return r.protoData.GetOptionalValueReflectType()
+	if r.fieldOptionalValue == nil {
+		return nil
+	}
+	return r.fieldOptionalValue.GetReflectTypeSampleContainer_OptionalValue()
+}
+
+type getReadonlySampleContainer_OptionalValue interface {
+	GetSampleContainer_OptionalValue() SampleContainer_EnOptionalValueID
+	GetReflectTypeSampleContainer_OptionalValue() reflect.Type
+}
+
+type Readonly_SampleContainer_OptInt struct {
+	value int32
+}
+
+func (r *Readonly_SampleContainer_OptInt) GetSampleContainer_OptionalValue() SampleContainer_EnOptionalValueID {
+	return SampleContainer_EnOptionalValueID_OptInt
+}
+
+func (r *Readonly_SampleContainer_OptInt) GetReflectTypeSampleContainer_OptionalValue() reflect.Type {
+	return GetReflectTypeSampleContainer_OptInt()
+}
+
+func (r *Readonly_SampleContainer_OptInt) GetOptInt() int32 {
+	if r == nil {
+		var zero int32
+		return zero
+	}
+	return r.value
+}
+
+type Readonly_SampleContainer_OptNested struct {
+	value *Readonly_SampleNested
+}
+
+func (r *Readonly_SampleContainer_OptNested) GetSampleContainer_OptionalValue() SampleContainer_EnOptionalValueID {
+	return SampleContainer_EnOptionalValueID_OptNested
+}
+
+func (r *Readonly_SampleContainer_OptNested) GetReflectTypeSampleContainer_OptionalValue() reflect.Type {
+	return GetReflectTypeSampleContainer_OptNested()
+}
+
+func (r *Readonly_SampleContainer_OptNested) GetOptNested() *Readonly_SampleNested {
+	if r == nil {
+		var zero *Readonly_SampleNested
+		return zero
+	}
+	return r.value
 }
 
 // ===== Case Enum for SampleContainer Oneof OptionalValue ===== Oneof =====

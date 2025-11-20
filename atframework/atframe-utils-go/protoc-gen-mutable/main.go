@@ -93,8 +93,16 @@ func readonlyFieldVarName(f *protogen.Field) string {
 	return fmt.Sprintf("field%s", f.GoName)
 }
 
-func readonlyOneofCaseFieldName(oneof *protogen.Oneof) string {
-	return fmt.Sprintf("field%sCase", oneof.GoName)
+func readonlyOneofFieldVarName(oneof *protogen.Oneof) string {
+	return fmt.Sprintf("field%s", oneof.GoName)
+}
+
+func readonlyOneofInterfaceName(msg *protogen.Message, oneof *protogen.Oneof) string {
+	return fmt.Sprintf("getReadonly%s_%s", msg.GoIdent.GoName, oneof.GoName)
+}
+
+func readonlyOneofStructName(field *protogen.Field) string {
+	return fmt.Sprintf("Readonly_%s", field.GoIdent.GoName)
 }
 
 func hasReadonlyWrapper(parent *protogen.Message, target *protogen.Message) bool {
@@ -429,10 +437,13 @@ func generateReadonlyForMessage(f *protogen.File, g *protogen.GeneratedFile, msg
 	g.P(fmt.Sprintf("type %s struct {", roName))
 	g.P(fmt.Sprintf("  protoData *%s", msg.GoIdent.GoName))
 	for _, field := range msg.Fields {
+		if field.Oneof != nil {
+			continue
+		}
 		g.P(fmt.Sprintf("  %s %s", readonlyFieldVarName(field), readonlyFieldGoType(g, msg, field)))
 	}
 	for _, oneof := range msg.Oneofs {
-		g.P(fmt.Sprintf("  %s %s_En%sID", readonlyOneofCaseFieldName(oneof), msg.GoIdent.GoName, oneof.GoName))
+		g.P(fmt.Sprintf("  %s %s", readonlyOneofFieldVarName(oneof), readonlyOneofInterfaceName(msg, oneof)))
 	}
 	g.P("}")
 	g.P()
@@ -474,20 +485,35 @@ func generateReadonlyForMessage(f *protogen.File, g *protogen.GeneratedFile, msg
 	g.P("    return")
 	g.P("  }")
 	for _, field := range msg.Fields {
+		if field.Oneof != nil {
+			continue
+		}
 		generateReadonlyFieldCopy(g, msg, field)
+	}
+	for _, oneof := range msg.Oneofs {
+		generateReadonlyOneofCopy(g, msg, oneof)
 	}
 	g.P("}")
 	g.P()
 
 	for _, field := range msg.Fields {
+		if field.Oneof != nil {
+			generateReadonlyOneofGetter(g, roName, field)
+			continue
+		}
 		generateReadonlyGetter(g, roName, field)
 	}
 	for _, oneof := range msg.Oneofs {
+		oneofVar := readonlyOneofFieldVarName(oneof)
+		fullFieldName := fmt.Sprintf("%s_%s", msg.GoIdent.GoName, oneof.GoName)
 		g.P(fmt.Sprintf("func (r *%s) Get%sOneofCase() %s_En%sID {", roName, oneof.GoName, msg.GoIdent.GoName, oneof.GoName))
 		g.P("  if r == nil {")
 		g.P("    return 0")
 		g.P("  }")
-		g.P(fmt.Sprintf("  return r.protoData.Get%sOneofCase()", oneof.GoName))
+		g.P(fmt.Sprintf("  if r.%s == nil {", oneofVar))
+		g.P(fmt.Sprintf("    return %s_En%sID_NONE", msg.GoIdent.GoName, oneof.GoName))
+		g.P("  }")
+		g.P(fmt.Sprintf("  return r.%s.Get%s()", oneofVar, fullFieldName))
 		g.P("}")
 		g.P()
 
@@ -495,13 +521,20 @@ func generateReadonlyForMessage(f *protogen.File, g *protogen.GeneratedFile, msg
 		g.P("  if r == nil {")
 		g.P("    return nil")
 		g.P("  }")
-		g.P(fmt.Sprintf("  return r.protoData.Get%sReflectType()", oneof.GoName))
+		g.P(fmt.Sprintf("  if r.%s == nil {", oneofVar))
+		g.P("    return nil")
+		g.P("  }")
+		g.P(fmt.Sprintf("  return r.%s.GetReflectType%s()", oneofVar, fullFieldName))
 		g.P("}")
 		g.P()
+		generateReadonlyOneofInterface(g, msg, oneof)
 	}
 }
 
 func generateReadonlyFieldCopy(g *protogen.GeneratedFile, msg *protogen.Message, field *protogen.Field) {
+	if field.Oneof != nil {
+		return
+	}
 	fieldVar := readonlyFieldVarName(field)
 	switch {
 	case field.Desc.IsMap():
@@ -591,6 +624,9 @@ func generateReadonlyFieldCopy(g *protogen.GeneratedFile, msg *protogen.Message,
 }
 
 func generateReadonlyGetter(g *protogen.GeneratedFile, roName string, field *protogen.Field) {
+	if field.Oneof != nil {
+		return
+	}
 	fieldType := readonlyFieldGoType(g, field.Parent, field)
 	fieldVar := readonlyFieldVarName(field)
 	g.P(fmt.Sprintf("func (r *%s) Get%s() %s {", roName, field.GoName, fieldType))
@@ -610,4 +646,96 @@ func generateReadonlyGetter(g *protogen.GeneratedFile, roName string, field *pro
 	}
 	g.P("}")
 	g.P()
+}
+
+func generateReadonlyOneofGetter(g *protogen.GeneratedFile, roName string, field *protogen.Field) {
+	fieldType := readonlyElementGoType(g, field.Parent, field)
+	oneofVar := readonlyOneofFieldVarName(field.Oneof)
+	structName := readonlyOneofStructName(field)
+	g.P(fmt.Sprintf("func (r *%s) Get%s() %s {", roName, field.GoName, fieldType))
+	g.P("  if r == nil {")
+	g.P(fmt.Sprintf("    var zero %s", fieldType))
+	g.P("    return zero")
+	g.P("  }")
+	g.P(fmt.Sprintf("  if x, ok := r.%s.(*%s); ok && x != nil {", oneofVar, structName))
+	g.P(fmt.Sprintf("    return x.Get%s()", field.GoName))
+	g.P("  }")
+	g.P(fmt.Sprintf("  var zero %s", fieldType))
+	g.P("  return zero")
+	g.P("}")
+	g.P()
+}
+
+func generateReadonlyOneofCopy(g *protogen.GeneratedFile, msg *protogen.Message, oneof *protogen.Oneof) {
+	oneofVar := readonlyOneofFieldVarName(oneof)
+	g.P(fmt.Sprintf("  switch v := src.%s.(type) {", oneof.GoName))
+	for _, field := range oneof.Fields {
+		structName := readonlyOneofStructName(field)
+		valueType := readonlyElementGoType(g, msg, field)
+		g.P(fmt.Sprintf("  case *%s:", field.GoIdent.GoName))
+		switch {
+		case field.Message != nil:
+			g.P(fmt.Sprintf("    var inner %s", valueType))
+			g.P(fmt.Sprintf("    if nested := v.%s; nested != nil {", field.GoName))
+			g.P("      inner = nested.ToReadonly()")
+			g.P("    }")
+			g.P(fmt.Sprintf("    r.%s = &%s{value: inner}", oneofVar, structName))
+		case field.Desc.Kind() == protoreflect.BytesKind:
+			g.P("    var copied []byte")
+			g.P(fmt.Sprintf("    if data := v.%s; len(data) != 0 {", field.GoName))
+			g.P("      copied = append([]byte(nil), data...)")
+			g.P("    }")
+			g.P(fmt.Sprintf("    r.%s = &%s{value: copied}", oneofVar, structName))
+		default:
+			g.P(fmt.Sprintf("    r.%s = &%s{value: v.%s}", oneofVar, structName, field.GoName))
+		}
+	}
+	g.P("  default:")
+	g.P(fmt.Sprintf("    r.%s = nil", oneofVar))
+	g.P("  }")
+}
+
+func generateReadonlyOneofInterface(g *protogen.GeneratedFile, msg *protogen.Message, oneof *protogen.Oneof) {
+	ifaceName := readonlyOneofInterfaceName(msg, oneof)
+	fullFieldName := fmt.Sprintf("%s_%s", msg.GoIdent.GoName, oneof.GoName)
+	g.P("// ===== Readonly interface for ", msg.GoIdent.GoName, " Oneof ", oneof.GoName, " ===== Oneof ====")
+	g.P(fmt.Sprintf("type %s interface {", ifaceName))
+	g.P(fmt.Sprintf("  Get%s() %s_En%sID", fullFieldName, msg.GoIdent.GoName, oneof.GoName))
+	g.P(fmt.Sprintf("  GetReflectType%s() reflect.Type", fullFieldName))
+	g.P("}")
+	g.P()
+	for _, field := range oneof.Fields {
+		structName := readonlyOneofStructName(field)
+		valueType := readonlyElementGoType(g, msg, field)
+		g.P("// ===== Readonly struct for ", field.GoIdent.GoName, " ===== Oneof option ====")
+		g.P(fmt.Sprintf("type %s struct {", structName))
+		g.P(fmt.Sprintf("  value %s", valueType))
+		g.P("}")
+		g.P()
+		g.P(fmt.Sprintf("func (r *%s) Get%s() %s_En%sID {", structName, fullFieldName, msg.GoIdent.GoName, oneof.GoName))
+		g.P(fmt.Sprintf("  return %s_En%sID_%s", msg.GoIdent.GoName, oneof.GoName, field.GoName))
+		g.P("}")
+		g.P()
+		g.P(fmt.Sprintf("func (r *%s) GetReflectType%s() reflect.Type {", structName, fullFieldName))
+		g.P(fmt.Sprintf("  return GetReflectType%s()", field.GoIdent.GoName))
+		g.P("}")
+		g.P()
+		g.P(fmt.Sprintf("func (r *%s) Get%s() %s {", structName, field.GoName, valueType))
+		g.P("  if r == nil {")
+		g.P(fmt.Sprintf("    var zero %s", valueType))
+		g.P("    return zero")
+		g.P("  }")
+		if field.Desc.Kind() == protoreflect.BytesKind {
+			g.P("  if len(r.value) == 0 {")
+			g.P("    return r.value")
+			g.P("  }")
+			g.P("  dup := make([]byte, len(r.value))")
+			g.P("  copy(dup, r.value)")
+			g.P("  return dup")
+		} else {
+			g.P("  return r.value")
+		}
+		g.P("}")
+		g.P()
+	}
 }
