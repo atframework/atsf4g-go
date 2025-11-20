@@ -49,8 +49,8 @@ type WebSocketMessageDispatcher struct {
 	webServerConfigurePath       string
 	webSocketServerConfigurePath string
 
-	serverConfig *private_protocol_config.WebserverCfg
-	wsConfig     *private_protocol_config.WebsocketServerCfg
+	serverConfig *private_protocol_config.Readonly_WebserverCfg
+	wsConfig     *private_protocol_config.Readonly_WebsocketServerCfg
 	upgrader     *websocket.Upgrader
 	upgraderLock sync.RWMutex
 
@@ -428,16 +428,15 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 		return err
 	}
 
-	// TODO: reload from config
-
-	d.serverConfig = &private_protocol_config.WebserverCfg{
+	// reload from config
+	serverConfig := &private_protocol_config.WebserverCfg{
 		Host:         "",
 		Port:         7001,
 		ReadTimeout:  durationpb.New(15 * time.Second),
 		WriteTimeout: durationpb.New(15 * time.Second),
 		IdleTimeout:  durationpb.New(60 * time.Second),
 	}
-	d.wsConfig = &private_protocol_config.WebsocketServerCfg{
+	wsConfig := &private_protocol_config.WebsocketServerCfg{
 		MaxConnections:       50000,
 		ReadBufferSize:       4096,
 		WriteBufferSize:      4096,
@@ -451,20 +450,23 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 		Path:                 "/ws/v1",
 	}
 
-	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webServerConfigurePath, d.serverConfig, d.GetLogger())
+	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webServerConfigurePath, serverConfig, d.GetLogger())
 	if loadErr != nil {
 		err = loadErr
 	}
 
-	loadErr = libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webSocketServerConfigurePath, d.wsConfig, d.GetLogger())
+	loadErr = libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webSocketServerConfigurePath, wsConfig, d.GetLogger())
 	if loadErr != nil {
 		err = loadErr
 	}
 
-	if d.serverConfig.GetPort() <= 0 || d.serverConfig.GetPort() > 65535 {
-		err = fmt.Errorf("invalid web server port: %d", d.serverConfig.GetPort())
-		d.serverConfig.Port = 7001
+	if serverConfig.GetPort() <= 0 || serverConfig.GetPort() > 65535 {
+		err = fmt.Errorf("invalid web server port: %d", serverConfig.GetPort())
+		serverConfig.Port = 7001
 	}
+
+	d.serverConfig = serverConfig.ToReadonly()
+	d.wsConfig = wsConfig.ToReadonly()
 
 	if d.IsActived() {
 		return d.setupListen()

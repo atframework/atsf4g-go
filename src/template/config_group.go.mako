@@ -24,7 +24,7 @@ type ConfigCallback interface {
 
 type ConfigGroup struct {
 	ExcelResourceDir string
-	serverConfig 	 *private_protocol_config.LogicSectionCfg
+	serverConfig 	 *private_protocol_config.Readonly_LogicSectionCfg
 
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
@@ -41,7 +41,7 @@ func (configGroup *ConfigGroup) GetCustomIndex() *custom_index_type.ExcelConfigC
 	return &configGroup.customIndex
 }
 
-func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.LogicSectionCfg {
+func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Readonly_LogicSectionCfg {
 	if configGroup == nil {
 		return nil
 	}
@@ -51,21 +51,23 @@ func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Logic
 func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback) (err error) {
 	if configFile != "" {
 		callback.GetLogger().Info("Load config from file", "file", configFile)
-		configGroup.serverConfig = &private_protocol_config.LogicSectionCfg{}
-		_, err = libatapp.LoadConfigFromYaml(configFile, "logic", configGroup.serverConfig, callback.GetLogger())
+		serverConfig := &private_protocol_config.LogicSectionCfg{}
+		_, err = libatapp.LoadConfigFromYaml(configFile, "logic", serverConfig, callback.GetLogger())
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
 		}
+		configGroup.serverConfig = serverConfig.ToReadonly()
 	} else {
 		// 使用默认配置
 		callback.GetLogger().Info("Load config from default")
-		configGroup.serverConfig = &private_protocol_config.LogicSectionCfg{}
-		err = libatapp.ParseMessage(nil, configGroup.serverConfig, callback.GetLogger())
+		serverConfig := &private_protocol_config.LogicSectionCfg{}
+		err = libatapp.ParseMessage(nil, serverConfig, callback.GetLogger())
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
 		}
+		configGroup.serverConfig = serverConfig.ToReadonly()
 	}
 
 	if !configGroup.serverConfig.GetExcel().GetEnable() {

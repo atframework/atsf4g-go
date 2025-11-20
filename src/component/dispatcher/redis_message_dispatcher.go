@@ -33,7 +33,7 @@ type RedisMessageDispatcher struct {
 	DispatcherBase
 	log RedisLog
 
-	redisCfg      private_protocol_config.LogicRedisCfg
+	redisCfg      *private_protocol_config.Readonly_LogicRedisCfg
 	redisInstance *redis.Client
 	sequence      atomic.Uint64
 	recordPrefix  string
@@ -118,10 +118,12 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		return err
 	}
 
-	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, "lobbysvr.redis", &d.redisCfg, d.GetLogger())
+	redisCfg := &private_protocol_config.LogicRedisCfg{}
+	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, "lobbysvr.redis", redisCfg, d.GetLogger())
 	if loadErr != nil {
 		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
 	}
+	d.redisCfg = redisCfg.ToReadonly()
 
 	if d.redisCfg.GetAddr() == "" {
 		d.DispatcherBase.GetLogger().Error("redis config error empty")
