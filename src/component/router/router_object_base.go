@@ -3,6 +3,7 @@ package atframework_component_router
 import (
 	"container/list"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"unsafe"
 
@@ -127,6 +128,7 @@ type RouterObject interface {
 	PullCache(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult // 存在默认实现
 	PullObject(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult
 	SaveObject(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult
+	LogValue() slog.Value
 	RouterObjectBaseImpl
 }
 

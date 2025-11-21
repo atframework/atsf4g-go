@@ -255,6 +255,7 @@ func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.Awaitable
 
 	manager.cachesMu.Lock()
 	if current, ok := manager.caches[managerCache.GetKey()]; ok && lu.Compare(current, managerCache) {
+		managerCache.UnsetTimerRef()
 		delete(manager.caches, managerCache.GetKey())
 	}
 	manager.cachesMu.Unlock()
