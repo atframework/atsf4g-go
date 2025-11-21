@@ -16,6 +16,7 @@ import "protocol/pbdesc/com.const.proto";
 import "protocol/pbdesc/com.struct.proto";
 
 import "protocol/pbdesc/com.struct.inventory.proto";
+import "protocol/pbdesc/com.struct.condition.proto";
 
 import "protocol/pbdesc/com.struct.quest.proto";
 
@@ -115,11 +116,13 @@ message SCUserDirtyChgSync {
   DUserInventoryData dirty_inventory = 1;
 
   RemoveItemData remove_item_keys = 2;
-  
+
   DUserProfile user_profile = 6;
   DUserInfo user_info = 7;
   DUserOptions user_options = 8;
   DUserQuestEventList dirty_quest_events = 15;
+
+  DConditionCounterDirtyChg dirty_condition_counter = 201;
 }
 
 // 心跳包，上行包
@@ -138,6 +141,8 @@ message CSUserGetInfoReq {
   bool need_user_options = 2;    // 标记为true 回包才有会有玩家选项数据
   bool need_user_inventory = 3;  // 标记为true 回包才有会有玩家选项数据
   bool need_user_quest = 11;     // 标记为true 回包才有会有玩家任务数据
+
+  bool need_user_condition_counter = 201;  // 标记为true 回包才有会有条件计数器数据
 }
 
 // 用户数据返回
@@ -146,8 +151,9 @@ message SCUserGetInfoRsp {
   DUserInfo user_info = 2;                // 玩家数据
   DUserOptions user_options = 3;          // 玩家自定义选项
   DUserInventoryData user_inventory = 4;  // 玩家通用仓库道具数据
-  DUserQuestsData user_quest = 11;         // 玩家任务信息
+  DUserQuestsData user_quest = 11;        // 玩家任务信息
 
+  DConditionCounterData user_condition_counter = 201;  // 玩家条件计数器数据
 }
 
 // GM指令请求

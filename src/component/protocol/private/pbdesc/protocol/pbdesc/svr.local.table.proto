@@ -133,7 +133,7 @@ message database_table_user {
   // 异步任务缓存
   database_table_user_async_jobs_cache_blob_data async_job_blob_data = 101;
   user_quest_data quest_data = 207;
-
+  user_condition_data condition_data = 208;
 }
 
 message database_table_distribute_transaction {

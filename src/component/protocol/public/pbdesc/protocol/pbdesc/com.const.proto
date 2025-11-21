@@ -172,18 +172,18 @@ enum EnErrorCode {
   EN_ERR_DB_CAS_CHECK_FAILED = -120
                                [(error_code.description) = "数据库CAS检查失败"];
   EN_ERR_RPC_NO_TASK = -121
-                               [(error_code.description) = "不在协程任务中"];
+                       [(error_code.description) = "不在协程任务中"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];
   EN_ERR_ROUTER_TTL_EXTEND = -152
-                            [(error_code.description) = "TTL超出限制"];
+                             [(error_code.description) = "TTL超出限制"];
   EN_ERR_ROUTER_CLOSING = -153
-                            [(error_code.description) = "路由系统正在关闭"];
+                          [(error_code.description) = "路由系统正在关闭"];
   EN_ERR_ROUTER_EAGAIN = -154
-                            [(error_code.description) = "重试"];
+                         [(error_code.description) = "重试"];
   EN_ERR_ROUTER_BUSSINESS_VERSION_DENY = -155
-                            [(error_code.description) = "对象版本号禁止拉取"];
+                                         [(error_code.description) = "对象版本号禁止拉取"];
   EN_ERR_ROUTER_NOT_FOUND = -156
                             [(error_code.description) = "路由信息找不到"];
   // openapi
@@ -283,6 +283,18 @@ enum EnErrorCode {
                                           [(error_code.description) = "时间已结束"];
   EN_ERR_CONDITION_RULE_ID_NOT_FOUND = -803
                                        [(error_code.description) = "规则ID未找到"];
+  EN_ERR_CONDITION_DAILY_LIMIT = -831
+                                 [(error_code.description) = "已达到每日上限"];
+  EN_ERR_CONDITION_WEEKLY_LIMIT = -832
+                                  [(error_code.description) = "已达到每周上限"];
+  EN_ERR_CONDITION_MONTHLY_LIMIT = -833
+                                   [(error_code.description) = "已达到每月上限"];
+  EN_ERR_CONDITION_SUM_LIMIT = -834
+                               [(error_code.description) = "已达到总限制上限"];
+  EN_ERR_CONDITION_CUSTOM_LIMIT = -835
+                                  [(error_code.description) = "已达到上限"];
+  EN_ERR_CONDITION_DYNAMIC_LIMIT = -836
+                                   [(error_code.description) = "已达到上限"];
 
   // 任务错误码 2000-2299
   EN_ERR_QUEST_CONFIG_NOT_FOUND = -2001

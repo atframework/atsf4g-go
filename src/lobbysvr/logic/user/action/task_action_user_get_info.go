@@ -13,10 +13,11 @@ import (
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
+	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
 
-	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
+	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
 type TaskActionUserGetInfo struct {
@@ -75,5 +76,15 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 		}
 		questManager.DumpQuestInfo(response_body.MutableUserQuest())
 	}
+
+	if request_body.GetNeedUserConditionCounter() {
+		conditionManager := data.UserGetModuleManager[logic_condition.UserConditionManager](user)
+		if conditionManager == nil {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			return fmt.Errorf("user condition manager not found")
+		}
+		conditionManager.DumpConditionCounterData(response_body.MutableUserConditionCounter())
+	}
+
 	return nil
 }

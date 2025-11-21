@@ -80,17 +80,11 @@ func (m *UserModuleManagerBase) RefreshLimitMinute(_ctx cd.RpcContext) {
 }
 
 func (m *UserModuleManagerBase) InitFromDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
-	return cd.RpcResult{
-		Error:        nil,
-		ResponseCode: 0,
-	}
+	return cd.CreateRpcResultOk()
 }
 
 func (m *UserModuleManagerBase) DumpToDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
-	return cd.RpcResult{
-		Error:        nil,
-		ResponseCode: 0,
-	}
+	return cd.CreateRpcResultOk()
 }
 
 func (m *UserModuleManagerBase) CreateInit(_ctx cd.RpcContext, _versionType uint32) {

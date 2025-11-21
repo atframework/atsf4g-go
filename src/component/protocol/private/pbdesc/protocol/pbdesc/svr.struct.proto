@@ -10,6 +10,7 @@ option cc_enable_arenas = true;
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
 
 import "protocol/common/com.struct.item.common.proto";
+import "protocol/common/com.struct.condition.common.proto";
 
 import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/com.struct.quest.proto";
@@ -99,30 +100,33 @@ message user_quest_specific_end_timepoint_data {
   bool is_changed = 2;
 }
 
+message user_condition_data {
+  int64 storage_id_allocator = 1;
+}
+
 message quest_delete_progress_cache {
-    int32 progress_type = 1;
-    DUserQuestData data = 2;
+  int32 progress_type = 1;
+  DUserQuestData data = 2;
 }
 
 message quest_delete_cache {
-    int32 quest_id = 1;
-    EnQuestStatus status = 2;
-    // int64 end_timepoint = 4;
-    // int64 reset_timepoint = 5;
-    repeated quest_delete_progress_cache old_quest_data = 6;
-    int64 quest_last_status_change_time = 7;
+  int32 quest_id = 1;
+  EnQuestStatus status = 2;
+  // int64 end_timepoint = 4;
+  // int64 reset_timepoint = 5;
+  repeated quest_delete_progress_cache old_quest_data = 6;
+  int64 quest_last_status_change_time = 7;
 
-    int64 delete_timepoint = 10;
+  int64 delete_timepoint = 10;
 }
 
-
 message user_quest_data {
-  DUserQuestsData user_quest_list = 1;  
+  DUserQuestsData user_quest_list = 1;
 
   user_quest_progress_reset_data progress_reset_data = 11;
-  user_quest_specific_end_timepoint_data specific_end_timepoint_data = 12;  
+  user_quest_specific_end_timepoint_data specific_end_timepoint_data = 12;
   map<int32, user_quest_season_progress_value> unlock_progress_value_by_type = 13;
   map<int32, EnQuestStatus> exist_quest_ids = 21;
 
-  map<int32, quest_delete_cache> delete_cache = 22; // 任务删除缓存
+  map<int32, quest_delete_cache> delete_cache = 22;  // 任务删除缓存
 }

@@ -8,6 +8,7 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
@@ -20,6 +21,11 @@ type CheckConditionFunc = func(m UserConditionManager, ctx cd.RpcContext, rule *
 // 所有Dynamic接口指用户在不重新登入情况下，可能变化的条件检查。比如等级下限等，解锁关卡等。
 type UserConditionManager interface {
 	data.UserModuleManagerImpl
+
+	AllocateConditionCounterStorageId() int64
+	AllocateCouterStorage(ctx cd.RpcContext, version int64) *public_protocol_common.DConditionCounterStorage
+
+	DumpConditionCounterData(to *public_protocol_pbdesc.DConditionCounterData)
 
 	CheckStaticRuleId(ctx cd.RpcContext, ruleId int32, runtime *RuleCheckerRuntime) cd.RpcResult
 	CheckDynamicRuleId(ctx cd.RpcContext, ruleId int32, runtime *RuleCheckerRuntime) cd.RpcResult
@@ -61,6 +67,33 @@ type UserConditionManager interface {
 	AddCounter(ctx cd.RpcContext, now time.Time, offset int64,
 		limit *public_protocol_common.Readonly_DConditionCounterLimit,
 		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
+}
+
+type UserConditionCounterDelegate interface {
+	GetCounterSizeCapacity() int32
+	ForeachConditionCounter(f func(storage *public_protocol_common.DConditionCounterStorage) bool)
+}
+
+var userConditionCounterDelegates = map[reflect.Type]func(u *data.User) UserConditionCounterDelegate{}
+
+func RegisterConditionCounterDelegate[FinalType interface{}](fn func(u *data.User) UserConditionCounterDelegate) {
+	t := reflect.TypeOf((*FinalType)(nil)).Elem()
+	userConditionCounterDelegates[t] = fn
+}
+
+func ForeachConditionCounterDelegate(u *data.User, fn func(d UserConditionCounterDelegate) bool) {
+	if u == nil {
+		return
+	}
+
+	for _, getDelegate := range userConditionCounterDelegates {
+		delegate := getDelegate(u)
+		if delegate != nil {
+			if !fn(delegate) {
+				return
+			}
+		}
+	}
 }
 
 func HasLimitData(limit *public_protocol_common.Readonly_DConditionBasicLimit) bool {

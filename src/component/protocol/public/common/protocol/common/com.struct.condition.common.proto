@@ -15,30 +15,34 @@ import "protocol/extension/v3/xresloader.proto";
 
 package proy;
 
-// 限频 - 检查点存储结构
-message DConditionCounterCheckpoint {
-  int64 next_day_checkpoint = 1;
-  int64 next_week_checkpoint = 2;
-  int64 next_month_checkpoint = 3;
-}
-
 // 限频 - 次数存储结构
 message DConditionCounterItem {
-  int64 daily_counter = 1;
-  int64 weekly_counter = 2;
-  int64 monthly_counter = 3;
-  int64 sum_counter = 4;
+  google.protobuf.Timestamp daily_next_checkpoint = 1;
+  int64 daily_counter = 2;
+  google.protobuf.Timestamp weekly_next_checkpoint = 3;
+  int64 weekly_counter = 4;
+  google.protobuf.Timestamp monthly_next_checkpoint = 5;
+  int64 monthly_counter = 6;
 
-  int64 m_day_next_checkpoint = 11;
-  int64 m_day_counter = 12;
+  int64 sum_counter = 9;
+
+  // （静态）下一次自定义周期刷新时间
+  google.protobuf.Timestamp custom_next_checkpoint = 11;
+  // （静态）下一次自定义周期刷新前的计数
+  int64 custom_counter = 12;
+
+  // （动态）上一次刷新时间
+  google.protobuf.Timestamp dynamic_last_checkpoint = 21;
+  // （动态）上一次刷新后剩余
+  int64 dynamic_left_counter = 22;
 }
 
 message DConditionCounterStorage {
-  DConditionCounterItem total_counter = 1;
+  int64 counter_storage_id = 1;
 
   // 约定: 版本号上涨表示要重置之前的计数
-  int64 current_version = 2;
-  DConditionCounterItem version_counter = 3;
+  int64 current_version = 3;
+  DConditionCounterItem version_counter = 4;
 }
 
 // 限频 - 配置结构
@@ -52,9 +56,12 @@ message DConditionCounterLimit {
   int64 monthly = 8;
   int64 sum = 9;
 
-  google.protobuf.Timestamp m_day_start_time = 11;
-  int64 m_day_m = 12;
-  int64 m_day_limit = 13;
+  google.protobuf.Timestamp custom_start_time = 11;
+  google.protobuf.Duration custom_duration = 12;
+  int64 custom_limit = 13;
+
+  google.protobuf.Duration dynamic_duration = 21;
+  int64 dynamic_limit = 22;
 }
 
 message DConditionRuleMultipleInt {
