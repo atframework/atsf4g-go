@@ -8,6 +8,8 @@ replace github.com/atframework/libatapp-go => ../../../atframework/libatapp-go
 
 replace github.com/atframework/atsf4g-go/component-config => ../config
 
+replace github.com/atframework/atsf4g-go/component-logical_time => ../logical_time
+
 replace github.com/atframework/atsf4g-go/component-protocol-public => ../protocol/public
 
 replace github.com/atframework/atsf4g-go/component-protocol-private => ../protocol/private
@@ -26,6 +28,7 @@ require (
 
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000 // indirect
+	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000 // indirect
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000 // indirect
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

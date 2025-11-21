@@ -2,9 +2,12 @@ package atframework_component_config
 
 import (
 	"log/slog"
+	"time"
 
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
+
+	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
 )
 
 func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *slog.Logger) error {
@@ -15,5 +18,10 @@ func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *slog.
 		source[v.GetKey()] = v.GetValue()
 	}
 
-	return libatapp.ParseMessage(source, group.GetCustomIndex().GetConstIndex(), logger)
+	err := libatapp.ParseMessage(source, group.GetCustomIndex().GetConstIndex(), logger)
+	if err != nil {
+		baseTimeSec := group.GetCustomIndex().GetConstIndex().GetTimezoneBaseTimestamp().Seconds
+		logical_time.SetGlobalBaseTime(time.Unix(baseTimeSec, 0))
+	}
+	return err
 }

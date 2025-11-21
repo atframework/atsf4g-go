@@ -7,6 +7,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
+
+	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
 )
 
 type RpcContextImpl struct {
@@ -71,7 +73,7 @@ func (ctx *RpcContextImpl) GetNow() time.Time {
 		return ctx.dispatcher.GetNow()
 	}
 
-	return time.Now()
+	return logical_time.GetLogicalNow()
 }
 
 func (ctx *RpcContextImpl) GetSysNow() time.Time {
@@ -79,7 +81,7 @@ func (ctx *RpcContextImpl) GetSysNow() time.Time {
 		return ctx.dispatcher.GetSysNow()
 	}
 
-	return time.Now()
+	return logical_time.GetSysNow()
 }
 
 func (ctx *RpcContextImpl) GetApp() libatapp.AppImpl {
@@ -140,9 +142,9 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 		} else if ctx.dispatcher != nil {
 			args = append(args, slog.String("dispatcher", ctx.dispatcher.Name()))
 		}
-		libatapp.LogInner(ctx.GetNow(), logger, pc, c, level, msg, args...)
+		libatapp.LogInner(ctx.GetSysNow(), logger, pc, c, level, msg, args...)
 	} else {
-		libatapp.LogInner(time.Now(), logger, pc, c, level, msg, args...)
+		libatapp.LogInner(logical_time.GetSysNow(), logger, pc, c, level, msg, args...)
 	}
 }
 
@@ -161,7 +163,6 @@ func (ctx *RpcContextImpl) LogErrorContext(c context.Context, msg string, args .
 }
 
 func (ctx *RpcContextImpl) LogError(msg string, args ...any) {
-
 	ctx.LogWithLevelWithCaller(libatapp.GetCaller(1), slog.LevelError, msg, args...)
 }
 

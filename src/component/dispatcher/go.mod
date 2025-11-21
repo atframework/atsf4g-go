@@ -10,12 +10,15 @@ replace github.com/atframework/atsf4g-go/component-protocol-public => ../protoco
 
 replace github.com/atframework/atsf4g-go/component-protocol-private => ../protocol/private
 
+replace github.com/atframework/atsf4g-go/component-logical_time => ../logical_time
+
 replace github.com/xresloader/xresloader => ../../../third_party/xresloader/protocols/core
 
 replace github.com/xresloader/xres-code-generator => ../../../third_party/xresloader/protocols/code
 
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000

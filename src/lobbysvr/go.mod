@@ -10,6 +10,8 @@ replace github.com/atframework/atsf4g-go/component-dispatcher => ../component/di
 
 replace github.com/atframework/atsf4g-go/component-config => ../component/config
 
+replace github.com/atframework/atsf4g-go/component-logical_time => ../component/logical_time
+
 replace github.com/atframework/atframe-utils-go => ../../atframework/atframe-utils-go
 
 replace github.com/atframework/libatapp-go => ../../atframework/libatapp-go
@@ -37,6 +39,7 @@ require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-db v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.1.1
 )

@@ -22,6 +22,8 @@ replace github.com/atframework/atsf4g-go/component-db => ../db
 
 replace github.com/atframework/atsf4g-go/component-config => ../config
 
+replace github.com/atframework/atsf4g-go/component-logical_time => ../logical_time
+
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
@@ -34,6 +36,7 @@ require (
 )
 
 require (
+	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

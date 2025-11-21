@@ -3,6 +3,7 @@ package lobbysvr_logic_condition
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
@@ -36,11 +37,30 @@ type UserConditionManager interface {
 	CheckBasicDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
 	CheckBasicLimit(ctx cd.RpcContext, limit *public_protocol_common.Readonly_DConditionBasicLimit, runtime *RuleCheckerRuntime) cd.RpcResult
 
-	CheckCounterStaticLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionCounterLimit, storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
-	CheckCounterDynamicLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionCounterLimit, storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
-	CheckCounterLimit(ctx cd.RpcContext, limit *public_protocol_common.DConditionCounterLimit, storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
+	RefreshCounter(ctx cd.RpcContext, now time.Time,
+		limit *public_protocol_common.Readonly_DConditionCounterLimit,
+		storage *public_protocol_common.DConditionCounterStorage,
+	)
 
-	AddCounter(ctx cd.RpcContext, storage *public_protocol_common.DConditionCounterStorage, offset int64) cd.RpcResult
+	HasCounterLimit(limit *public_protocol_common.DConditionCounterLimit) bool
+	HasCounterLimitCfg(limit *public_protocol_common.Readonly_DConditionCounterLimit) bool
+
+	CalculateCounterLimitCfgMaxLeftTimes(limit *public_protocol_common.Readonly_DConditionCounterLimit,
+		storage *public_protocol_common.DConditionCounterStorage) int64
+
+	CheckCounterStaticLimit(ctx cd.RpcContext, now time.Time,
+		limit *public_protocol_common.Readonly_DConditionCounterLimit,
+		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
+	CheckCounterDynamicLimit(ctx cd.RpcContext, now time.Time,
+		limit *public_protocol_common.Readonly_DConditionCounterLimit,
+		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
+	CheckCounterLimit(ctx cd.RpcContext, now time.Time,
+		limit *public_protocol_common.Readonly_DConditionCounterLimit,
+		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
+
+	AddCounter(ctx cd.RpcContext, now time.Time, offset int64,
+		limit *public_protocol_common.Readonly_DConditionCounterLimit,
+		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
 }
 
 func HasLimitData(limit *public_protocol_common.Readonly_DConditionBasicLimit) bool {

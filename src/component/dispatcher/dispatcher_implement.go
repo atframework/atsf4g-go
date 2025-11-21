@@ -19,6 +19,8 @@ import (
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+
+	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
 )
 
 type MessageFilterHandler func(rd DispatcherImpl, msg *DispatcherRawMessage) bool
@@ -129,7 +131,7 @@ func (dispatcher *DispatcherBase) GetNow() time.Time {
 }
 
 func (dispatcher *DispatcherBase) GetSysNow() time.Time {
-	return dispatcher.AppModuleBase.GetSysNow()
+	return logical_time.GetSysNow()
 }
 
 // ====================== GM 接口 - 调整服务器时间 =========================
@@ -397,7 +399,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 		if !lu.IsNil(ctx) {
 			ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 		} else {
-			libatapp.LogInner(time.Now(), slog.Default(), pc, c, level, msg, args...)
+			libatapp.LogInner(logical_time.GetSysNow(), slog.Default(), pc, c, level, msg, args...)
 		}
 		return
 	}
@@ -412,7 +414,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 	if !lu.IsNil(ctx) {
 		ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 	} else {
-		libatapp.LogInner(time.Now(), slog.Default(), pc, c, level, msg, args...)
+		libatapp.LogInner(logical_time.GetSysNow(), slog.Default(), pc, c, level, msg, args...)
 	}
 }
 
