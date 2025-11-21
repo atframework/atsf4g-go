@@ -2,7 +2,6 @@ package atframework_component_router
 
 import (
 	"container/list"
-	"fmt"
 	"log/slog"
 	"runtime"
 	"unsafe"
@@ -138,9 +137,9 @@ type IoTaskGuard struct {
 }
 
 func (g *IoTaskGuard) Take(ctx cd.AwaitableContext, obj RouterObject) cd.RpcResult {
-	if ctx.GetAction() == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("no task"),
-			public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
+	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
+		ctx.LogError("should in task")
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 
 	// 已被调用者接管，则忽略子层接管
@@ -151,10 +150,6 @@ func (g *IoTaskGuard) Take(ctx cd.AwaitableContext, obj RouterObject) cd.RpcResu
 	ret := obj.AwaitIOTask(ctx)
 	if ret.IsError() {
 		return ret
-	}
-
-	if 0 == ctx.GetAction().GetTaskId() {
-		return cd.CreateRpcResultOk()
 	}
 
 	g.owner = obj
@@ -414,7 +409,7 @@ func (obj *RouterObjectBase) InternalPullCache(ctx cd.AwaitableContext, guard *I
 	obj.UnsetFlag(FlagSchedRemoveCache)
 
 	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
-		ctx.LogError("show in task")
+		ctx.LogError("should in task")
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 
@@ -443,7 +438,7 @@ func (obj *RouterObjectBase) InternalPullObject(ctx cd.AwaitableContext, guard *
 	obj.UnsetFlag(FlagSchedRemoveCache)
 
 	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
-		ctx.LogError("show in task")
+		ctx.LogError("should in task")
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 
@@ -498,7 +493,7 @@ func (obj *RouterObjectBase) InternalSaveObject(ctx cd.AwaitableContext, guard *
 	thisSavingSeq := obj.savingSequence
 
 	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
-		ctx.LogError("show in task")
+		ctx.LogError("should in task")
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 

@@ -334,25 +334,68 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 }
 
 func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
-	// TODO
-	return nil
+	childTask, startData := CreateTaskActionNoMessageBase(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
+		ctx, nil, func(base TaskActionNoMessageBase) *taskActionAsyncInvoke {
+			ta := &taskActionAsyncInvoke{
+				TaskActionNoMessageBase: base,
+				name:                    name,
+				callable:                invoke,
+			}
+			ta.TaskActionBase.Impl = ta
+			return ta
+		},
+	)
+
+	if err := RunTaskAction(ctx.GetApp(), childTask, &startData); err != nil {
+		ctx.LogError("AsyncInvoke RunTaskAction failed", slog.String("task_name", childTask.Name()), slog.Any("error", err))
+		return nil
+	}
+
+	return childTask
 }
 
-func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
-	// 等待 TODO
-	return CreateRpcResultOk()
+func AsyncThen(ctx RpcContext, name string, waiting TaskActionImpl, invoke func()) {
+	if lu.IsNil(waiting) || waiting.IsExiting() {
+		invoke()
+	}
+	taskAction := AsyncInvoke(ctx, name, func(childCtx AwaitableContext) RpcResult {
+		result := AwaitTask(childCtx, waiting)
+		invoke()
+		return result
+	})
+	if lu.IsNil(taskAction) {
+		ctx.LogError("Try to invoke task failed, try to call it directly", "name", name)
+		invoke()
+	}
 }
 
 func AsyncThenStartTask(ctx RpcContext, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
-	// 异步启动 TODO
+	AsyncThen(ctx, startTask.Name(), waiting, func() {
+		if err := RunTaskAction(ctx.GetApp(), startTask, startData); err != nil {
+			ctx.LogError("AsyncInvoke RunTaskAction failed", slog.String("task_name", startTask.Name()), slog.Any("error", err))
+		}
+	})
+}
+
+func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
+	// TODO
+	return CreateRpcResultOk()
 }
 
 func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
-	// 等待 TODO
+	// TODO
+	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
+		ctx.LogError("should in task")
+		return CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
+	}
 	return CreateRpcResultOk()
 }
 
 func AwaitTasks(ctx AwaitableContext, waitingTasks []TaskActionImpl) RpcResult {
-	// 等待 TODO
+	// TODO
+	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
+		ctx.LogError("should in task")
+		return CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
+	}
 	return CreateRpcResultOk()
 }
