@@ -68,7 +68,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 			if redisError != nil {
 				ctx.GetApp().GetLogger(2).Error("HMGet ${message_name} Recv Raw: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
 				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-				resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
+				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
@@ -80,7 +80,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 			if len(result) == 0 {
 				ctx.GetApp().GetLogger(2).Info("HMGet ${message_name} Record Not Found: \n", "Seq", awaitOption.Sequence)
 				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
-				resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
+				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
@@ -97,7 +97,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 			if err != nil {
 				ctx.GetApp().GetLogger(2).Error("HMGet ${message_name} Parese Failed: \n", "Seq", awaitOption.Sequence, "Raw", result)
 				resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-				resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
+				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
@@ -118,7 +118,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 % endif
 			}
 			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
+			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 			if resumeError != nil {
 				ctx.LogError("load ${message_name} failed resume error",
 					"err", resumeError,
@@ -132,7 +132,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_f
 		}
 		return cd.CreateRpcResultOk()
 	}
-	resumeData, result := cd.YieldTaskAction(ctx.GetApp(), currentAction, awaitOption, pushActionFunc)
+	resumeData, result := cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
 	if result.IsError() {
 		retResult = *result
 		return

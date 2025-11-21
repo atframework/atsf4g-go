@@ -326,7 +326,7 @@ func (obj *RouterObjectBase) AwaitIOTask(ctx cd.AwaitableContext) cd.RpcResult {
 	for obj.GetAwaitTaskId() != 0 && obj.GetAwaitTaskId() != ctx.GetAction().GetTaskId() {
 		// if
 		e := obj.awaitIOTaskList.PushBack(ctx.GetAction())
-		_, _ = cd.YieldTaskAction(ctx.GetApp(), ctx.GetAction(), &cd.DispatcherAwaitOptions{
+		_, _ = cd.YieldTaskAction(ctx, ctx.GetAction(), &cd.DispatcherAwaitOptions{
 			Type:     uint64(uintptr(unsafe.Pointer(obj))),
 			Sequence: ctx.GetAction().GetTaskId(),
 			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().LogValue().Duration(),
@@ -349,14 +349,14 @@ func (obj *RouterObjectBase) ResumeAwaitTask(ctx cd.RpcContext) {
 		taskAction := e.Value.(cd.TaskActionImpl)
 
 		if !taskAction.IsExiting() && failedTask != taskAction {
-			err := cd.ResumeTaskAction(ctx.GetApp(), taskAction, &cd.DispatcherResumeData{
+			err := cd.ResumeTaskAction(ctx, taskAction, &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
 					Type: uint64(uintptr(unsafe.Pointer(obj))),
 				},
 				Sequence: taskAction.GetTaskId(),
 			})
 			if err != nil {
-				ctx.GetApp().GetDefaultLogger().Error("Resume await IO task action failed", "error", err)
+				ctx.LogError("Resume await IO task action failed", "error", err)
 				failedTask = taskAction
 			} else {
 				failedTask = nil
@@ -396,10 +396,6 @@ func (obj *RouterObjectBase) RemoveObject(ctx cd.AwaitableContext, transferToSvr
 		obj.routerSvrVer = oldRouterVer + 1
 	}
 	obj.RefreshVisitTime(ctx)
-
-	if !obj.IsWritable() {
-		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE)
-	}
 
 	ret = obj.InternalSaveObject(ctx, guard, privateData)
 	if ret.IsError() {
@@ -491,6 +487,10 @@ func (obj *RouterObjectBase) InternalPullObject(ctx cd.AwaitableContext, guard *
 }
 
 func (obj *RouterObjectBase) InternalSaveObject(ctx cd.AwaitableContext, guard *IoTaskGuard, privateData RouterPrivateData) cd.RpcResult {
+	if !obj.IsWritable() {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE)
+	}
+
 	obj.UnsetFlag(FlagSchedSaveObject)
 
 	// 排队写任务和并发写merge

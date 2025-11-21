@@ -3,6 +3,7 @@ package atframework_component_router
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -79,44 +80,28 @@ func (manager *RouterManager[T, PrivData]) Size() int {
 	return len(manager.caches)
 }
 
-func (manager *RouterManager[T, PrivData]) MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData, guard *IoTaskGuard) (RouterObject, cd.RpcResult) {
-	return manager.MutableCacheWithGuard(ctx, key, privData.(PrivData), guard)
-}
-
-func (manager *RouterManager[T, PrivData]) MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData, guard *IoTaskGuard) (RouterObject, cd.RpcResult) {
-	return manager.MutableObjectWithGuard(ctx, key, privData.(PrivData), guard)
-}
-
-func (manager *RouterManager[T, PrivData]) RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData RouterPrivateData, guard *IoTaskGuard) cd.RpcResult {
-	return manager.RemoveCacheWithGuard(ctx, key, cache, privData.(PrivData), guard)
-}
-
-func (manager *RouterManager[T, PrivData]) RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData RouterPrivateData, guard *IoTaskGuard) cd.RpcResult {
-	return manager.RemoveObjectWithGuard(ctx, key, cache, privData.(PrivData), guard)
-}
-
-func (manager *RouterManager[T, PrivData]) MutableCacheWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData) (T, cd.RpcResult) {
+func (manager *RouterManager[T, PrivData]) MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
-	return manager.MutableCacheWithGuard(ctx, key, privData, &guard)
+	return manager.MutableCacheWithGuard(ctx, key, privData.(PrivData), &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) MutableObjectWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData) (T, cd.RpcResult) {
+func (manager *RouterManager[T, PrivData]) MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
-	return manager.MutableObjectWithGuard(ctx, key, privData, &guard)
+	return manager.MutableObjectWithGuard(ctx, key, privData.(PrivData), &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) RemoveCacheWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) cd.RpcResult {
+func (manager *RouterManager[T, PrivData]) RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData RouterPrivateData) cd.RpcResult {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
-	return manager.RemoveCacheWithGuard(ctx, key, cache, privData, &guard)
+	return manager.RemoveCacheWithGuard(ctx, key, cache, privData.(PrivData), &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) RemoveObjectWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) cd.RpcResult {
+func (manager *RouterManager[T, PrivData]) RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData RouterPrivateData) cd.RpcResult {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
-	return manager.RemoveObjectWithGuard(ctx, key, cache, privData, &guard)
+	return manager.RemoveObjectWithGuard(ctx, key, cache, privData.(PrivData), &guard)
 }
 
 func (manager *RouterManager[T, PrivData]) MutableCacheWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData, guard *IoTaskGuard) (T, cd.RpcResult) {
@@ -302,8 +287,9 @@ func (manager *RouterManager[T, PrivData]) RenewCache(ctx cd.AwaitableContext, k
 	if !lu.IsNil(cache) && !cache.CheckFlag(FlagCacheRemoved) {
 		return cache, cd.CreateRpcResultOk()
 	}
-
-	return manager.MutableCacheWithoutGuard(ctx, key, privData)
+	guard := IoTaskGuard{}
+	defer guard.ResumeAwaitTask(ctx)
+	return manager.MutableCacheWithGuard(ctx, key, privData, &guard)
 }
 
 func (manager *RouterManager[T, PrivData]) ensureCache(key RouterObjectKey) T {
@@ -332,20 +318,23 @@ func (manager *RouterManager[T, PrivData]) ensureCache(key RouterObjectKey) T {
 }
 
 func (manager *RouterManager[T, PrivData]) waitCacheRetry(ctx cd.AwaitableContext) {
-	// TODO 等待Retry 时间后唤醒
-	//       time_t wait_interval_ms =
-	//       static_cast<time_t>(logic_config::me()->get_cfg_router().cache_retry_interval().seconds() * 1000 +
-	//                           logic_config::me()->get_cfg_router().cache_retry_interval().nanos() / 1000000);
-	//   if (wait_interval_ms <= 0) {
-	//     wait_interval_ms = 512;
-	//   }
-
-	//   RPC_AWAIT_IGNORE_RESULT(rpc::wait(ctx, std::chrono::milliseconds{util::random_engine::random_between(
-	//                                              wait_interval_ms / 2, wait_interval_ms)}));
+	// 等待Retry 时间后唤醒
+	waitIntervalMs := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheRetryInterval().GetSeconds()*1000 +
+		int64(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheRetryInterval().GetNanos()/1000000)
+	if waitIntervalMs <= 0 {
+		waitIntervalMs = 512
+	}
+	cd.Wait(ctx, time.Duration(waitIntervalMs)*time.Millisecond)
 }
 
 func (manager *RouterManager[T, PrivData]) waitObjectRetry(ctx cd.AwaitableContext) {
-	// TODO
+	// 等待Retry 时间后唤醒
+	waitIntervalMs := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectRetryInterval().GetSeconds()*1000 +
+		int64(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectRetryInterval().GetNanos()/1000000)
+	if waitIntervalMs <= 0 {
+		waitIntervalMs = 512
+	}
+	cd.Wait(ctx, time.Duration(waitIntervalMs)*time.Millisecond)
 }
 
 func (manager *RouterManager[T, PrivData]) shouldAbortCacheRetry(code public_protocol_pbdesc.EnErrorCode) bool {

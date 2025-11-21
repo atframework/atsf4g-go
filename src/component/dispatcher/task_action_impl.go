@@ -258,13 +258,13 @@ func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *Dispa
 	}
 }
 
-func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, *RpcResult) {
+func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, *RpcResult) {
 	// TODO: 已经超时或者被Killed，不允许再切出
 
 	// 暂停任务逻辑, 让出令牌
 	awaitChannel, err := action.TrySetupAwait(awaitOptions)
 	if err != nil || awaitChannel == nil {
-		app.GetDefaultLogger().Error("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		ctx.LogError("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return nil, &RpcResult{Error: err, ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
 
@@ -279,7 +279,7 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 				Sequence: awaitOptions.Sequence,
 			}, false)
 			if err != nil {
-				app.GetDefaultLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+				ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 			}
 			return nil, &result
 		}
@@ -287,7 +287,7 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 
 	actor := action.GetActorExecutor()
 	if actor != nil {
-		actor.releaseCurrentRunningAction(app, action, true)
+		actor.releaseCurrentRunningAction(ctx.GetApp(), action, true)
 	}
 
 	// TODO: TaskManager管理超时和等待数据
@@ -303,32 +303,56 @@ func YieldTaskAction(app libatapp.AppImpl, action TaskActionImpl, awaitOptions *
 
 	if !ok {
 		// Channel was closed unexpectedly
-		app.GetDefaultLogger().Error("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
+		ctx.LogError("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
 		return nil, &RpcResult{Error: errors.New("await channel closed"), ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
 	}
 
 	return awaitResult.resume, awaitResult.killed
 }
 
-func ResumeTaskAction(app libatapp.AppImpl, action TaskActionImpl, resumeData *DispatcherResumeData) error {
+func ResumeTaskAction(ctx RpcContext, action TaskActionImpl, resumeData *DispatcherResumeData) error {
 	// TODO: TaskManager移除超时和等待数据
 
 	err := action.TryFinishAwait(resumeData, true)
 	if err != nil {
-		app.GetDefaultLogger().Error("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return err
 	}
 
 	return nil
 }
 
-func KillTaskAction(app libatapp.AppImpl, action TaskActionImpl, killData *RpcResult) error {
+func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) error {
 	// TODO: TaskManager移除超时和等待数据
 
 	err := action.TryKillAwait(killData)
 	if err != nil {
-		app.GetDefaultLogger().Error("task KillTaskAction TryKillAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		ctx.LogError("task KillTaskAction TryKillAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		return err
 	}
 	return nil
+}
+
+func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
+	// TODO
+	return nil
+}
+
+func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
+	// 等待 TODO
+	return CreateRpcResultOk()
+}
+
+func AsyncThenStartTask(ctx RpcContext, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
+	// 异步启动 TODO
+}
+
+func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
+	// 等待 TODO
+	return CreateRpcResultOk()
+}
+
+func AwaitTasks(ctx AwaitableContext, waitingTasks []TaskActionImpl) RpcResult {
+	// 等待 TODO
+	return CreateRpcResultOk()
 }

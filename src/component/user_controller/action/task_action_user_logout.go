@@ -76,7 +76,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 
 	err := cd.RunTaskAction(rd.GetApp(), logoutTask, &startData)
 	if err != nil {
-		rd.GetApp().GetDefaultLogger().Error("TaskActionUserLogout RunTaskAction failed", "error", err,
+		ctx.LogError("TaskActionUserLogout RunTaskAction failed", "error", err,
 			"zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId(), "session_id", sessionKey.SessionId, "session_node_id", sessionKey.NodeId)
 
 		session.UnbindUser(ctx, userImpl)

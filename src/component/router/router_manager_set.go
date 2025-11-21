@@ -221,7 +221,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	if set.isSaveTaskRunning() {
 		// 需要等待Save结束后再启动
 		set.closingTask = closingTask
-		// TODO
+		cd.AsyncThenStartTask(ctx, set.autoSaveActionTask, set.closingTask, &startData)
 	} else {
 		err := cd.RunTaskAction(set.GetApp(), closingTask, &startData)
 		if err != nil {
@@ -243,7 +243,7 @@ func (set *RouterManagerSet) ForceClose(ctx cd.RpcContext) {
 	// 强制停止清理任务
 	if set.isClosingTaskRunning() {
 		result := cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
-		cd.KillTaskAction(ctx.GetApp(), set.closingTask, &result)
+		cd.KillTaskAction(ctx, set.closingTask, &result)
 	}
 
 	set.closingTask = nil

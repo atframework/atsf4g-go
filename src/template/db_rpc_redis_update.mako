@@ -76,7 +76,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 				ctx.GetApp().GetLogger(2).Error("HSet ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
 % endif
 				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-				resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
+				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load ${message_name} failed resume error",
 						"err", resumeError,
@@ -93,7 +93,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Recv: \n", "Seq", awaitOption.Sequence)
 			resumeData.Result = cd.CreateRpcResultOk()
 % endif
-			resumeError := cd.ResumeTaskAction(app_action.App, currentAction, resumeData)
+			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 			if resumeError != nil {
 				ctx.LogError("load ${message_name} failed resume error",
 					"err", resumeError,
@@ -107,7 +107,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		}
 		return cd.CreateRpcResultOk()
 	}
-	resumeData, result := cd.YieldTaskAction(ctx.GetApp(), currentAction, awaitOption, pushActionFunc)
+	resumeData, result := cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
 	if result.IsError() {
 		retResult = *result
 		return

@@ -3,6 +3,7 @@ package atframework_component_router
 import (
 	"sync/atomic"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
@@ -37,10 +38,12 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 	t.LogInfo("auto save task started")
 
 	left := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetPendingActionMaxCount()
+	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetPendingActionBatchCount()
 	if left == 0 {
 		left = uint64(len(t.manager.pendingActionList))
 	}
 
+	pendingActionBatchTask := make([]cd.TaskActionImpl, 0, batchCount)
 	for left > 0 {
 		if len(t.manager.pendingActionList) == 0 {
 			break
@@ -50,35 +53,59 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 		t.manager.pendingActionList = t.manager.pendingActionList[1:]
 		left--
 
-		// 批量等待并完成 TODO
-		result, executed := t.executePendingAction(t.GetAwaitableContext(), pending)
-		if !executed || result == nil {
-			continue
+		// 批量等待并完成
+		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Pending Action", func(childCtx cd.AwaitableContext) cd.RpcResult {
+			result := t.executePendingAction(childCtx, pending)
+			t.handleAutoSaveResult(pending, result)
+			return cd.CreateRpcResultOk()
+		})
+
+		if !lu.IsNil(taskAction) && !taskAction.IsExiting() {
+			pendingActionBatchTask = append(pendingActionBatchTask, taskAction)
 		}
-		t.handleAutoSaveResult(pending, result)
+
+		if len(pendingActionBatchTask) >= int(batchCount) {
+			result := cd.AwaitTasks(t.GetAwaitableContext(), pendingActionBatchTask)
+			clear(pendingActionBatchTask)
+			if result.IsError() {
+				t.LogError("Wait sub tasks to failed", "result", result)
+			}
+		}
 	}
+
+	if len(pendingActionBatchTask) != 0 {
+		result := cd.AwaitTasks(t.GetAwaitableContext(), pendingActionBatchTask)
+		clear(pendingActionBatchTask)
+		if result.IsError() {
+			t.LogError("Wait sub tasks to failed", "result", result)
+		}
+	}
+
 	return nil
 }
 
-func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext, data PendingActionData) (*cd.RpcResult, bool) {
+func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext, data PendingActionData) *cd.RpcResult {
 	switch data.Action {
 	case AutoSaveActionRemoveObject:
+		// 有可能在一系列异步流程后又被mutable_object()了，这时候要放弃降级
 		if !data.Object.CheckFlag(FlagSchedRemoveObject) {
-			return nil, false
+			return nil
 		}
 		mgr := t.manager.GetManager(data.TypeID)
 		if mgr == nil {
-			return nil, false
+			return nil
 		}
 		t.status.actionRemoveObjectCount.Add(1)
-		result := mgr.RemoveObject(ctx, data.Object.GetKey(), data.Object, nil, nil)
+		result := mgr.RemoveObject(ctx, data.Object.GetKey(), data.Object, nil)
+		// 失败且期间未升级或mutable_object()，下次重试的时候也要走降级流程
 		if result.IsError() && data.Object.CheckFlag(FlagSchedRemoveObject) {
 			data.Object.SetFlag(FlagForceRemoveObject)
 		}
-		return &result, true
+		return &result
 	case AutoSaveActionSave:
+		// 有可能有可能手动触发了保存，导致多一次冗余的auto_save_data_t，就不需要再保存一次了
 		if !data.Object.CheckFlag(FlagSchedSaveObject) {
-			return nil, false
+			return nil
 		}
 		t.status.actionSaveCount.Add(1)
 		guard := IoTaskGuard{}
@@ -87,26 +114,27 @@ func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext
 		if result.IsOK() {
 			data.Object.RefreshSaveTime(ctx)
 		}
-		return &result, true
+		return &result
 	case AutoSaveActionRemoveCache:
+		// 有可能在一系列异步流程后缓存被续期了，这时候要放弃移除缓存
 		if !data.Object.CheckFlag(FlagSchedRemoveCache) {
-			return nil, false
+			return nil
 		}
 		mgr := t.manager.GetManager(data.TypeID)
 		if mgr == nil {
-			return nil, false
+			return nil
 		}
 		t.status.actionRemoveCacheCount.Add(1)
-		result := mgr.RemoveCache(ctx, data.Object.GetKey(), data.Object, nil, nil)
-		return &result, true
+		result := mgr.RemoveCache(ctx, data.Object.GetKey(), data.Object, nil)
+		return &result
 	default:
-		return nil, false
+		return nil
 	}
 }
 
 func (t *TaskActionAutoSaveObjects) handleAutoSaveResult(data PendingActionData, result *cd.RpcResult) {
 	actionName := autoSaveActionName(data.Action)
-	if result.IsError() {
+	if result != nil && result.IsError() {
 		t.status.failedCount.Add(1)
 		t.LogError("auto save action failed", "action", actionName, "object", data.Object,
 			"code", result.GetResponseCode(), "error", result.GetStandardError())

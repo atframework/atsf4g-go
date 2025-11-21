@@ -18,10 +18,10 @@ type RouterManagerBaseImpl interface {
 	OnStop()
 
 	//////////////////////////// 待实现接口 ////////////////////////////
-	MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData, guard *IoTaskGuard) (RouterObject, cd.RpcResult)
-	MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData, guard *IoTaskGuard) (RouterObject, cd.RpcResult)
-	RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData, guard *IoTaskGuard) cd.RpcResult
-	RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData, guard *IoTaskGuard) cd.RpcResult
+	MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult)
+	MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult)
+	RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData) cd.RpcResult
+	RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData) cd.RpcResult
 
 	////////////////////////////
 	IsAutoMutableObject() bool
@@ -69,28 +69,4 @@ func (base *RouterManagerBase) GetDefaultRouterServerID(_key RouterObjectKey) ui
 
 func (base *RouterManagerBase) PullOnlineServer(ctx cd.AwaitableContext, key RouterObjectKey) (uint64, uint64, cd.RpcResult) {
 	return 0, 0, cd.CreateRpcResultOk()
-}
-
-func (base *RouterManagerBase) MutableCacheWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult) {
-	guard := IoTaskGuard{}
-	defer guard.ResumeAwaitTask(ctx)
-	return base.impl.MutableCache(ctx, key, privData, &guard)
-}
-
-func (base *RouterManagerBase) MutableObjectWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult) {
-	guard := IoTaskGuard{}
-	defer guard.ResumeAwaitTask(ctx)
-	return base.impl.MutableObject(ctx, key, privData, &guard)
-}
-
-func (base *RouterManagerBase) RemoveCacheWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData) cd.RpcResult {
-	guard := IoTaskGuard{}
-	defer guard.ResumeAwaitTask(ctx)
-	return base.impl.RemoveCache(ctx, key, obj, privData, &guard)
-}
-
-func (base *RouterManagerBase) RemoveObjectWithoutGuard(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData) cd.RpcResult {
-	guard := IoTaskGuard{}
-	defer guard.ResumeAwaitTask(ctx)
-	return base.impl.RemoveObject(ctx, key, obj, privData, &guard)
 }

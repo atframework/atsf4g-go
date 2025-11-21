@@ -41,7 +41,7 @@ func RegisterLobbyClientService(
 ) error {
 	svc := sp.File_${ service.file.get_name().replace("/", "_").replace("\\", "_").replace(".", "_") }.Services().ByName("${service.get_name()}")
 	if svc == nil {
-		rd.GetApp().GetDefaultLogger().Error("lobbysvr_app.RegisterLobbyClientService no service ${service.get_full_name()}")
+		rd.GetLogger().Error("lobbysvr_app.RegisterLobbyClientService no service ${service.get_full_name()}")
 		return fmt.Errorf("no service ${service.get_full_name()}")
 	}
 

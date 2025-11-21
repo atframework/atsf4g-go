@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
@@ -33,20 +34,50 @@ func (t *TaskActionRouterCloseManagerSet) Run(_startData *cd.DispatcherStartData
 	t.status.reset()
 	t.LogInfo("router close task started")
 
+	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetClosingActionBatchCount()
+	pendingActionBatchTask := make([]cd.TaskActionImpl, 0, batchCount)
+
 	for t.status.currentIndex < len(t.pendingList) {
 		obj := t.pendingList[t.status.currentIndex]
 		t.status.currentIndex++
-		// 批量等待并完成 TODO
-		t.processClosingObject(t.GetAwaitableContext(), obj)
+
+		// 批量等待并完成
+		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Closing Action", func(childCtx cd.AwaitableContext) cd.RpcResult {
+			t.processClosingObject(childCtx, obj)
+			return cd.CreateRpcResultOk()
+		})
+
+		if !lu.IsNil(taskAction) && !taskAction.IsExiting() {
+			pendingActionBatchTask = append(pendingActionBatchTask, taskAction)
+		}
+
+		if len(pendingActionBatchTask) >= int(batchCount) {
+			result := cd.AwaitTasks(t.GetAwaitableContext(), pendingActionBatchTask)
+			clear(pendingActionBatchTask)
+			if result.IsError() {
+				t.LogError("Wait sub tasks to failed", "result", result)
+			}
+		}
+	}
+
+	if len(pendingActionBatchTask) != 0 {
+		result := cd.AwaitTasks(t.GetAwaitableContext(), pendingActionBatchTask)
+		clear(pendingActionBatchTask)
+		if result.IsError() {
+			t.LogError("Wait sub tasks to failed", "result", result)
+		}
+	}
+
+	// 如果超时了可能被强杀，这时候要强制触发保存
+	if t.IsExiting() {
+		t.saveFallback(t.GetAwaitableContext())
 	}
 
 	return nil
 }
 
 func (t *TaskActionRouterCloseManagerSet) processClosingObject(ctx cd.AwaitableContext, obj RouterObject) {
-	if lu.IsNil(obj) {
-		return
-	}
+	// 已降级或不是实体，不需要保存
 	if !obj.CheckFlag(FlagIsObject) {
 		return
 	}
@@ -56,10 +87,19 @@ func (t *TaskActionRouterCloseManagerSet) processClosingObject(ctx cd.AwaitableC
 		t.LogError("router close task missing manager", "object", obj)
 		return
 	}
+	// 管理器中的对象已被替换或移除则跳过
 	if mgr.GetBaseCache(obj.GetKey()) != obj {
 		return
 	}
-	result := mgr.RemoveObject(ctx, obj.GetKey(), obj, nil, nil)
+	// 降级的时候会保存
+	result := mgr.RemoveObject(ctx, obj.GetKey(), obj, nil)
+	if t.IsFault() || t.IsTimeout() {
+		t.status.failedCount.Add(1)
+		t.LogError("router close task save router object failed",
+			"object", obj, "code", result.GetResponseCode(), "error", result.GetStandardError())
+		return
+	}
+
 	if result.IsError() {
 		t.status.failedCount.Add(1)
 		t.LogError("router close task save router object failed",
@@ -75,7 +115,8 @@ func (t *TaskActionRouterCloseManagerSet) saveFallback(ctx cd.AwaitableContext) 
 	for t.status.currentIndex < len(t.pendingList) {
 		obj := t.pendingList[t.status.currentIndex]
 		t.status.currentIndex++
-		if lu.IsNil(obj) || !obj.CheckFlag(FlagIsObject) {
+		// 已降级或不是实体，不需要保存
+		if !obj.CheckFlag(FlagIsObject) {
 			continue
 		}
 		mgr := t.manager.GetManager(obj.GetKey().TypeID)
@@ -84,10 +125,11 @@ func (t *TaskActionRouterCloseManagerSet) saveFallback(ctx cd.AwaitableContext) 
 			t.LogError("router close task fallback missing manager", "object", obj)
 			continue
 		}
+		// 管理器中的对象已被替换或移除则跳过
 		if mgr.GetBaseCache(obj.GetKey()) != obj {
 			continue
 		}
-		_ = mgr.RemoveObject(ctx, obj.GetKey(), obj, nil, nil)
+		mgr.RemoveObject(ctx, obj.GetKey(), obj, nil)
 		t.LogWarn("router close task fallback save issued", "object", obj, "result", "unknown")
 	}
 }
@@ -104,14 +146,12 @@ func (t *TaskActionRouterCloseManagerSet) OnSuccess() {
 }
 
 func (t *TaskActionRouterCloseManagerSet) OnFailed() {
-	t.saveFallback(nil)
 	t.resetClosingTask()
 	t.LogError("router close task failed", "success_count", t.status.successCount.Load(), "failed_count", t.status.failedCount.Load(),
 		"response_code", t.GetResponseCode())
 }
 
 func (t *TaskActionRouterCloseManagerSet) OnTimeout() {
-	t.saveFallback(nil)
 	t.resetClosingTask()
 	t.LogWarn("router close task timeout, we will continue on next round")
 }

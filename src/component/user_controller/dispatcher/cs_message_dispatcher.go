@@ -141,26 +141,26 @@ func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Messa
 	createFn func(cd.TaskActionCSBase[RequestType, ResponseType]) cd.TaskActionImpl,
 ) error {
 	if lu.IsNil(serviceDescriptor) {
-		rd.GetApp().GetDefaultLogger().Error("service descriptor is nil", "rpc_name", rpcFullName)
+		rd.GetLogger().Error("service descriptor is nil", "rpc_name", rpcFullName)
 		return fmt.Errorf("service descriptor not match rpc full name")
 	}
 
 	lastIndex := strings.LastIndex(rpcFullName, ".")
 	if lastIndex < 0 || string(serviceDescriptor.FullName()) != rpcFullName[:lastIndex] {
-		rd.GetApp().GetDefaultLogger().Error("service descriptor not match rpc full name", "rpc_name", rpcFullName, "service_name", serviceDescriptor.FullName())
+		rd.GetLogger().Error("service descriptor not match rpc full name", "rpc_name", rpcFullName, "service_name", serviceDescriptor.FullName())
 		return fmt.Errorf("service descriptor not match rpc full name")
 	}
 
 	methodDesc := serviceDescriptor.Methods().ByName(protoreflect.Name(rpcFullName[lastIndex+1:]))
 	if lu.IsNil(methodDesc) {
-		rd.GetApp().GetDefaultLogger().Error("method descriptor not found in service", "rpc_name", rpcFullName, "service_name", serviceDescriptor.FullName())
+		rd.GetLogger().Error("method descriptor not found in service", "rpc_name", rpcFullName, "service_name", serviceDescriptor.FullName())
 		return fmt.Errorf("method descriptor not found in service")
 	}
 
 	creator := func(rd cd.DispatcherImpl, startData *cd.DispatcherStartData) (cd.TaskActionImpl, error) {
 		session := findSessionFn(rd, startData.Message, startData.PrivateData)
 		if lu.IsNil(session) {
-			rd.GetApp().GetDefaultLogger().Warn("session not found for CS message", "rpc_name", rpcFullName)
+			rd.GetLogger().Warn("session not found for CS message", "rpc_name", rpcFullName)
 			return nil, fmt.Errorf("session not found for CS message")
 		}
 
