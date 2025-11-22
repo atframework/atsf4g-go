@@ -524,6 +524,12 @@ func convertField(yamlData interface{}, minData interface{}, maxData interface{}
 		if v, ok := yamlData.(float64); ok {
 			return protoreflect.ValueOfFloat64(v), nil
 		}
+		if v, ok := yamlData.(string); ok {
+			f, err := strconv.ParseFloat(v, 64)
+			if err == nil {
+				return protoreflect.ValueOfFloat64(f), nil
+			}
+		}
 		return protoreflect.Value{}, fmt.Errorf("expected float32, got %T", yamlData)
 
 	case protoreflect.MessageKind:
@@ -852,7 +858,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 		}
 		value, err := parseField(fieldData, fd, logger)
 		if err != nil {
-			return err
+			return fmt.Errorf("parseField error fieldName %s err %v", fieldName, err)
 		}
 		if value.IsValid() {
 			msg.ProtoReflect().Set(fd, value)
