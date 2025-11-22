@@ -1,15 +1,12 @@
 package atframework_component_dispatcher
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -64,6 +61,7 @@ type TaskActionImpl interface {
 
 	GetResponseCode() int32
 	SetResponseCode(code int32)
+	GetTaskTimeout() time.Duration
 
 	OnSuccess()
 	OnFailed()
@@ -85,6 +83,9 @@ type TaskActionImpl interface {
 	TrySetupAwait(awaitOptions *DispatcherAwaitOptions) (*chan TaskActionAwaitChannelData, error)
 	TryFinishAwait(resumeData *DispatcherResumeData, notify bool) error
 	TryKillAwait(killData *RpcResult) error
+	TryKill(killData *RpcResult) error
+
+	InitFinishCallback(callback func(RpcContext))
 }
 
 func popRunActorActions(app_action *libatapp.AppActionData) error {
@@ -174,228 +175,4 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 		}
 	}
 	return nil
-}
-
-func RunTaskAction(app libatapp.AppImpl, action TaskActionImpl, startData *DispatcherStartData) error {
-	run_action := func() error {
-		// TODO: 链路跟踪Start和对象上下文继承
-
-		actor := action.GetActorExecutor()
-		if actor != nil {
-			actor.takeCurrentRunningAction(action)
-		}
-		cleanupCurrentAction := func() {
-			if actor != nil {
-				actor.releaseCurrentRunningAction(app, action, false)
-			}
-
-			if startData != nil && startData.MessageRpcContext.GetCancelFn() != nil {
-				cancelFn := startData.MessageRpcContext.GetCancelFn()
-				startData.MessageRpcContext.SetCancelFn(nil)
-				cancelFn()
-			}
-
-			action.OnCleanup()
-		}
-		defer cleanupCurrentAction()
-
-		err := action.HookRun(startData)
-
-		if err != nil {
-			if action.GetResponseCode() == 0 {
-				// 未设置错误
-				action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_UNKNOWN))
-			}
-
-			app.GetDefaultLogger().Error("TaskAction run failed",
-				slog.String("task_name", action.Name()),
-				slog.Uint64("task_id", action.GetTaskId()),
-				slog.Any("error", err), slog.Int("response_code", int(action.GetResponseCode())))
-
-			// 超时错误码/错误
-			if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) || errors.Is(err, context.DeadlineExceeded) {
-				action.OnTimeout()
-			}
-			action.OnFailed()
-
-		} else {
-			if action.GetResponseCode() < 0 {
-				app.GetDefaultLogger().Error("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
-
-				// 超时错误码
-				if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) {
-					action.OnTimeout()
-				}
-				action.OnFailed()
-			} else {
-				app.GetDefaultLogger().Debug("TaskAction run success", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
-
-				action.OnSuccess()
-			}
-		}
-
-		action.OnComplete()
-
-		if !action.IsResponseDisabled() {
-			err = action.SendResponse()
-			if err != nil {
-				app.GetDefaultLogger().Error("TaskAction send response failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-			}
-		}
-
-		// TODO: 链路跟踪End
-		// TODO: 任务完成事件
-
-		return err
-	}
-
-	// 任务调度层排队
-	actor := action.GetActorExecutor()
-	if actor != nil {
-		return appendActorTaskAction(app, actor, action, run_action)
-	} else {
-		return run_action()
-	}
-}
-
-func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, *RpcResult) {
-	// TODO: 已经超时或者被Killed，不允许再切出
-
-	// 暂停任务逻辑, 让出令牌
-	awaitChannel, err := action.TrySetupAwait(awaitOptions)
-	if err != nil || awaitChannel == nil {
-		ctx.LogError("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-		return nil, &RpcResult{Error: err, ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
-	}
-
-	if beforeYield != nil {
-		result := beforeYield()
-		if result.IsError() {
-			// 释放等待逻辑 继续执行
-			err := action.TryFinishAwait(&DispatcherResumeData{
-				Message: &DispatcherRawMessage{
-					Type: awaitOptions.Type,
-				},
-				Sequence: awaitOptions.Sequence,
-			}, false)
-			if err != nil {
-				ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-			}
-			return nil, &result
-		}
-	}
-
-	actor := action.GetActorExecutor()
-	if actor != nil {
-		actor.releaseCurrentRunningAction(ctx.GetApp(), action, true)
-	}
-
-	// TODO: TaskManager管理超时和等待数据
-
-	// Wait for either resume or kill data from the awaitChannel
-	awaitResult, ok := <-*awaitChannel
-	// You can now use awaitResult.resume or awaitResult.killed as needed
-
-	// 恢复占用令牌
-	if actor != nil {
-		actor.takeCurrentRunningAction(action)
-	}
-
-	if !ok {
-		// Channel was closed unexpectedly
-		ctx.LogError("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
-		return nil, &RpcResult{Error: errors.New("await channel closed"), ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
-	}
-
-	return awaitResult.resume, awaitResult.killed
-}
-
-func ResumeTaskAction(ctx RpcContext, action TaskActionImpl, resumeData *DispatcherResumeData) error {
-	// TODO: TaskManager移除超时和等待数据
-
-	err := action.TryFinishAwait(resumeData, true)
-	if err != nil {
-		ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-		return err
-	}
-
-	return nil
-}
-
-func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) error {
-	// TODO: TaskManager移除超时和等待数据
-
-	err := action.TryKillAwait(killData)
-	if err != nil {
-		ctx.LogError("task KillTaskAction TryKillAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-		return err
-	}
-	return nil
-}
-
-func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
-	childTask, startData := CreateTaskActionNoMessageBase(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
-		ctx, nil, func(base TaskActionNoMessageBase) *taskActionAsyncInvoke {
-			ta := &taskActionAsyncInvoke{
-				TaskActionNoMessageBase: base,
-				name:                    name,
-				callable:                invoke,
-			}
-			ta.TaskActionBase.Impl = ta
-			return ta
-		},
-	)
-
-	if err := RunTaskAction(ctx.GetApp(), childTask, &startData); err != nil {
-		ctx.LogError("AsyncInvoke RunTaskAction failed", slog.String("task_name", childTask.Name()), slog.Any("error", err))
-		return nil
-	}
-
-	return childTask
-}
-
-func AsyncThen(ctx RpcContext, name string, waiting TaskActionImpl, invoke func()) {
-	if lu.IsNil(waiting) || waiting.IsExiting() {
-		invoke()
-	}
-	taskAction := AsyncInvoke(ctx, name, func(childCtx AwaitableContext) RpcResult {
-		result := AwaitTask(childCtx, waiting)
-		invoke()
-		return result
-	})
-	if lu.IsNil(taskAction) {
-		ctx.LogError("Try to invoke task failed, try to call it directly", "name", name)
-		invoke()
-	}
-}
-
-func AsyncThenStartTask(ctx RpcContext, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
-	AsyncThen(ctx, startTask.Name(), waiting, func() {
-		if err := RunTaskAction(ctx.GetApp(), startTask, startData); err != nil {
-			ctx.LogError("AsyncInvoke RunTaskAction failed", slog.String("task_name", startTask.Name()), slog.Any("error", err))
-		}
-	})
-}
-
-func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
-	// TODO
-	return CreateRpcResultOk()
-}
-
-func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
-	// TODO
-	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
-		ctx.LogError("should in task")
-		return CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
-	}
-	return CreateRpcResultOk()
-}
-
-func AwaitTasks(ctx AwaitableContext, waitingTasks []TaskActionImpl) RpcResult {
-	// TODO
-	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
-		ctx.LogError("should in task")
-		return CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
-	}
-	return CreateRpcResultOk()
 }

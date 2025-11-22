@@ -219,9 +219,9 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 	}
 	awaitableContext.SetTaskAction(action)
 
-	err = RunTaskAction(dispatcher.impl.GetApp(), action, startData)
+	err = libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), dispatcher.impl.GetApp()).StartTaskAction(awaitableContext, action, startData)
 	if err != nil {
-		dispatcher.GetLogger().Error("OnReceiveMessage RunTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
+		dispatcher.GetLogger().Error("OnReceiveMessage StartTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
 		if awaitableContext.GetCancelFn() != nil {
 			cancelFn := awaitableContext.GetCancelFn()
 			awaitableContext.SetCancelFn(nil)

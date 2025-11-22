@@ -25,6 +25,7 @@ import (
 var redisMessageDispatcherReflectType reflect.Type
 
 func init() {
+	var _ libatapp.AppModuleImpl = (*RedisMessageDispatcher)(nil)
 	redisMessageDispatcherReflectType = reflect.TypeOf((*RedisMessageDispatcher)(nil)).Elem()
 }
 

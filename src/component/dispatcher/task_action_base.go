@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
@@ -17,11 +18,13 @@ type TaskActionBase struct {
 	Impl   TaskActionImpl
 	taskId uint64
 	status TaskActionStatus
+	kill   atomic.Bool
 
 	responseCode     int32
 	prepareHookRun   bool
 	awaitableContext AwaitableContext
 	startTime        time.Time
+	timeout          time.Duration
 
 	actorExecutor *ActorExecutor
 	dispatcher    DispatcherImpl
@@ -33,9 +36,13 @@ type TaskActionBase struct {
 		Option  *DispatcherAwaitOptions
 		Channel *chan TaskActionAwaitChannelData
 	}
+
+	initCallbackLock sync.Mutex
+	onFinishCallback []func(RpcContext)
+	callbackFinish   bool
 }
 
-func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskActionBase {
+func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeout time.Duration) TaskActionBase {
 	return TaskActionBase{
 		taskId:           rd.AllocTaskId(),
 		status:           TaskActionStatusCreated,
@@ -43,6 +50,7 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor) TaskA
 		prepareHookRun:   false,
 		awaitableContext: nil,
 		startTime:        rd.GetSysNow(),
+		timeout:          timeout,
 		actorExecutor:    actorExecutor,
 		dispatcher:       rd,
 		disableResponse:  false,
@@ -66,6 +74,10 @@ func (t *TaskActionBase) GetTaskStartTime() time.Time {
 	return t.startTime
 }
 
+func (t *TaskActionBase) GetTaskTimeout() time.Duration {
+	return t.timeout
+}
+
 func (t *TaskActionBase) GetNow() time.Time {
 	if !lu.IsNil(t.awaitableContext) {
 		return t.awaitableContext.GetNow()
@@ -85,6 +97,14 @@ func (t *TaskActionBase) GetSysNow() time.Time {
 func (t *TaskActionBase) GetStatus() TaskActionStatus {
 	if t == nil {
 		return TaskActionStatusInvalid
+	}
+
+	if t.status >= TaskActionStatusDone {
+		return t.status
+	}
+
+	if t.kill.Load() {
+		return TaskActionStatusKilled
 	}
 
 	return t.status
@@ -216,6 +236,12 @@ func (t *TaskActionBase) OnCleanup() {
 		close(*t.currentAwaiting.Channel)
 		t.currentAwaiting.Channel = nil
 	}
+	t.initCallbackLock.Lock()
+	for _, v := range t.onFinishCallback {
+		v(t.GetRpcContext())
+	}
+	t.callbackFinish = true
+	t.initCallbackLock.Unlock()
 }
 
 func (t *TaskActionBase) GetTraceInheritOption() *TraceInheritOption {
@@ -321,7 +347,11 @@ func (t *TaskActionBase) TryFinishAwait(resumeData *DispatcherResumeData, notify
 	return nil
 }
 
-func (t *TaskActionBase) TryKillAwait(killData *RpcResult) error {
+func (t *TaskActionBase) tryKillAwait(killData *RpcResult) error {
+	if t.currentAwaiting.Option == nil {
+		return nil
+	}
+
 	t.currentAwaiting.Lock.Lock()
 	defer t.currentAwaiting.Lock.Unlock()
 
@@ -345,6 +375,27 @@ func (t *TaskActionBase) TryKillAwait(killData *RpcResult) error {
 	}
 
 	return nil
+}
+
+func (t *TaskActionBase) TryKill(killData *RpcResult) error {
+	t.kill.Store(true)
+	return t.TryKillAwait(killData)
+}
+
+func (t *TaskActionBase) TryKillAwait(killData *RpcResult) error {
+	err := t.tryKillAwait(killData)
+	return err
+}
+
+func (t *TaskActionBase) InitFinishCallback(callback func(RpcContext)) {
+	t.initCallbackLock.Lock()
+	if t.callbackFinish {
+		// 直接调用
+		callback(t.GetRpcContext())
+	} else {
+		t.onFinishCallback = append(t.onFinishCallback, callback)
+	}
+	t.initCallbackLock.Unlock()
 }
 
 // ====================== 业务日志接口 =========================

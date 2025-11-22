@@ -1,7 +1,7 @@
 package atframework_component_dispatcher
 
 type taskActionAsyncInvoke struct {
-	TaskActionNoMessageBase
+	*TaskActionNoMessageBase
 	name     string
 	callable func(ctx AwaitableContext) RpcResult
 }

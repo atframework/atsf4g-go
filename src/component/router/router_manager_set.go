@@ -136,7 +136,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		// 创建 AutoSave 任务
 		autoSaveTask, startData := cd.CreateTaskActionNoMessageBase(
 			d, ctx, nil,
-			func(base cd.TaskActionNoMessageBase) *TaskActionAutoSaveObjects {
+			func(base *cd.TaskActionNoMessageBase) *TaskActionAutoSaveObjects {
 				ta := TaskActionAutoSaveObjects{
 					TaskActionNoMessageBase: base,
 					manager:                 set,
@@ -146,9 +146,9 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 			},
 		)
 
-		err := cd.RunTaskAction(set.GetApp(), autoSaveTask, &startData)
+		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, autoSaveTask, &startData)
 		if err != nil {
-			set.GetApp().GetDefaultLogger().Error("TaskActionAutoSaveObjects RunTaskAction failed", "error", err)
+			set.GetApp().GetDefaultLogger().Error("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
 		} else {
 			set.autoSaveActionTask = autoSaveTask
 		}
@@ -207,7 +207,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	// 创建并启动closing_task
 	closingTask, startData := cd.CreateTaskActionNoMessageBase(
 		d, ctx, nil,
-		func(base cd.TaskActionNoMessageBase) *TaskActionRouterCloseManagerSet {
+		func(base *cd.TaskActionNoMessageBase) *TaskActionRouterCloseManagerSet {
 			ta := TaskActionRouterCloseManagerSet{
 				TaskActionNoMessageBase: base,
 				manager:                 set,
@@ -223,9 +223,9 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 		set.closingTask = closingTask
 		cd.AsyncThenStartTask(ctx, set.autoSaveActionTask, set.closingTask, &startData)
 	} else {
-		err := cd.RunTaskAction(set.GetApp(), closingTask, &startData)
+		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
 		if err != nil {
-			set.GetApp().GetDefaultLogger().Error("TaskActionRouterCloseManagerSet RunTaskAction failed", "error", err)
+			set.GetApp().GetDefaultLogger().Error("TaskActionRouterCloseManagerSet StartTaskAction failed", "error", err)
 		} else {
 			set.closingTask = closingTask
 		}

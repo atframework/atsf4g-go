@@ -24,6 +24,7 @@ import (
 var websocketMessageDispatcherReflectType reflect.Type
 
 func init() {
+	var _ libatapp.AppModuleImpl = (*WebSocketMessageDispatcher)(nil)
 	websocketMessageDispatcherReflectType = reflect.TypeOf((*WebSocketMessageDispatcher)(nil)).Elem()
 }
 

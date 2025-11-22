@@ -4,6 +4,7 @@ import (
 	// libatapp "github.com/atframework/libatapp-go"
 
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	"github.com/atframework/libatapp-go"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
@@ -11,7 +12,7 @@ import (
 )
 
 type TaskActionUserLogout struct {
-	cd.TaskActionNoMessageBase
+	*cd.TaskActionNoMessageBase
 
 	user    uc.UserImpl
 	session *uc.Session
@@ -63,7 +64,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 
 	logoutTask, startData := cd.CreateTaskActionNoMessageBase(
 		rd, ctx, userImpl.GetActorExecutor(),
-		func(base cd.TaskActionNoMessageBase) *TaskActionUserLogout {
+		func(base *cd.TaskActionNoMessageBase) *TaskActionUserLogout {
 			ta := TaskActionUserLogout{
 				TaskActionNoMessageBase: base,
 				user:                    userImpl,
@@ -74,9 +75,9 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 		},
 	)
 
-	err := cd.RunTaskAction(rd.GetApp(), logoutTask, &startData)
+	err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, logoutTask, &startData)
 	if err != nil {
-		ctx.LogError("TaskActionUserLogout RunTaskAction failed", "error", err,
+		ctx.LogError("TaskActionUserLogout StartTaskAction failed", "error", err,
 			"zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId(), "session_id", sessionKey.SessionId, "session_node_id", sessionKey.NodeId)
 
 		session.UnbindUser(ctx, userImpl)

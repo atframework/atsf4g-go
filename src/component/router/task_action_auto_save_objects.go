@@ -9,7 +9,7 @@ import (
 )
 
 type TaskActionAutoSaveObjects struct {
-	cd.TaskActionNoMessageBase
+	*cd.TaskActionNoMessageBase
 
 	manager *RouterManagerSet
 	status  autoSaveStatus

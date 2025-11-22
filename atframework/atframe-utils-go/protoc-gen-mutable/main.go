@@ -240,8 +240,8 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 	g.P()
 
 	g.P("// ===== SlogValue methods for ", msg.GoIdent.GoName, " ===== Message ====")
-	g.P(fmt.Sprintf(`func (m *%s) LogValue() slog.Value {`, msg.GoIdent.GoName))
-	g.P(`  return slog.StringValue(pu.MessageReadableText(m))`)
+	g.P(fmt.Sprintf(`func (m %s) LogValue() slog.Value {`, msg.GoIdent.GoName))
+	g.P(`  return slog.StringValue(pu.MessageReadableText(&m))`)
 	g.P(`}`)
 	g.P()
 
@@ -480,10 +480,7 @@ func generateReadonlyForMessage(f *protogen.File, g *protogen.GeneratedFile, msg
 	g.P("}")
 	g.P()
 
-	g.P(fmt.Sprintf("func (r *%s) LogValue() slog.Value {", roName))
-	g.P("  if r == nil {")
-	g.P("    return slog.Value{}")
-	g.P("  }")
+	g.P(fmt.Sprintf("func (r %s) LogValue() slog.Value {", roName))
 	g.P("  return r.protoData.LogValue()")
 	g.P("}")
 	g.P()

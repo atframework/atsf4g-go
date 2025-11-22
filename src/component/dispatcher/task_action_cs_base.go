@@ -13,6 +13,7 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 
+	config "github.com/atframework/atsf4g-go/component-config"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -79,7 +80,7 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 	requestBodyType := reflect.TypeOf((*RequestType)(nil)).Elem().Elem()
 
 	return TaskActionCSBase[RequestType, ResponseType]{
-		TaskActionBase: CreateTaskActionBase(rd, actor),
+		TaskActionBase: CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
 		session:        session,
 		user:           user,
 		rpcDescriptor:  rpcDescriptor,

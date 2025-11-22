@@ -173,6 +173,8 @@ enum EnErrorCode {
                                [(error_code.description) = "数据库CAS检查失败"];
   EN_ERR_RPC_NO_TASK = -121
                        [(error_code.description) = "不在协程任务中"];
+  EN_ERR_RPC_EXITING = -122
+                       [(error_code.description) = "协程退出"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];

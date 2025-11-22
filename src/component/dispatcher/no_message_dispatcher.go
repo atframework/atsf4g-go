@@ -9,6 +9,7 @@ import (
 var noMessageDispatcherReflectType reflect.Type
 
 func init() {
+	var _ libatapp.AppModuleImpl = (*NoMessageDispatcher)(nil)
 	noMessageDispatcherReflectType = reflect.TypeOf((*NoMessageDispatcher)(nil)).Elem()
 }
 

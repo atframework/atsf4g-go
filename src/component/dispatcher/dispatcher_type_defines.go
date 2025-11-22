@@ -1,6 +1,8 @@
 package atframework_component_dispatcher
 
 import (
+	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -35,10 +37,15 @@ type RpcResult struct {
 	ResponseCode int32
 }
 
+func (m RpcResult) LogValue() slog.Value {
+	return slog.StringValue(fmt.Sprintf("Error:%v,Code:%d", m.Error, m.ResponseCode))
+}
+
 type DispatcherAwaitOptions struct {
-	Type     uint64
-	Sequence uint64
-	Timeout  time.Duration
+	Type         uint64
+	Sequence     uint64
+	Timeout      time.Duration
+	TimeoutAllow bool // Timeout不认为错误
 }
 
 type ActorAction struct {

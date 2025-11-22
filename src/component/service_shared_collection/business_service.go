@@ -14,5 +14,6 @@ func CreateServiceApplication() libatapp.AppImpl {
 	libatapp.AtappAddModule(app, config.CreateConfigManagerModule(app))
 
 	libatapp.AtappAddModule(app, cd.CreateNoMessageDispatcher(app))
+	libatapp.AtappAddModule(app, cd.CreateTaskManager(app))
 	return app
 }
