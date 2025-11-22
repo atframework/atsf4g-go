@@ -170,7 +170,7 @@ func GetNextWeekStartTimepoint(offset *time.Duration) time.Time {
 func GetDayId(now time.Time, refreshStartOffset *time.Duration) int64 {
 	nowSec := now.Unix()
 
-	if refreshStartOffset == nil {
+	if refreshStartOffset != nil {
 		nowSec -= int64(refreshStartOffset.Seconds())
 	}
 
