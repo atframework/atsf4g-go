@@ -261,8 +261,7 @@ func (umb *UserItemManagerBase) CreateItemAddGuard(itemOffset []*ppc.DItemInstan
 
 		cfg := umb.GetItemCongiure(ib.GetTypeId())
 		if cfg == nil {
-			// TODO: EN_ERR_ITEM_INVALID_TYPE_ID
-			return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode_EN_ERR_ITEM_NOT_FOUND)
+			return nil, cd.CreateRpcResultError(nil, ppp.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
 
 		ret = append(ret, ItemAddGuard{

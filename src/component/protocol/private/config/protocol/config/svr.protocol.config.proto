@@ -117,24 +117,16 @@ message logic_user_cfg {
 }
 
 message logic_session_cfg {
-  google.protobuf.Duration login_code_protect = 101
-      [ (atapp.protocol.CONFIGURE) = {default_value : "20m"} ];
-  google.protobuf.Duration login_code_valid_sec = 102
-      [ (atapp.protocol.CONFIGURE) = {default_value : "10m"} ];
-  google.protobuf.Duration login_ban_time = 103
-      [ (atapp.protocol.CONFIGURE) = {default_value : "3h"} ];
-  google.protobuf.Duration tick_sec = 104
-      [ (atapp.protocol.CONFIGURE) = {default_value : "60s"} ];
-  bool enable_actor_log = 105
-      [ (atapp.protocol.CONFIGURE) = {default_value : "false"} ];
-  bool enable_actor_otel_log = 106
-      [ (atapp.protocol.CONFIGURE) = {default_value : "false"} ];
-  bool remove_player_cache_when_stop = 107
-      [ (atapp.protocol.CONFIGURE) = {default_value : "true"} ];
-  uint64 actor_log_size = 108
-      [ (atapp.protocol.CONFIGURE) = {default_value : "1MB" size_mode : true} ];
-  uint64 actor_log_rotate = 109
-      [ (atapp.protocol.CONFIGURE) = {default_value : "3" min_value : "1"} ];
+  google.protobuf.Duration login_code_protect = 101 [(atapp.protocol.CONFIGURE) = { default_value: "20m" }];
+  google.protobuf.Duration login_code_valid_sec = 102 [(atapp.protocol.CONFIGURE) = { default_value: "10m" }];
+  google.protobuf.Duration login_ban_time = 103 [(atapp.protocol.CONFIGURE) = { default_value: "3h" }];
+  google.protobuf.Duration tick_sec = 104 [(atapp.protocol.CONFIGURE) = { default_value: "60s" }];
+  bool enable_actor_log = 105 [(atapp.protocol.CONFIGURE) = { default_value: "false" }];
+  bool enable_actor_otel_log = 106 [(atapp.protocol.CONFIGURE) = { default_value: "false" }];
+  bool remove_player_cache_when_stop = 107 [(atapp.protocol.CONFIGURE) = { default_value: "true" }];
+  uint64 actor_log_size = 108 [(atapp.protocol.CONFIGURE) = { default_value: "10MB" size_mode: true }];
+  uint64 actor_log_rotate = 109 [(atapp.protocol.CONFIGURE) = { default_value: "3" min_value: "1" }];
+  google.protobuf.Duration actor_auto_flush = 110 [(atapp.protocol.CONFIGURE) = { default_value: "3s" min_value: "1s" }];
 }
 
 message logic_task_stack_cfg {
@@ -190,13 +182,16 @@ message logic_task_cfg {
   logic_task_type_cfg paymsg = 103;
   logic_task_type_cfg warn = 104;
 
+  int32 actor_max_loop_count = 151 [(atapp.protocol.CONFIGURE) = { default_value: "100" min_value: "1" }];
+  int32 actor_max_pending_count  = 152 [(atapp.protocol.CONFIGURE) = { default_value: "100000" min_value: "1" }];
+
   logic_task_stats_cfg stats = 201;
   logic_task_stack_cfg stack = 301;
   logic_task_trace_cfg trace = 401;
 }
 
 message logic_heartbeat_cfg {
-  google.protobuf.Duration interval = 101;
+  google.protobuf.Duration interval = 101 [(atapp.protocol.CONFIGURE) = { default_value: "120s" min_value: "1s" }];
   google.protobuf.Duration tolerance = 102;
   uint32 error_times = 103;
   uint32 ban_error_times = 104;

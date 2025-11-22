@@ -519,9 +519,9 @@ func (app *AppInstance) Init(arguments []string) error {
 		return fmt.Errorf("setup timer failed: %w", err)
 	}
 
-	// TODO: 初始化协程池大小可配置
+	// 初始化协程池大小
 	var err error
-	app.workerPool, err = ants.NewPoolWithFunc(20480, func(args interface{}) {
+	app.workerPool, err = ants.NewPoolWithFunc(int(app.config.ConfigPb.GetWorkerPool().GetQueueSize()), func(args interface{}) {
 		sender, ok := args.(*AppActionSender)
 		if !ok {
 			app.GetDefaultLogger().Error("routine pool args type error, shouldn't happen!")

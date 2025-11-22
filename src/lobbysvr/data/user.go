@@ -64,8 +64,6 @@ type User struct {
 
 func (u *User) Init() {
 	u.UserCache.Init(u)
-
-	// TODO: 初始化各类Manager
 }
 
 func (u *User) IsWriteable() bool {
@@ -444,8 +442,8 @@ func (u *User) UpdateHeartbeat(ctx cd.RpcContext) {
 	// TODO: 加速器检查
 
 	// 续期LoginCode,
-	// TODO: 有效期来自配置
-	u.GetLoginInfo().LoginCodeExpired = ctx.GetSysNow().Unix() + int64(20*60)
+	u.GetLoginInfo().LoginCodeExpired = ctx.GetSysNow().Unix() +
+		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 }
 
 func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {

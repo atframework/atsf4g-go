@@ -113,7 +113,9 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
 		writer, _ = libatapp.NewlogBufferedRotatingWriter(ctx, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
-			openId, 20*1024*1024, 3, time.Second*3, false, true) // TODO: 配置化
+			openId, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
+			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
+			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration(), false, true)
 		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
 			writer.Close()
 		})
@@ -550,7 +552,7 @@ func (u *UserCache) updateLoginData(ctx cd.RpcContext) {
 	// Patch login table
 	nowSec := ctx.GetSysNow().Unix()
 	// TODO: 有效期来自配置
-	u.loginInfo.LoginCodeExpired = nowSec + int64(20*60)
+	u.loginInfo.LoginCodeExpired = nowSec + int64(20*60) //
 
 	if u.loginInfo.GetBusinessRegisterTime() <= 0 {
 		u.loginInfo.BusinessRegisterTime = nowSec

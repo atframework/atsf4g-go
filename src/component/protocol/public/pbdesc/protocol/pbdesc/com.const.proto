@@ -175,6 +175,8 @@ enum EnErrorCode {
                        [(error_code.description) = "不在协程任务中"];
   EN_ERR_RPC_EXITING = -122
                        [(error_code.description) = "协程退出"];
+  EN_ERR_ACTOR_MAX_PENDING_COUNT = -123
+                                   [(error_code.description) = "Actor达到最大长度"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];

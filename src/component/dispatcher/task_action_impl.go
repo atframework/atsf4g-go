@@ -7,6 +7,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
+	config "github.com/atframework/atsf4g-go/component-config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -95,8 +97,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 
 	cb_actor.actionStatus = ActorExecutorStatusFree
 
-	// TODO: 单次循环进配置
-	max_loop_count := 100
+	max_loop_count := int(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetActorMaxLoopCount())
 
 	for i := 0; i < max_loop_count; i++ {
 		if cb_actor.pendingActions.Len() == 0 {
@@ -150,8 +151,8 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 	// TODO: 走接口，进配置
 	pendingLen := actor.pendingActions.Len()
 	if !lu.IsNil(action) && !lu.IsNil(run_action) {
-		if pendingLen > 100000 {
-			action.SetResponseCode(-2)
+		if pendingLen > int(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetActorMaxPendingCount()) {
+			action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_ACTOR_MAX_PENDING_COUNT))
 			action.SendResponse()
 			app.GetDefaultLogger().Error("Actor pending actions too many", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 			return fmt.Errorf("actor pending actions too many")
