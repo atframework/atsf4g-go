@@ -62,7 +62,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 		return
 	}
 
-	logoutTask, startData := cd.CreateTaskActionNoMessageBase(
+	logoutTask, startData := cd.CreateNoMessageTaskAction(
 		rd, ctx, userImpl.GetActorExecutor(),
 		func(base *cd.TaskActionNoMessageBase) *TaskActionUserLogout {
 			ta := TaskActionUserLogout{
@@ -70,7 +70,6 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 				user:                    userImpl,
 				session:                 session,
 			}
-			ta.TaskActionBase.Impl = &ta
 			return &ta
 		},
 	)

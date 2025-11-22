@@ -18,7 +18,7 @@ import (
 )
 
 type TaskActionLogin struct {
-	cd.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
+	*cd.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
 
 	isNewPlayer bool
 }

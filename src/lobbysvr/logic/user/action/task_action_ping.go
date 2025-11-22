@@ -12,7 +12,7 @@ import (
 )
 
 type TaskActionPing struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSPingReq, *service_protocol.SCPongRsp]
+	*component_dispatcher.TaskActionCSBase[*service_protocol.CSPingReq, *service_protocol.SCPongRsp]
 }
 
 func (t *TaskActionPing) Name() string {

@@ -138,7 +138,7 @@ type FindCSMessageSession = func(
 func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Message](
 	rd cd.DispatcherImpl, findSessionFn FindCSMessageSession,
 	serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string,
-	createFn func(cd.TaskActionCSBase[RequestType, ResponseType]) cd.TaskActionImpl,
+	createFn func(*cd.TaskActionCSBase[RequestType, ResponseType]) cd.TaskActionImpl,
 ) error {
 	if lu.IsNil(serviceDescriptor) {
 		rd.GetLogger().Error("service descriptor is nil", "rpc_name", rpcFullName)
@@ -165,7 +165,7 @@ func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Messa
 		}
 
 		// 创建实际类型
-		return createFn(cd.CreateTaskActionCSBase[RequestType, ResponseType](rd, session, methodDesc)), nil
+		return cd.CreateCSTaskAction(startData.MessageRpcContext, rd, session, methodDesc, createFn), nil
 	}
 
 	return rd.RegisterAction(serviceDescriptor, rpcFullName, creator)

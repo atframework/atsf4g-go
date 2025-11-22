@@ -13,7 +13,7 @@ import (
 )
 
 type TaskActionQuestReceiveReward struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSQuestReceiveRewardReq,
+	*component_dispatcher.TaskActionCSBase[*service_protocol.CSQuestReceiveRewardReq,
 		*service_protocol.SCQuestReceiveRewardRsp]
 }
 

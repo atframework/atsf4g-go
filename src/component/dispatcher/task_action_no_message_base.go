@@ -5,6 +5,7 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
+	"github.com/atframework/libatapp-go"
 )
 
 type TaskActionNoMessageBase struct {
@@ -15,7 +16,7 @@ func (t *TaskActionNoMessageBase) AllowNoActor() bool {
 	return true
 }
 
-func CreateTaskActionNoMessageBase[TaskActionType TaskActionImpl](
+func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
 	rd DispatcherImpl,
 	ctx RpcContext,
 	actor *ActorExecutor,
@@ -24,11 +25,13 @@ func CreateTaskActionNoMessageBase[TaskActionType TaskActionImpl](
 	ta := createFn(&TaskActionNoMessageBase{
 		TaskActionBase: CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetNomsg().GetTimeout().AsDuration()),
 	})
+	ta.SetImplementation(ta)
 	awaitableContext := rd.CreateAwaitableContext()
 	if !lu.IsNil(ctx) && ctx.GetContext() != nil {
 		awaitableContext.SetContextCancelFn(context.WithCancel(ctx.GetContext()))
 	}
 	awaitableContext.BindAction(ta)
+	libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).InsertTaskAction(ctx, ta)
 
 	return ta, DispatcherStartData{
 		Message:           nil,

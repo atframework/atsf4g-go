@@ -20,7 +20,7 @@ import (
 )
 
 type TaskActionLoginAuth struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSLoginAuthReq, *service_protocol.SCLoginAuthRsp]
+	*component_dispatcher.TaskActionCSBase[*service_protocol.CSLoginAuthReq, *service_protocol.SCLoginAuthRsp]
 }
 
 func (t *TaskActionLoginAuth) Name() string {

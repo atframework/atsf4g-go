@@ -62,11 +62,13 @@ type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] str
 	responseBody  ResponseType
 }
 
-func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Message](
+func CreateCSTaskAction[RequestType proto.Message, ResponseType proto.Message](
+	ctx RpcContext,
 	rd DispatcherImpl,
 	session TaskActionCSSession,
 	rpcDescriptor protoreflect.MethodDescriptor,
-) TaskActionCSBase[RequestType, ResponseType] {
+	createFn func(*TaskActionCSBase[RequestType, ResponseType]) TaskActionImpl,
+) TaskActionImpl {
 	var user TaskActionCSUser = nil
 	var actor *ActorExecutor = nil
 	if !lu.IsNil(session) {
@@ -78,15 +80,17 @@ func CreateTaskActionCSBase[RequestType proto.Message, ResponseType proto.Messag
 
 	// 创建RequestType的零值实例
 	requestBodyType := reflect.TypeOf((*RequestType)(nil)).Elem().Elem()
-
-	return TaskActionCSBase[RequestType, ResponseType]{
+	ret := createFn(&TaskActionCSBase[RequestType, ResponseType]{
 		TaskActionBase: CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
 		session:        session,
 		user:           user,
 		rpcDescriptor:  rpcDescriptor,
 		requestHead:    nil,
 		requestBody:    reflect.New(requestBodyType).Interface().(RequestType),
-	}
+	})
+	ret.SetImplementation(ret)
+	libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).InsertTaskAction(ctx, ret)
+	return ret
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {
@@ -306,7 +310,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission() (int32, error) {
-	if !t.Impl.AllowNoActor() && lu.IsNil(t.GetUser()) {
+	if !t.impl.AllowNoActor() && lu.IsNil(t.GetUser()) {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
 	}
 

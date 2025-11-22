@@ -5,10 +5,13 @@ import (
 	"errors"
 	"log/slog"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -26,6 +29,8 @@ func GetReflectTypeTaskManager() reflect.Type {
 
 type TaskManager struct {
 	libatapp.AppModuleBase
+	taskActionIdMap sync.Map
+	taskIdAllocator atomic.Uint64
 }
 
 func CreateTaskManager(owner libatapp.AppImpl) *TaskManager {
@@ -48,21 +53,49 @@ func (t *TaskManager) Tick(parent context.Context) bool {
 	return false
 }
 
-// TODO: AfterFunc 使用时间轮
+func (t *TaskManager) GetTaskActionById(taskId uint64) TaskActionImpl {
+	if v, ok := t.taskActionIdMap.Load(taskId); ok {
+		if action, ok := v.(TaskActionImpl); ok {
+			return action
+		}
+	}
+	return nil
+}
 
-func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, startData *DispatcherStartData) error {
+func (t *TaskManager) AllocTaskId() uint64 {
+	ret := t.taskIdAllocator.Add(1)
+	if ret <= 1 {
+		t.taskIdAllocator.Store(
+			// 使用时间戳作为初始值, 避免与重启前的值冲突
+			uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()),
+		)
+		ret = t.taskIdAllocator.Add(1)
+	}
+
+	return ret
+}
+
+func (t *TaskManager) InsertTaskAction(ctx RpcContext, action TaskActionImpl) {
+	t.taskActionIdMap.Store(action.GetTaskId(), action)
 	if action.GetTaskTimeout() != 0 {
 		timer := time.AfterFunc(action.GetTaskTimeout(), func() {
 			result := CreateRpcResultError(context.DeadlineExceeded, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
 			KillTaskAction(ctx, action, &result)
 		})
 		if timer != nil {
-			action.InitFinishCallback(func(ctx RpcContext) {
+			action.InitFinishCallback(func(childCtx RpcContext) {
 				timer.Stop()
 			})
 		}
 	}
+	action.InitFinishCallback(func(childCtx RpcContext) {
+		t.taskActionIdMap.Delete(action.GetTaskId())
+	})
+}
 
+// TODO: AfterFunc 使用时间轮
+
+func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, startData *DispatcherStartData) error {
 	run_action := func() error {
 		// TODO: 链路跟踪Start和对象上下文继承
 		actor := action.GetActorExecutor()
@@ -261,14 +294,13 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 }
 
 func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
-	childTask, startData := CreateTaskActionNoMessageBase(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
+	childTask, startData := CreateNoMessageTaskAction(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
 		ctx, nil, func(base *TaskActionNoMessageBase) *taskActionAsyncInvoke {
 			ta := &taskActionAsyncInvoke{
 				TaskActionNoMessageBase: base,
 				name:                    name,
 				callable:                invoke,
 			}
-			ta.TaskActionBase.Impl = ta
 			return ta
 		},
 	)

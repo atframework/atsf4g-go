@@ -1,6 +1,6 @@
 // Copyright 2025 atframework
 
-package lobbysvr_logic_character_action
+package lobbysvr_logic_user_action
 
 import (
 	"fmt"
@@ -11,15 +11,15 @@ import (
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
-type TaskActionCharacterSetState struct {
-	*component_dispatcher.TaskActionCSBase[*service_protocol.CSCharacterSetStateReq, *service_protocol.SCCharacterSetStateRsp]
+type TaskActionUserUpdateClientOption struct {
+	*component_dispatcher.TaskActionCSBase[*service_protocol.CSUserUpdateClientOptionReq, *service_protocol.SCUserUpdateClientOptionRsp]
 }
 
-func (t *TaskActionCharacterSetState) Name() string {
-	return "TaskActionCharacterSetState"
+func (t *TaskActionUserUpdateClientOption) Name() string {
+	return "TaskActionUserUpdateClientOption"
 }
 
-func (t *TaskActionCharacterSetState) Run(_startData *component_dispatcher.DispatcherStartData) error {
+func (t *TaskActionUserUpdateClientOption) Run(_startData *component_dispatcher.DispatcherStartData) error {
 	// TODO: implement your logic here, remove this comment after you have done
 	user, ok := t.GetUser().(*data.User)
 	if !ok || user == nil {

@@ -36,6 +36,7 @@ type TaskActionImpl interface {
 	GetTaskStartTime() time.Time
 	GetNow() time.Time
 	GetSysNow() time.Time
+	SetImplementation(TaskActionImpl)
 
 	GetStatus() TaskActionStatus
 	IsExiting() bool

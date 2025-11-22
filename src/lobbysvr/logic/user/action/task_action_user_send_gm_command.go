@@ -18,7 +18,7 @@ import (
 )
 
 type TaskActionUserSendGmCommand struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSUserGMCommandReq, *service_protocol.SCUserGMCommandRsp]
+	*component_dispatcher.TaskActionCSBase[*service_protocol.CSUserGMCommandReq, *service_protocol.SCUserGMCommandRsp]
 }
 
 func (t *TaskActionUserSendGmCommand) Name() string {

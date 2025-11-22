@@ -15,7 +15,7 @@ import (
 )
 
 type TaskActionBase struct {
-	Impl   TaskActionImpl
+	impl   TaskActionImpl
 	taskId uint64
 	status TaskActionStatus
 	kill   atomic.Bool
@@ -44,7 +44,7 @@ type TaskActionBase struct {
 
 func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeout time.Duration) TaskActionBase {
 	return TaskActionBase{
-		taskId:           rd.AllocTaskId(),
+		taskId:           libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).AllocTaskId(),
 		status:           TaskActionStatusCreated,
 		responseCode:     0,
 		prepareHookRun:   false,
@@ -94,6 +94,10 @@ func (t *TaskActionBase) GetSysNow() time.Time {
 	return t.dispatcher.GetSysNow()
 }
 
+func (t *TaskActionBase) SetImplementation(impl TaskActionImpl) {
+	t.impl = impl
+}
+
 func (t *TaskActionBase) GetStatus() TaskActionStatus {
 	if t == nil {
 		return TaskActionStatusInvalid
@@ -127,7 +131,7 @@ func (t *TaskActionBase) IsTimeout() bool {
 }
 
 func (t *TaskActionBase) CheckPermission() (int32, error) {
-	if !t.Impl.AllowNoActor() && t.Impl.GetActorExecutor() == nil {
+	if !t.impl.AllowNoActor() && t.impl.GetActorExecutor() == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY), nil
 	}
 
@@ -164,14 +168,14 @@ func (t *TaskActionBase) PrepareHookRun(startData *DispatcherStartData) {
 func (t *TaskActionBase) HookRun(startData *DispatcherStartData) error {
 	t.PrepareHookRun(startData)
 
-	responseCode, err := t.Impl.CheckPermission()
+	responseCode, err := t.impl.CheckPermission()
 	if err != nil || responseCode < 0 {
-		t.Impl.SetResponseCode(responseCode)
+		t.impl.SetResponseCode(responseCode)
 		t.setStatus(TaskActionStatusKilled)
 		return err
 	}
 
-	err = t.Impl.Run(startData)
+	err = t.impl.Run(startData)
 	if t.GetStatus() <= TaskActionStatusRunning {
 		if err != nil || t.GetResponseCode() < 0 {
 			if t.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) || errors.Is(err, context.DeadlineExceeded) {
@@ -262,14 +266,14 @@ func (t *TaskActionBase) GetAwaitableContext() AwaitableContext {
 
 func (t *TaskActionBase) trySetAwait(awaitOptions *DispatcherAwaitOptions) error {
 	if awaitOptions == nil {
-		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions can not be nil", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions can not be nil", t.impl.Name(), t.impl.GetTaskId())
 	}
 
-	actor := t.Impl.GetActorExecutor()
+	actor := t.impl.GetActorExecutor()
 	if actor != nil {
 		currentAction := actor.getCurrentRunningAction()
-		if currentAction != nil && currentAction != t.Impl {
-			return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, action is running in actor, can not await", t.Impl.Name(), t.Impl.GetTaskId())
+		if currentAction != nil && currentAction != t.impl {
+			return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, action is running in actor, can not await", t.impl.Name(), t.impl.GetTaskId())
 		}
 	}
 
@@ -284,7 +288,7 @@ func (t *TaskActionBase) trySetAwait(awaitOptions *DispatcherAwaitOptions) error
 		}
 
 		return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, already awaiting %v:%v , can not await %v:%v again",
-			t.Impl.Name(), t.Impl.GetTaskId(), t.currentAwaiting.Option.Type, t.currentAwaiting.Option.Sequence,
+			t.impl.Name(), t.impl.GetTaskId(), t.currentAwaiting.Option.Type, t.currentAwaiting.Option.Sequence,
 			awaitOptions.Type, awaitOptions.Sequence,
 		)
 	}
@@ -315,16 +319,16 @@ func (t *TaskActionBase) TryFinishAwait(resumeData *DispatcherResumeData, notify
 	defer t.currentAwaiting.Lock.Unlock()
 
 	if resumeData == nil {
-		return fmt.Errorf("task %s, %d TryFinishAwait resumeData can not be nil", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TryFinishAwait resumeData can not be nil", t.impl.Name(), t.impl.GetTaskId())
 	}
 
 	if t.currentAwaiting.Option == nil {
-		return fmt.Errorf("task %s, %d TryFinishAwait no current awaiting", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TryFinishAwait no current awaiting", t.impl.Name(), t.impl.GetTaskId())
 	}
 
 	if t.currentAwaiting.Option.Type != resumeData.Message.Type || t.currentAwaiting.Option.Sequence != resumeData.Sequence {
 		return fmt.Errorf("task %s, %d TryFinishAwait resumeData mismatch, current awaiting %v:%v , got %v:%v",
-			t.Impl.Name(), t.Impl.GetTaskId(), t.currentAwaiting.Option.Type, t.currentAwaiting.Option.Sequence,
+			t.impl.Name(), t.impl.GetTaskId(), t.currentAwaiting.Option.Type, t.currentAwaiting.Option.Sequence,
 			resumeData.Message.Type, resumeData.Sequence,
 		)
 	}
@@ -333,14 +337,14 @@ func (t *TaskActionBase) TryFinishAwait(resumeData *DispatcherResumeData, notify
 		t.currentAwaiting.Option = nil
 	} else {
 		if t.currentAwaiting.Channel == nil {
-			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", t.Impl.Name(), t.Impl.GetTaskId())
+			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", t.impl.Name(), t.impl.GetTaskId())
 		}
 
 		select {
 		case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{resume: resumeData}:
 			t.currentAwaiting.Option = nil
 		default:
-			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", t.Impl.Name(), t.Impl.GetTaskId())
+			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", t.impl.Name(), t.impl.GetTaskId())
 		}
 	}
 
@@ -356,22 +360,22 @@ func (t *TaskActionBase) tryKillAwait(killData *RpcResult) error {
 	defer t.currentAwaiting.Lock.Unlock()
 
 	if killData == nil {
-		return fmt.Errorf("task %s, %d TryKillAwait killData can not be nil", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait killData can not be nil", t.impl.Name(), t.impl.GetTaskId())
 	}
 
 	if t.currentAwaiting.Option == nil {
-		return fmt.Errorf("task %s, %d TryKillAwait no current awaiting", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait no current awaiting", t.impl.Name(), t.impl.GetTaskId())
 	}
 
 	if t.currentAwaiting.Channel == nil {
-		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", t.impl.Name(), t.impl.GetTaskId())
 	}
 
 	select {
 	case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{killed: killData}:
 		t.currentAwaiting.Option = nil
 	default:
-		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", t.Impl.Name(), t.Impl.GetTaskId())
+		return fmt.Errorf("task %s, %d TryKillAwait send to channel failed, no receiver", t.impl.Name(), t.impl.GetTaskId())
 	}
 
 	return nil

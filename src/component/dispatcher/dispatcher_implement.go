@@ -34,7 +34,6 @@ type DispatcherImpl interface {
 	GetInstanceIdent() uint64
 	IsClosing() bool
 
-	AllocTaskId() uint64
 	AllocSequence() uint64
 	GetNow() time.Time
 	GetSysNow() time.Time
@@ -105,21 +104,6 @@ func (dispatcher *DispatcherBase) GetInstanceIdent() uint64 {
 
 func (dispatcher *DispatcherBase) IsClosing() bool {
 	return dispatcher.GetApp().IsClosing()
-}
-
-var taskIdAllocator = atomic.Uint64{}
-
-func (dispatcher *DispatcherBase) AllocTaskId() uint64 {
-	ret := taskIdAllocator.Add(1)
-	if ret <= 1 {
-		taskIdAllocator.Store(
-			// 使用时间戳作为初始值, 避免与重启前的值冲突
-			uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()),
-		)
-		ret = taskIdAllocator.Add(1)
-	}
-
-	return ret
 }
 
 func (dispatcher *DispatcherBase) AllocSequence() uint64 {

@@ -134,14 +134,13 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 
 	if len(set.pendingActionList) > 0 && !set.IsClosed() && !set.isSaveTaskRunning() && !set.isClosingTaskRunning() {
 		// 创建 AutoSave 任务
-		autoSaveTask, startData := cd.CreateTaskActionNoMessageBase(
+		autoSaveTask, startData := cd.CreateNoMessageTaskAction(
 			d, ctx, nil,
 			func(base *cd.TaskActionNoMessageBase) *TaskActionAutoSaveObjects {
 				ta := TaskActionAutoSaveObjects{
 					TaskActionNoMessageBase: base,
 					manager:                 set,
 				}
-				ta.TaskActionBase.Impl = &ta
 				return &ta
 			},
 		)
@@ -205,7 +204,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	ctx := d.CreateRpcContext()
 
 	// 创建并启动closing_task
-	closingTask, startData := cd.CreateTaskActionNoMessageBase(
+	closingTask, startData := cd.CreateNoMessageTaskAction(
 		d, ctx, nil,
 		func(base *cd.TaskActionNoMessageBase) *TaskActionRouterCloseManagerSet {
 			ta := TaskActionRouterCloseManagerSet{
@@ -213,7 +212,6 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 				manager:                 set,
 				pendingList:             pendingList,
 			}
-			ta.TaskActionBase.Impl = &ta
 			return &ta
 		},
 	)
