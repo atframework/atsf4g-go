@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	DaySeconds  time.Duration = time.Hour * 24
-	WeekSeconds time.Duration = DaySeconds * 7
+	DaySeconds  int64 = 3600 * 24
+	WeekSeconds int64 = DaySeconds * 7
 )
 
 type nextCheckpointCacheEntry struct {
@@ -40,7 +40,7 @@ func SetGlobalBaseTime(t time.Time) {
 }
 
 func GetGlobalLogicalOffset() time.Duration {
-	return time.Duration(sharedNextCheckpointCache.globalLogicalOffset.Load())
+	return time.Duration(sharedNextCheckpointCache.globalLogicalOffset.Load()) * time.Second
 }
 
 // 设置全局逻辑时间偏移量，用于GM设置时间测试各类刷新功能
@@ -65,7 +65,7 @@ func CalculateAnyDayOffsetWithBase(now time.Time, baseUnixSec int64, offset *tim
 	nowSec := now.Unix()
 
 	checked := nowSec - baseUnixSec
-	checked -= checked % int64(DaySeconds)
+	checked -= checked % DaySeconds
 	checked += baseUnixSec
 
 	if offset == nil {
@@ -87,7 +87,7 @@ func CalculateAnyWeekOffsetWithBase(now time.Time, baseUnixSec int64, offset *ti
 	nowSec := now.Unix()
 
 	checked := nowSec - baseUnixSec
-	checked -= checked % int64(WeekSeconds)
+	checked -= checked % WeekSeconds
 	checked += baseUnixSec
 
 	if offset == nil {
@@ -115,7 +115,7 @@ func refreshDayCache(now time.Time) {
 
 	currentDayStartSec = CalculateDayStart(now).Unix()
 	sharedNextCheckpointCache.currentDayStart.Store(currentDayStartSec)
-	sharedNextCheckpointCache.nextDayStart.Store(currentDayStartSec + int64(DaySeconds.Seconds()))
+	sharedNextCheckpointCache.nextDayStart.Store(currentDayStartSec + DaySeconds)
 }
 
 func refreshWeekCache(now time.Time) {
@@ -128,7 +128,7 @@ func refreshWeekCache(now time.Time) {
 
 	currentWeekStartSec = CalculateWeekStart(now).Unix()
 	sharedNextCheckpointCache.currentWeekStart.Store(currentWeekStartSec)
-	sharedNextCheckpointCache.nextWeekStart.Store(currentWeekStartSec + int64(WeekSeconds.Seconds()))
+	sharedNextCheckpointCache.nextWeekStart.Store(currentWeekStartSec + WeekSeconds)
 }
 
 func GetTodayStartTimepoint(offset *time.Duration) time.Time {
@@ -176,7 +176,12 @@ func GetDayId(now time.Time, refreshStartOffset *time.Duration) int64 {
 
 	baseTimeSec := sharedNextCheckpointCache.globalBaseTime.Load()
 	checked := nowSec - baseTimeSec
-	checked /= int64(DaySeconds.Seconds())
+
+	if checked < 0 {
+		return (checked - DaySeconds + 1) / DaySeconds
+	}
+
+	checked /= DaySeconds
 
 	return checked
 }
@@ -188,13 +193,18 @@ func IsSameDay(l time.Time, r time.Time, refreshStartOffset *time.Duration) bool
 func GetWeekId(now time.Time, refreshStartOffset *time.Duration) int64 {
 	nowSec := now.Unix()
 
-	if refreshStartOffset == nil {
+	if refreshStartOffset != nil {
 		nowSec -= int64(refreshStartOffset.Seconds())
 	}
 
 	baseTimeSec := sharedNextCheckpointCache.globalBaseTime.Load()
 	checked := nowSec - baseTimeSec
-	checked /= int64(WeekSeconds.Seconds())
+
+	if checked < 0 {
+		return (checked - WeekSeconds + 1) / WeekSeconds
+	}
+
+	checked /= WeekSeconds
 
 	return checked
 }
