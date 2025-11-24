@@ -19,7 +19,7 @@ import (
 )
 
 type TaskAction${ rpc_camel_name } struct {
-	*component_dispatcher.TaskActionCSBase[*service_protocol.${ rpc.get_request().get_name() }, *service_protocol.${ rpc.get_response().get_name() }]
+	component_dispatcher.TaskActionCSBase[*service_protocol.${ rpc.get_request().get_name() }, *service_protocol.${ rpc.get_response().get_name() }]
 }
 
 func (t *TaskAction${ rpc_camel_name }) Name() string {

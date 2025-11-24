@@ -9,7 +9,7 @@ import (
 )
 
 type TaskActionRouterCloseManagerSet struct {
-	*cd.TaskActionNoMessageBase
+	cd.TaskActionNoMessageBase
 
 	manager     *RouterManagerSet
 	pendingList []RouterObject

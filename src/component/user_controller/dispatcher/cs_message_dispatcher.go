@@ -7,7 +7,6 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
 	libatapp "github.com/atframework/libatapp-go"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -135,10 +134,10 @@ type FindCSMessageSession = func(
 	privateData interface{},
 ) *uc.Session
 
-func RegisterCSMessageAction[RequestType proto.Message, ResponseType proto.Message](
+func RegisterCSMessageAction(
 	rd cd.DispatcherImpl, findSessionFn FindCSMessageSession,
 	serviceDescriptor protoreflect.ServiceDescriptor, rpcFullName string,
-	createFn func(*cd.TaskActionCSBase[RequestType, ResponseType]) cd.TaskActionImpl,
+	createFn func(cd.RpcContext, cd.DispatcherImpl, cd.TaskActionCSSession, protoreflect.MethodDescriptor) cd.TaskActionImpl,
 ) error {
 	if lu.IsNil(serviceDescriptor) {
 		rd.GetLogger().Error("service descriptor is nil", "rpc_name", rpcFullName)

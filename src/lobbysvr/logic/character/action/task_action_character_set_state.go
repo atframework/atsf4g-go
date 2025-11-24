@@ -12,7 +12,7 @@ import (
 )
 
 type TaskActionCharacterSetState struct {
-	*component_dispatcher.TaskActionCSBase[*service_protocol.CSCharacterSetStateReq, *service_protocol.SCCharacterSetStateRsp]
+	component_dispatcher.TaskActionCSBase[*service_protocol.CSCharacterSetStateReq, *service_protocol.SCCharacterSetStateRsp]
 }
 
 func (t *TaskActionCharacterSetState) Name() string {

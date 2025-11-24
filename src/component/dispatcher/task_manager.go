@@ -295,9 +295,9 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 
 func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
 	childTask, startData := CreateNoMessageTaskAction(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
-		ctx, nil, func(base *TaskActionNoMessageBase) *taskActionAsyncInvoke {
+		ctx, nil, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
 			ta := &taskActionAsyncInvoke{
-				TaskActionNoMessageBase: base,
+				TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, timeout),
 				name:                    name,
 				callable:                invoke,
 			}

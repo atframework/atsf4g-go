@@ -11,6 +11,7 @@ import (
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
+	config "github.com/atframework/atsf4g-go/component-config"
 	db "github.com/atframework/atsf4g-go/component-db"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
@@ -18,7 +19,7 @@ import (
 )
 
 type TaskActionLogin struct {
-	*cd.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
+	cd.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
 
 	isNewPlayer bool
 }
@@ -234,7 +235,6 @@ func (t *TaskActionLogin) OnSuccess() {
 	response_body.VersionType = uint32(user.GetAccountInfo().GetVersionType())
 
 	response_body.HeartbeatInterval = config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetHeartbeat().GetInterval().GetSeconds()
-	response_body.TimezoneBaseTimestamp = config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetTimezoneBaseTimestamp()
 
 	response_body.IsNewUser = t.isNewPlayer
 

@@ -21,7 +21,7 @@ import (
 )
 
 type TaskActionUserGetInfo struct {
-	*component_dispatcher.TaskActionCSBase[*service_protocol.CSUserGetInfoReq, *service_protocol.SCUserGetInfoRsp]
+	component_dispatcher.TaskActionCSBase[*service_protocol.CSUserGetInfoReq, *service_protocol.SCUserGetInfoRsp]
 }
 
 func (t *TaskActionUserGetInfo) Name() string {

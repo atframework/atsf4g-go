@@ -2,6 +2,7 @@ package atframework_component_dispatcher
 
 import (
 	"context"
+	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -20,11 +21,9 @@ func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
 	rd DispatcherImpl,
 	ctx RpcContext,
 	actor *ActorExecutor,
-	createFn func(*TaskActionNoMessageBase) TaskActionType,
+	createFn func(DispatcherImpl, *ActorExecutor, time.Duration) TaskActionType,
 ) (TaskActionType, DispatcherStartData) {
-	ta := createFn(&TaskActionNoMessageBase{
-		TaskActionBase: CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetNomsg().GetTimeout().AsDuration()),
-	})
+	ta := createFn(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetNomsg().GetTimeout().AsDuration())
 	ta.SetImplementation(ta)
 	awaitableContext := rd.CreateAwaitableContext()
 	if !lu.IsNil(ctx) && ctx.GetContext() != nil {
@@ -37,5 +36,11 @@ func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
 		Message:           nil,
 		PrivateData:       nil,
 		MessageRpcContext: awaitableContext,
+	}
+}
+
+func CreateNoMessageTaskActionBase(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) TaskActionNoMessageBase {
+	return TaskActionNoMessageBase{
+		TaskActionBase: CreateTaskActionBase(rd, actor, timeout),
 	}
 }

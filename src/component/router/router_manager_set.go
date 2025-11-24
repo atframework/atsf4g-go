@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync/atomic"
+	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -136,9 +137,9 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		// 创建 AutoSave 任务
 		autoSaveTask, startData := cd.CreateNoMessageTaskAction(
 			d, ctx, nil,
-			func(base *cd.TaskActionNoMessageBase) *TaskActionAutoSaveObjects {
+			func(rd cd.DispatcherImpl, actor *cd.ActorExecutor, timeout time.Duration) *TaskActionAutoSaveObjects {
 				ta := TaskActionAutoSaveObjects{
-					TaskActionNoMessageBase: base,
+					TaskActionNoMessageBase: cd.CreateNoMessageTaskActionBase(rd, actor, timeout),
 					manager:                 set,
 				}
 				return &ta
@@ -206,9 +207,9 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	// 创建并启动closing_task
 	closingTask, startData := cd.CreateNoMessageTaskAction(
 		d, ctx, nil,
-		func(base *cd.TaskActionNoMessageBase) *TaskActionRouterCloseManagerSet {
+		func(rd cd.DispatcherImpl, actor *cd.ActorExecutor, timeout time.Duration) *TaskActionRouterCloseManagerSet {
 			ta := TaskActionRouterCloseManagerSet{
-				TaskActionNoMessageBase: base,
+				TaskActionNoMessageBase: cd.CreateNoMessageTaskActionBase(rd, actor, timeout),
 				manager:                 set,
 				pendingList:             pendingList,
 			}

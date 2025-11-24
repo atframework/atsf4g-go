@@ -3,6 +3,8 @@ package atframework_component_user_controller_action
 import (
 	// libatapp "github.com/atframework/libatapp-go"
 
+	"time"
+
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 
@@ -12,7 +14,7 @@ import (
 )
 
 type TaskActionUserLogout struct {
-	*cd.TaskActionNoMessageBase
+	cd.TaskActionNoMessageBase
 
 	user    uc.UserImpl
 	session *uc.Session
@@ -64,9 +66,9 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 
 	logoutTask, startData := cd.CreateNoMessageTaskAction(
 		rd, ctx, userImpl.GetActorExecutor(),
-		func(base *cd.TaskActionNoMessageBase) *TaskActionUserLogout {
+		func(rd cd.DispatcherImpl, actor *cd.ActorExecutor, timeout time.Duration) *TaskActionUserLogout {
 			ta := TaskActionUserLogout{
-				TaskActionNoMessageBase: base,
+				TaskActionNoMessageBase: cd.CreateNoMessageTaskActionBase(rd, actor, timeout),
 				user:                    userImpl,
 				session:                 session,
 			}

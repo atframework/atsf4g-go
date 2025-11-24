@@ -62,13 +62,25 @@ type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] str
 	responseBody  ResponseType
 }
 
-func CreateCSTaskAction[RequestType proto.Message, ResponseType proto.Message](
+func CreateCSTaskAction(
 	ctx RpcContext,
 	rd DispatcherImpl,
 	session TaskActionCSSession,
 	rpcDescriptor protoreflect.MethodDescriptor,
-	createFn func(*TaskActionCSBase[RequestType, ResponseType]) TaskActionImpl,
+	createFn func(RpcContext, DispatcherImpl, TaskActionCSSession, protoreflect.MethodDescriptor) TaskActionImpl,
 ) TaskActionImpl {
+	ret := createFn(ctx, rd, session, rpcDescriptor)
+	ret.SetImplementation(ret)
+	libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).InsertTaskAction(ctx, ret)
+	return ret
+}
+
+func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Message](
+	ctx RpcContext,
+	rd DispatcherImpl,
+	session TaskActionCSSession,
+	rpcDescriptor protoreflect.MethodDescriptor,
+) TaskActionCSBase[RequestType, ResponseType] {
 	var user TaskActionCSUser = nil
 	var actor *ActorExecutor = nil
 	if !lu.IsNil(session) {
@@ -80,17 +92,14 @@ func CreateCSTaskAction[RequestType proto.Message, ResponseType proto.Message](
 
 	// 创建RequestType的零值实例
 	requestBodyType := reflect.TypeOf((*RequestType)(nil)).Elem().Elem()
-	ret := createFn(&TaskActionCSBase[RequestType, ResponseType]{
+	return TaskActionCSBase[RequestType, ResponseType]{
 		TaskActionBase: CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
 		session:        session,
 		user:           user,
 		rpcDescriptor:  rpcDescriptor,
 		requestHead:    nil,
 		requestBody:    reflect.New(requestBodyType).Interface().(RequestType),
-	})
-	ret.SetImplementation(ret)
-	libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).InsertTaskAction(ctx, ret)
-	return ret
+	}
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {

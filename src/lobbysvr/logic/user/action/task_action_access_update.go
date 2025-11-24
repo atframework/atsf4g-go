@@ -15,7 +15,7 @@ import (
 )
 
 type TaskActionAccessUpdate struct {
-	*component_dispatcher.TaskActionCSBase[*service_protocol.CSAccessUpdateReq, *service_protocol.SCAccessUpdateRsp]
+	component_dispatcher.TaskActionCSBase[*service_protocol.CSAccessUpdateReq, *service_protocol.SCAccessUpdateRsp]
 }
 
 func (t *TaskActionAccessUpdate) Name() string {

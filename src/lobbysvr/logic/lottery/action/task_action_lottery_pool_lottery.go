@@ -12,7 +12,7 @@ import (
 )
 
 type TaskActionLotteryPoolLottery struct {
-	*component_dispatcher.TaskActionCSBase[*service_protocol.CSLotteryPoolLotteryReq, *service_protocol.SCLotteryPoolLotteryRsp]
+	component_dispatcher.TaskActionCSBase[*service_protocol.CSLotteryPoolLotteryReq, *service_protocol.SCLotteryPoolLotteryRsp]
 }
 
 func (t *TaskActionLotteryPoolLottery) Name() string {

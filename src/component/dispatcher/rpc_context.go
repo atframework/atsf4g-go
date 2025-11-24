@@ -36,7 +36,6 @@ type RpcContext interface {
 	SetContext(ctx context.Context)
 	SetCancelFn(cancelFn context.CancelFunc)
 	SetContextCancelFn(ctx context.Context, cancelFn context.CancelFunc)
-	SetTaskAction(action TaskActionImpl)
 
 	// ====================== 通用日志接口 =========================
 
@@ -115,10 +114,6 @@ func (ctx *RpcContextImpl) SetCancelFn(cancelFn context.CancelFunc) {
 func (ctx *RpcContextImpl) SetContextCancelFn(c context.Context, cancelFn context.CancelFunc) {
 	ctx.rpcContext = c
 	ctx.cancelFn = cancelFn
-}
-
-func (ctx *RpcContextImpl) SetTaskAction(action TaskActionImpl) {
-	ctx.taskAction = action
 }
 
 // ====================== 通用日志接口 =========================

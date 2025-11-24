@@ -201,7 +201,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 		}
 		return err
 	}
-	awaitableContext.SetTaskAction(action)
+	awaitableContext.BindAction(action)
 
 	err = libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), dispatcher.impl.GetApp()).StartTaskAction(awaitableContext, action, startData)
 	if err != nil {
