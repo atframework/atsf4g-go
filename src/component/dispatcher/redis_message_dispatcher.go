@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"unsafe"
 
 	"sync/atomic"
 
@@ -194,7 +193,7 @@ func (d *RedisMessageDispatcher) GetRedisInstance() *redis.Client {
 
 func (d *RedisMessageDispatcher) CreateDispatcherAwaitOptions() *DispatcherAwaitOptions {
 	return &DispatcherAwaitOptions{
-		Type:     uint64(uintptr(unsafe.Pointer(d))),
+		Type:     d.GetInstanceIdent(),
 		Sequence: d.sequence.Add(1),
 		Timeout:  time.Duration(0),
 	}

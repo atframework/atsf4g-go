@@ -367,6 +367,10 @@ func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
 		return CreateRpcResultOk()
 	}
 
+	if currentTask.GetTaskId() == waitingTask.GetTaskId() {
+		return CreateRpcResultOk()
+	}
+
 	_, result := YieldTaskAction(ctx, currentTask, &DispatcherAwaitOptions{
 		Type:     uint64(uintptr(unsafe.Pointer(&currentTask))),
 		Sequence: waitingTask.GetTaskId(),
