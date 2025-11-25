@@ -6,7 +6,7 @@ import (
 
 // RouterTimer 路由定时器
 type RouterTimer struct {
-	ObjWatcher RouterObject // 路由对象
+	ObjWatcher RouterObjectImpl // 路由对象
 	TypeID     uint32
 
 	Timeout       int64  // 超时时间戳

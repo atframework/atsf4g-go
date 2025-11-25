@@ -70,6 +70,10 @@ func (u *User) IsWriteable() bool {
 	return u.isLoginInited
 }
 
+func (u *User) CanBeWriteable() bool {
+	return true
+}
+
 func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
 		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId),
@@ -132,9 +136,8 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) 
 }
 
 func init() {
-	uc.GlobalUserManager.SetCreateUserCallback(func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) uc.UserImpl {
-		ret := createUser(ctx, zoneId, userId, openId)
-		return ret
+	uc.SetCreateUserImplFn(func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) uc.UserImpl {
+		return createUser(ctx, zoneId, userId, openId)
 	})
 }
 

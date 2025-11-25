@@ -20,9 +20,12 @@ replace github.com/xresloader/xresloader => ../../../third_party/xresloader/prot
 
 replace github.com/xresloader/xres-code-generator => ../../../third_party/xresloader/protocols/code
 
+replace github.com/atframework/atsf4g-go/component-router => ../router
+
 require (
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-router v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 )
 
@@ -38,7 +41,7 @@ require (
 	github.com/redis/go-redis/v9 v9.16.0 // indirect
 	github.com/xresloader/xres-code-generator v0.0.0-00010101000000-000000000000 // indirect
 	github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
 	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

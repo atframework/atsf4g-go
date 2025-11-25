@@ -96,7 +96,7 @@ func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext
 			return nil
 		}
 		t.status.actionRemoveObjectCount.Add(1)
-		result := mgr.RemoveObject(ctx, data.Object.GetKey(), data.Object, nil)
+		result := mgr.InnerRemoveObject(ctx, data.Object.GetKey(), data.Object, nil)
 		// 失败且期间未升级或mutable_object()，下次重试的时候也要走降级流程
 		if result.IsError() && data.Object.CheckFlag(FlagSchedRemoveObject) {
 			data.Object.SetFlag(FlagForceRemoveObject)
@@ -125,7 +125,7 @@ func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext
 			return nil
 		}
 		t.status.actionRemoveCacheCount.Add(1)
-		result := mgr.RemoveCache(ctx, data.Object.GetKey(), data.Object, nil)
+		result := mgr.InnerRemoveCache(ctx, data.Object.GetKey(), data.Object, nil)
 		return &result
 	default:
 		return nil

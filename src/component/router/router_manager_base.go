@@ -17,18 +17,25 @@ type RouterManagerBaseImpl interface {
 	IsClosing() bool
 	OnStop()
 
+	InnerMutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObjectImpl, cd.RpcResult)
+	InnerMutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObjectImpl, cd.RpcResult)
+	InnerRemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObjectImpl, privData RouterPrivateData) cd.RpcResult
+	InnerRemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObjectImpl, privData RouterPrivateData) cd.RpcResult
+
 	//////////////////////////// 待实现接口 ////////////////////////////
-	MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult)
-	MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult)
-	RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData) cd.RpcResult
-	RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, obj RouterObject, privData RouterPrivateData) cd.RpcResult
+	OnRemoveObject(ctx cd.RpcContext, key RouterObjectKey, obj RouterObjectImpl, privData RouterPrivateData)
+	OnRemoveCache(ctx cd.RpcContext, key RouterObjectKey, obj RouterObjectImpl, privData RouterPrivateData)
+	OnObjectRemoved(ctx cd.RpcContext, key RouterObjectKey, obj RouterObjectImpl, privData RouterPrivateData)
+	OnCacheRemoved(ctx cd.RpcContext, key RouterObjectKey, obj RouterObjectImpl, privData RouterPrivateData)
+	OnPullObject(ctx cd.RpcContext, obj RouterObjectImpl, privData RouterPrivateData)
+	OnPullCache(ctx cd.RpcContext, cache RouterObjectImpl, privData RouterPrivateData)
 
 	////////////////////////////
 	IsAutoMutableObject() bool
 	IsAutoMutableCache() bool
 	GetDefaultRouterServerID(RouterObjectKey) uint64
 	PullOnlineServer(ctx cd.AwaitableContext, key RouterObjectKey) (svrId uint64, svrVer uint64, result cd.RpcResult)
-	GetBaseCache(key RouterObjectKey) RouterObject
+	GetBaseCache(key RouterObjectKey) RouterObjectImpl
 	Size() int
 }
 

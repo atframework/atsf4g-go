@@ -109,6 +109,7 @@ enum EnItemChgSubType {
 enum EnCloseReasonType {
   EN_CRT_UNKNOWN = 0;
   // 0x00 - 0x100 是atgateway内部的网络层可重连关闭原因
+  EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE = 7 [(error_code.description) = "服务器主动下发关闭"];
   // 0x10000 - 0x10100 是atgateway内部的网络层不可重连关闭原因
 
   // 0x20000 == 131072
@@ -124,6 +125,11 @@ enum EnCloseReasonType {
   // 0x40000 == 262144
   // 0x40000 - 0x50000 是自定义网络层不可重连，逻辑层不可重连关闭原因
   EN_CRT_LOGIN_BAN = 262145;  // 封号
+}
+
+enum EnRouterObjectType {
+  EN_ROT_INVALID = 0;
+  EN_ROT_PLAYER = 1;
 }
 
 // error code
@@ -190,6 +196,8 @@ enum EnErrorCode {
                                          [(error_code.description) = "对象版本号禁止拉取"];
   EN_ERR_ROUTER_NOT_FOUND = -156
                             [(error_code.description) = "路由信息找不到"];
+  EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE = -157
+                                        [(error_code.description) = "路由对象不可写"];
   // openapi
   EN_ERR_OPENAPI_LIMIT = -201
                          [(error_code.description) = "openapi调用频率限制"];

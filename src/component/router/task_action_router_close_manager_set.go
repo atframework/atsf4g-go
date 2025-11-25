@@ -12,7 +12,7 @@ type TaskActionRouterCloseManagerSet struct {
 	cd.TaskActionNoMessageBase
 
 	manager     *RouterManagerSet
-	pendingList []RouterObject
+	pendingList []RouterObjectImpl
 	status      routerCloseStatus
 }
 
@@ -76,7 +76,7 @@ func (t *TaskActionRouterCloseManagerSet) Run(_startData *cd.DispatcherStartData
 	return nil
 }
 
-func (t *TaskActionRouterCloseManagerSet) processClosingObject(ctx cd.AwaitableContext, obj RouterObject) {
+func (t *TaskActionRouterCloseManagerSet) processClosingObject(ctx cd.AwaitableContext, obj RouterObjectImpl) {
 	// 已降级或不是实体，不需要保存
 	if !obj.CheckFlag(FlagIsObject) {
 		return
@@ -92,7 +92,7 @@ func (t *TaskActionRouterCloseManagerSet) processClosingObject(ctx cd.AwaitableC
 		return
 	}
 	// 降级的时候会保存
-	result := mgr.RemoveObject(ctx, obj.GetKey(), obj, nil)
+	result := mgr.InnerRemoveObject(ctx, obj.GetKey(), obj, nil)
 	if t.IsFault() || t.IsTimeout() {
 		t.status.failedCount.Add(1)
 		t.LogError("router close task save router object failed",
@@ -129,7 +129,7 @@ func (t *TaskActionRouterCloseManagerSet) saveFallback(ctx cd.AwaitableContext) 
 		if mgr.GetBaseCache(obj.GetKey()) != obj {
 			continue
 		}
-		mgr.RemoveObject(ctx, obj.GetKey(), obj, nil)
+		mgr.InnerRemoveObject(ctx, obj.GetKey(), obj, nil)
 		t.LogWarn("router close task fallback save issued", "object", obj, "result", "unknown")
 	}
 }

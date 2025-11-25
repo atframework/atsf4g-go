@@ -49,7 +49,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 
 	zoneId := t.GetDispatcher().GetApp().GetLogicId()
 
-	user := uc.UserManagerFindUserAs[*data.User](uc.GlobalUserManager, zoneId, userId)
+	user := uc.UserManagerFindUserAs[*data.User](t.GetRpcContext(), t.GetDispatcher().GetApp(), zoneId, userId)
 	if !t.checkExistedUser(user) {
 		return nil
 	}

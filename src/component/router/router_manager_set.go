@@ -28,7 +28,7 @@ const (
 type PendingActionData struct {
 	Action AutoSaveActionType
 	TypeID uint32
-	Object RouterObject
+	Object RouterObjectImpl
 }
 
 // RouterManagerSet 路由管理器集合
@@ -55,8 +55,12 @@ func init() {
 	var _ libatapp.AppModuleImpl = (*RouterManagerSet)(nil)
 }
 
-// NewRouterManagerSet 创建路由管理器集合
-func NewRouterManagerSet(app libatapp.AppImpl) *RouterManagerSet {
+func GetReflectTypeRouterManagerSet() reflect.Type {
+	return routerManagerSetReflectType
+}
+
+// CreateRouterManagerSet 创建路由管理器集合
+func CreateRouterManagerSet(app libatapp.AppImpl) *RouterManagerSet {
 	ret := &RouterManagerSet{
 		AppModuleBase: libatapp.CreateAppModuleBase(app),
 		timers: TimerSet{
@@ -170,7 +174,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	// 准备启动清理任务
 	// 收集所有待保存的对象
 	recheckSet := make(map[RouterObjectKey]struct{})
-	pendingList := make([]RouterObject, 0)
+	pendingList := make([]RouterObjectImpl, 0)
 
 	timerLists := []*list.List{set.timers.DefaultTimerList, set.timers.FastTimerList}
 	for _, curList := range timerLists {
@@ -249,7 +253,7 @@ func (set *RouterManagerSet) ForceClose(ctx cd.RpcContext) {
 }
 
 // insertTimer 插入定时器
-func (set *RouterManagerSet) insertTimer(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObject, isFast bool) bool {
+func (set *RouterManagerSet) insertTimer(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObjectImpl, isFast bool) bool {
 	if set.lastProcTime <= 0 {
 		return false
 	}
@@ -325,24 +329,6 @@ func (set *RouterManagerSet) RegisterManager(mgr RouterManagerBaseImpl) error {
 	return nil
 }
 
-// UnregisterManager 注销管理器
-func (set *RouterManagerSet) UnregisterManager(mgr RouterManagerBaseImpl) error {
-	if mgr == nil {
-		return fmt.Errorf("manager is nil")
-	}
-
-	typeID := mgr.GetTypeID()
-	if int(typeID) >= len(set.mgrs) {
-		return fmt.Errorf("router %s has invalid type id %d", mgr.Name(), typeID)
-	}
-
-	if set.mgrs[typeID] == mgr {
-		set.mgrs[typeID] = nil
-	}
-
-	return nil
-}
-
 // Size 获取总缓存数量
 func (set *RouterManagerSet) Size() int {
 	ret := 0
@@ -355,7 +341,7 @@ func (set *RouterManagerSet) Size() int {
 }
 
 // AddSaveSchedule 添加保存计划
-func (set *RouterManagerSet) AddSaveSchedule(ctx cd.RpcContext, obj RouterObject) bool {
+func (set *RouterManagerSet) AddSaveSchedule(ctx cd.RpcContext, obj RouterObjectImpl) bool {
 	if lu.IsNil(obj) {
 		return false
 	}
@@ -379,7 +365,7 @@ func (set *RouterManagerSet) AddSaveSchedule(ctx cd.RpcContext, obj RouterObject
 }
 
 // AddDowngradeSchedule 添加降级计划
-func (set *RouterManagerSet) AddDowngradeSchedule(ctx cd.RpcContext, obj RouterObject) bool {
+func (set *RouterManagerSet) AddDowngradeSchedule(ctx cd.RpcContext, obj RouterObjectImpl) bool {
 	if lu.IsNil(obj) {
 		return false
 	}
@@ -404,7 +390,7 @@ func (set *RouterManagerSet) AddDowngradeSchedule(ctx cd.RpcContext, obj RouterO
 }
 
 // MarkFastSave 标记快速保存
-func (set *RouterManagerSet) MarkFastSave(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObject) bool {
+func (set *RouterManagerSet) MarkFastSave(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObjectImpl) bool {
 	if lu.IsNil(obj) || lu.IsNil(mgr) {
 		return false
 	}

@@ -67,7 +67,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 
 	// 老用户登入锁
-	user := uc.UserManagerFindUserAs[*data.User](uc.GlobalUserManager, zoneId, userId)
+	user := uc.UserManagerFindUserAs[*data.User](t.GetRpcContext(), t.GetDispatcher().GetApp(), zoneId, userId)
 	if !t.checkExistedUser(user) {
 		return nil
 	}
@@ -120,7 +120,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	t.mergeLoginInfo(loginTb, userId)
 
 	user, result = uc.UserManagerCreateUserAs(
-		t.GetAwaitableContext(), uc.GlobalUserManager, zoneId, userId, request_body.GetOpenId(),
+		t.GetAwaitableContext().GetApp(), t.GetAwaitableContext(), zoneId, userId, request_body.GetOpenId(),
 		loginTb, loginTbVersion, loginCASVersion, func(user *data.User) cd.RpcResult {
 			if user == nil {
 				return cd.CreateRpcResultError(

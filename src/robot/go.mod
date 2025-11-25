@@ -37,7 +37,7 @@ require (
 	github.com/xresloader/xres-code-generator v0.0.0-00010101000000-000000000000 // indirect
 	github.com/xresloader/xresloader v0.0.0-00010101000000-000000000000 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

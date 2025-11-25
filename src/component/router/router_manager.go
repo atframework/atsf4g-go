@@ -9,9 +9,10 @@ import (
 	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	libatapp "github.com/atframework/libatapp-go"
 )
 
-type RouterManager[T RouterObject, PrivData RouterPrivateData] struct {
+type RouterManager[T RouterObjectImpl, PrivData RouterPrivateData] struct {
 	RouterManagerBase
 
 	cacheFactory RouterCacheFactory[T]
@@ -27,19 +28,19 @@ type RouterManager[T RouterObject, PrivData RouterPrivateData] struct {
 	onPullObject    RouterPullHandler[T, PrivData]
 }
 
-type RouterCacheFactory[T RouterObject] func(key RouterObjectKey) T
+type RouterCacheFactory[T RouterObjectImpl] func(ctx cd.RpcContext, key RouterObjectKey) T
 
-type RouterRemoveHandler[T RouterObject, PrivData RouterPrivateData] func(ctx cd.AwaitableContext, manager *RouterManager[T, PrivData], key RouterObjectKey, cache T, priv PrivData) cd.RpcResult
+type RouterRemoveHandler[T RouterObjectImpl, PrivData RouterPrivateData] func(ctx cd.RpcContext, manager *RouterManager[T, PrivData], key RouterObjectKey, cache T, priv PrivData) cd.RpcResult
 
-type RouterPullHandler[T RouterObject, PrivData RouterPrivateData] func(ctx cd.AwaitableContext, manager *RouterManager[T, PrivData], cache T, priv PrivData) cd.RpcResult
+type RouterPullHandler[T RouterObjectImpl, PrivData RouterPrivateData] func(ctx cd.RpcContext, manager *RouterManager[T, PrivData], cache T, priv PrivData) cd.RpcResult
 
-func CreateRouterManager[T RouterObject, PrivData RouterPrivateData](name string, typeID uint32, factory RouterCacheFactory[T]) *RouterManager[T, PrivData] {
+func CreateRouterManager[T RouterObjectImpl, PrivData RouterPrivateData](app libatapp.AppImpl, name string, typeID public_protocol_pbdesc.EnRouterObjectType, factory RouterCacheFactory[T], impl RouterManagerBaseImpl) *RouterManager[T, PrivData] {
 	manager := &RouterManager[T, PrivData]{
-		RouterManagerBase: CreateRouterManagerBase(name, typeID),
+		RouterManagerBase: CreateRouterManagerBase(name, uint32(typeID)),
 		cacheFactory:      factory,
 		caches:            make(map[RouterObjectKey]T),
 	}
-	manager.RouterManagerBase.impl = manager
+	manager.RouterManagerBase.impl = impl
 	return manager
 }
 
@@ -50,7 +51,7 @@ func (manager *RouterManager[T, PrivData]) OnStop() {
 	}
 }
 
-func (manager *RouterManager[T, PrivData]) GetBaseCache(key RouterObjectKey) RouterObject {
+func (manager *RouterManager[T, PrivData]) GetBaseCache(key RouterObjectKey) RouterObjectImpl {
 	manager.cachesMu.RLock()
 	defer manager.cachesMu.RUnlock()
 	if cache, ok := manager.caches[key]; ok {
@@ -60,12 +61,20 @@ func (manager *RouterManager[T, PrivData]) GetBaseCache(key RouterObjectKey) Rou
 }
 
 func (manager *RouterManager[T, PrivData]) GetCache(key RouterObjectKey) T {
+	if manager == nil {
+		var zero T
+		return zero
+	}
 	manager.cachesMu.RLock()
 	defer manager.cachesMu.RUnlock()
 	return manager.caches[key]
 }
 
 func (manager *RouterManager[T, PrivData]) GetObject(ctx cd.RpcContext, key RouterObjectKey) T {
+	if manager == nil {
+		var zero T
+		return zero
+	}
 	manager.cachesMu.RLock()
 	defer manager.cachesMu.RUnlock()
 	obj := manager.caches[key]
@@ -80,25 +89,49 @@ func (manager *RouterManager[T, PrivData]) Size() int {
 	return len(manager.caches)
 }
 
-func (manager *RouterManager[T, PrivData]) MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult) {
+func (manager *RouterManager[T, PrivData]) MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData) (T, cd.RpcResult) {
+	guard := IoTaskGuard{}
+	defer guard.ResumeAwaitTask(ctx)
+	return manager.MutableCacheWithGuard(ctx, key, privData, &guard)
+}
+
+func (manager *RouterManager[T, PrivData]) MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData) (T, cd.RpcResult) {
+	guard := IoTaskGuard{}
+	defer guard.ResumeAwaitTask(ctx)
+	return manager.MutableObjectWithGuard(ctx, key, privData, &guard)
+}
+
+func (manager *RouterManager[T, PrivData]) RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) cd.RpcResult {
+	guard := IoTaskGuard{}
+	defer guard.ResumeAwaitTask(ctx)
+	return manager.RemoveCacheWithGuard(ctx, key, cache, privData, &guard)
+}
+
+func (manager *RouterManager[T, PrivData]) RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) cd.RpcResult {
+	guard := IoTaskGuard{}
+	defer guard.ResumeAwaitTask(ctx)
+	return manager.RemoveObjectWithGuard(ctx, key, cache, privData, &guard)
+}
+
+func (manager *RouterManager[T, PrivData]) InnerMutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObjectImpl, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
 	return manager.MutableCacheWithGuard(ctx, key, privData.(PrivData), &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) MutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObject, cd.RpcResult) {
+func (manager *RouterManager[T, PrivData]) InnerMutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObjectImpl, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
 	return manager.MutableObjectWithGuard(ctx, key, privData.(PrivData), &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) RemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData RouterPrivateData) cd.RpcResult {
+func (manager *RouterManager[T, PrivData]) InnerRemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData RouterPrivateData) cd.RpcResult {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
 	return manager.RemoveCacheWithGuard(ctx, key, cache, privData.(PrivData), &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) RemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData RouterPrivateData) cd.RpcResult {
+func (manager *RouterManager[T, PrivData]) InnerRemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData RouterPrivateData) cd.RpcResult {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
 	return manager.RemoveObjectWithGuard(ctx, key, cache, privData.(PrivData), &guard)
@@ -110,7 +143,7 @@ func (manager *RouterManager[T, PrivData]) MutableCacheWithGuard(ctx cd.Awaitabl
 		leftTTL = 1
 	}
 	for ; leftTTL > 0; leftTTL-- {
-		cache := manager.ensureCache(key)
+		cache := manager.ensureCache(ctx, key)
 		if lu.IsNil(cache) {
 			var zero T
 			return zero, cd.CreateRpcResultError(fmt.Errorf("create cache failed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
@@ -153,7 +186,7 @@ func (manager *RouterManager[T, PrivData]) MutableObjectWithGuard(ctx cd.Awaitab
 		leftTTL = 1
 	}
 	for ; leftTTL > 0; leftTTL-- {
-		cache := manager.ensureCache(key)
+		cache := manager.ensureCache(ctx, key)
 		if lu.IsNil(cache) {
 			var zero T
 			return zero, cd.CreateRpcResultError(fmt.Errorf("create cache failed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
@@ -200,7 +233,7 @@ func (manager *RouterManager[T, PrivData]) MutableObjectWithGuard(ctx cd.Awaitab
 	return zero, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_TTL_EXTEND)
 }
 
-func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData PrivData, guard *IoTaskGuard) cd.RpcResult {
+func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData PrivData, guard *IoTaskGuard) cd.RpcResult {
 	var managerCache T
 	{
 		if !lu.IsNil(cache) {
@@ -252,7 +285,7 @@ func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.Awaitable
 	return cd.CreateRpcResultOk()
 }
 
-func (manager *RouterManager[T, PrivData]) RemoveObjectWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObject, privData PrivData, guard *IoTaskGuard) cd.RpcResult {
+func (manager *RouterManager[T, PrivData]) RemoveObjectWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData PrivData, guard *IoTaskGuard) cd.RpcResult {
 	var managerCache T
 	if lu.IsNil(cache) {
 		managerCache = manager.GetCache(key)
@@ -292,7 +325,7 @@ func (manager *RouterManager[T, PrivData]) RenewCache(ctx cd.AwaitableContext, k
 	return manager.MutableCacheWithGuard(ctx, key, privData, &guard)
 }
 
-func (manager *RouterManager[T, PrivData]) ensureCache(key RouterObjectKey) T {
+func (manager *RouterManager[T, PrivData]) ensureCache(ctx cd.RpcContext, key RouterObjectKey) T {
 	manager.cachesMu.RLock()
 	cache, ok := manager.caches[key]
 	manager.cachesMu.RUnlock()
@@ -305,7 +338,7 @@ func (manager *RouterManager[T, PrivData]) ensureCache(key RouterObjectKey) T {
 		return zero
 	}
 
-	newCache := manager.cacheFactory(key)
+	newCache := manager.cacheFactory(ctx, key)
 	manager.cachesMu.Lock()
 	if _, exists := manager.caches[key]; exists {
 		newCache = manager.caches[key]
@@ -388,42 +421,48 @@ func (manager *RouterManager[T, PrivData]) SetOnPullObject(fn RouterPullHandler[
 	manager.onPullObject = fn
 }
 
-func (manager *RouterManager[T, PrivData]) invokeRemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) {
+func (manager *RouterManager[T, PrivData]) invokeRemoveCache(ctx cd.RpcContext, key RouterObjectKey, cache T, privData PrivData) {
+	manager.impl.OnRemoveCache(ctx, key, cache, privData)
 	if manager.onRemoveCache == nil {
 		return
 	}
 	_ = manager.onRemoveCache(ctx, manager, key, cache, privData)
 }
 
-func (manager *RouterManager[T, PrivData]) invokeCacheRemoved(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) {
+func (manager *RouterManager[T, PrivData]) invokeCacheRemoved(ctx cd.RpcContext, key RouterObjectKey, cache T, privData PrivData) {
+	manager.impl.OnCacheRemoved(ctx, key, cache, privData)
 	if manager.onCacheRemoved == nil {
 		return
 	}
 	_ = manager.onCacheRemoved(ctx, manager, key, cache, privData)
 }
 
-func (manager *RouterManager[T, PrivData]) invokeRemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) {
+func (manager *RouterManager[T, PrivData]) invokeRemoveObject(ctx cd.RpcContext, key RouterObjectKey, cache T, privData PrivData) {
+	manager.impl.OnRemoveObject(ctx, key, cache, privData)
 	if manager.onRemoveObject == nil {
 		return
 	}
 	_ = manager.onRemoveObject(ctx, manager, key, cache, privData)
 }
 
-func (manager *RouterManager[T, PrivData]) invokeObjectRemoved(ctx cd.AwaitableContext, key RouterObjectKey, cache T, privData PrivData) {
+func (manager *RouterManager[T, PrivData]) invokeObjectRemoved(ctx cd.RpcContext, key RouterObjectKey, cache T, privData PrivData) {
+	manager.impl.OnObjectRemoved(ctx, key, cache, privData)
 	if manager.onObjectRemoved == nil {
 		return
 	}
 	_ = manager.onObjectRemoved(ctx, manager, key, cache, privData)
 }
 
-func (manager *RouterManager[T, PrivData]) invokePullCache(ctx cd.AwaitableContext, cache T, privData PrivData) {
+func (manager *RouterManager[T, PrivData]) invokePullCache(ctx cd.RpcContext, cache T, privData PrivData) {
+	manager.impl.OnPullCache(ctx, cache, privData)
 	if manager.onPullCache == nil {
 		return
 	}
 	_ = manager.onPullCache(ctx, manager, cache, privData)
 }
 
-func (manager *RouterManager[T, PrivData]) invokePullObject(ctx cd.AwaitableContext, cache T, privData PrivData) {
+func (manager *RouterManager[T, PrivData]) invokePullObject(ctx cd.RpcContext, cache T, privData PrivData) {
+	manager.impl.OnPullObject(ctx, cache, privData)
 	if manager.onPullObject == nil {
 		return
 	}

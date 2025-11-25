@@ -39,6 +39,7 @@ type TaskActionCSSession interface {
 type TaskActionCSUser interface {
 	GetUserId() uint64
 	GetZoneId() uint32
+	GetOpenId() string
 
 	GetSession() TaskActionCSSession
 	GetCsActorLogWriter() libatapp.LogWriter

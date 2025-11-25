@@ -2,7 +2,6 @@ package atframework_component_router
 
 import (
 	"container/list"
-	"log/slog"
 	"runtime"
 	"unsafe"
 
@@ -39,16 +38,16 @@ const (
 )
 
 type RouterObjectBase struct {
-	impl RouterObject // 实现对象接口
+	impl RouterObjectImpl // 实现对象接口
 
 	key   RouterObjectKey // 对象的键
 	flags int32           // 标志位
 
-	lastSaveTime  int64  // 最后一次保存时间
-	lastVisitTime int64  // 最后一次访问时间
-	routerSvrID   uint64 // 路由服务器ID
-	routerSvrName string // 路由服务器名称
-	routerSvrVer  uint64 // 路由服务器版本
+	lastSaveTime  int64 // 最后一次保存时间
+	lastVisitTime int64 // 最后一次访问时间
+
+	routerSvrID  uint64 // 路由服务器ID
+	routerSvrVer uint64 // 路由服务器版本
 
 	savingSequence      uint64            // 保存序列
 	savedSequence       uint64            // 已保存序列
@@ -80,6 +79,7 @@ func (g *FlagGuard) Release() {
 }
 
 type RouterPrivateData interface {
+	RouterPrivateDataImpl() // 标记接口
 }
 
 type RouterObjectBaseImpl interface {
@@ -100,7 +100,6 @@ type RouterObjectBaseImpl interface {
 	GetRouterSvrId() uint64
 	GetRouterSvrVer() uint64
 	GetKey() RouterObjectKey
-	GetRouterSvrName() string
 
 	// 任务调度相关
 	GetAwaitTaskId() uint64
@@ -123,20 +122,12 @@ type RouterObjectBaseImpl interface {
 	UnsetTimerRef()
 }
 
-type RouterObject interface {
-	PullCache(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult // 存在默认实现
-	PullObject(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult
-	SaveObject(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult
-	LogValue() slog.Value
-	RouterObjectBaseImpl
-}
-
 type IoTaskGuard struct {
 	awaitTaskId uint64
-	owner       RouterObject
+	owner       RouterObjectImpl
 }
 
-func (g *IoTaskGuard) Take(ctx cd.AwaitableContext, obj RouterObject) cd.RpcResult {
+func (g *IoTaskGuard) Take(ctx cd.AwaitableContext, obj RouterObjectImpl) cd.RpcResult {
 	if lu.IsNil(ctx.GetAction()) || ctx.GetAction().GetTaskId() == 0 {
 		ctx.LogError("should in task")
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
@@ -177,19 +168,28 @@ func (g *IoTaskGuard) ResumeAwaitTask(ctx cd.RpcContext) {
 	g.owner.ResumeAwaitTask(ctx)
 }
 
-func CreateRouterObjectBase(ctx cd.RpcContext, key RouterObjectKey) *RouterObjectBase {
-	ret := &RouterObjectBase{
+func CreateRouterObjectBase(ctx cd.RpcContext, key RouterObjectKey) (ret RouterObjectBase) {
+	ret = RouterObjectBase{
 		key: key,
 	}
 	ret.RefreshVisitTime(ctx)
-	runtime.SetFinalizer(ret, func(obj *RouterObjectBase) {
+	runtime.SetFinalizer(&ret, func(obj *RouterObjectBase) {
 		obj.UnsetTimerRef()
 	})
-	return ret
+	return
+}
+
+func (obj *RouterObjectBase) InitRouterObjectImpl(impl RouterObjectImpl) {
+	obj.impl = impl
 }
 
 func (obj *RouterObjectBase) GetRouterObjectBase() *RouterObjectBase {
 	return obj
+}
+
+func (obj *RouterObjectBase) SetRouterServerId(routerServerId uint64, routerServerVersion uint64) {
+	obj.routerSvrID = routerServerId
+	obj.routerSvrVer = routerServerVersion
 }
 
 func (obj *RouterObjectBase) RefreshVisitTime(ctx cd.RpcContext) {
@@ -287,10 +287,6 @@ func (obj *RouterObjectBase) GetRouterSvrId() uint64 {
 
 func (obj *RouterObjectBase) GetKey() RouterObjectKey {
 	return obj.key
-}
-
-func (obj *RouterObjectBase) GetRouterSvrName() string {
-	return obj.routerSvrName
 }
 
 func (obj *RouterObjectBase) GetRouterSvrVer() uint64 {

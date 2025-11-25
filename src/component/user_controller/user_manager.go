@@ -1,118 +1,105 @@
 package atframework_component_user_controller
 
 import (
+	"context"
 	"fmt"
-	"sync"
+	"reflect"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/component-router"
+	libatapp "github.com/atframework/libatapp-go"
 
-	db "github.com/atframework/atsf4g-go/component-db"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 )
 
 type CreateUserCallback func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl
 
+var userManagerReflectType reflect.Type
+
 type UserManager struct {
-	_ noCopy
-
-	userLock sync.RWMutex
-	users    map[uint32]map[uint64]UserImpl
-
-	createUserCallback CreateUserCallback
+	libatapp.AppModuleBase
 }
 
-func createUserManager() *UserManager {
+func init() {
+	userManagerReflectType = reflect.TypeOf((*UserManager)(nil)).Elem()
+	var _ libatapp.AppModuleImpl = (*UserManager)(nil)
+}
+
+func GetReflectTypeUserManager() reflect.Type {
+	return userManagerReflectType
+}
+
+func (m *UserManager) GetReflectType() reflect.Type {
+	return userManagerReflectType
+}
+
+func (m *UserManager) Init(parent context.Context) error {
+	return nil
+}
+
+func CreateUserManager(app libatapp.AppImpl) *UserManager {
 	ret := &UserManager{
-		users: make(map[uint32]map[uint64]UserImpl),
+		AppModuleBase: libatapp.CreateAppModuleBase(app),
 	}
-
-	ret.createUserCallback = func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
-		ret := CreateUserCache(ctx, zoneId, userId, openId)
-		return &ret
-	}
-
 	return ret
 }
 
-var GlobalUserManager = createUserManager()
+func (um *UserManager) Name() string {
+	return "UserManager"
+}
 
-func (um *UserManager) SetCreateUserCallback(callback CreateUserCallback) {
-	if callback != nil {
-		um.createUserCallback = callback
+/////////////////////////////////////////////////////////////////////
+
+func (um *UserManager) Find(ctx cd.RpcContext, zoneID uint32, userID uint64) UserImpl {
+	routerObject := GetUserRouterManager(um.GetApp()).GetObject(ctx, router.RouterObjectKey{
+		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+		ZoneID:   zoneID,
+		ObjectID: userID,
+	})
+	if lu.IsNil(routerObject) {
+		return nil
+	}
+	return routerObject.UserImpl
+}
+
+func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uint64, checked UserImpl, forceKickoff bool) cd.RpcResult {
+	key := router.RouterObjectKey{
+		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+		ZoneID:   zoneID,
+		ObjectID: userID,
+	}
+	cache := GetUserRouterManager(um.GetApp()).GetCache(key)
+	if lu.IsNil(cache) {
+		return cd.CreateRpcResultOk()
+	}
+
+	if !lu.IsNil(checked) && !lu.Compare(cache.UserImpl, checked) {
+		return cd.CreateRpcResultOk()
+	}
+
+	if forceKickoff {
+		return GetUserRouterManager(um.GetApp()).RemoveCache(ctx, router.RouterObjectKey{
+			TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+			ZoneID:   zoneID,
+			ObjectID: userID,
+		}, cache, nil)
+	} else {
+		return GetUserRouterManager(um.GetApp()).RemoveObject(ctx, router.RouterObjectKey{
+			TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+			ZoneID:   zoneID,
+			ObjectID: userID,
+		}, nil, nil)
 	}
 }
 
-func (um *UserManager) replace(ctx cd.RpcContext, u UserImpl) {
-	if u == nil {
-		return
-	}
+func UserManagerFindUserAs[T UserImpl](ctx cd.RpcContext, app libatapp.AppImpl, zoneID uint32, userID uint64) T {
+	um := libatapp.AtappGetModule[*UserManager](GetReflectTypeUserManager(), app)
 
-	um.userLock.RLock()
-	defer um.userLock.RUnlock()
-
-	ctx.LogInfo("user removed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
-
-	uidMap, ok := um.users[u.GetZoneId()]
-	if !ok {
-		m := make(map[uint64]UserImpl)
-		m[u.GetUserId()] = u
-		um.users[u.GetZoneId()] = m
-		return
-	}
-
-	uidMap[u.GetUserId()] = u
-}
-
-func (um *UserManager) Find(zoneID uint32, userID uint64) UserImpl {
-	um.userLock.RLock()
-	defer um.userLock.RUnlock()
-
-	uidMap, ok := um.users[zoneID]
-	if !ok {
-		return nil
-	}
-	user, ok := uidMap[userID]
-	if !ok {
-		return nil
-	}
-	return user
-}
-
-func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uint64, checked UserImpl, _forceKickoff bool) UserImpl {
-	um.userLock.Lock()
-	defer um.userLock.Unlock()
-
-	uidMap, ok := um.users[zoneID]
-	if !ok {
-		return nil
-	}
-	user, ok := uidMap[userID]
-	if !ok {
-		return nil
-	}
-
-	if checked != nil && user != checked {
-		return nil
-	}
-
-	ctx.LogInfo("user removed", "zone_id", zoneID, "user_id", userID)
-	delete(uidMap, userID)
-	if len(uidMap) == 0 {
-		delete(um.users, zoneID)
-	}
-
-	if user.IsWriteable() {
-		um.internalSave(ctx, user)
-	}
-
-	return user
-}
-
-func UserManagerFindUserAs[T UserImpl](um *UserManager, zoneID uint32, userID uint64) T {
-	userImpl := um.Find(zoneID, userID)
-	if userImpl == nil {
+	userImpl := um.Find(ctx, zoneID, userID)
+	if lu.IsNil(userImpl) {
 		var zero T
 		return zero
 	}
@@ -125,70 +112,59 @@ func UserManagerFindUserAs[T UserImpl](um *UserManager, zoneID uint32, userID ui
 	return casted
 }
 
-func UserManagerCreateUserAs[T UserImpl](ctx cd.AwaitableContext,
-	um *UserManager, zoneID uint32, userID uint64, openID string,
+func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableContext,
+	zoneID uint32, userID uint64, openID string,
 	loginTb *private_protocol_pbdesc.DatabaseTableLogin,
 	loginTbVersion uint64, loginCASVersion uint64,
 	tryLockUserResource func(user T) cd.RpcResult,
 	unlockUserResource func(user T),
 ) (T, cd.RpcResult) {
+	um := libatapp.AtappGetModule[*UserManager](GetReflectTypeUserManager(), app)
+	urm := GetUserRouterManager(app)
+
 	var zero T
 	if um == nil || zoneID <= 0 || userID <= 0 || loginTb == nil {
 		return zero, cd.CreateRpcResultError(fmt.Errorf("invalid param"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	// TODO: 托管给路由系统，执行数据库读取
-	u := um.Find(zoneID, userID)
-
-	defer func() {
-		if u != nil && unlockUserResource != nil {
-			unlockUserResource(u.(T))
-		}
-	}()
-
-	var ret T
-	if u == nil {
-		u = um.createUserCallback(ctx, zoneID, userID, openID)
-		if u == nil {
-			return zero, cd.CreateRpcResultError(fmt.Errorf("invalcan not create userid param"), public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_CREATE_PLAYER_FAILED)
-		}
-		convertRet, ok := u.(T)
-		if !ok {
-			return zero, cd.CreateRpcResultError(fmt.Errorf("user type mismatch, zone_id: %d, user_id: %d, type: %T", zoneID, userID, u), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		ret = convertRet
-
-		if tryLockUserResource != nil {
-			result := tryLockUserResource(u.(T))
-			if result.IsError() {
-				unlockUserResource = nil
-				return zero, result
-			}
-		}
-
-		um.replace(ctx, u)
-	} else {
-		convertRet, ok := u.(T)
-		if !ok {
-			return zero, cd.CreateRpcResultError(fmt.Errorf("user type mismatch, zone_id: %d, user_id: %d, type: %T", zoneID, userID, u), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		ret = convertRet
-
-		if tryLockUserResource != nil {
-			result := tryLockUserResource(u.(T))
-			if result.IsError() {
-				unlockUserResource = nil
-				return zero, result
-			}
-		}
+	u := um.Find(ctx, zoneID, userID)
+	if !lu.IsNil(u) {
+		ctx.LogError("already exists, can not create again", "zoneID", zoneID, "userID", userID)
+		return zero, cd.CreateRpcResultError(fmt.Errorf("already exists, can not create again"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
-	result := UserLoadUserTable(ctx, u, loginTb, loginTbVersion)
-	if result.IsError() {
+	cache, result := urm.MutableObject(ctx, router.RouterObjectKey{
+		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+		ZoneID:   zoneID,
+		ObjectID: userID,
+	}, &UserRouterPrivateData{
+		loginTb:         loginTb,
+		loginCASVersion: loginCASVersion,
+		loginTbVersion:  loginTbVersion,
+	})
+
+	if result.IsError() || cache == nil {
 		return zero, result
+	}
+	u = cache.UserImpl
+	convertRet, ok := u.(T)
+	if !ok {
+		return zero, cd.CreateRpcResultError(fmt.Errorf("user type mismatch, zone_id: %d, user_id: %d, type: %T", zoneID, userID, u), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	// 路由系统外逻辑
+	defer func() {
+		if !lu.IsNil(u) && unlockUserResource != nil {
+			unlockUserResource(u.(T))
+		}
+	}()
+	if tryLockUserResource != nil {
+		result := tryLockUserResource(u.(T))
+		if result.IsError() {
+			unlockUserResource = nil
+			return zero, result
+		}
+	}
 
 	// 创建初始化
 	if u.GetLoginVersion() <= 0 {
@@ -201,7 +177,7 @@ func UserManagerCreateUserAs[T UserImpl](ctx cd.AwaitableContext,
 		u.LoadLoginInfo(u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
 		u.SetLoginCASVersion(loginCASVersion)
 
-		result = um.internalSave(ctx, u)
+		result = cache.SaveObject(ctx, nil)
 		if result.IsError() {
 			return zero, result
 		}
@@ -209,165 +185,5 @@ func UserManagerCreateUserAs[T UserImpl](ctx cd.AwaitableContext,
 		u.SetLoginCASVersion(loginCASVersion)
 	}
 
-	return ret, cd.CreateRpcResultOk()
-}
-
-func UserLoadUserTable(ctx cd.AwaitableContext, u UserImpl, loginTb *private_protocol_pbdesc.DatabaseTableLogin, loginTbVersion uint64) cd.RpcResult {
-	if u == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("user should not be nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
-	}
-
-	if loginTb == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
-	}
-
-	userTb, casVersion, err := db.DatabaseTableUserLoadWithZoneIdUserId(ctx, u.GetZoneId(), u.GetUserId())
-	if err.IsError() {
-		if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
-			// 新创建得记录初始化
-			userTb = new(private_protocol_pbdesc.DatabaseTableUser)
-			userTb.AccountData = &private_protocol_pbdesc.AccountInformation{
-				AccountType: loginTb.GetAccount().GetAccountType(),
-				Access:      loginTb.GetAccount().GetAccess(),
-				Profile: &public_protocol_pbdesc.DUserProfile{
-					OpenId: loginTb.GetOpenId(),
-					UserId: u.GetUserId(),
-				},
-				ChannelId:   loginTb.GetAccount().GetChannelId(),
-				VersionType: loginTb.GetAccount().GetVersionType(),
-			}
-			userTb.UserData = &private_protocol_pbdesc.UserData{
-				UserLevel:       1,
-				SessionSequence: 1,
-			}
-			userTb.DataVersion = UserDataCurrentVersion
-		} else {
-			err.LogError(ctx, "load user table from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
-			return err
-		}
-	}
-
-	userTb.OpenId = loginTb.GetOpenId()
-	userTb.ZoneId = u.GetZoneId()
-	userTb.UserId = u.GetUserId()
-
-	ctx.LogInfo("load user table from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId(), "cas_version", casVersion)
-
-	u.SetUserCASVersion(casVersion)
-	// Login Table
-	u.LoadLoginInfo(loginTb, loginTbVersion)
-
-	// Init from DB
-	result := u.InitFromDB(ctx, userTb)
-	if result.IsError() {
-		result.LogError(ctx, "init user from db failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
-		return result
-	}
-	result.LogInfo(ctx, "init user from db success", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
-
-	return cd.CreateRpcResultOk()
-}
-
-func (um *UserManager) internalSave(ctx cd.AwaitableContext, userImpl UserImpl) cd.RpcResult {
-	// TODO: 托管给路由系统
-	if userImpl == nil {
-		return cd.RpcResult{
-			Error:        nil,
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND),
-		}
-	}
-
-	dstTb := &private_protocol_pbdesc.DatabaseTableUser{}
-	result := userImpl.DumpToDB(ctx, dstTb)
-
-	if result.IsError() {
-		result.LogError(ctx, "dump user to db failed", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-		return result
-	}
-
-	// 路由版本号+1
-	routerVersion := userImpl.GetLoginInfo().RouterVersion + 1
-	userImpl.GetLoginInfo().RouterVersion = routerVersion
-
-	userCASVersion := userImpl.GetUserCASVersion()
-	err := db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb, &userCASVersion)
-	userImpl.SetUserCASVersion(userCASVersion)
-	if err.IsError() {
-		userImpl.GetLoginInfo().RouterVersion = routerVersion - 1
-		return err
-	}
-
-	loginCASVersion := userImpl.GetLoginCASVersion()
-	err = db.DatabaseTableLoginUpdateZoneIdUserId(ctx, userImpl.GetLoginInfo(), &loginCASVersion)
-	userImpl.SetLoginCASVersion(loginCASVersion)
-	if err.IsError() {
-		return err
-	}
-
-	if routerVersion > userImpl.GetLoginInfo().RouterVersion {
-		userImpl.GetLoginInfo().RouterVersion = routerVersion
-
-		// 更新Login Table版本号
-		userImpl.LoadLoginInfo(userImpl.GetLoginInfo(), routerVersion)
-	}
-	userImpl.OnSaved(ctx, routerVersion)
-
-	result.LogInfo(ctx, "save user to db success", "zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId())
-	return cd.CreateRpcResultOk()
-}
-
-func (um *UserManager) Save(ctx cd.AwaitableContext, zoneID uint32, userID uint64, checkUser UserImpl) cd.RpcResult {
-	// TODO: 托管给路由系统
-
-	// TODO: 托管给路由对象检查
-	userImpl := um.Find(zoneID, userID)
-	if userImpl == nil {
-		return cd.RpcResult{
-			Error:        nil,
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND),
-		}
-	}
-
-	if checkUser != nil && userImpl != checkUser {
-		return cd.RpcResult{
-			Error:        nil,
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND),
-		}
-	}
-
-	return um.internalSave(ctx, userImpl)
-}
-
-func (um *UserManager) ScheduleImmediateSave(ctx cd.AwaitableContext, zoneID uint32, userID uint64, kickOff bool) cd.RpcResult {
-	// TODO: Implement scheduling logic
-	userImpl := um.Find(zoneID, userID)
-	if userImpl == nil {
-		return cd.RpcResult{
-			Error:        nil,
-			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND),
-		}
-	}
-
-	result := um.Save(ctx, zoneID, userID, userImpl)
-	if result.IsError() {
-		result.LogError(ctx, "scheduled save user failed", "zone_id", zoneID, "user_id", userID)
-		return result
-	}
-
-	if kickOff {
-		cs_session := userImpl.GetSession()
-		if cs_session != nil {
-			session, ok := cs_session.(*Session)
-			if ok && session != nil {
-				GlobalSessionManager.RemoveSession(ctx, session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_SESSION_KICKOFF_BY_SERVER), "scheduled save and kick off")
-			}
-		}
-	}
-
-	return cd.CreateRpcResultOk()
-}
-
-func (um *UserManager) ScheduleQuickSave(ctx cd.AwaitableContext, zoneID uint32, userID uint64, kickOff bool) cd.RpcResult {
-	// TODO: Implement scheduling logic
-	return um.ScheduleImmediateSave(ctx, zoneID, userID, kickOff)
+	return convertRet, cd.CreateRpcResultOk()
 }

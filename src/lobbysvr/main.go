@@ -8,6 +8,7 @@ import (
 	ssc "github.com/atframework/atsf4g-go/component-service_shared_collection"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
 
 	lobbysvr_app "github.com/atframework/atsf4g-go/service-lobbysvr/app"
@@ -15,6 +16,10 @@ import (
 
 func main() {
 	app := ssc.CreateServiceApplication()
+
+	uc.InitUserRouterManager(app)
+	userManager := uc.CreateUserManager(app)
+	atapp.AtappAddModule(app, userManager)
 
 	// CS消息WebSocket分发器
 	csDispatcher := uc_d.WebsocketDispatcherCreateCSMessage(app, "lobbysvr.webserver", "lobbysvr.websocket")

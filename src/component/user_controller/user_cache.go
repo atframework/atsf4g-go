@@ -22,9 +22,17 @@ const (
 type UserImpl interface {
 	cd.TaskActionCSUser
 
+	CanBeWriteable() bool
+	GetUserSession() *Session
 	BindSession(ctx cd.RpcContext, session *Session)
 	UnbindSession(ctx cd.RpcContext, session *Session)
 	AllocSessionSequence() uint64
+
+	// 拉取DB时注册OpenId
+	InitOpenId(openId string)
+
+	// 路由登录成功时更新登录数据
+	UpdateLoginData(ctx cd.RpcContext)
 
 	IsWriteable() bool
 
@@ -109,7 +117,7 @@ type UserCache struct {
 	userCASVersion  uint64
 }
 
-func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserCache {
+func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) (cache UserCache) {
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
 		writer, _ = libatapp.NewlogBufferedRotatingWriter(ctx, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
@@ -120,7 +128,7 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 			writer.Close()
 		})
 	}
-	cache := &UserCache{
+	cache = UserCache{
 		zoneId:        zoneId,
 		userId:        userId,
 		openId:        openId,
@@ -139,8 +147,13 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 		},
 		cs_actor_log_writer: writer,
 	}
-	cache.Impl = cache
-	return *cache
+	cache.Impl = &cache
+	return
+}
+
+func CreateUserImpl(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
+	cache := CreateUserCache(ctx, zoneId, userId, openId)
+	return &cache
 }
 
 func (u *UserCache) Init(actorInstance interface{}) {
@@ -172,6 +185,15 @@ func (u *UserCache) GetZoneId() uint32 {
 	}
 
 	return u.zoneId
+}
+
+func (u *UserCache) InitOpenId(openId string) {
+	u.openId = openId
+	u.account_info_.Mutable(0).MutableProfile().OpenId = openId
+}
+
+func (u *UserCache) CanBeWriteable() bool {
+	return false
 }
 
 func (u *UserCache) GetSession() cd.TaskActionCSSession {
@@ -351,8 +373,6 @@ func (u *UserCache) LoginInit(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
-
-	u.updateLoginData(ctx)
 }
 
 func (u *UserCache) OnLogin(__ctx cd.RpcContext) {
@@ -540,7 +560,7 @@ func (u *UserCache) SetUserCASVersion(version uint64) {
 	u.userCASVersion = version
 }
 
-func (u *UserCache) updateLoginData(ctx cd.RpcContext) {
+func (u *UserCache) UpdateLoginData(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
@@ -551,8 +571,9 @@ func (u *UserCache) updateLoginData(ctx cd.RpcContext) {
 
 	// Patch login table
 	nowSec := ctx.GetSysNow().Unix()
-	// TODO: 有效期来自配置
-	u.loginInfo.LoginCodeExpired = nowSec + int64(20*60) //
+
+	u.loginInfo.LoginCodeExpired = nowSec +
+		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 
 	if u.loginInfo.GetBusinessRegisterTime() <= 0 {
 		u.loginInfo.BusinessRegisterTime = nowSec
