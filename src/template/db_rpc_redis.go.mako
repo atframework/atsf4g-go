@@ -64,7 +64,7 @@ import sys
     }
 %>
 <%include file="db_rpc_redis_load.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta" />
-
+<%include file="db_rpc_redis_del.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta" />
 <%include file="db_rpc_redis_update.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta" />
 
 %	for partly_get in index.partly_get:
