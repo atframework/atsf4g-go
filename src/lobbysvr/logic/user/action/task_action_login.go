@@ -10,6 +10,7 @@ import (
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	libatapp "github.com/atframework/libatapp-go"
 
 	config "github.com/atframework/atsf4g-go/component-config"
 	db "github.com/atframework/atsf4g-go/component-db"
@@ -91,6 +92,9 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		t.replaceSession(user, session)
 		return nil
 	}
+
+	// 如果有缓存要强制失效，因为可能其他地方登入了，这时候也不能复用缓存
+	libatapp.AtappGetModule[*uc.UserManager](uc.GetReflectTypeUserManager(), t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), zoneId, userId, nil, true)
 
 	loginTb, loginCASVersion, result := db.DatabaseTableLoginLoadWithZoneIdUserId(t.GetAwaitableContext(), zoneId, userId)
 	if result.IsError() {
