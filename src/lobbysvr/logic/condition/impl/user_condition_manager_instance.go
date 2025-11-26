@@ -541,10 +541,14 @@ func (m *UserConditionManager) CalculateCounterLimitCfgMaxLeftTimes(limit *publi
 	return minTimes
 }
 
-func (m *UserConditionManager) CheckCounterStaticLimit(ctx cd.RpcContext, now time.Time,
+func (m *UserConditionManager) CheckCounterStaticLimit(ctx cd.RpcContext, now time.Time, offset int64,
 	limit *public_protocol_common.Readonly_DConditionCounterLimit,
 	storage *public_protocol_common.DConditionCounterStorage,
 ) cd.RpcResult {
+	if offset < 0 {
+		offset = 0
+	}
+
 	m.RefreshCounter(ctx, now, limit, storage)
 
 	if limit == nil || storage == nil {
@@ -552,7 +556,7 @@ func (m *UserConditionManager) CheckCounterStaticLimit(ctx cd.RpcContext, now ti
 	}
 
 	// 静态计数器检查
-	if limit.GetSum() > 0 && storage.GetVersionCounter().GetSumCounter() >= limit.GetSum() {
+	if limit.GetSum() > 0 && storage.GetVersionCounter().GetSumCounter()+offset > limit.GetSum() {
 		// 错误码: 计数器总量超限
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_SUM_LIMIT)
 	}
@@ -560,10 +564,14 @@ func (m *UserConditionManager) CheckCounterStaticLimit(ctx cd.RpcContext, now ti
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserConditionManager) CheckCounterDynamicLimit(ctx cd.RpcContext, now time.Time,
+func (m *UserConditionManager) CheckCounterDynamicLimit(ctx cd.RpcContext, now time.Time, offset int64,
 	limit *public_protocol_common.Readonly_DConditionCounterLimit,
 	storage *public_protocol_common.DConditionCounterStorage,
 ) cd.RpcResult {
+	if offset < 0 {
+		offset = 0
+	}
+
 	m.RefreshCounter(ctx, now, limit, storage)
 
 	if limit == nil || storage == nil {
@@ -571,29 +579,29 @@ func (m *UserConditionManager) CheckCounterDynamicLimit(ctx cd.RpcContext, now t
 	}
 
 	// 动态计数器检查
-	if limit.GetDaily() > 0 && storage.GetVersionCounter().GetDailyCounter() >= limit.GetDaily() {
+	if limit.GetDaily() > 0 && storage.GetVersionCounter().GetDailyCounter()+offset > limit.GetDaily() {
 		// 错误码: 计数器日限超限
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DAILY_LIMIT)
 	}
 
-	if limit.GetWeekly() > 0 && storage.GetVersionCounter().GetWeeklyCounter() >= limit.GetWeekly() {
+	if limit.GetWeekly() > 0 && storage.GetVersionCounter().GetWeeklyCounter()+offset > limit.GetWeekly() {
 		// 错误码: 计数器周限超限
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_WEEKLY_LIMIT)
 	}
 
-	if limit.GetMonthly() > 0 && storage.GetVersionCounter().GetMonthlyCounter() >= limit.GetMonthly() {
+	if limit.GetMonthly() > 0 && storage.GetVersionCounter().GetMonthlyCounter()+offset > limit.GetMonthly() {
 		// 错误码: 计数器月限超限
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_MONTHLY_LIMIT)
 	}
 
 	if limit.GetCustomLimit() > 0 && limit.GetCustomDuration().GetSeconds() > 0 &&
-		storage.GetVersionCounter().GetCustomCounter() >= limit.GetCustomLimit() {
+		storage.GetVersionCounter().GetCustomCounter()+offset > limit.GetCustomLimit() {
 		// 错误码: 计数器自定义限超限
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_CUSTOM_LIMIT)
 	}
 
 	if limit.GetDynamicDuration().GetSeconds() > 0 {
-		if storage.GetVersionCounter().GetDynamicLeftCounter() <= 0 {
+		if storage.GetVersionCounter().GetDynamicLeftCounter() < offset {
 			// 错误码: 计数器动态限超限
 			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DYNAMIC_LIMIT)
 		}
@@ -602,16 +610,16 @@ func (m *UserConditionManager) CheckCounterDynamicLimit(ctx cd.RpcContext, now t
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserConditionManager) CheckCounterLimit(ctx cd.RpcContext, now time.Time,
+func (m *UserConditionManager) CheckCounterLimit(ctx cd.RpcContext, now time.Time, offset int64,
 	limit *public_protocol_common.Readonly_DConditionCounterLimit,
 	storage *public_protocol_common.DConditionCounterStorage,
 ) cd.RpcResult {
-	result := m.CheckCounterStaticLimit(ctx, now, limit, storage)
+	result := m.CheckCounterStaticLimit(ctx, now, offset, limit, storage)
 	if !result.IsOK() {
 		return result
 	}
 
-	return m.CheckCounterDynamicLimit(ctx, now, limit, storage)
+	return m.CheckCounterDynamicLimit(ctx, now, offset, limit, storage)
 }
 
 func (m *UserConditionManager) AddCounter(ctx cd.RpcContext, now time.Time, offset int64,

@@ -54,13 +54,13 @@ type UserConditionManager interface {
 	CalculateCounterLimitCfgMaxLeftTimes(limit *public_protocol_common.Readonly_DConditionCounterLimit,
 		storage *public_protocol_common.DConditionCounterStorage) int64
 
-	CheckCounterStaticLimit(ctx cd.RpcContext, now time.Time,
+	CheckCounterStaticLimit(ctx cd.RpcContext, now time.Time, offset int64,
 		limit *public_protocol_common.Readonly_DConditionCounterLimit,
 		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
-	CheckCounterDynamicLimit(ctx cd.RpcContext, now time.Time,
+	CheckCounterDynamicLimit(ctx cd.RpcContext, now time.Time, offset int64,
 		limit *public_protocol_common.Readonly_DConditionCounterLimit,
 		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
-	CheckCounterLimit(ctx cd.RpcContext, now time.Time,
+	CheckCounterLimit(ctx cd.RpcContext, now time.Time, offset int64,
 		limit *public_protocol_common.Readonly_DConditionCounterLimit,
 		storage *public_protocol_common.DConditionCounterStorage) cd.RpcResult
 
