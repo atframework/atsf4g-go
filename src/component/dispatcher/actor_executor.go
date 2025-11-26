@@ -3,7 +3,6 @@ package atframework_component_dispatcher
 import (
 	"container/list"
 	"sync"
-	"sync/atomic"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
@@ -18,7 +17,7 @@ const (
 )
 
 type ActorExecutor struct {
-	currentRunningAction atomic.Value
+	currentRunningAction TaskActionImpl
 	currentRunningLock   sync.Mutex
 
 	actionStatus   ActorExecutorStatus
@@ -30,20 +29,14 @@ type ActorExecutor struct {
 
 func CreateActorExecutor(actorInstance interface{}) *ActorExecutor {
 	return &ActorExecutor{
-		currentRunningAction: atomic.Value{},
-		actionStatus:         ActorExecutorStatusFree,
-		pendingActions:       list.List{},
-		Instance:             actorInstance,
+		actionStatus:   ActorExecutorStatusFree,
+		pendingActions: list.List{},
+		Instance:       actorInstance,
 	}
 }
 
 func (actor *ActorExecutor) getCurrentRunningAction() TaskActionImpl {
-	result := actor.currentRunningAction.Load()
-	if lu.IsNil(result) {
-		return nil
-	}
-
-	return result.(TaskActionImpl)
+	return actor.currentRunningAction
 }
 
 func (actor *ActorExecutor) takeCurrentRunningAction(action TaskActionImpl) {
@@ -52,7 +45,7 @@ func (actor *ActorExecutor) takeCurrentRunningAction(action TaskActionImpl) {
 	}
 
 	actor.currentRunningLock.Lock()
-	actor.currentRunningAction.Store(action)
+	actor.currentRunningAction = action
 }
 
 func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, expectAction TaskActionImpl, spawnNewGoroutine bool) {
@@ -60,9 +53,11 @@ func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, ex
 		return
 	}
 
-	if !actor.currentRunningAction.CompareAndSwap(expectAction, nil) {
+	if actor.currentRunningAction != expectAction {
 		return
 	}
+
+	actor.currentRunningAction = nil
 
 	actor.currentRunningLock.Unlock()
 

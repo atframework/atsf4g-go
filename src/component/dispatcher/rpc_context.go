@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
 
 	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
@@ -120,7 +119,7 @@ func (ctx *RpcContextImpl) SetContextCancelFn(c context.Context, cancelFn contex
 
 func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, msg string, args ...any) {
 	var logger *slog.Logger = nil
-	if !lu.IsNil(ctx) {
+	if ctx != nil {
 		logger = ctx.getInternalLogger()
 
 		if c == nil {
@@ -131,7 +130,7 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 		logger = slog.Default()
 	}
 
-	if !lu.IsNil(ctx) {
+	if ctx != nil {
 		if ctx.taskAction != nil {
 			args = append(args, slog.Uint64("task_id", ctx.taskAction.GetTaskId()), slog.String("task_name", ctx.taskAction.Name()))
 		} else if ctx.dispatcher != nil {
@@ -144,7 +143,7 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 }
 
 func (ctx *RpcContextImpl) LogWithLevelWithCaller(pc uintptr, level slog.Level, msg string, args ...any) {
-	if lu.IsNil(ctx) || ctx.rpcContext == nil {
+	if ctx == nil || ctx.rpcContext == nil {
 		ctx.LogWithLevelContextWithCaller(pc, context.Background(), level, msg, args...)
 	} else {
 		ctx.LogWithLevelContextWithCaller(pc, ctx.rpcContext, level, msg, args...)

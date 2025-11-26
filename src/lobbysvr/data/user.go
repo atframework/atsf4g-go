@@ -62,8 +62,8 @@ type User struct {
 	dirtyHandles map[interface{}]userDirtyHandles
 }
 
-func (u *User) Init() {
-	u.UserCache.Init(u)
+func init() {
+	var _ uc.UserImpl = (*User)(nil)
 }
 
 func (u *User) IsWriteable() bool {

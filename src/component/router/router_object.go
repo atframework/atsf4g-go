@@ -11,5 +11,7 @@ type RouterObjectImpl interface {
 	PullObject(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult
 	SaveObject(ctx cd.AwaitableContext, privateData RouterPrivateData) cd.RpcResult
 	LogValue() slog.Value
+	GetActorExecutor() *cd.ActorExecutor
+	CheckActorExecutor(ctx cd.RpcContext) bool
 	RouterObjectBaseImpl
 }

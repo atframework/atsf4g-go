@@ -54,7 +54,7 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 		left--
 
 		// 批量等待并完成
-		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Pending Action", func(childCtx cd.AwaitableContext) cd.RpcResult {
+		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Pending Action", pending.Object.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
 			result := t.executePendingAction(childCtx, pending)
 			t.handleAutoSaveResult(pending, result)
 			return cd.CreateRpcResultOk()

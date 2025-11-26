@@ -5,7 +5,7 @@
     load_index_key = index_meta["load_index_key"]
     cas_enabled = index_meta["cas_enabled"]
 %>
-func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyField${partly_field_name}(
+func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_field_name}(
 	ctx cd.AwaitableContext,
 % for field in key_fields:
 	${field["ident"]} ${field["go_type"]},

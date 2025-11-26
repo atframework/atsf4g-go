@@ -125,7 +125,7 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 	}
 
 	// 如果router server id是0则设置为本地的登入地址
-	if 0 == p.GetRouterSvrId() {
+	if p.GetRouterSvrId() == 0 {
 		oldRouterServerId := p.GetLoginInfo().GetRouterServerId()
 		oldRouterServerVersion := p.GetLoginInfo().GetRouterVersion()
 		p.GetLoginInfo().RouterServerId = uint64(ctx.GetApp().GetLogicId())

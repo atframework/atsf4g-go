@@ -70,9 +70,12 @@ import sys
 %	for partly_get in index.partly_get:
 <%
     partly_field_name = ""
-    for field in partly_get.fields:
-        _ = message.fields_by_name[field]
-        partly_field_name += message.get_identify_name(field, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
+    if partly_get.name != "":
+        partly_field_name += message.get_identify_name(partly_get.name, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
+    else:
+        for field in partly_get.fields:
+            _ = message.fields_by_name[field]
+            partly_field_name += message.get_identify_name(field, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
 <%include file="db_rpc_redis_partly_get.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta,partly_get=partly_get,partly_field_name=partly_field_name" />
 %	endfor

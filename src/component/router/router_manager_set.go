@@ -224,7 +224,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	if set.isSaveTaskRunning() {
 		// 需要等待Save结束后再启动
 		set.closingTask = closingTask
-		cd.AsyncThenStartTask(ctx, set.autoSaveActionTask, set.closingTask, &startData)
+		cd.AsyncThenStartTask(ctx, nil, set.autoSaveActionTask, set.closingTask, &startData)
 	} else {
 		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
 		if err != nil {

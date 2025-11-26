@@ -293,9 +293,9 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 	return nil
 }
 
-func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
+func AsyncInvoke(ctx RpcContext, name string, actor *ActorExecutor, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
 	childTask, startData := CreateNoMessageTaskAction(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
-		ctx, nil, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
+		ctx, actor, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
 			ta := &taskActionAsyncInvoke{
 				TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, timeout),
 				name:                    name,
@@ -313,11 +313,11 @@ func AsyncInvoke(ctx RpcContext, name string, invoke func(childCtx AwaitableCont
 	return childTask
 }
 
-func AsyncThen(ctx RpcContext, name string, waiting TaskActionImpl, invoke func()) {
+func AsyncThen(ctx RpcContext, name string, actor *ActorExecutor, waiting TaskActionImpl, invoke func()) {
 	if lu.IsNil(waiting) || waiting.IsExiting() {
 		invoke()
 	}
-	taskAction := AsyncInvoke(ctx, name, func(childCtx AwaitableContext) RpcResult {
+	taskAction := AsyncInvoke(ctx, name, actor, func(childCtx AwaitableContext) RpcResult {
 		result := AwaitTask(childCtx, waiting)
 		invoke()
 		return result
@@ -328,8 +328,8 @@ func AsyncThen(ctx RpcContext, name string, waiting TaskActionImpl, invoke func(
 	}
 }
 
-func AsyncThenStartTask(ctx RpcContext, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
-	AsyncThen(ctx, startTask.Name(), waiting, func() {
+func AsyncThenStartTask(ctx RpcContext, actor *ActorExecutor, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
+	AsyncThen(ctx, startTask.Name(), actor, waiting, func() {
 		if err := libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, startTask, startData); err != nil {
 			ctx.LogError("AsyncInvoke StartTaskAction failed", slog.String("task_name", startTask.Name()), slog.Any("error", err))
 		}

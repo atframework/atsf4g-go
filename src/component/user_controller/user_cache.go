@@ -28,6 +28,9 @@ type UserImpl interface {
 	UnbindSession(ctx cd.RpcContext, session *Session)
 	AllocSessionSequence() uint64
 
+	GetActorExecutor() *cd.ActorExecutor
+	CheckActorExecutor(ctx cd.RpcContext) bool
+
 	// 拉取DB时注册OpenId
 	InitOpenId(openId string)
 
@@ -148,6 +151,7 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 		cs_actor_log_writer: writer,
 	}
 	cache.Impl = &cache
+	cache.Init()
 	return
 }
 
@@ -156,9 +160,9 @@ func CreateUserImpl(ctx cd.RpcContext, zoneId uint32, userId uint64, openId stri
 	return &cache
 }
 
-func (u *UserCache) Init(actorInstance interface{}) {
-	if lu.IsNil(u.actorExecutor) && !lu.IsNil(actorInstance) {
-		u.actorExecutor = cd.CreateActorExecutor(actorInstance)
+func (u *UserCache) Init() {
+	if u.actorExecutor == nil {
+		u.actorExecutor = cd.CreateActorExecutor(u)
 	}
 	u.sessionSequence = 99
 }
@@ -226,6 +230,23 @@ func (u *UserCache) GetActorExecutor() *cd.ActorExecutor {
 	}
 
 	return u.actorExecutor
+}
+
+func (u *UserCache) CheckActorExecutor(ctx cd.RpcContext) bool {
+	if u == nil || lu.IsNil(ctx) {
+		return false
+	}
+
+	if u.actorExecutor == nil {
+		return true
+	}
+
+	if lu.IsNil(ctx.GetAction()) {
+		// 没有在任务内
+		return false
+	}
+
+	return u.actorExecutor == ctx.GetAction().GetActorExecutor()
 }
 
 func (u *UserCache) SendAllSyncData(_ctx cd.RpcContext) error {

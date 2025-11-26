@@ -42,7 +42,7 @@ func (t *TaskActionRouterCloseManagerSet) Run(_startData *cd.DispatcherStartData
 		t.status.currentIndex++
 
 		// 批量等待并完成
-		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Closing Action", func(childCtx cd.AwaitableContext) cd.RpcResult {
+		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Closing Action", obj.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
 			t.processClosingObject(childCtx, obj)
 			return cd.CreateRpcResultOk()
 		})
