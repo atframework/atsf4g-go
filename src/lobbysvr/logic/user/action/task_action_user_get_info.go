@@ -15,7 +15,6 @@ import (
 
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
-
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
@@ -42,14 +41,19 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 		response_body.UserProfile = user.GetAccountInfo().GetProfile()
 		ubmgr := data.UserGetModuleManager[logic_user.UserBasicManager](user)
 		if ubmgr != nil {
-			ubmgr.DumpUserInfo(response_body.MutableUserInfo())
+			response_body.UserInfo = ubmgr.DumpUserInfo()
 		} else {
 			t.LogError("UserBasicManager not found")
 		}
 	}
 
 	if request_body.GetNeedUserOptions() {
-		response_body.UserOptions = user.GetUserOptions().GetCustomOptions()
+		ubmgr := data.UserGetModuleManager[logic_user.UserBasicManager](user)
+		if ubmgr != nil {
+			response_body.UserOptions = ubmgr.DumpUserOptions()
+		} else {
+			t.LogError("UserBasicManager not found")
+		}
 	}
 
 	if request_body.GetNeedUserInventory() {

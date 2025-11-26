@@ -40,6 +40,11 @@ func (m *UserManager) Init(parent context.Context) error {
 	return nil
 }
 
+func (m *UserManager) Tick(parent context.Context) bool {
+	// TODO 排队降级流程
+	return false
+}
+
 func CreateUserManager(app libatapp.AppImpl) *UserManager {
 	ret := &UserManager{
 		AppModuleBase: libatapp.CreateAppModuleBase(app),
@@ -77,6 +82,16 @@ func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uin
 	}
 
 	if !lu.IsNil(checked) && !lu.Compare(cache.UserImpl, checked) {
+		// 不匹配当前缓存 尝试移除Session
+		if checked.GetUserSession() != nil {
+			checked.UnbindSession(ctx, nil)
+			libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp()).RemoveSession(ctx,
+				checked.GetUserSession().GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "closed by server on remove user")
+		}
+		return cd.CreateRpcResultOk()
+	}
+
+	if !forceKickoff && !cache.IsWritable() {
 		return cd.CreateRpcResultOk()
 	}
 
@@ -114,8 +129,10 @@ func UserManagerFindUserAs[T UserImpl](ctx cd.RpcContext, app libatapp.AppImpl, 
 
 func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableContext,
 	zoneID uint32, userID uint64, openID string,
-	loginTb *private_protocol_pbdesc.DatabaseTableLogin,
-	loginTbVersion uint64, loginCASVersion uint64,
+	loginLockTb *private_protocol_pbdesc.DatabaseTableLoginLock,
+	loginLockTbCASVersion uint64,
+	routerVersion uint64,
+	fillBasicInfo func(user T),
 	tryLockUserResource func(user T) cd.RpcResult,
 	unlockUserResource func(user T),
 ) (T, cd.RpcResult) {
@@ -123,7 +140,7 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 	urm := GetUserRouterManager(app)
 
 	var zero T
-	if um == nil || zoneID <= 0 || userID <= 0 || loginTb == nil {
+	if um == nil || zoneID <= 0 || userID <= 0 || loginLockTb == nil {
 		return zero, cd.CreateRpcResultError(fmt.Errorf("invalid param"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
@@ -138,9 +155,10 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 		ZoneID:   zoneID,
 		ObjectID: userID,
 	}, &UserRouterPrivateData{
-		loginTb:         loginTb,
-		loginCASVersion: loginCASVersion,
-		loginTbVersion:  loginTbVersion,
+		loginLockTb:     loginLockTb,
+		loginCASVersion: loginLockTbCASVersion,
+		routerVersion:   routerVersion,
+		openId:          openID,
 	})
 
 	if result.IsError() || cache == nil {
@@ -166,23 +184,17 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 		}
 	}
 
+	fillBasicInfo(convertRet)
+
 	// 创建初始化
-	if u.GetLoginVersion() <= 0 {
+	if !u.HasCreateInit() {
 		// 新用户初始化逻辑
 		u.CreateInit(ctx, uint32(public_protocol_common.EnVersionType_EN_VERSION_DEFAULT))
-
-		// 设置版本号
-		u.GetLoginInfo().RouterVersion = 0
-		// 更新Login Table版本号
-		u.LoadLoginInfo(u.GetLoginInfo(), u.GetLoginInfo().RouterVersion)
-		u.SetLoginCASVersion(loginCASVersion)
-
+		// 立刻保存一次
 		result = cache.SaveObject(ctx, nil)
 		if result.IsError() {
 			return zero, result
 		}
-	} else {
-		u.SetLoginCASVersion(loginCASVersion)
 	}
 
 	return convertRet, cd.CreateRpcResultOk()

@@ -18,6 +18,10 @@ func main() {
 	app := ssc.CreateServiceApplication()
 
 	uc.InitUserRouterManager(app)
+
+	sessionManager := uc.CreateSessionManager(app)
+	atapp.AtappAddModule(app, sessionManager)
+
 	userManager := uc.CreateUserManager(app)
 	atapp.AtappAddModule(app, userManager)
 

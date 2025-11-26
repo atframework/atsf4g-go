@@ -294,7 +294,7 @@ func TestRedisPb(t *testing.T) {
 	}
 
 	var casVersion uint64 = 10
-	redis := PBMapToRedis(&message, &casVersion)
+	redis := PBMapToRedis(&message, &casVersion, true)
 	if len(redis) != 26 {
 		t.Fatalf("len not match %d", len(redis))
 	}

@@ -49,7 +49,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 	}
 
 	accessSecret = request_body.GetNewAccess()
-	loginCode := user.GetLoginInfo().GetLoginCode()
+	loginCode := user.GetLoginLockInfo().GetLoginCode()
 
 	table := private_protocol_pbdesc.DatabaseTableAccess{
 		ZoneId:       user.GetZoneId(),

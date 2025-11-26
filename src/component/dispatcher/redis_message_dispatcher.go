@@ -51,27 +51,33 @@ type RedisMessageDispatcher struct {
 	casLuaSHA     string
 }
 
+const (
+	RedisDataVersion = 1 // 改动这个值等于清库
+)
+
 // GetStableHostID 返回一个稳定的 8 位字符串
 // 同一台机器固定，不同机器大概率不同
 func GetStableHostID() string {
 	var parts []string
 
-	// 1️⃣ 加入操作系统类型（防止不同平台同名主机冲突）
+	// 加入操作系统类型（防止不同平台同名主机冲突）
 	parts = append(parts, runtime.GOOS)
 
-	// 2️⃣ 加入主机名
+	// 加入主机名
 	hostname, err := os.Hostname()
 	if err == nil && hostname != "" {
 		parts = append(parts, hostname)
 	}
 
-	// 3️⃣ 加入第一个可用的 MAC 地址
+	// 加入第一个可用的 MAC 地址
 	mac := getFirstMAC()
 	if mac != "" {
 		parts = append(parts, mac)
 	}
 
-	// 4️⃣ 拼接后哈希
+	parts = append(parts, fmt.Sprintf("%d", RedisDataVersion))
+
+	// 拼接后哈希
 	base := strings.Join(parts, "_")
 	sum := sha256.Sum256([]byte(base))
 	return hex.EncodeToString(sum[:])[:8]
@@ -119,7 +125,7 @@ end
 local expect_version = tonumber(ARGV[2])
 local unpack_fn = table.unpack or unpack  -- Lua 5.1 - 5.3
 
-if real_version == 0 or expect_version == 0 or expect_version == real_version then
+if real_version == 0 or expect_version == -1 or expect_version == real_version then
     ARGV[2] = real_version + 1;
     redis.call('HSET', KEYS[1], unpack_fn(ARGV));
     return  { ok = tostring(ARGV[2]) };

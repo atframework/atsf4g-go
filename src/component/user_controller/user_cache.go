@@ -23,6 +23,8 @@ type UserImpl interface {
 	cd.TaskActionCSUser
 
 	CanBeWriteable() bool
+	IsWriteable() bool
+
 	GetUserSession() *Session
 	BindSession(ctx cd.RpcContext, session *Session)
 	UnbindSession(ctx cd.RpcContext, session *Session)
@@ -33,11 +35,8 @@ type UserImpl interface {
 
 	// 拉取DB时注册OpenId
 	InitOpenId(openId string)
-
-	// 路由登录成功时更新登录数据
+	// 登录成功时更新登录数据
 	UpdateLoginData(ctx cd.RpcContext)
-
-	IsWriteable() bool
 
 	InitFromDB(ctx cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 	DumpToDB(ctx cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
@@ -47,17 +46,21 @@ type UserImpl interface {
 
 	OnLogin(ctx cd.RpcContext)
 	OnLogout(ctx cd.RpcContext)
-	OnSaved(ctx cd.RpcContext, version uint64)
+	OnSaved(ctx cd.RpcContext, routerVersion uint64)
 	OnUpdateSession(ctx cd.RpcContext, from *Session, to *Session)
 
-	GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin
-	GetLoginVersion() uint64
-	LoadLoginInfo(loginTB *private_protocol_pbdesc.DatabaseTableLogin, version uint64)
+	GetLoginLockInfo() *private_protocol_pbdesc.DatabaseTableLoginLock
+	LoadLoginLockInfo(loginTB *private_protocol_pbdesc.DatabaseTableLoginLock)
+	HasCreateInit() bool
 
 	GetUserCASVersion() uint64
-	SetUserCASVersion(version uint64)
-	GetLoginCASVersion() uint64
-	SetLoginCASVersion(version uint64)
+	SetUserCASVersion(CASVersion uint64)
+	GetLoginLockCASVersion() uint64
+	SetLoginLockCASVersion(CASVersion uint64)
+}
+
+func init() {
+	var _ UserImpl = (*UserCache)(nil)
 }
 
 type UserDirtyWrapper[T any] struct {
@@ -105,22 +108,25 @@ type UserCache struct {
 
 	actorExecutor *cd.ActorExecutor
 
-	loginInfo    *private_protocol_pbdesc.DatabaseTableLogin
-	loginVersion uint64
+	loginLockInfo *private_protocol_pbdesc.DatabaseTableLoginLock
 
+	// Basic Data
 	dataVersion uint64
+	loginData   UserDirtyWrapper[private_protocol_pbdesc.LoginData]
+	accountInfo UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]
+	userData    UserDirtyWrapper[private_protocol_pbdesc.UserData]
+	// Basic Data
 
-	account_info_ UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]
-	user_data_    UserDirtyWrapper[private_protocol_pbdesc.UserData]
-	user_options_ UserDirtyWrapper[private_protocol_pbdesc.UserOptions]
+	csActorLogWriter libatapp.LogWriter
 
-	cs_actor_log_writer libatapp.LogWriter
+	hasCreateInit bool
 
-	loginCASVersion uint64
-	userCASVersion  uint64
+	loginLockCASVersion uint64
+	userCASVersion      uint64
 }
 
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) (cache UserCache) {
+	// 由路由系统创建可能没有OpenId
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
 		writer, _ = libatapp.NewlogBufferedRotatingWriter(ctx, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(),
@@ -132,23 +138,10 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 		})
 	}
 	cache = UserCache{
-		zoneId:        zoneId,
-		userId:        userId,
-		openId:        openId,
-		actorExecutor: nil,
-		loginInfo:     nil,
-		loginVersion:  0,
-		dataVersion:   0,
-		account_info_: UserDirtyWrapper[private_protocol_pbdesc.AccountInformation]{
-			value: private_protocol_pbdesc.AccountInformation{
-				Profile: &public_protocol_pbdesc.DUserProfile{
-					OpenId: openId,
-					UserId: userId,
-				},
-			},
-			dirtyVersion: 0,
-		},
-		cs_actor_log_writer: writer,
+		zoneId:           zoneId,
+		userId:           userId,
+		openId:           openId,
+		csActorLogWriter: writer,
 	}
 	cache.Impl = &cache
 	cache.Init()
@@ -193,7 +186,6 @@ func (u *UserCache) GetZoneId() uint32 {
 
 func (u *UserCache) InitOpenId(openId string) {
 	u.openId = openId
-	u.account_info_.Mutable(0).MutableProfile().OpenId = openId
 }
 
 func (u *UserCache) CanBeWriteable() bool {
@@ -316,11 +308,8 @@ func (u *UserCache) UnbindSession(ctx cd.RpcContext, session *Session) {
 		old_session.UnbindUser(ctx, u.Impl)
 	}
 
-	// TODO: 触发登出保存
 	if u.Impl.IsWriteable() {
-		u.OnLogout(ctx)
-
-		// TODO: 触发登出保存
+		u.Impl.OnLogout(ctx)
 	}
 }
 
@@ -350,9 +339,11 @@ func (u *UserCache) InitFromDB(_ctx cd.RpcContext, srcTb *private_protocol_pbdes
 		u.MutableUserData().Merge(srcTb.GetUserData())
 	}
 
-	if srcTb.GetOptions() != nil {
-		u.MutableUserOptions().Merge(srcTb.GetOptions())
+	if srcTb.GetLoginData() != nil {
+		u.MutableUserLogin().Merge(srcTb.GetLoginData())
 	}
+
+	u.hasCreateInit = srcTb.GetCreateInit()
 
 	// TODO: 数据版本升级 u.dataVersion -> UserDataCurrentVersion
 
@@ -373,11 +364,11 @@ func (u *UserCache) DumpToDB(_ctx cd.RpcContext, dstTb *private_protocol_pbdesc.
 	// always use current version
 	dstTb.DataVersion = UserDataCurrentVersion
 
-	lu.Mutable(&dstTb.UserData).SessionSequence = u.sessionSequence
-
-	dstTb.AccountData = u.account_info_.Get()
-	dstTb.UserData = u.user_data_.Get()
-	dstTb.Options = u.user_options_.Get()
+	dstTb.AccountData = u.accountInfo.Get()
+	dstTb.UserData = u.userData.Get()
+	dstTb.LoginData = u.loginData.Get()
+	dstTb.MutableUserData().SessionSequence = u.sessionSequence
+	dstTb.CreateInit = u.hasCreateInit
 
 	return cd.CreateRpcResultOk()
 }
@@ -386,14 +377,23 @@ func (u *UserCache) CreateInit(_ctx cd.RpcContext, versionType uint32) {
 	if u == nil {
 		return
 	}
-
+	u.hasCreateInit = true
 	u.MutableAccountInfo().VersionType = versionType
+}
+
+func (u *UserCache) HasCreateInit() bool {
+	if u == nil {
+		return false
+	}
+
+	return u.hasCreateInit
 }
 
 func (u *UserCache) LoginInit(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
+	u.UpdateLoginData(ctx)
 }
 
 func (u *UserCache) OnLogin(__ctx cd.RpcContext) {
@@ -407,61 +407,35 @@ func (u *UserCache) OnLogout(ctx cd.RpcContext) {
 		return
 	}
 
-	loginInfo := lu.Mutable(&u.loginInfo)
-
-	nowSec := ctx.GetSysNow().Unix()
-	loginInfo.BusinessLogoutTime = nowSec
+	// 设置登出时间
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = ctx.GetSysNow().Unix()
 }
 
-func (u *UserCache) OnSaved(_ctx cd.RpcContext, version uint64) {
+func (u *UserCache) OnSaved(_ctx cd.RpcContext, routerVersion uint64) {
 	if u == nil {
 		return
 	}
 
-	u.account_info_.ClearDirty(version)
-	u.user_data_.ClearDirty(version)
-	u.user_options_.ClearDirty(version)
+	u.loginData.ClearDirty(routerVersion)
+	u.accountInfo.ClearDirty(routerVersion)
+	u.userData.ClearDirty(routerVersion)
 }
 
 func (u *UserCache) OnUpdateSession(_ctx cd.RpcContext, from *Session, to *Session) {
 }
 
-func (u *UserCache) GetLoginInfo() *private_protocol_pbdesc.DatabaseTableLogin {
+func (u *UserCache) GetLoginLockInfo() *private_protocol_pbdesc.DatabaseTableLoginLock {
 	if u == nil {
 		return nil
 	}
-
-	if u.loginInfo == nil {
-		u.loginInfo = &private_protocol_pbdesc.DatabaseTableLogin{}
-		u.loginInfo.UserId = u.userId
-		u.loginInfo.ZoneId = u.zoneId
-		u.loginInfo.OpenId = u.openId
-
-		u.loginInfo.Account = &private_protocol_pbdesc.AccountInformation{}
-		u.loginInfo.Account.Profile.OpenId = u.openId
-		u.loginInfo.Account.Profile.UserId = u.userId
-
-		u.loginVersion = 0
-	}
-
-	return u.loginInfo
+	return u.loginLockInfo
 }
 
-func (u *UserCache) GetLoginVersion() uint64 {
-	if u == nil {
-		return 0
-	}
-
-	return u.loginVersion
-}
-
-func (u *UserCache) LoadLoginInfo(info *private_protocol_pbdesc.DatabaseTableLogin, version uint64) {
+func (u *UserCache) LoadLoginLockInfo(info *private_protocol_pbdesc.DatabaseTableLoginLock) {
 	if u == nil || info == nil {
 		return
 	}
-
-	u.loginInfo = info
-	u.loginVersion = version
+	u.loginLockInfo = info
 }
 
 func (u *UserCache) SyncClientDirtyCache() {
@@ -475,7 +449,7 @@ func (u *UserCache) GetCurrentDbDataVersion() uint64 {
 		return 0
 	}
 
-	return u.loginInfo.RouterVersion
+	return u.loginLockInfo.GetRouterVersion()
 }
 
 func (u *UserCache) GetAccountInfo() *private_protocol_pbdesc.AccountInformation {
@@ -483,7 +457,7 @@ func (u *UserCache) GetAccountInfo() *private_protocol_pbdesc.AccountInformation
 		return nil
 	}
 
-	return u.account_info_.Get()
+	return u.accountInfo.Get()
 }
 
 func (u *UserCache) MutableAccountInfo() *private_protocol_pbdesc.AccountInformation {
@@ -491,7 +465,7 @@ func (u *UserCache) MutableAccountInfo() *private_protocol_pbdesc.AccountInforma
 		return nil
 	}
 
-	return u.account_info_.Mutable(u.GetCurrentDbDataVersion())
+	return u.accountInfo.Mutable(u.GetCurrentDbDataVersion())
 }
 
 func (u *UserCache) GetUserData() *private_protocol_pbdesc.UserData {
@@ -499,7 +473,7 @@ func (u *UserCache) GetUserData() *private_protocol_pbdesc.UserData {
 		return nil
 	}
 
-	return u.user_data_.Get()
+	return u.userData.Get()
 }
 
 func (u *UserCache) MutableUserData() *private_protocol_pbdesc.UserData {
@@ -507,23 +481,23 @@ func (u *UserCache) MutableUserData() *private_protocol_pbdesc.UserData {
 		return &private_protocol_pbdesc.UserData{}
 	}
 
-	return u.user_data_.Mutable(u.GetCurrentDbDataVersion())
+	return u.userData.Mutable(u.GetCurrentDbDataVersion())
 }
 
-func (u *UserCache) GetUserOptions() *private_protocol_pbdesc.UserOptions {
+func (u *UserCache) GetUserLogin() *private_protocol_pbdesc.LoginData {
 	if u == nil {
 		return nil
 	}
 
-	return u.user_options_.Get()
+	return u.loginData.Get()
 }
 
-func (u *UserCache) MutableUserOptions() *private_protocol_pbdesc.UserOptions {
+func (u *UserCache) MutableUserLogin() *private_protocol_pbdesc.LoginData {
 	if u == nil {
-		return &private_protocol_pbdesc.UserOptions{}
+		return &private_protocol_pbdesc.LoginData{}
 	}
 
-	return u.user_options_.Mutable(u.GetCurrentDbDataVersion())
+	return u.loginData.Mutable(u.GetCurrentDbDataVersion())
 }
 
 func (u *UserCache) GetClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
@@ -531,7 +505,7 @@ func (u *UserCache) GetClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
 		return nil
 	}
 
-	return lu.Mutable(&u.loginInfo).GetLastLogin().GetClientInfo()
+	return u.loginData.Get().GetLastLoginRecord().GetClientInfo()
 }
 
 func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInfo {
@@ -539,30 +513,31 @@ func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInf
 		return &public_protocol_pbdesc.DClientDeviceInfo{}
 	}
 
-	return lu.Mutable(&lu.Mutable(&lu.Mutable(&u.loginInfo).LastLogin).ClientInfo)
+	return u.MutableUserLogin().MutableLastLoginRecord().MutableClientInfo()
 }
 
 func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
-	if lu.IsNil(u.cs_actor_log_writer) {
+	if u == nil {
 		return nil
 	}
-	return u.cs_actor_log_writer
+
+	return u.csActorLogWriter
 }
 
-func (u *UserCache) GetLoginCASVersion() uint64 {
+func (u *UserCache) GetLoginLockCASVersion() uint64 {
 	if u == nil {
 		return 0
 	}
 
-	return u.loginCASVersion
+	return u.loginLockCASVersion
 }
 
-func (u *UserCache) SetLoginCASVersion(version uint64) {
+func (u *UserCache) SetLoginLockCASVersion(version uint64) {
 	if u == nil {
 		return
 	}
 
-	u.loginCASVersion = version
+	u.loginLockCASVersion = version
 }
 
 func (u *UserCache) GetUserCASVersion() uint64 {
@@ -586,29 +561,20 @@ func (u *UserCache) UpdateLoginData(ctx cd.RpcContext) {
 		return
 	}
 
-	if u.loginInfo == nil {
-		return
-	}
-
-	// Patch login table
 	nowSec := ctx.GetSysNow().Unix()
-
-	u.loginInfo.LoginCodeExpired = nowSec +
-		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
-
-	if u.loginInfo.GetBusinessRegisterTime() <= 0 {
-		u.loginInfo.BusinessRegisterTime = nowSec
+	// 更新登录数据
+	if u.IsNewUser() {
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessRegisterTime = nowSec
 	}
-	u.loginInfo.BusinessLoginTime = nowSec
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLoginTime = nowSec
 
-	// 默认昵称
-	if u.loginInfo.GetAccount().GetProfile().GetNickName() == "" {
-		lu.Mutable(&lu.Mutable(&u.loginInfo.Account).Profile).NickName = fmt.Sprintf("User-%v-%v", u.GetZoneId(), u.GetUserId())
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginSuccessTimes++
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginTotalTimes++
+}
+
+func (u *UserCache) IsNewUser() bool {
+	if u == nil {
+		return false
 	}
-
-	u.loginInfo.StatLoginSuccessTimes++
-	u.loginInfo.StatLoginTotalTimes++
-
-	// Copy to user table
-	*u.MutableAccountInfo() = *u.loginInfo.GetAccount()
+	return u.loginData.Get().GetBusinessRegisterTime() <= 0
 }

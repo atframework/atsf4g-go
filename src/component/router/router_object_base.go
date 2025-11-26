@@ -390,7 +390,7 @@ func (obj *RouterObjectBase) RemoveObject(ctx cd.AwaitableContext, transferToSvr
 
 	ret = obj.InternalSaveObject(ctx, guard, privateData)
 	if ret.IsError() {
-		// 保存失败则恢复原来的路由信息
+		// 保存失败则恢复原来的路由信息 保底流程
 		obj.routerSvrID = oldRouterServerId
 		obj.routerSvrVer = oldRouterVer
 		return ret
@@ -464,12 +464,9 @@ func (obj *RouterObjectBase) InternalPullObject(ctx cd.AwaitableContext, guard *
 	// 拉取成功要刷新保存时间
 	obj.RefreshSaveTime(ctx)
 
-	// 检查路由服务器ID
-	if obj.GetRouterSvrId() != 0 {
-		// 从config获取本地服务器ID进行比较
-		if uint64(ctx.GetApp().GetLogicId()) != obj.GetRouterSvrId() {
-			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE)
-		}
+	// 检查路由服务器ID 从config获取本地服务器ID进行比较
+	if uint64(ctx.GetApp().GetLogicId()) != obj.GetRouterSvrId() {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE)
 	}
 
 	// 升级为实体

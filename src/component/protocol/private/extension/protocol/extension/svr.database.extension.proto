@@ -24,7 +24,8 @@ enum database_table_split_type {
 }
 
 message database_partly_field {
-  repeated string fields = 1;
+  string name = 1;
+  repeated string fields = 2;
 }
 
 message database_table_index {

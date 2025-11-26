@@ -36,6 +36,7 @@ type UserBasicManager struct {
 
 	dirtyExp      bool
 	dirtyUserInfo bool
+	userOptions   *private_protocol_pbdesc.UserOptionsData
 }
 
 func CreateUserBasicManager(owner *data.User) *UserBasicManager {
@@ -47,25 +48,34 @@ func CreateUserBasicManager(owner *data.User) *UserBasicManager {
 }
 
 func (m *UserBasicManager) InitFromDB(_ctx cd.RpcContext, _dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	m.userOptions = _dbUser.GetOptionsData()
+	if m.userOptions == nil {
+		m.userOptions = &private_protocol_pbdesc.UserOptionsData{}
+	}
 	return cd.CreateRpcResultOk()
 }
 
 func (m *UserBasicManager) DumpToDB(_ctx cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+	dbUser.OptionsData = m.userOptions
 	return cd.CreateRpcResultOk()
 }
 
 func (m *UserBasicManager) RefreshLimitSecond(_ctx cd.RpcContext) {
 }
 
-func (m *UserBasicManager) DumpUserInfo(to *public_protocol_pbdesc.DUserInfo) {
-	if to == nil {
-		return
+func (m *UserBasicManager) DumpUserInfo() *public_protocol_pbdesc.DUserInfo {
+	loginInfo := m.GetOwner().GetUserLogin()
+	return &public_protocol_pbdesc.DUserInfo{
+		UserLevel: m.GetUserLevel(),
+		UserStat: &public_protocol_pbdesc.DUserStat{
+			RegisterTime:  loginInfo.GetBusinessRegisterTime(),
+			LastLoginTime: loginInfo.GetBusinessLoginTime(),
+		},
 	}
+}
 
-	loginInfo := m.GetOwner().GetLoginInfo()
-	to.UserLevel = m.GetUserLevel()
-	to.MutableUserStat().RegisterTime = loginInfo.GetBusinessRegisterTime()
-	to.MutableUserStat().LastLoginTime = loginInfo.GetBusinessLoginTime()
+func (m *UserBasicManager) DumpUserOptions() *public_protocol_pbdesc.DUserOptions {
+	return m.userOptions.GetCustomOptions()
 }
 
 func (m *UserBasicManager) insertDirtyHandle() {
@@ -84,7 +94,7 @@ func (m *UserBasicManager) insertDirtyHandle() {
 			}
 
 			if m.dirtyUserInfo {
-				m.DumpUserInfo(dirtyData.MutableUserInfo())
+				dirtyData.UserInfo = m.DumpUserInfo()
 				ret = true
 			}
 
@@ -297,7 +307,7 @@ func registerCondition() {
 func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
-	loginChannel := uint64(m.GetOwner().GetLoginInfo().GetAccount().GetChannelId())
+	loginChannel := uint64(m.GetOwner().GetAccountInfo().GetChannelId())
 
 	if len(rule.GetLoginChannel().GetValues()) == 0 {
 		return cd.CreateRpcResultOk()

@@ -29,7 +29,8 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 		"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
 
 	t.session.UnbindUser(t.GetRpcContext(), t.user)
-	uc.GlobalSessionManager.RemoveSession(t.GetRpcContext(), t.session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
+	libatapp.AtappGetModule[*uc.SessionManager](uc.GetReflectTypeSessionManager(), t.GetRpcContext().GetApp()).
+		RemoveSession(t.GetRpcContext(), t.session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 
 	// TODO: 等待当前任务执行完毕
 	libatapp.AtappGetModule[*uc.UserManager](uc.GetReflectTypeUserManager(), t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
@@ -37,25 +38,26 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 }
 
 func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, sessionKey *uc.SessionKey) {
-	session := uc.GlobalSessionManager.GetSession(sessionKey)
+	sessionMgr := libatapp.AtappGetModule[*uc.SessionManager](uc.GetReflectTypeSessionManager(), ctx.GetApp())
+	session := sessionMgr.GetSession(sessionKey)
 
 	userCSImpl := session.GetUser()
 	if userCSImpl == nil {
 		session.UnbindUser(ctx, nil)
-		uc.GlobalSessionManager.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
+		sessionMgr.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 		return
 	}
 
 	userImpl, ok := userCSImpl.(uc.UserImpl)
 	if !ok {
 		session.UnbindUser(ctx, nil)
-		uc.GlobalSessionManager.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
+		sessionMgr.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 		return
 	}
 
 	if userImpl == nil {
 		session.UnbindUser(ctx, nil)
-		uc.GlobalSessionManager.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
+		sessionMgr.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 		return
 	}
 
@@ -77,6 +79,6 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 			"zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId(), "session_id", sessionKey.SessionId, "session_node_id", sessionKey.NodeId)
 
 		session.UnbindUser(ctx, userImpl)
-		uc.GlobalSessionManager.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
+		sessionMgr.RemoveSession(ctx, sessionKey, int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 	}
 }

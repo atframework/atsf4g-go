@@ -12,7 +12,8 @@ import (
 type UserBasicManager interface {
 	data.UserModuleManagerImpl
 
-	DumpUserInfo(to *public_protocol_pbdesc.DUserInfo)
+	DumpUserInfo() *public_protocol_pbdesc.DUserInfo
+	DumpUserOptions() *public_protocol_pbdesc.DUserOptions
 
 	ForeachItem(_fn func(item *public_protocol_common.DItemInstance) bool) bool
 

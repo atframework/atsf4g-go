@@ -183,6 +183,8 @@ enum EnErrorCode {
                        [(error_code.description) = "协程退出"];
   EN_ERR_ACTOR_MAX_PENDING_COUNT = -123
                                    [(error_code.description) = "Actor达到最大长度"];
+  EN_ERR_ALREADY_LOGIN = -124
+                                   [(error_code.description) = "在线中"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];
@@ -197,7 +199,9 @@ enum EnErrorCode {
   EN_ERR_ROUTER_NOT_FOUND = -156
                             [(error_code.description) = "路由信息找不到"];
   EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE = -157
-                                        [(error_code.description) = "路由对象不可写"];
+                                       [(error_code.description) = "路由对象不可写"];
+  EN_ERR_ROUTER_NOT_EXPIRED = -158
+                                       [(error_code.description) = "路由未过期"];
   // openapi
   EN_ERR_OPENAPI_LIMIT = -201
                          [(error_code.description) = "openapi调用频率限制"];

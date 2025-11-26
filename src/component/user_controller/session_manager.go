@@ -1,28 +1,53 @@
 package atframework_component_user_controller
 
 import (
+	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	libatapp "github.com/atframework/libatapp-go"
 )
 
 type noCopy struct{}
 
 type SessionManager struct {
-	_ noCopy
+	libatapp.AppModuleBase
 
 	sessionLock sync.RWMutex
 	sessions    map[uint64]map[uint64]*Session
 }
 
-func createSessionManager() *SessionManager {
-	return &SessionManager{
-		sessions: make(map[uint64]map[uint64]*Session),
-	}
+var sessionManagerReflectType reflect.Type
+
+func init() {
+	sessionManagerReflectType = reflect.TypeOf((*SessionManager)(nil)).Elem()
+	var _ libatapp.AppModuleImpl = (*SessionManager)(nil)
 }
 
-var GlobalSessionManager = createSessionManager()
+func GetReflectTypeSessionManager() reflect.Type {
+	return sessionManagerReflectType
+}
+
+func (m *SessionManager) GetReflectType() reflect.Type {
+	return sessionManagerReflectType
+}
+
+func (m *SessionManager) Init(parent context.Context) error {
+	return nil
+}
+
+func (m *SessionManager) Name() string {
+	return "SessionManager"
+}
+
+func CreateSessionManager(app libatapp.AppImpl) *SessionManager {
+	return &SessionManager{
+		AppModuleBase: libatapp.CreateAppModuleBase(app),
+		sessions:      make(map[uint64]map[uint64]*Session),
+	}
+}
 
 func (sm *SessionManager) GetSession(key *SessionKey) *Session {
 	if key == nil {

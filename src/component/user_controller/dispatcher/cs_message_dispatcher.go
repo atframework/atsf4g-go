@@ -92,7 +92,7 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl, webServerConfigu
 	d.SetOnNewSession(func(ctx cd.RpcContext, session *cd.WebSocketSession) error {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
 		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
-		session.PrivateData = uc.GlobalSessionManager.CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
+		session.PrivateData = libatapp.AtappGetModule[*uc.SessionManager](uc.GetReflectTypeSessionManager(), owner).CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
 			dispatcher:     d,
 			networkSession: session,
 		})

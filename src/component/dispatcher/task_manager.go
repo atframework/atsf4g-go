@@ -181,27 +181,24 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 	}, nil, nil)
 }
 
-func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, *RpcResult) {
+func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, RpcResult) {
 	currentTask := ctx.GetAction()
 	if lu.IsNil(currentTask) {
 		ctx.LogError("should in task")
-		result := CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
-		return nil, &result
+		return nil, CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 
 	// 已经超时或者被Killed，不允许再切出
 	if currentTask.IsExiting() {
 		ctx.LogError("current task already Exiting")
-		result := CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
-		return nil, &result
+		return nil, CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
 	}
 
 	// 暂停任务逻辑, 让出令牌
 	awaitChannel, err := action.TrySetupAwait(awaitOptions)
 	if err != nil || awaitChannel == nil {
 		ctx.LogError("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-		result := CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		return nil, &result
+		return nil, CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	if beforeYield != nil {
@@ -217,7 +214,7 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 			if err != nil {
 				ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 			}
-			return nil, &result
+			return nil, result
 		}
 	}
 
@@ -261,17 +258,14 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 	if !ok {
 		// Channel was closed unexpectedly
 		ctx.LogError("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
-		return nil, &RpcResult{Error: errors.New("await channel closed"), ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)}
+		return nil, CreateRpcResultError(errors.New("await channel closed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	if lu.IsNil(awaitResult.killed) {
-		awaitResult.killed = &RpcResult{
-			Error:        nil,
-			ResponseCode: 0,
-		}
+		return awaitResult.resume, CreateRpcResultOk()
 	}
 
-	return awaitResult.resume, awaitResult.killed
+	return awaitResult.resume, *awaitResult.killed
 }
 
 func ResumeTaskAction(ctx RpcContext, action TaskActionImpl, resumeData *DispatcherResumeData) error {
@@ -353,7 +347,7 @@ func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
 		Timeout:      waitTime,
 		TimeoutAllow: true,
 	}, nil)
-	return *result
+	return result
 }
 
 func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
@@ -389,7 +383,7 @@ func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
 		})
 		return CreateRpcResultOk()
 	})
-	return *result
+	return result
 }
 
 func AwaitTasks(ctx AwaitableContext, waitingTasks []TaskActionImpl) RpcResult {

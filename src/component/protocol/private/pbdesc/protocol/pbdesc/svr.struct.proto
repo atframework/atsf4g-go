@@ -31,14 +31,6 @@ message account_information {
   uint32 version_type = 37;   // 上一次的登入版本类型 @EnVersionType
 }
 
-// 账号异常数据
-message account_except {
-  int64 last_except_time = 1;   // 上一次异常时间
-  uint32 except_con_times = 2;  // 短时间内异常计数
-
-  uint32 except_sum_times = 21;  // 总异常计数
-}
-
 // 登入数据记录
 message login_record {
   DClientDeviceInfo client_info = 1;  // 终端信息
@@ -50,8 +42,22 @@ message user_data {
   uint64 session_sequence = 3;  // 玩家的全局递增发包序号
 }
 
-message user_options {
+message user_options_data {
   DUserOptions custom_options = 1;  // 用户自定义选项
+}
+
+message login_data {
+  // 业务层登入注册信息
+  int64 business_register_time = 31;  // 业务层注册时间
+  int64 business_login_time = 32;     // 业务层登入时间
+  int64 business_logout_time = 33;    // 业务层登出时间
+
+  login_record last_login_record = 42;    // 上次登入的信息
+
+  // 统计数据
+  uint32 stat_login_total_times = 51;    // 总登入次数
+  uint32 stat_login_success_times = 52;  // 成功登入次数
+  uint32 stat_login_failed_times = 53;   // 失败登入次数
 }
 
 message user_async_job_debug_message {

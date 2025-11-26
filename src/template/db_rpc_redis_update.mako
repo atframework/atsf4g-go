@@ -10,6 +10,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
     table *private_protocol_pbdesc.${message_name},
 % if cas_enabled:
 	currentCASVersion *uint64,
+	forceUpdate bool,
 % endif
 ) (retResult cd.RpcResult) {
 	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](cd.GetReflectTypeRedisMessageDispatcher(), ctx.GetApp())
@@ -34,10 +35,19 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 	}
 
 % if cas_enabled:
+	if currentCASVersion == nil {
+		ctx.LogError("currentCASVersion nil")
+		retResult = cd.CreateRpcResultError(fmt.Errorf("currentCASVersion nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
+	}
+
+	if forceUpdate {
+		*currentCASVersion = 0
+	}
 	OldCASVersion := *currentCASVersion
-    redisData := pu.PBMapToRedis(table, &OldCASVersion)
+    redisData := pu.PBMapToRedis(table, &OldCASVersion, forceUpdate)
 % else:
-    redisData := pu.PBMapToRedis(table, nil)
+    redisData := pu.PBMapToRedis(table, nil, false)
 % endif
 
 	pushActionFunc := func() cd.RpcResult {
@@ -107,9 +117,9 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		}
 		return cd.CreateRpcResultOk()
 	}
-	resumeData, result := cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
-	if result.IsError() {
-		retResult = *result
+	var resumeData *cd.DispatcherResumeData
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
+	if retResult.IsError() {
 		return
 	}
 	if resumeData.Result.IsError() {

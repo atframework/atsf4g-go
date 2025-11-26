@@ -1,6 +1,7 @@
 package atframework_component_user_controller
 
 import (
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	router "github.com/atframework/atsf4g-go/component-router"
@@ -47,26 +48,44 @@ func (manager *UserRouterManager) OnRemoveObject(ctx cd.RpcContext, key router.R
 	// 释放本地数据, 下线相关Session
 	cache := obj.(*UserRouterCache).UserImpl
 	s := cache.GetUserSession()
-	if s != nil {
+	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	if !lu.IsNil(s) && mgr != nil {
 		cache.UnbindSession(ctx, s)
-		GlobalSessionManager.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Object")
+		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Object")
 	}
 }
 
 func (manager *UserRouterManager) OnRemoveCache(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
+	// 释放本地数据, 下线相关Session
+	cache := obj.(*UserRouterCache).UserImpl
+	s := cache.GetUserSession()
+	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	if !lu.IsNil(s) && mgr != nil {
+		cache.UnbindSession(ctx, s)
+		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Cache")
+	}
 }
 
 func (manager *UserRouterManager) OnObjectRemoved(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
 	cache := obj.(*UserRouterCache).UserImpl
 	s := cache.GetUserSession()
-	if s != nil {
+	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	if !lu.IsNil(s) && mgr != nil {
 		cache.UnbindSession(ctx, s)
-		GlobalSessionManager.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Object")
+		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Object")
 	}
 }
 
 func (manager *UserRouterManager) OnCacheRemoved(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
+	// 释放本地数据, 下线相关Session
+	cache := obj.(*UserRouterCache).UserImpl
+	s := cache.GetUserSession()
+	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	if !lu.IsNil(s) && mgr != nil {
+		cache.UnbindSession(ctx, s)
+		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Cache")
+	}
 }
 
 func (manager *UserRouterManager) OnPullObject(ctx cd.RpcContext, obj router.RouterObjectImpl, privData router.RouterPrivateData) {

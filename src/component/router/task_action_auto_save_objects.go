@@ -55,8 +55,7 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 
 		// 批量等待并完成
 		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "Execute Pending Action", pending.Object.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
-			result := t.executePendingAction(childCtx, pending)
-			t.handleAutoSaveResult(pending, result)
+			t.handleAutoSaveResult(pending, t.executePendingAction(childCtx, pending))
 			return cd.CreateRpcResultOk()
 		})
 
@@ -84,16 +83,16 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 	return nil
 }
 
-func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext, data PendingActionData) *cd.RpcResult {
+func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext, data PendingActionData) cd.RpcResult {
 	switch data.Action {
 	case AutoSaveActionRemoveObject:
 		// 有可能在一系列异步流程后又被mutable_object()了，这时候要放弃降级
 		if !data.Object.CheckFlag(FlagSchedRemoveObject) {
-			return nil
+			return cd.CreateRpcResultOk()
 		}
 		mgr := t.manager.GetManager(data.TypeID)
 		if mgr == nil {
-			return nil
+			return cd.CreateRpcResultOk()
 		}
 		t.status.actionRemoveObjectCount.Add(1)
 		result := mgr.InnerRemoveObject(ctx, data.Object.GetKey(), data.Object, nil)
@@ -101,11 +100,11 @@ func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext
 		if result.IsError() && data.Object.CheckFlag(FlagSchedRemoveObject) {
 			data.Object.SetFlag(FlagForceRemoveObject)
 		}
-		return &result
+		return result
 	case AutoSaveActionSave:
 		// 有可能有可能手动触发了保存，导致多一次冗余的auto_save_data_t，就不需要再保存一次了
 		if !data.Object.CheckFlag(FlagSchedSaveObject) {
-			return nil
+			return cd.CreateRpcResultOk()
 		}
 		t.status.actionSaveCount.Add(1)
 		guard := IoTaskGuard{}
@@ -114,27 +113,27 @@ func (t *TaskActionAutoSaveObjects) executePendingAction(ctx cd.AwaitableContext
 		if result.IsOK() {
 			data.Object.RefreshSaveTime(ctx)
 		}
-		return &result
+		return result
 	case AutoSaveActionRemoveCache:
 		// 有可能在一系列异步流程后缓存被续期了，这时候要放弃移除缓存
 		if !data.Object.CheckFlag(FlagSchedRemoveCache) {
-			return nil
+			return cd.CreateRpcResultOk()
 		}
 		mgr := t.manager.GetManager(data.TypeID)
 		if mgr == nil {
-			return nil
+			return cd.CreateRpcResultOk()
 		}
 		t.status.actionRemoveCacheCount.Add(1)
 		result := mgr.InnerRemoveCache(ctx, data.Object.GetKey(), data.Object, nil)
-		return &result
+		return result
 	default:
-		return nil
+		return cd.CreateRpcResultOk()
 	}
 }
 
-func (t *TaskActionAutoSaveObjects) handleAutoSaveResult(data PendingActionData, result *cd.RpcResult) {
+func (t *TaskActionAutoSaveObjects) handleAutoSaveResult(data PendingActionData, result cd.RpcResult) {
 	actionName := autoSaveActionName(data.Action)
-	if result != nil && result.IsError() {
+	if result.IsError() {
 		t.status.failedCount.Add(1)
 		t.LogError("auto save action failed", "action", actionName, "object", data.Object,
 			"code", result.GetResponseCode(), "error", result.GetStandardError())

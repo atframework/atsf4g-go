@@ -12,12 +12,16 @@ import (
 
 var CASKeyField = "CAS_VERSION"
 
-func PBMapToRedis(msg proto.Message, CASVersion *uint64) []string {
+func PBMapToRedis(msg proto.Message, CASVersion *uint64, forceUpdate bool) []string {
 	m := msg.ProtoReflect().Descriptor()
 	var ret []string
 	if CASVersion != nil {
 		ret = make([]string, 0, m.Fields().Len()*2+2)
-		ret = append(ret, CASKeyField, fmt.Sprintf("%d", *CASVersion))
+		if forceUpdate {
+			ret = append(ret, CASKeyField, "-1")
+		} else {
+			ret = append(ret, CASKeyField, fmt.Sprintf("%d", *CASVersion))
+		}
 	} else {
 		ret = make([]string, 0, m.Fields().Len()*2)
 	}
