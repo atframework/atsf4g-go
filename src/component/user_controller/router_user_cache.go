@@ -17,16 +17,17 @@ import (
 
 type UserRouterCache struct {
 	router.RouterObjectBase
-	UserImpl
+	obj UserImpl
 }
 
 func CreateUserRouterCache(ctx cd.RpcContext, key router.RouterObjectKey) *UserRouterCache {
 	// 这个时候openid无效，后面需要再init一次
-	cache := CreateUserCache(ctx, key.ZoneID, key.ObjectID, "")
-	return &UserRouterCache{
+	ret := &UserRouterCache{
 		RouterObjectBase: router.CreateRouterObjectBase(ctx, key),
-		UserImpl:         &cache,
 	}
+	cache := CreateUserCache(ctx, key.ZoneID, key.ObjectID, "", ret.GetActorExecutor())
+	ret.obj = &cache
+	return ret
 }
 
 type UserRouterPrivateData struct {
@@ -65,46 +66,46 @@ func (p *UserRouterCache) PullObject(ctx cd.AwaitableContext, privateData router
 func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserRouterPrivateData) cd.RpcResult {
 	// 完成后可写
 	if privateData.loginLockTb == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", p.GetZoneId(), p.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+		return cd.CreateRpcResultError(fmt.Errorf("loginTb should not be nil, zone_id: %d, user_id: %d", p.obj.GetZoneId(), p.obj.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	if lu.IsNil(p) || !p.CanBeWriteable() {
-		return cd.CreateRpcResultError(fmt.Errorf("user router cache is not writeable, zone_id: %d, user_id: %d", p.GetZoneId(), p.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE)
+	if lu.IsNil(p) || !p.obj.CanBeWriteable() {
+		return cd.CreateRpcResultError(fmt.Errorf("user router cache is not writeable, zone_id: %d, user_id: %d", p.obj.GetZoneId(), p.obj.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE)
 	}
 
-	userTb, userCasVersion, err := db.DatabaseTableUserLoadWithZoneIdUserId(ctx, p.GetZoneId(), p.GetUserId())
+	userTb, userCasVersion, err := db.DatabaseTableUserLoadWithZoneIdUserId(ctx, p.obj.GetZoneId(), p.obj.GetUserId())
 	if err.IsError() {
 		if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
 			// 新创建记录初始化
 			userTb = new(private_protocol_pbdesc.DatabaseTableUser)
 			userTb.OpenId = privateData.openId
-			userTb.ZoneId = p.GetZoneId()
-			userTb.UserId = p.GetUserId()
+			userTb.ZoneId = p.obj.GetZoneId()
+			userTb.UserId = p.obj.GetUserId()
 			userTb.DataVersion = UserDataCurrentVersion
 		} else {
-			err.LogError(ctx, "load user table from db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+			err.LogError(ctx, "load user table from db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 			return err
 		}
 	}
 
 	// 补全OpenId
-	if p.GetOpenId() == "" {
-		p.InitOpenId(userTb.GetOpenId())
+	if p.obj.GetOpenId() == "" {
+		p.obj.InitOpenId(userTb.GetOpenId())
 	}
-	p.SetUserCASVersion(userCasVersion)
+	p.obj.SetUserCASVersion(userCasVersion)
 
 	// 冲突检测
 	expectVersion := privateData.loginLockTb.GetExpectTableUserDbVersion()
 	if userCasVersion < expectVersion {
 		// 版本不对
-		ctx.LogWarn("user table version conflict", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "db_version", userCasVersion, "expect_version", expectVersion)
+		ctx.LogWarn("user table version conflict", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "db_version", userCasVersion, "expect_version", expectVersion)
 		if ctx.GetSysNow().UnixNano() < privateData.loginLockTb.GetExpectTableUserDbTimeout().AsTime().UnixNano() {
-			ctx.LogWarn("need retry later for user table version conflict", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "db_version", userCasVersion, "expect_version", expectVersion)
+			ctx.LogWarn("need retry later for user table version conflict", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "db_version", userCasVersion, "expect_version", expectVersion)
 			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_EAGAIN)
 		}
 	}
 
-	ctx.LogInfo("load user table from db success", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "cas_version", userCasVersion)
+	ctx.LogInfo("load user table from db success", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "cas_version", userCasVersion)
 
 	// TODO 判断USER表Version是否合法
 	// TODO DB 版本防止回退校验
@@ -113,51 +114,50 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 	p.SetRouterServerId(0, privateData.loginLockTb.GetRouterVersion())
 
 	// LoginLock Table
-	p.LoadLoginLockInfo(privateData.loginLockTb)
-	p.SetLoginLockCASVersion(privateData.loginCASVersion)
+	p.obj.LoadLoginLockInfo(privateData.loginLockTb)
+	p.obj.SetLoginLockCASVersion(privateData.loginCASVersion)
 
 	// Init from DB
 	// TODO 版本升级
-	result := p.InitFromDB(ctx, userTb)
+	result := p.obj.InitFromDB(ctx, userTb)
 	if result.IsError() {
-		result.LogError(ctx, "init user from db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+		result.LogError(ctx, "init user from db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		return result
 	}
 
 	// 更新LoginLock表路由信息
-	oldRouterServerId := p.GetLoginLockInfo().GetRouterServerId()
-	oldRouterServerVersion := p.GetLoginLockInfo().GetRouterVersion()
+	oldRouterServerId := p.obj.GetLoginLockInfo().GetRouterServerId()
+	oldRouterServerVersion := p.obj.GetLoginLockInfo().GetRouterVersion()
 
 	// 更新登录锁信息
-	p.GetLoginLockInfo().LoginExpired = ctx.GetSysNow().Unix() +
+	p.obj.GetLoginLockInfo().LoginExpired = ctx.GetSysNow().Unix() +
 		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
-	p.GetLoginLockInfo().LoginZoneId = p.GetZoneId()
+	p.obj.GetLoginLockInfo().LoginZoneId = p.obj.GetZoneId()
 
-	p.GetLoginLockInfo().RouterServerId = uint64(ctx.GetApp().GetLogicId())
+	p.obj.GetLoginLockInfo().RouterServerId = uint64(ctx.GetApp().GetLogicId())
 	// 手动版本更新
-	p.GetLoginLockInfo().RouterVersion = oldRouterServerVersion + 1
+	p.obj.GetLoginLockInfo().RouterVersion = oldRouterServerVersion + 1
 
-	loginCASVersion := p.GetLoginLockCASVersion()
-	loginTableResult := db.DatabaseTableLoginLockUpdateUserId(ctx, p.GetLoginLockInfo(), &loginCASVersion, false)
+	loginCASVersion := p.obj.GetLoginLockCASVersion()
+	loginTableResult := db.DatabaseTableLoginLockUpdateUserId(ctx, p.obj.GetLoginLockInfo(), &loginCASVersion, false)
 	if loginTableResult.IsError() {
 		// 回滚
-		p.GetLoginLockInfo().RouterServerId = oldRouterServerId
-		p.GetLoginLockInfo().RouterVersion = oldRouterServerVersion
-		result.LogError(ctx, "update login table router server id failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+		p.obj.GetLoginLockInfo().RouterServerId = oldRouterServerId
+		p.obj.GetLoginLockInfo().RouterVersion = oldRouterServerVersion
+		result.LogError(ctx, "update login table router server id failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		return loginTableResult
 	}
-	p.SetLoginLockCASVersion(loginCASVersion)
+	p.obj.SetLoginLockCASVersion(loginCASVersion)
 	// 更新路由版本
-	p.SetRouterServerId(p.GetLoginLockInfo().GetRouterServerId(), p.GetLoginLockInfo().GetRouterVersion())
+	p.SetRouterServerId(p.obj.GetLoginLockInfo().GetRouterServerId(), p.obj.GetLoginLockInfo().GetRouterVersion())
 
-	result.LogInfo(ctx, "init user from db success", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
-
+	result.LogInfo(ctx, "init user from db success", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 	return cd.CreateRpcResultOk()
 }
 
 func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPrivateData) cd.RpcResult {
-	if lu.IsNil(p) || !p.CanBeWriteable() {
-		return cd.CreateRpcResultError(fmt.Errorf("user router cache is not writeable, zone_id: %d, user_id: %d", p.GetZoneId(), p.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE)
+	if lu.IsNil(p) || !p.obj.CanBeWriteable() {
+		return cd.CreateRpcResultError(fmt.Errorf("user router cache is not writeable, zone_id: %d, user_id: %d", p.obj.GetZoneId(), p.obj.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE)
 	}
 
 	tryTime := 2
@@ -166,90 +166,90 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 		tryTime--
 		if err.IsError() && err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED) {
 			// 再拉一次数据库
-			loginLockTable, loginLockCASVersion, dbResult := db.DatabaseTableLoginLockLoadWithUserId(ctx, p.GetUserId())
+			loginLockTable, loginLockCASVersion, dbResult := db.DatabaseTableLoginLockLoadWithUserId(ctx, p.obj.GetUserId())
 			if dbResult.IsError() {
-				dbResult.LogError(ctx, "reload login lock table from db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+				dbResult.LogError(ctx, "reload login lock table from db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 				return dbResult
 			}
-			p.LoadLoginLockInfo(loginLockTable)
-			p.SetLoginLockCASVersion(loginLockCASVersion)
-			err.LogInfo(ctx, "reload login lock table from db success", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+			p.obj.LoadLoginLockInfo(loginLockTable)
+			p.obj.SetLoginLockCASVersion(loginLockCASVersion)
+			err.LogInfo(ctx, "reload login lock table from db success", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		}
 
-		if p.GetLoginLockInfo().GetRouterServerId() != uint64(ctx.GetApp().GetLogicId()) {
+		if p.obj.GetLoginLockInfo().GetRouterServerId() != uint64(ctx.GetApp().GetLogicId()) {
 			// 别的地方登录成功 尝试下线
-			ctx.LogError("login lock occupied by other router server, cannot save user, need kick off", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "router_server_id", p.GetLoginLockInfo().GetRouterServerId())
-			s := p.UserImpl.GetUserSession()
+			ctx.LogError("login lock occupied by other router server, cannot save user, need kick off", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "router_server_id", p.obj.GetLoginLockInfo().GetRouterServerId())
+			s := p.obj.GetUserSession()
 			// 在其他设备登入的要把这里的Session踢下线
 			if s != nil {
-				s.UnbindUser(ctx, p.UserImpl)
+				s.UnbindUser(ctx, p.obj)
 				libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp()).
 					RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "other device login")
 			}
 			p.Downgrade(ctx)
-			return cd.CreateRpcResultError(fmt.Errorf("login lock occupied by other router server, cannot save user, need kick off, zone_id: %d, user_id: %d", p.GetZoneId(), p.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
+			return cd.CreateRpcResultError(fmt.Errorf("login lock occupied by other router server, cannot save user, need kick off, zone_id: %d, user_id: %d", p.obj.GetZoneId(), p.obj.GetUserId()), public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
 		}
 
 		// 冲突检测的版本号设置
-		p.GetLoginLockInfo().ExpectTableUserDbVersion = p.GetUserCASVersion() + 1
-		p.GetLoginLockInfo().ExpectTableUserDbTimeout = timestamppb.New(ctx.GetSysNow().Add(
+		p.obj.GetLoginLockInfo().ExpectTableUserDbVersion = p.obj.GetUserCASVersion() + 1
+		p.obj.GetLoginLockInfo().ExpectTableUserDbTimeout = timestamppb.New(ctx.GetSysNow().Add(
 			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()))
 
 		if p.GetRouterSvrId() == 0 {
 			// 登出
-			oldRouterServerId := p.GetLoginLockInfo().RouterServerId
-			oldRouterVersion := p.GetLoginLockInfo().RouterVersion
+			oldRouterServerId := p.obj.GetLoginLockInfo().RouterServerId
+			oldRouterVersion := p.obj.GetLoginLockInfo().RouterVersion
 
-			p.GetLoginLockInfo().RouterServerId = 0
+			p.obj.GetLoginLockInfo().RouterServerId = 0
 			// 版本更新
-			p.GetLoginLockInfo().RouterVersion = oldRouterVersion + 1
+			p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion + 1
 
 			// 登出时间由上层逻辑设置
-			loginLockVersin := p.GetLoginLockCASVersion()
-			err = db.DatabaseTableLoginLockUpdateUserId(ctx, p.GetLoginLockInfo(), &loginLockVersin, false)
+			loginLockVersin := p.obj.GetLoginLockCASVersion()
+			err = db.DatabaseTableLoginLockUpdateUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
 			if err.IsError() {
-				p.GetLoginLockInfo().RouterServerId = oldRouterServerId
-				p.GetLoginLockInfo().RouterVersion = oldRouterVersion
+				p.obj.GetLoginLockInfo().RouterServerId = oldRouterServerId
+				p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion
 				if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED) {
 					// 重试
-					err.LogError(ctx, "save login to db failed DatabaseTableLoginLockUpdateUserId try next time", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+					err.LogError(ctx, "save login to db failed DatabaseTableLoginLockUpdateUserId try next time", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 					continue
 				} else {
-					err.LogError(ctx, "save login to db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+					err.LogError(ctx, "save login to db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 					return err
 				}
 			} else {
 				// 成功
-				p.SetLoginLockCASVersion(loginLockVersin)
-				p.SetRouterServerId(p.GetLoginLockInfo().GetRouterServerId(), p.GetLoginLockInfo().GetRouterVersion())
+				p.obj.SetLoginLockCASVersion(loginLockVersin)
+				p.SetRouterServerId(p.obj.GetLoginLockInfo().GetRouterServerId(), p.obj.GetLoginLockInfo().GetRouterVersion())
 			}
 		} else {
 			// 登录续期 LoginCodeExpired 由上层逻辑设置
-			oldRouterServerId := p.GetLoginLockInfo().RouterServerId
-			oldRouterVersion := p.GetLoginLockInfo().RouterVersion
+			oldRouterServerId := p.obj.GetLoginLockInfo().RouterServerId
+			oldRouterVersion := p.obj.GetLoginLockInfo().RouterVersion
 
 			if p.GetRouterSvrId() != oldRouterServerId {
-				p.GetLoginLockInfo().RouterServerId = p.GetRouterSvrId()
-				p.GetLoginLockInfo().RouterVersion = oldRouterVersion + 1
+				p.obj.GetLoginLockInfo().RouterServerId = p.GetRouterSvrId()
+				p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion + 1
 			}
 
-			loginLockVersin := p.GetLoginLockCASVersion()
-			err = db.DatabaseTableLoginLockUpdateUserId(ctx, p.GetLoginLockInfo(), &loginLockVersin, false)
+			loginLockVersin := p.obj.GetLoginLockCASVersion()
+			err = db.DatabaseTableLoginLockUpdateUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
 			if err.IsError() {
-				p.GetLoginLockInfo().RouterServerId = oldRouterServerId
-				p.GetLoginLockInfo().RouterVersion = oldRouterVersion
+				p.obj.GetLoginLockInfo().RouterServerId = oldRouterServerId
+				p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion
 				if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED) {
 					// 重试
-					err.LogError(ctx, "save login to db failed DatabaseTableLoginLockUpdateUserId try next time", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+					err.LogError(ctx, "save login to db failed DatabaseTableLoginLockUpdateUserId try next time", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 					continue
 				} else {
-					err.LogError(ctx, "save login to db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+					err.LogError(ctx, "save login to db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 					return err
 				}
 			} else {
 				// 成功
-				p.SetLoginLockCASVersion(loginLockVersin)
-				p.SetRouterServerId(p.GetLoginLockInfo().GetRouterServerId(), p.GetLoginLockInfo().GetRouterVersion())
+				p.obj.SetLoginLockCASVersion(loginLockVersin)
+				p.SetRouterServerId(p.obj.GetLoginLockInfo().GetRouterServerId(), p.obj.GetLoginLockInfo().GetRouterVersion())
 			}
 		}
 		break
@@ -257,44 +257,44 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 
 	if err.IsError() {
 		// 锁处理失败
-		ctx.LogError("login lock update failed, cannot save user", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+		ctx.LogError("login lock update failed, cannot save user", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		return err
 	}
 
 	// 锁处理完毕
 	dstTb := &private_protocol_pbdesc.DatabaseTableUser{}
-	result := p.DumpToDB(ctx, dstTb)
+	result := p.obj.DumpToDB(ctx, dstTb)
 	if result.IsError() {
 		// 走到这会丢数据
-		result.LogError(ctx, "dump user to db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+		result.LogError(ctx, "dump user to db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		return result
 	}
 
-	userCASVersion := p.GetUserCASVersion()
-	ctx.LogInfo("save user to db start", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "cas_version", userCASVersion)
+	userCASVersion := p.obj.GetUserCASVersion()
+	ctx.LogInfo("save user to db start", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "cas_version", userCASVersion)
 	err = db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb, &userCASVersion, false)
-	p.SetUserCASVersion(userCASVersion)
+	p.obj.SetUserCASVersion(userCASVersion)
 	if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED) {
 		// 重试一次
-		err.LogError(ctx, "save user to db failed DatabaseTableUserUpdateZoneIdUserId try next time", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+		err.LogError(ctx, "save user to db failed DatabaseTableUserUpdateZoneIdUserId try next time", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		dstTb = &private_protocol_pbdesc.DatabaseTableUser{}
-		result = p.DumpToDB(ctx, dstTb)
+		result = p.obj.DumpToDB(ctx, dstTb)
 		if result.IsError() {
 			// 走到这会丢数据
-			result.LogError(ctx, "dump user to db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+			result.LogError(ctx, "dump user to db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 			return result
 		}
-		ctx.LogInfo("retry save user to db start ", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "cas_version", userCASVersion)
-		userCASVersion = p.GetUserCASVersion()
+		ctx.LogInfo("retry save user to db start ", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "cas_version", userCASVersion)
+		userCASVersion = p.obj.GetUserCASVersion()
 		err = db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb, &userCASVersion, false)
-		p.SetUserCASVersion(userCASVersion)
+		p.obj.SetUserCASVersion(userCASVersion)
 	}
 
 	if !err.IsError() {
-		p.OnSaved(ctx, userCASVersion)
-		result.LogInfo(ctx, "save user to db success", "zone_id", p.GetZoneId(), "user_id", p.GetUserId())
+		p.obj.OnSaved(ctx, userCASVersion)
+		result.LogInfo(ctx, "save user to db success", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 	} else {
-		err.LogError(ctx, "save user to db failed", "zone_id", p.GetZoneId(), "user_id", p.GetUserId(), "err", err)
+		err.LogError(ctx, "save user to db failed", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "err", err)
 	}
 	return err
 }

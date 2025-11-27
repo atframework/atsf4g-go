@@ -67,7 +67,7 @@ func (um *UserManager) Find(ctx cd.RpcContext, zoneID uint32, userID uint64) Use
 	if lu.IsNil(routerObject) {
 		return nil
 	}
-	return routerObject.UserImpl
+	return routerObject.obj
 }
 
 func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uint64, checked UserImpl, forceKickoff bool) cd.RpcResult {
@@ -81,7 +81,7 @@ func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uin
 		return cd.CreateRpcResultOk()
 	}
 
-	if !lu.IsNil(checked) && !lu.Compare(cache.UserImpl, checked) {
+	if !lu.IsNil(checked) && !lu.Compare(cache.obj, checked) {
 		// 不匹配当前缓存 尝试移除Session
 		if checked.GetUserSession() != nil {
 			checked.UnbindSession(ctx, nil)
@@ -164,7 +164,7 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 	if result.IsError() || cache == nil {
 		return zero, result
 	}
-	u = cache.UserImpl
+	u = cache.obj
 	convertRet, ok := u.(T)
 	if !ok {
 		return zero, cd.CreateRpcResultError(fmt.Errorf("user type mismatch, zone_id: %d, user_id: %d, type: %T", zoneID, userID, u), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)

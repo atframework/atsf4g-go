@@ -68,3 +68,16 @@ func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, ex
 
 	appendActorTaskAction(app, actor, nil, nil)
 }
+
+func (actor *ActorExecutor) CheckActorExecutor(ctx RpcContext) bool {
+	if actor == nil || lu.IsNil(ctx) {
+		return false
+	}
+
+	if lu.IsNil(ctx.GetAction()) {
+		// 没有在任务内
+		return false
+	}
+
+	return actor.Instance == ctx.GetAction().GetActorExecutor().Instance
+}

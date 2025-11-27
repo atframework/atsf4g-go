@@ -29,7 +29,7 @@ func InitUserRouterManager(app libatapp.AppImpl) {
 		func(ctx cd.RpcContext, key router.RouterObjectKey) *UserRouterCache {
 			cache := &UserRouterCache{
 				RouterObjectBase: router.CreateRouterObjectBase(ctx, key),
-				UserImpl:         createUserImplFn(ctx, key.ZoneID, key.ObjectID, ""),
+				obj:              createUserImplFn(ctx, key.ZoneID, key.ObjectID, ""),
 			}
 			cache.RouterObjectBase.InitRouterObjectImpl(cache)
 			return cache
@@ -46,7 +46,7 @@ func GetUserRouterManager(app libatapp.AppImpl) *UserRouterManager {
 
 func (manager *UserRouterManager) OnRemoveObject(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
-	cache := obj.(*UserRouterCache).UserImpl
+	cache := obj.(*UserRouterCache).obj
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
@@ -57,7 +57,7 @@ func (manager *UserRouterManager) OnRemoveObject(ctx cd.RpcContext, key router.R
 
 func (manager *UserRouterManager) OnRemoveCache(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
-	cache := obj.(*UserRouterCache).UserImpl
+	cache := obj.(*UserRouterCache).obj
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
@@ -68,7 +68,7 @@ func (manager *UserRouterManager) OnRemoveCache(ctx cd.RpcContext, key router.Ro
 
 func (manager *UserRouterManager) OnObjectRemoved(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
-	cache := obj.(*UserRouterCache).UserImpl
+	cache := obj.(*UserRouterCache).obj
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
@@ -79,7 +79,7 @@ func (manager *UserRouterManager) OnObjectRemoved(ctx cd.RpcContext, key router.
 
 func (manager *UserRouterManager) OnCacheRemoved(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
-	cache := obj.(*UserRouterCache).UserImpl
+	cache := obj.(*UserRouterCache).obj
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {

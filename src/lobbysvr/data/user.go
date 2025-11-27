@@ -77,7 +77,7 @@ func (u *User) CanBeWriteable() bool {
 
 func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
 	ret := &User{
-		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId),
+		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId, nil),
 
 		loginTaskLock:    sync.Mutex{},
 		loginTaskId:      0,

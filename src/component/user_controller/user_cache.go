@@ -125,7 +125,7 @@ type UserCache struct {
 	userCASVersion      uint64
 }
 
-func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) (cache UserCache) {
+func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
 	// 由路由系统创建可能没有OpenId
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
@@ -143,13 +143,14 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 		openId:           openId,
 		csActorLogWriter: writer,
 	}
+	cache.actorExecutor = actorExecutor
 	cache.Impl = &cache
 	cache.Init()
 	return
 }
 
 func CreateUserImpl(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
-	cache := CreateUserCache(ctx, zoneId, userId, openId)
+	cache := CreateUserCache(ctx, zoneId, userId, openId, nil)
 	return &cache
 }
 
@@ -225,20 +226,11 @@ func (u *UserCache) GetActorExecutor() *cd.ActorExecutor {
 }
 
 func (u *UserCache) CheckActorExecutor(ctx cd.RpcContext) bool {
-	if u == nil || lu.IsNil(ctx) {
+	if u == nil {
 		return false
 	}
 
-	if u.actorExecutor == nil {
-		return true
-	}
-
-	if lu.IsNil(ctx.GetAction()) {
-		// 没有在任务内
-		return false
-	}
-
-	return u.actorExecutor == ctx.GetAction().GetActorExecutor()
+	return u.actorExecutor.CheckActorExecutor(ctx)
 }
 
 func (u *UserCache) SendAllSyncData(_ctx cd.RpcContext) error {

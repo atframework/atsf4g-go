@@ -43,6 +43,8 @@ type RouterObjectBase struct {
 	key   RouterObjectKey // 对象的键
 	flags int32           // 标志位
 
+	actorExecutor *cd.ActorExecutor // Actor执行器
+
 	lastSaveTime  int64 // 最后一次保存时间
 	lastVisitTime int64 // 最后一次访问时间
 
@@ -100,6 +102,9 @@ type RouterObjectBaseImpl interface {
 	GetRouterSvrId() uint64
 	GetRouterSvrVer() uint64
 	GetKey() RouterObjectKey
+
+	GetActorExecutor() *cd.ActorExecutor
+	CheckActorExecutor(ctx cd.RpcContext) bool
 
 	// 任务调度相关
 	GetAwaitTaskId() uint64
@@ -176,6 +181,7 @@ func CreateRouterObjectBase(ctx cd.RpcContext, key RouterObjectKey) (ret RouterO
 	runtime.SetFinalizer(&ret, func(obj *RouterObjectBase) {
 		obj.UnsetTimerRef()
 	})
+	ret.actorExecutor = cd.CreateActorExecutor(ret)
 	return
 }
 
@@ -230,6 +236,22 @@ func (obj *RouterObjectBase) IsWritable() bool {
 
 func (obj *RouterObjectBase) IsPullingCache() bool {
 	return obj.CheckFlag(FlagPullingCache)
+}
+
+func (obj *RouterObjectBase) GetActorExecutor() *cd.ActorExecutor {
+	if obj == nil {
+		return nil
+	}
+
+	return obj.actorExecutor
+}
+
+func (obj *RouterObjectBase) CheckActorExecutor(ctx cd.RpcContext) bool {
+	if obj == nil {
+		return false
+	}
+
+	return obj.actorExecutor.CheckActorExecutor(ctx)
 }
 
 func (obj *RouterObjectBase) IsCacheAvailable(ctx cd.RpcContext) bool {
