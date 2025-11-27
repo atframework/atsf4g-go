@@ -181,6 +181,8 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 	awaitableContext := dispatcher.CreateAwaitableContext()
 	if parentContext != nil {
 		awaitableContext.SetContextCancelFn(context.WithCancel(parentContext))
+	} else {
+		awaitableContext.SetContextCancelFn(context.WithCancel(context.Background()))
 	}
 
 	startData := &DispatcherStartData{

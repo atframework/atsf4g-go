@@ -649,7 +649,7 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 
 	select {
 	case <-app.appContext.Done():
-		app.GetDefaultLogger().Info("Start to stop...")
+		break
 	case sig := <-app.signalChan:
 		if sig == syscall.SIGTERM || sig == syscall.SIGQUIT {
 			app.GetDefaultLogger().Info("Received signal, stopping...", slog.Any("signal", sig))
@@ -810,6 +810,7 @@ func (app *AppInstance) Stop() error {
 	app.stopTimeout = app.GetSysNow().Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
 	app.SetFlag(AppFlagStopping, true)
 	app.stopAppHandle()
+	app.GetDefaultLogger().Info("Start to stop...")
 	return nil
 }
 

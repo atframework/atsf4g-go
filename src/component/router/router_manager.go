@@ -162,6 +162,13 @@ func (manager *RouterManager[T, PrivData]) MutableCacheWithGuard(ctx cd.Awaitabl
 
 		result = cache.InternalPullCache(ctx, guard, privData)
 		if result.IsError() {
+			// 拉取失败 删除缓存
+			manager.cachesMu.Lock()
+			cache.UnsetTimerRef()
+			delete(manager.caches, cache.GetKey())
+			manager.cachesMu.Unlock()
+			ctx.LogInfo("RouterManager MutableCacheWithGuard pull cache failed", "key", key, "error", result)
+
 			code := public_protocol_pbdesc.EnErrorCode(result.GetResponseCode())
 			if manager.shouldAbortCacheRetry(code) {
 				var zero T
@@ -213,6 +220,13 @@ func (manager *RouterManager[T, PrivData]) MutableObjectWithGuard(ctx cd.Awaitab
 
 		result = cache.InternalPullObject(ctx, guard, privData)
 		if result.IsError() {
+			// 拉取失败 删除缓存
+			manager.cachesMu.Lock()
+			cache.UnsetTimerRef()
+			delete(manager.caches, cache.GetKey())
+			manager.cachesMu.Unlock()
+			ctx.LogInfo("RouterManager MutableCacheWithGuard pull cache failed", "key", key, "error", result)
+
 			code := public_protocol_pbdesc.EnErrorCode(result.GetResponseCode())
 			if manager.shouldAbortObjectRetry(code) {
 				var zero T
@@ -345,6 +359,7 @@ func (manager *RouterManager[T, PrivData]) ensureCache(ctx cd.RpcContext, key Ro
 	} else {
 		manager.caches[key] = newCache
 	}
+	libatapp.AtappGetModule[*RouterManagerSet](GetReflectTypeRouterManagerSet(), ctx.GetApp()).insertTimer(ctx, manager.impl, newCache, false)
 	manager.cachesMu.Unlock()
 
 	return newCache

@@ -290,15 +290,15 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 }
 
 func AsyncInvoke(ctx RpcContext, name string, actor *ActorExecutor, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
-	childTask, startData := CreateNoMessageTaskAction(libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp()),
-		ctx, actor, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
-			ta := &taskActionAsyncInvoke{
-				TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, timeout),
-				name:                    name,
-				callable:                invoke,
-			}
-			return ta
-		},
+	rd := libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp())
+	childTask, startData := CreateNoMessageTaskAction(rd, rd.CreateRpcContext(), actor, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
+		ta := &taskActionAsyncInvoke{
+			TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, timeout),
+			name:                    name,
+			callable:                invoke,
+		}
+		return ta
+	},
 	)
 
 	if err := libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, childTask, &startData); err != nil {
@@ -309,25 +309,21 @@ func AsyncInvoke(ctx RpcContext, name string, actor *ActorExecutor, invoke func(
 	return childTask
 }
 
-func AsyncThen(ctx RpcContext, name string, actor *ActorExecutor, waiting TaskActionImpl, invoke func()) {
-	if lu.IsNil(waiting) || waiting.IsExiting() {
-		invoke()
-	}
+func AsyncThen(ctx RpcContext, name string, actor *ActorExecutor, waiting TaskActionImpl, invoke func(AwaitableContext)) {
 	taskAction := AsyncInvoke(ctx, name, actor, func(childCtx AwaitableContext) RpcResult {
 		result := AwaitTask(childCtx, waiting)
-		invoke()
+		invoke(childCtx)
 		return result
 	})
 	if lu.IsNil(taskAction) {
-		ctx.LogError("Try to invoke task failed, try to call it directly", "name", name)
-		invoke()
+		ctx.LogError("Try to invoke task failed", "name", name)
 	}
 }
 
 func AsyncThenStartTask(ctx RpcContext, actor *ActorExecutor, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
-	AsyncThen(ctx, startTask.Name(), actor, waiting, func() {
-		if err := libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, startTask, startData); err != nil {
-			ctx.LogError("AsyncInvoke StartTaskAction failed", slog.String("task_name", startTask.Name()), slog.Any("error", err))
+	AsyncThen(ctx, startTask.Name(), actor, waiting, func(childCtx AwaitableContext) {
+		if err := libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), childCtx.GetApp()).StartTaskAction(childCtx, startTask, startData); err != nil {
+			childCtx.LogError("AsyncInvoke StartTaskAction failed", slog.String("task_name", startTask.Name()), slog.Any("error", err))
 		}
 	})
 }

@@ -137,6 +137,10 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		ret += set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.FastTimerList, true)
 	}
 
+	if ret != 0 {
+		set.GetApp().GetDefaultLogger().Debug("RouterManagerSet Tick processed timers", "count", ret)
+	}
+
 	if len(set.pendingActionList) > 0 && !set.IsClosed() && !set.isSaveTaskRunning() && !set.isClosingTaskRunning() {
 		// 创建 AutoSave 任务
 		autoSaveTask, startData := cd.CreateNoMessageTaskAction(
@@ -428,11 +432,25 @@ func (set *RouterManagerSet) SetPreClosing() {
 
 // 私有方法
 func (set *RouterManagerSet) isSaveTaskRunning() bool {
-	return !lu.IsNil(set.autoSaveActionTask) && !set.autoSaveActionTask.IsExiting()
+	if lu.IsNil(set.autoSaveActionTask) {
+		return false
+	}
+	if set.autoSaveActionTask.IsExiting() {
+		set.autoSaveActionTask = nil
+		return false
+	}
+	return true
 }
 
 func (set *RouterManagerSet) isClosingTaskRunning() bool {
-	return !lu.IsNil(set.closingTask) && !set.closingTask.IsExiting()
+	if lu.IsNil(set.closingTask) {
+		return false
+	}
+	if set.closingTask.IsExiting() {
+		set.closingTask = nil
+		return false
+	}
+	return true
 }
 
 func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExpire, objectSave int64, timerList *list.List, isFast bool) int {
