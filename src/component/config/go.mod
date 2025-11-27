@@ -18,7 +18,6 @@ replace github.com/atframework/atsf4g-go/component-logical_time => ../logical_ti
 
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
-	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000

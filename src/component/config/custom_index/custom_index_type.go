@@ -34,10 +34,10 @@ type QuestUnlockConditionPair struct {
 
 // 此处定义自定义索引的类型
 type ExcelConfigConstIndex struct {
-	ExcelConstConfig public_protocol_config.ExcelConstConfig
+	ExcelConstConfig public_protocol_config.Readonly_ExcelConstConfig
 }
 
-func (i *ExcelConfigCustomIndex) GetConstIndex() *public_protocol_config.ExcelConstConfig {
+func (i *ExcelConfigCustomIndex) GetConstIndex() *public_protocol_config.Readonly_ExcelConstConfig {
 	if i == nil {
 		return nil
 	}

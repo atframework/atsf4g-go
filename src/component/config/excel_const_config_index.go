@@ -1,12 +1,10 @@
 package atframework_component_config
 
 import (
-	"time"
+	"fmt"
 
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
-
-	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
 )
 
 func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *libatapp.Logger) error {
@@ -17,10 +15,22 @@ func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *libat
 		source[v.GetKey()] = v.GetValue()
 	}
 
-	err := libatapp.ParseMessage(source, group.GetCustomIndex().GetConstIndex(), logger)
-	if err != nil {
-		baseTimeSec := group.GetCustomIndex().GetConstIndex().GetTimezoneBaseTimestamp().Seconds
-		logical_time.SetGlobalBaseTime(time.Unix(baseTimeSec, 0))
+	if len(*group.GetExcelConstConfigAllOfFakeKey()) <= 0 {
+		return fmt.Errorf("excel const config is empty")
 	}
-	return err
+
+	if len(*group.GetExcelConstConfigAllOfFakeKey()) > 1 {
+		return fmt.Errorf("excel const config is not unique")
+	}
+
+	if group.GetCustomIndex().GetConstIndex() == nil {
+		return fmt.Errorf("excel const config index is nil")
+	}
+
+	for _, v := range *group.GetExcelConstConfigAllOfFakeKey() {
+		*group.GetCustomIndex().GetConstIndex() = *v
+		break
+	}
+
+	return nil
 }
