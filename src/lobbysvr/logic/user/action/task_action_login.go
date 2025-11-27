@@ -15,6 +15,7 @@ import (
 	config "github.com/atframework/atsf4g-go/component-config"
 	db "github.com/atframework/atsf4g-go/component-db"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	router "github.com/atframework/atsf4g-go/component-router"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 )
@@ -243,7 +244,17 @@ func (t *TaskActionLogin) replaceSession(user *data.User, session *uc.Session) b
 }
 
 func (t *TaskActionLogin) awaitLogoutIoTask(ctx cd.AwaitableContext, user *data.User) cd.RpcResult {
-	// TODO
+	cache := uc.GetUserRouterManager(ctx.GetApp()).GetCache(router.RouterObjectKey{
+		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+		ZoneID:   user.GetZoneId(),
+		ObjectID: user.GetUserId(),
+	})
+	if cache == nil {
+		return cd.CreateRpcResultOk()
+	}
+	if cache.CheckFlag(router.FlagRemovingObject) && cache.IsIORunning() {
+		return cache.AwaitIOTask(ctx)
+	}
 	return cd.CreateRpcResultOk()
 }
 
