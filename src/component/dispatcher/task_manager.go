@@ -154,6 +154,8 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 
 		action.OnComplete()
 
+		action.OnSendResponse()
+
 		if !action.IsResponseDisabled() {
 			err = action.SendResponse()
 			if err != nil {

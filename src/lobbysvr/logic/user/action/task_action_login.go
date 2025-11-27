@@ -338,9 +338,6 @@ func (t *TaskActionLogin) OnSuccess() {
 
 	// 事件和刷新
 	user.RefreshLimit(t.GetRpcContext(), t.GetNow())
-
-	// 登入过程中产生的脏数据不需要推送
-	user.CleanupClientDirtyCache(t.GetRpcContext())
 }
 
 func (t *TaskActionLogin) OnComplete() {
@@ -354,6 +351,9 @@ func (t *TaskActionLogin) OnComplete() {
 		t.GetLogger().Warn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
 		return
 	}
+
+	// 登入过程中产生的脏数据不需要推送
+	user.CleanupClientDirtyCache(t.GetRpcContext())
 
 	user.UnlockLoginTask(t.GetTaskId())
 }

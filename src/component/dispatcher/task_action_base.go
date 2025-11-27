@@ -235,6 +235,8 @@ func (t *TaskActionBase) OnTimeout() {}
 
 func (t *TaskActionBase) OnComplete() {}
 
+func (t *TaskActionBase) OnSendResponse() {}
+
 func (t *TaskActionBase) OnCleanup() {
 	if t.currentAwaiting.Channel != nil {
 		close(*t.currentAwaiting.Channel)

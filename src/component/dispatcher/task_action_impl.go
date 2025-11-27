@@ -71,6 +71,7 @@ type TaskActionImpl interface {
 	OnTimeout()
 	OnComplete()
 	OnCleanup()
+	OnSendResponse()
 
 	// TODO: 链路跟踪逻辑
 	GetTraceInheritOption() *TraceInheritOption

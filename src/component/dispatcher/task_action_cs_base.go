@@ -331,6 +331,14 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) AllowNoActor() bool {
 	return false
 }
 
+func (t *TaskActionCSBase[RequestType, ResponseType]) OnSendResponse() {
+	// 脏数据自动推送
+	user := t.GetUser()
+	if !lu.IsNil(user) {
+		user.SendAllSyncData(t.GetRpcContext())
+	}
+}
+
 func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *DispatcherStartData) error {
 	t.PrepareHookRun(startData)
 
@@ -374,34 +382,9 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *Dispatc
 
 	err := t.TaskActionBase.HookRun(startData)
 
-	// 脏数据自动推送
-	if lu.IsNil(user) {
-		user = t.GetUser()
-	}
-	if !lu.IsNil(user) {
-		user.SendAllSyncData(t.GetRpcContext())
-	}
-
 	return err
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetTypeName() string {
 	return "CS Task Action"
-}
-
-type TaskActionCSTest struct {
-	TaskActionCSBase[*public_protocol_pbdesc.DClientDeviceInfo, *public_protocol_pbdesc.DClientDeviceInfo]
-}
-
-func (t *TaskActionCSTest) Run(startData DispatcherStartData) error {
-	body := t.GetRequestBody()
-	_ = body // 使用变量避免编译错误
-
-	// TODO: 实现具体的业务逻辑
-	// 示例：处理设备信息
-	// if !lu.IsNil(body) {
-	//     // 处理设备信息...
-	// }
-
-	return nil
 }
