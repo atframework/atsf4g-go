@@ -2,110 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Generate-Generate-all",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", "."],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Build:all",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", "."],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/build"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-Protocol:libatapp",
-      "type": "shell",
-      "command": "go",
-      "args": [
-        "run",
-        ".",
-        "${workspaceFolder}/atframework/libatapp-go/protocol"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-Protocol:Private",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", ".", "${workspaceFolder}/src/component/protocol/private"],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-Protocol:Public",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", ".", "${workspaceFolder}/src/component/protocol/public"],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-Excel and configure",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", ".", "${workspaceFolder}/src/component/config"],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-Protocol:lobbysvr",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", ".", "${workspaceFolder}/src/lobbysvr"],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-RPC and task configures",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", "."],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate-for-pb"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Generate-RPC and task codes",
-      "type": "shell",
-      "command": "go",
-      "args": ["run", ".", "${workspaceFolder}/tools/generate-for-pb"],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/generate"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Build-lobbysvr",
+      "label": "Build-lobbysvr-only-bin",
       "type": "shell",
       "command": "go",
       "args": [
@@ -121,7 +18,7 @@
       "group": "none"
     },
     {
-      "label": "Build-robot",
+      "label": "Build-robot-only-bin",
       "type": "shell",
       "command": "go",
       "args": [
@@ -137,12 +34,23 @@
       "group": "none"
     },
     {
-      "label": "Generate-Delete GeneratePBGO",
+      "label": "Build-fast-build",
       "type": "shell",
-      "command": "go",
-      "args": ["run", "."],
+      "command": "task fast-build",
+      "args": [],
       "options": {
-        "cwd": "${workspaceFolder}/tools/delete-generate-go"
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "Build-build",
+      "type": "shell",
+      "command": "task build",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
       },
       "problemMatcher": "$go",
       "group": "none"
@@ -184,60 +92,5 @@
       "problemMatcher": "$go",
       "group": "none"
     },
-    {
-      "label": "Runtime-Stop Lobbysvr",
-      "type": "shell",
-      "command": "./stop_1.1.11.1.bat",
-      "args": [],
-      "options": {
-        "cwd": "${workspaceFolder}/build/install/lobbysvr/bin"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Runtime-Restart Lobbysvr",
-      "type": "shell",
-      "command": "./restart_1.1.11.1.bat",
-      "args": [],
-      "options": {
-        "cwd": "${workspaceFolder}/build/install/lobbysvr/bin"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Runtime-Clear Lobby Log",
-      "type": "shell",
-      "command": "rm",
-      "args": ["-r", "*"],
-      "options": {
-        "cwd": "${workspaceFolder}/build/install/lobbysvr/log"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Runtime-Clear Robot Log",
-      "type": "shell",
-      "command": "rm",
-      "args": ["*"],
-      "options": {
-        "cwd": "${workspaceFolder}/build/install/robot/log"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Runtime-Start Robot",
-      "type": "shell",
-      "command": "./robotd.exe",
-      "args": [],
-      "options": {
-        "cwd": "${workspaceFolder}/build/install/robot/bin"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    }
   ]
 }
