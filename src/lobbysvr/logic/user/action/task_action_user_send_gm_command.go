@@ -53,7 +53,7 @@ func (t *TaskActionUserSendGmCommand) Run(_startData *component_dispatcher.Dispa
 	}
 
 	var err error
-	response_body.Reply, err = handle.callback(t, user, args)
+	response_body.Reply, err = handle.callback(t, t.GetAwaitableContext(), user, args)
 	if err != nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 		if response_body.Reply == nil {
@@ -67,7 +67,7 @@ func (t *TaskActionUserSendGmCommand) Run(_startData *component_dispatcher.Dispa
 }
 
 type (
-	gmCommandCallback = func(t *TaskActionUserSendGmCommand, user *data.User, args []string) ([]string, error)
+	gmCommandCallback = func(t *TaskActionUserSendGmCommand, ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error)
 	gmCommandHandle   struct {
 		parameterComment string
 		description      string
@@ -99,7 +99,7 @@ func init() {
 	gmCommandCallbacks = buildCommandCallbacks()
 }
 
-func (t *TaskActionUserSendGmCommand) runGMCmdHelp(_user *data.User, args []string) ([]string, error) {
+func (t *TaskActionUserSendGmCommand) runGMCmdHelp(ctx component_dispatcher.AwaitableContext, _user *data.User, args []string) ([]string, error) {
 	ret := make([]string, 0, len(gmCommandCallbacks))
 
 	left_length := 0
@@ -126,7 +126,7 @@ func (t *TaskActionUserSendGmCommand) runGMCmdHelp(_user *data.User, args []stri
 	return ret, nil
 }
 
-func (t *TaskActionUserSendGmCommand) runGMCmdItemAddItem(user *data.User, args []string) ([]string, error) {
+func (t *TaskActionUserSendGmCommand) runGMCmdItemAddItem(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("invalid arguments for add-item command")
 	}
@@ -172,7 +172,7 @@ func (t *TaskActionUserSendGmCommand) runGMCmdItemAddItem(user *data.User, args 
 	return []string{fmt.Sprintf("Add item success item_id=%d count=%d", itemId, count)}, nil
 }
 
-func (t *TaskActionUserSendGmCommand) runGMCmdItemRemoveItem(user *data.User, args []string) ([]string, error) {
+func (t *TaskActionUserSendGmCommand) runGMCmdItemRemoveItem(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("invalid arguments for remove-item command")
 	}
@@ -223,7 +223,7 @@ func (t *TaskActionUserSendGmCommand) runGMCmdItemRemoveItem(user *data.User, ar
 	return []string{fmt.Sprintf("Sub item success item_id=%d count=%d", itemId, count)}, nil
 }
 
-func (t *TaskActionUserSendGmCommand) runGMCmdQueryQuestStatus(user *data.User, args []string) ([]string, error) {
+func (t *TaskActionUserSendGmCommand) runGMCmdQueryQuestStatus(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("invalid arguments for query-quest-status command")
 	}
