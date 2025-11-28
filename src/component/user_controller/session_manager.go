@@ -94,9 +94,12 @@ func (sm *SessionManager) CreateSession(ctx cd.RpcContext, key SessionKey, handl
 		}
 	}
 
+	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Create Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
 	if session.IsEnableActorLog() {
-		session.InsertPendingActorLog(fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Create Session: %d \n", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId()))
+		session.InsertPendingActorLog(outputLog)
+		session.InsertPendingActorLog("\n")
 	}
+	ctx.LogDebug(outputLog)
 
 	ctx.LogInfo("session created", "session_node_id", key.NodeId, "session_id", key.SessionId)
 

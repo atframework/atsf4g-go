@@ -7,12 +7,16 @@ import (
 	"strconv"
 	"strings"
 
+	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	db "github.com/atframework/atsf4g-go/component-db"
 	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	libatapp "github.com/atframework/libatapp-go"
 
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 )
@@ -89,6 +93,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(&callbacks, "add-item", "<item_id> [count=1]", "Add an item to the user's inventory", (*TaskActionUserSendGmCommand).runGMCmdItemAddItem)
 	registerGmCommandHandle(&callbacks, "remove-item", "<item_id> <count> [guid=0]", "Remove an item from the user's inventory", (*TaskActionUserSendGmCommand).runGMCmdItemRemoveItem)
 	registerGmCommandHandle(&callbacks, "query-quest-status", "<questID>] ", "query quest status", (*TaskActionUserSendGmCommand).runGMCmdQueryQuestStatus)
+	registerGmCommandHandle(&callbacks, "del-account", "", "删除账号", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
 
 	return callbacks
 }
@@ -241,4 +246,14 @@ func (t *TaskActionUserSendGmCommand) runGMCmdQueryQuestStatus(ctx component_dis
 	result := mgr.QueryQuestStatus(int32(questID))
 
 	return []string{fmt.Sprintf("Add item success status=%d", result)}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdDelAccount(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	component_dispatcher.AsyncThen(ctx, "del account", user.GetActorExecutor(), ctx.GetAction(), func(childCtx cd.AwaitableContext) {
+		libatapp.AtappGetModule[*uc.UserManager](uc.GetReflectTypeUserManager(), childCtx.GetApp()).Remove(childCtx, user.GetZoneId(), user.GetUserId(), user, true)
+		db.DatabaseTableAccessDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())
+		db.DatabaseTableLoginLockDelWithUserId(childCtx, user.GetUserId())
+		db.DatabaseTableUserDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())
+	})
+	return []string{""}, nil
 }

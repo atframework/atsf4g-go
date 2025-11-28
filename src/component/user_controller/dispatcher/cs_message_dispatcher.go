@@ -64,7 +64,7 @@ func (h *SessionNetworkWebsocketHandle) Close(ctx cd.RpcContext, reason int32, r
 	}
 
 	// Implement the logic to close the WebSocket session
-	h.dispatcher.Close(ctx, h.networkSession, int(reason), reasonMessage)
+	h.dispatcher.AsyncClose(ctx, h.networkSession, int(reason), reasonMessage)
 }
 
 func (h *SessionNetworkWebsocketHandle) GetRemoteAddr() string {

@@ -257,14 +257,16 @@ func (u *UserCache) BindSession(ctx cd.RpcContext, session *Session) {
 	u.session = session
 	session.BindUser(ctx, u.Impl)
 
+	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
 	logWriter := u.GetCsActorLogWriter()
 	if logWriter != nil {
 		for _, log := range session.pendingCsLog {
 			fmt.Fprint(logWriter, log)
 		}
 		session.pendingCsLog = nil
-		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d \n", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
+		fmt.Fprintln(logWriter, outputLog)
 	}
+	ctx.LogDebug(outputLog)
 
 	u.OnUpdateSession(ctx, old_session, session)
 
@@ -286,10 +288,12 @@ func (u *UserCache) UnbindSession(ctx cd.RpcContext, session *Session) {
 		return
 	}
 
+	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), u.session.GetSessionId())
 	logWriter := u.GetCsActorLogWriter()
 	if logWriter != nil {
-		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d \n", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), u.session.GetSessionId())
+		fmt.Fprintln(logWriter, outputLog)
 	}
+	ctx.LogDebug(outputLog)
 
 	old_session := u.session
 	u.session = nil
