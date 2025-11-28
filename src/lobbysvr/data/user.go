@@ -517,9 +517,9 @@ func (u *User) GetItemManager(typeId int32) UserItemManagerImpl {
 	return u.itemManagerList[index].manager
 }
 
-func (u *User) AddItem(ctx cd.RpcContext, itemOffset []ItemAddGuard, reason *ItemFlowReason) Result {
+func (u *User) AddItem(ctx cd.RpcContext, itemOffset []*ItemAddGuard, reason *ItemFlowReason) Result {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
-		data []ItemAddGuard
+		data []*ItemAddGuard
 	})
 	for _, offset := range itemOffset {
 		typeId := offset.Item.GetItemBasic().GetTypeId()
@@ -532,9 +532,9 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []ItemAddGuard, reason *Ite
 		group, exists := splitByMgr[mgr]
 		if !exists || group == nil {
 			group = &struct {
-				data []ItemAddGuard
+				data []*ItemAddGuard
 			}{
-				data: make([]ItemAddGuard, 0, 2),
+				data: make([]*ItemAddGuard, 0, 2),
 			}
 			splitByMgr[mgr] = group
 		}
@@ -553,9 +553,9 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []ItemAddGuard, reason *Ite
 	return result
 }
 
-func (u *User) SubItem(ctx cd.RpcContext, itemOffset []ItemSubGuard, reason *ItemFlowReason) Result {
+func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *ItemFlowReason) Result {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
-		data []ItemSubGuard
+		data []*ItemSubGuard
 	})
 	for _, offset := range itemOffset {
 		typeId := offset.Item.GetTypeId()
@@ -568,9 +568,9 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []ItemSubGuard, reason *Ite
 		group, exists := splitByMgr[mgr]
 		if !exists || group == nil {
 			group = &struct {
-				data []ItemSubGuard
+				data []*ItemSubGuard
 			}{
-				data: make([]ItemSubGuard, 0, 2),
+				data: make([]*ItemSubGuard, 0, 2),
 			}
 			splitByMgr[mgr] = group
 		}
@@ -721,7 +721,7 @@ func (u *User) unpackMergeItemOffset(ctx cd.RpcContext, itemOffset []*public_pro
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]ItemAddGuard, Result) {
+func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]*ItemAddGuard, Result) {
 	unpaclMergeItemOffset, result := u.unpackMergeItemOffset(ctx, itemOffset)
 	if result.IsError() {
 		return nil, result
@@ -750,7 +750,7 @@ func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 		group.data = append(group.data, offset)
 	}
 
-	ret := make([]ItemAddGuard, 0, len(unpaclMergeItemOffset))
+	ret := make([]*ItemAddGuard, 0, len(unpaclMergeItemOffset))
 	for mgr, group := range splitByMgr {
 		subRet, subResult := mgr.CheckAddItem(ctx, group.data)
 		if subResult.IsError() {
@@ -761,7 +761,7 @@ func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]ItemSubGuard, Result) {
+func (u *User) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemBasic) ([]*ItemSubGuard, Result) {
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
 		data []*public_protocol_common.DItemBasic
 	})
@@ -785,7 +785,7 @@ func (u *User) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 		group.data = append(group.data, offset)
 	}
 
-	ret := make([]ItemSubGuard, 0, len(itemOffset))
+	ret := make([]*ItemSubGuard, 0, len(itemOffset))
 	for mgr, group := range splitByMgr {
 		subRet, subResult := mgr.CheckSubItem(ctx, group.data)
 		if subResult.IsError() {
