@@ -32,6 +32,11 @@ func GetReflectTypeWebSocketMessageDispatcher() reflect.Type {
 	return websocketMessageDispatcherReflectType
 }
 
+type closeParam struct {
+	closeCode int
+	text      string
+}
+
 type WebSocketSession struct {
 	SessionId uint64
 
@@ -44,7 +49,7 @@ type WebSocketSession struct {
 
 	sendQueue chan *public_protocol_extension.CSMsg
 
-	sendQueueClose   chan []byte
+	sendQueueClose   chan closeParam
 	sentCloseMessage atomic.Bool
 
 	errorCounter int
@@ -219,7 +224,7 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 		Connection:     conn,
 		Authorized:     false,
 		sendQueue:      make(chan *public_protocol_extension.CSMsg, d.wsConfig.GetMaxWriteMessageCount()),
-		sendQueueClose: make(chan []byte, 1),
+		sendQueueClose: make(chan closeParam, 1),
 	}
 
 	session.runningContext, session.runningCancel = context.WithCancel(d.GetApp().GetAppContext())
@@ -335,8 +340,12 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 					break
 				}
 				d.writeMessageToConnection(session, writeMessage)
-			case <-session.sendQueueClose:
-				d.closeSession(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+			case closeParam, ok := <-session.sendQueueClose:
+				if !ok {
+					d.closeSession(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+					break
+				}
+				d.closeSession(d.CreateRpcContext(), session, closeParam.closeCode, closeParam.text)
 				break
 			}
 		} else {
@@ -358,8 +367,12 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 					break
 				}
 				d.writeMessageToConnection(session, writeMessage)
-			case <-session.sendQueueClose:
-				d.closeSession(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+			case closeParam, ok := <-session.sendQueueClose:
+				if !ok {
+					d.closeSession(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+					break
+				}
+				d.closeSession(d.CreateRpcContext(), session, closeParam.closeCode, closeParam.text)
 				break
 			}
 
@@ -427,7 +440,10 @@ func (d *WebSocketMessageDispatcher) AsyncClose(_ctx RpcContext, session *WebSoc
 		d.GetApp().GetDefaultLogger().Info("AsyncClose WebSocket session", "session_id", session.SessionId, "reason", text)
 
 		// close(session.sendQueue) // 不能关闭channel,可能有并发写入,由channel通知关闭
-		session.sendQueueClose <- websocket.FormatCloseMessage(closeCode, text)
+		session.sendQueueClose <- closeParam{
+			closeCode: closeCode,
+			text:      text,
+		}
 
 		if session.runningCancel != nil {
 			fn := session.runningCancel
