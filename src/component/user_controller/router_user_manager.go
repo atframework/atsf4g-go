@@ -12,9 +12,9 @@ type UserRouterManager struct {
 	*router.RouterManager[*UserRouterCache, *UserRouterPrivateData]
 }
 
-var createUserImplFn func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl = CreateUserImpl
+var createUserImplFn func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) UserImpl = CreateUserImpl
 
-func SetCreateUserImplFn(callback func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl) {
+func SetCreateUserImplFn(callback func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) UserImpl) {
 	if callback != nil {
 		createUserImplFn = callback
 	}
@@ -29,8 +29,8 @@ func InitUserRouterManager(app libatapp.AppImpl) {
 		func(ctx cd.RpcContext, key router.RouterObjectKey) *UserRouterCache {
 			cache := &UserRouterCache{
 				RouterObjectBase: router.CreateRouterObjectBase(ctx, key),
-				obj:              createUserImplFn(ctx, key.ZoneID, key.ObjectID, ""),
 			}
+			cache.obj = createUserImplFn(ctx, key.ZoneID, key.ObjectID, "", cache.GetActorExecutor())
 			cache.RouterObjectBase.InitRouterObjectImpl(cache)
 			return cache
 		},
@@ -47,6 +47,9 @@ func GetUserRouterManager(app libatapp.AppImpl) *UserRouterManager {
 func (manager *UserRouterManager) OnRemoveObject(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
 	cache := obj.(*UserRouterCache).obj
+	if !cache.CheckActorExecutor(ctx) {
+		ctx.LogError("UserRouterManager OnRemoveObject ActorExecutor mismatch")
+	}
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
@@ -58,6 +61,9 @@ func (manager *UserRouterManager) OnRemoveObject(ctx cd.RpcContext, key router.R
 func (manager *UserRouterManager) OnRemoveCache(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
 	cache := obj.(*UserRouterCache).obj
+	if !cache.CheckActorExecutor(ctx) {
+		ctx.LogError("UserRouterManager OnRemoveCache ActorExecutor mismatch")
+	}
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
@@ -69,6 +75,9 @@ func (manager *UserRouterManager) OnRemoveCache(ctx cd.RpcContext, key router.Ro
 func (manager *UserRouterManager) OnObjectRemoved(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
 	cache := obj.(*UserRouterCache).obj
+	if !cache.CheckActorExecutor(ctx) {
+		ctx.LogError("UserRouterManager OnObjectRemoved ActorExecutor mismatch")
+	}
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
@@ -80,6 +89,9 @@ func (manager *UserRouterManager) OnObjectRemoved(ctx cd.RpcContext, key router.
 func (manager *UserRouterManager) OnCacheRemoved(ctx cd.RpcContext, key router.RouterObjectKey, obj router.RouterObjectImpl, privData router.RouterPrivateData) {
 	// 释放本地数据, 下线相关Session
 	cache := obj.(*UserRouterCache).obj
+	if !cache.CheckActorExecutor(ctx) {
+		ctx.LogError("UserRouterManager OnCacheRemoved ActorExecutor mismatch")
+	}
 	s := cache.GetUserSession()
 	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {

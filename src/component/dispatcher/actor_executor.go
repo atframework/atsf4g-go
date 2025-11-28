@@ -71,13 +71,42 @@ func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, ex
 
 func (actor *ActorExecutor) CheckActorExecutor(ctx RpcContext) bool {
 	if actor == nil || lu.IsNil(ctx) {
+		ctx.LogError("CheckActorExecutor failed: actor or ctx is nil")
 		return false
 	}
 
 	if lu.IsNil(ctx.GetAction()) {
 		// 没有在任务内
+		ctx.LogError("CheckActorExecutor failed: action is nil")
 		return false
 	}
 
-	return actor.Instance == ctx.GetAction().GetActorExecutor().Instance
+	if lu.IsNil(ctx.GetAction().GetActorExecutor()) {
+		// 没有Actor
+		ctx.LogError("CheckActorExecutor failed: action actor is nil")
+		return false
+	}
+
+	if actor.Instance != ctx.GetAction().GetActorExecutor().Instance {
+		ctx.LogError("CheckActorExecutor failed: actor instance mismatch")
+		return false
+	}
+
+	return true
+}
+
+func (actor *ActorExecutor) TryTakeCurrentRunningAction(action TaskActionImpl) bool {
+	if lu.IsNil(action) {
+		return false
+	}
+
+	if action.GetActorExecutor() != nil && actor.Instance == action.GetActorExecutor().Instance {
+		// 已经是当前执行者
+		return true
+	}
+
+	actor.currentRunningLock.Lock()
+	actor.currentRunningAction = action
+	action.SetActorExecutor(actor)
+	return true
 }

@@ -43,7 +43,7 @@ type RouterObjectBase struct {
 	key   RouterObjectKey // 对象的键
 	flags int32           // 标志位
 
-	actorExecutor *cd.ActorExecutor // Actor执行器
+	actorExecutor *cd.ActorExecutor // Actor执行器 操作对象需要检查Actor
 
 	lastSaveTime  int64 // 最后一次保存时间
 	lastVisitTime int64 // 最后一次访问时间

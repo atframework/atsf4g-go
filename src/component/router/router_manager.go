@@ -116,24 +116,40 @@ func (manager *RouterManager[T, PrivData]) RemoveObject(ctx cd.AwaitableContext,
 func (manager *RouterManager[T, PrivData]) InnerMutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObjectImpl, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
+	if lu.IsNil(privData) {
+		var zero PrivData
+		return manager.MutableCacheWithGuard(ctx, key, zero, &guard)
+	}
 	return manager.MutableCacheWithGuard(ctx, key, privData.(PrivData), &guard)
 }
 
 func (manager *RouterManager[T, PrivData]) InnerMutableObject(ctx cd.AwaitableContext, key RouterObjectKey, privData RouterPrivateData) (RouterObjectImpl, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
+	if lu.IsNil(privData) {
+		var zero PrivData
+		return manager.MutableObjectWithGuard(ctx, key, zero, &guard)
+	}
 	return manager.MutableObjectWithGuard(ctx, key, privData.(PrivData), &guard)
 }
 
 func (manager *RouterManager[T, PrivData]) InnerRemoveCache(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData RouterPrivateData) cd.RpcResult {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
+	if lu.IsNil(privData) {
+		var zero PrivData
+		return manager.RemoveCacheWithGuard(ctx, key, cache, zero, &guard)
+	}
 	return manager.RemoveCacheWithGuard(ctx, key, cache, privData.(PrivData), &guard)
 }
 
 func (manager *RouterManager[T, PrivData]) InnerRemoveObject(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData RouterPrivateData) cd.RpcResult {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)
+	if lu.IsNil(privData) {
+		var zero PrivData
+		return manager.RemoveObjectWithGuard(ctx, key, cache, zero, &guard)
+	}
 	return manager.RemoveObjectWithGuard(ctx, key, cache, privData.(PrivData), &guard)
 }
 
@@ -148,6 +164,15 @@ func (manager *RouterManager[T, PrivData]) MutableCacheWithGuard(ctx cd.Awaitabl
 			var zero T
 			return zero, cd.CreateRpcResultError(fmt.Errorf("create cache failed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		}
+
+		// 占用令牌
+		cache.GetActorExecutor().TryTakeCurrentRunningAction(ctx.GetAction())
+
+		if !cache.CheckActorExecutor(ctx) {
+			var zero T
+			return zero, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+
 		// 先等待IO任务完成，完成后可能在其他任务里已经拉取完毕了。
 		result := guard.Take(ctx, cache)
 		if result.IsError() {
@@ -198,6 +223,15 @@ func (manager *RouterManager[T, PrivData]) MutableObjectWithGuard(ctx cd.Awaitab
 			var zero T
 			return zero, cd.CreateRpcResultError(fmt.Errorf("create cache failed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		}
+
+		// 占用令牌
+		cache.GetActorExecutor().TryTakeCurrentRunningAction(ctx.GetAction())
+
+		if !cache.CheckActorExecutor(ctx) {
+			var zero T
+			return zero, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+
 		// 先等待IO任务完成，完成后可能在其他任务里已经拉取完毕了。
 		result := guard.Take(ctx, cache)
 		if result.IsError() {
@@ -271,6 +305,13 @@ func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.Awaitable
 		}
 	}
 
+	// 占用令牌
+	managerCache.GetActorExecutor().TryTakeCurrentRunningAction(ctx.GetAction())
+
+	if !managerCache.CheckActorExecutor(ctx) {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
 	result := guard.Take(ctx, managerCache)
 	if result.IsError() {
 		return result
@@ -309,6 +350,13 @@ func (manager *RouterManager[T, PrivData]) RemoveObjectWithGuard(ctx cd.Awaitabl
 
 	if lu.IsNil(managerCache) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
+	}
+
+	// 占用令牌
+	managerCache.GetActorExecutor().TryTakeCurrentRunningAction(ctx.GetAction())
+
+	if !managerCache.CheckActorExecutor(ctx) {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	removeObjectFlag := NewFlagGuard(managerCache.GetRouterObjectBase(), FlagRemovingObject)

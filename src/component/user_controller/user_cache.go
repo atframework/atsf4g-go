@@ -12,6 +12,7 @@ import (
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	router "github.com/atframework/atsf4g-go/component-router"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -149,8 +150,8 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 	return
 }
 
-func CreateUserImpl(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl {
-	cache := CreateUserCache(ctx, zoneId, userId, openId, nil)
+func CreateUserImpl(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) UserImpl {
+	cache := CreateUserCache(ctx, zoneId, userId, openId, actorExecutor)
 	return &cache
 }
 
@@ -233,7 +234,16 @@ func (u *UserCache) CheckActorExecutor(ctx cd.RpcContext) bool {
 	return u.actorExecutor.CheckActorExecutor(ctx)
 }
 
-func (u *UserCache) SendAllSyncData(_ctx cd.RpcContext) error {
+func (u *UserCache) OnSendResponse(ctx cd.RpcContext) error {
+	// 刷新路由系统
+	cache := GetUserRouterManager(ctx.GetApp()).GetCache(router.RouterObjectKey{
+		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+		ZoneID:   u.GetZoneId(),
+		ObjectID: u.GetUserId(),
+	})
+	if cache.obj == u.Impl {
+		cache.RefreshVisitTime(ctx)
+	}
 	return nil
 }
 

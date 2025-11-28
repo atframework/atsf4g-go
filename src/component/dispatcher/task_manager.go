@@ -103,6 +103,7 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 			actor.takeCurrentRunningAction(action)
 		}
 		cleanupCurrentAction := func() {
+			actor := action.GetActorExecutor()
 			if actor != nil {
 				actor.releaseCurrentRunningAction(t.GetApp(), action, false)
 			}

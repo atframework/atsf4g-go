@@ -58,6 +58,7 @@ type TaskActionImpl interface {
 	// 是否允许无Actor执行
 	AllowNoActor() bool
 
+	SetActorExecutor(*ActorExecutor)
 	GetActorExecutor() *ActorExecutor
 	GetDispatcher() DispatcherImpl
 	GetTypeName() string
@@ -95,8 +96,6 @@ type TaskActionImpl interface {
 func popRunActorActions(app_action *libatapp.AppActionData) error {
 	cb_actor := app_action.PrivateData.(*ActorExecutor)
 	cb_actor.actionLock.Lock()
-	defer cb_actor.actionLock.Unlock()
-
 	cb_actor.actionStatus = ActorExecutorStatusFree
 
 	max_loop_count := int(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetActorMaxLoopCount())
@@ -131,6 +130,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 	// 如果还有待执行任务，继续执行，切换到pending状态，重新插入队列
 	if cb_actor.pendingActions.Len() == 0 {
 		cb_actor.actionStatus = ActorExecutorStatusFree
+		cb_actor.actionLock.Unlock() // 手动释放 放置Panic时覆盖堆栈
 		return nil
 	} else {
 		cb_actor.actionStatus = ActorExecutorStatusPending
@@ -138,10 +138,11 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 		if err != nil {
 			cb_actor.actionStatus = ActorExecutorStatusFree
 			app_action.App.GetDefaultLogger().Error("Push actor task action failed", slog.Any("error", err))
+			cb_actor.actionLock.Unlock()
 			return err
 		}
 	}
-
+	cb_actor.actionLock.Unlock()
 	return nil
 }
 

@@ -40,6 +40,9 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, sessionKey *uc.SessionKey) {
 	sessionMgr := libatapp.AtappGetModule[*uc.SessionManager](uc.GetReflectTypeSessionManager(), ctx.GetApp())
 	session := sessionMgr.GetSession(sessionKey)
+	if session == nil {
+		return
+	}
 
 	userCSImpl := session.GetUser()
 	if userCSImpl == nil {

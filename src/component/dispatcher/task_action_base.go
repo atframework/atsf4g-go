@@ -195,6 +195,10 @@ func (t *TaskActionBase) GetActorExecutor() *ActorExecutor {
 	return t.actorExecutor
 }
 
+func (t *TaskActionBase) SetActorExecutor(actor *ActorExecutor) {
+	t.actorExecutor = actor
+}
+
 func (t *TaskActionBase) GetDispatcher() DispatcherImpl {
 	return t.dispatcher
 }

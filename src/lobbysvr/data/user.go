@@ -75,9 +75,9 @@ func (u *User) CanBeWriteable() bool {
 	return true
 }
 
-func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) *User {
+func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) *User {
 	ret := &User{
-		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId, nil),
+		UserCache: uc.CreateUserCache(ctx, zoneId, userId, openId, actorExecutor),
 
 		loginTaskLock:    sync.Mutex{},
 		loginTaskId:      0,
@@ -137,8 +137,8 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) 
 }
 
 func init() {
-	uc.SetCreateUserImplFn(func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) uc.UserImpl {
-		return createUser(ctx, zoneId, userId, openId)
+	uc.SetCreateUserImplFn(func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) uc.UserImpl {
+		return createUser(ctx, zoneId, userId, openId, actorExecutor)
 	})
 }
 
@@ -442,6 +442,16 @@ func (u *User) SendAllSyncData(ctx cd.RpcContext) error {
 	u.SyncClientDirtyCache(ctx)
 
 	u.CleanupClientDirtyCache(ctx)
+	return nil
+}
+
+func (u *User) OnSendResponse(ctx cd.RpcContext) error {
+	if u == nil {
+		return nil
+	}
+
+	u.SendAllSyncData(ctx)
+	u.UserCache.OnSendResponse(ctx)
 	return nil
 }
 
