@@ -29,12 +29,8 @@ func newlogBuffer() *logBuffer {
 }
 
 func (b *logBuffer) Free() {
-	// To reduce peak allocation, return only smaller buffers to the pool.
-	const maxBufferSize = 16 << 10
-	if cap(*b) <= maxBufferSize {
-		*b = (*b)[:0]
-		bufPool.Put(b)
-	}
+	*b = (*b)[:0]
+	bufPool.Put(b)
 }
 
 func (b *logBuffer) String() string {
@@ -246,6 +242,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 				stackTrace.Write(sb.Bytes())
 				stackTrace.WriteString("Stacktrace:\n")
 				stackTrace.WriteString(h.getStack(r.PC))
+				defer stackTrace.Free()
 			}
 			// 写入StackTrace
 			h.writers[k].out.Write(stackTrace.Bytes())
@@ -256,9 +253,6 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 		if r.Level >= h.writers[k].autoFlushLevel {
 			h.writers[k].out.Flush()
 		}
-	}
-	if stackTrace != nil {
-		stackTrace.Free()
 	}
 	return nil
 }

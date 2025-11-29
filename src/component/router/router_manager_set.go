@@ -64,8 +64,8 @@ func CreateRouterManagerSet(app libatapp.AppImpl) *RouterManagerSet {
 	ret := &RouterManagerSet{
 		AppModuleBase: libatapp.CreateAppModuleBase(app),
 		timers: TimerSet{
-			DefaultTimerList: list.New(),
-			FastTimerList:    list.New(),
+			DefaultTimerList: NewTimerList(),
+			FastTimerList:    NewTimerList(),
 		},
 	}
 
@@ -95,19 +95,22 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		return false
 	}
 
+	set.timers.DefaultTimerList.DoPending()
+	set.timers.FastTimerList.DoPending()
+
 	// 每分钟打印一次统计数据
 	if set.lastProcTime/60 != now/60 {
-		defaultCount := set.timers.DefaultTimerList.Len()
-		fastCount := set.timers.FastTimerList.Len()
+		defaultCount := set.timers.DefaultTimerList.list.Len()
+		fastCount := set.timers.FastTimerList.list.Len()
 
 		var defaultNext int64
 		if defaultCount > 0 {
-			defaultNext = set.timers.DefaultTimerList.Front().Value.(*RouterTimer).Timeout
+			defaultNext = set.timers.DefaultTimerList.list.Front().Value.(*RouterTimer).Timeout
 		}
 
 		var fastNext int64
 		if fastCount > 0 {
-			fastNext = set.timers.FastTimerList.Front().Value.(*RouterTimer).Timeout
+			fastNext = set.timers.FastTimerList.list.Front().Value.(*RouterTimer).Timeout
 		}
 
 		set.GetApp().GetDefaultLogger().Warn(
@@ -180,7 +183,10 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	recheckSet := make(map[RouterObjectKey]struct{})
 	pendingList := make([]RouterObjectImpl, 0)
 
-	timerLists := []*list.List{set.timers.DefaultTimerList, set.timers.FastTimerList}
+	set.timers.DefaultTimerList.DoPending()
+	set.timers.FastTimerList.DoPending()
+
+	timerLists := []*list.List{set.timers.DefaultTimerList.list, set.timers.FastTimerList.list}
 	for _, curList := range timerLists {
 		for e := curList.Front(); e != nil; e = e.Next() {
 			timer := e.Value.(*RouterTimer)
@@ -228,7 +234,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	if set.isSaveTaskRunning() {
 		// 需要等待Save结束后再启动
 		set.closingTask = closingTask
-		cd.AsyncThenStartTask(ctx, nil, set.autoSaveActionTask, set.closingTask, &startData)
+		cd.AsyncThenStartTask(ctx, nil, set.autoSaveActionTask, closingTask, &startData)
 	} else {
 		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
 		if err != nil {
@@ -256,11 +262,8 @@ func (set *RouterManagerSet) ForceClose(ctx cd.RpcContext) {
 	set.closingTask = nil
 }
 
-// insertTimer 插入定时器
+// insertTimer 插入定时器 多线程操作
 func (set *RouterManagerSet) insertTimer(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObjectImpl, isFast bool) bool {
-	if set.lastProcTime <= 0 {
-		return false
-	}
 	if lu.IsNil(obj) || lu.IsNil(mgr) {
 		return false
 	}
@@ -276,7 +279,7 @@ func (set *RouterManagerSet) insertTimer(ctx cd.RpcContext, mgr RouterManagerBas
 		return false
 	}
 
-	var tmTimer *list.List
+	var tmTimer *TimerList
 	var interval int64
 	if !isFast {
 		tmTimer = set.timers.DefaultTimerList
@@ -453,14 +456,14 @@ func (set *RouterManagerSet) isClosingTaskRunning() bool {
 	return true
 }
 
-func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExpire, objectSave int64, timerList *list.List, isFast bool) int {
+func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExpire, objectSave int64, timerList *TimerList, isFast bool) int {
 	ret := 0
 	for {
-		if timerList.Len() == 0 {
+		if timerList.list.Len() == 0 {
 			break
 		}
 
-		timerElem := timerList.Front()
+		timerElem := timerList.list.Front()
 		timer := timerElem.Value.(*RouterTimer)
 
 		// 如果没到时间，后面的全没到时间
@@ -471,29 +474,29 @@ func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExp
 		// 如果已下线并且缓存失效则跳过
 		obj := timer.ObjWatcher
 		if lu.IsNil(obj) {
-			timerList.Remove(timerElem)
+			timerList.list.Remove(timerElem)
 			continue
 		}
 
 		// 如果操作序列失效则跳过
 		if !obj.CheckTimerSequence(timer.TimerSequence) {
-			obj.CheckAndRemoveTimerRef(timerList, timerElem)
-			timerList.Remove(timerElem)
+			obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
+			timerList.list.Remove(timerElem)
 			continue
 		}
 
 		// 已销毁则跳过
 		mgr := set.GetManager(timer.TypeID)
 		if mgr == nil {
-			obj.CheckAndRemoveTimerRef(timerList, timerElem)
-			timerList.Remove(timerElem)
+			obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
+			timerList.list.Remove(timerElem)
 			continue
 		}
 
 		// 管理器中的对象已被替换或移除则跳过
 		if mgr.GetBaseCache(obj.GetKey()) != obj {
-			obj.CheckAndRemoveTimerRef(timerList, timerElem)
-			timerList.Remove(timerElem)
+			obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
+			timerList.list.Remove(timerElem)
 			continue
 		}
 
@@ -537,9 +540,9 @@ func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExp
 			isNextTimerFast = true
 		}
 
-		obj.CheckAndRemoveTimerRef(timerList, timerElem)
+		obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
 		set.insertTimer(ctx, mgr, obj, isNextTimerFast)
-		timerList.Remove(timerElem)
+		timerList.list.Remove(timerElem)
 		ret++
 	}
 

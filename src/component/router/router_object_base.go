@@ -58,8 +58,8 @@ type RouterObjectBase struct {
 
 	// 定时器相关
 	timerSequence uint64        // 定时器序列号
-	timerList     *list.List    // 定时器列表
-	timerElement  *list.Element // 定时器元素
+	timerList     *TimerList    // 定时器列表
+	timerElement  *TimerElement // 定时器元素
 }
 
 type FlagGuard struct {
@@ -121,9 +121,9 @@ type RouterObjectBaseImpl interface {
 	// 定时器相关
 	AllocTimerSequence() uint64
 	CheckTimerSequence(seq uint64) bool
-	ResetTimerRef(timerList *list.List, timerElem *list.Element)
-	CheckAndRemoveTimerRef(timerList *list.List, timerElem *list.Element)
-	GetTimerList() *list.List
+	ResetTimerRef(timerList *TimerList, timerElem *TimerElement)
+	CheckAndRemoveTimerRef(timerList *TimerList, timerElem *TimerElement)
+	GetTimerList() *TimerList
 	UnsetTimerRef()
 }
 
@@ -548,7 +548,7 @@ func (obj *RouterObjectBase) InternalSaveObject(ctx cd.AwaitableContext, guard *
 }
 
 // ResetTimerRef 重置定时器引用
-func (obj *RouterObjectBase) ResetTimerRef(timerList *list.List, timerElem *list.Element) {
+func (obj *RouterObjectBase) ResetTimerRef(timerList *TimerList, timerElem *TimerElement) {
 	if obj.timerList == timerList && obj.timerElement == timerElem {
 		return
 	}
@@ -558,7 +558,7 @@ func (obj *RouterObjectBase) ResetTimerRef(timerList *list.List, timerElem *list
 }
 
 // CheckAndRemoveTimerRef 检查并移除定时器引用
-func (obj *RouterObjectBase) CheckAndRemoveTimerRef(timerList *list.List, timerElem *list.Element) {
+func (obj *RouterObjectBase) CheckAndRemoveTimerRef(timerList *TimerList, timerElem *TimerElement) {
 	if obj.timerList == timerList && obj.timerElement == timerElem {
 		// 内部接口，会在外层执行timer_list_->erase(timer_iter_);所以这里不执行移除
 		obj.timerList = nil
@@ -586,6 +586,6 @@ func (obj *RouterObjectBase) CheckTimerSequence(seq uint64) bool {
 }
 
 // GetTimerList 获取定时器列表
-func (obj *RouterObjectBase) GetTimerList() *list.List {
+func (obj *RouterObjectBase) GetTimerList() *TimerList {
 	return obj.timerList
 }

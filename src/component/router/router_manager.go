@@ -358,8 +358,8 @@ func (manager *RouterManager[T, PrivData]) ensureCache(ctx cd.RpcContext, key Ro
 		newCache = manager.caches[key]
 	} else {
 		manager.caches[key] = newCache
+		libatapp.AtappGetModule[*RouterManagerSet](GetReflectTypeRouterManagerSet(), ctx.GetApp()).insertTimer(ctx, manager.impl, newCache, false)
 	}
-	libatapp.AtappGetModule[*RouterManagerSet](GetReflectTypeRouterManagerSet(), ctx.GetApp()).insertTimer(ctx, manager.impl, newCache, false)
 	manager.cachesMu.Unlock()
 
 	return newCache

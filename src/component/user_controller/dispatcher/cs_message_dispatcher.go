@@ -49,7 +49,7 @@ func (h *SessionNetworkWebsocketHandle) SetAuthorized(authorized bool) {
 	}
 
 	// Implement the logic to set the authorization state
-	h.networkSession.Authorized = authorized
+	h.networkSession.Authorized.Store(authorized)
 }
 
 func (h *SessionNetworkWebsocketHandle) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {

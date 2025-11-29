@@ -42,7 +42,7 @@ type WebSocketSession struct {
 
 	Connection *websocket.Conn
 
-	Authorized bool
+	Authorized atomic.Bool
 
 	runningContext context.Context
 	runningCancel  context.CancelFunc
@@ -222,7 +222,6 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 	session := &WebSocketSession{
 		SessionId:      d.AllocateSessionId(),
 		Connection:     conn,
-		Authorized:     false,
 		sendQueue:      make(chan *public_protocol_extension.CSMsg, d.wsConfig.GetMaxWriteMessageCount()),
 		sendQueueClose: make(chan closeParam, 1),
 	}
@@ -329,7 +328,7 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 
 	for {
 		// 已认证，不需要判定超时
-		if session.Authorized || authTimeoutContext == nil {
+		if session.Authorized.Load() || authTimeoutContext == nil {
 			select {
 			case <-session.runningContext.Done():
 				d.closeSession(d.CreateRpcContext(), session, websocket.CloseServiceRestart, "Service shutdown")
@@ -351,7 +350,7 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 		} else {
 			select {
 			case <-authTimeoutContext.Done():
-				if !session.Authorized {
+				if !session.Authorized.Load() {
 					d.closeSession(d.CreateRpcContext(), session, websocket.CloseNormalClosure, "Authentication timeout")
 				}
 				authTimeoutContext = nil
@@ -376,7 +375,7 @@ func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSessio
 				break
 			}
 
-			if session.Authorized {
+			if session.Authorized.Load() {
 				authTimeoutContext = nil
 				cleanTimeout()
 			}
@@ -436,19 +435,13 @@ func (d *WebSocketMessageDispatcher) writeMessageToConnection(session *WebSocket
 
 // 会由多个线程调用 需要线程安全
 func (d *WebSocketMessageDispatcher) AsyncClose(_ctx RpcContext, session *WebSocketSession, closeCode int, text string) {
-	if !session.sentCloseMessage.CompareAndSwap(false, true) {
+	if session.sentCloseMessage.CompareAndSwap(false, true) {
 		d.GetApp().GetDefaultLogger().Info("AsyncClose WebSocket session", "session_id", session.SessionId, "reason", text)
 
 		// close(session.sendQueue) // 不能关闭channel,可能有并发写入,由channel通知关闭
 		session.sendQueueClose <- closeParam{
 			closeCode: closeCode,
 			text:      text,
-		}
-
-		if session.runningCancel != nil {
-			fn := session.runningCancel
-			session.runningCancel = nil
-			fn()
 		}
 	}
 }
