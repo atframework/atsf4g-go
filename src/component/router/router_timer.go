@@ -56,7 +56,7 @@ func (tl *TimerList) DoPending() {
 			continue
 		}
 		elem := tl.list.PushBack(timer)
-		timer.TimerElement.Store(&TimerElement{element: elem})
+		timer.TimerElement.Load().element = elem
 	}
 	tl.pendingInsert.Init()
 
