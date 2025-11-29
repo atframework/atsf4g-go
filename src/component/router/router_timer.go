@@ -3,6 +3,7 @@ package atframework_component_router
 import (
 	"container/list"
 	"sync"
+	"sync/atomic"
 )
 
 type noCopy struct{}
@@ -16,7 +17,7 @@ type RouterTimer struct {
 	Timeout       int64  // 超时时间戳
 	TimerSequence uint64 // 定时器序列号
 	TimerList     *TimerList
-	TimerElement  *TimerElement
+	TimerElement  atomic.Pointer[TimerElement]
 }
 
 type TimerElement struct {
@@ -55,7 +56,7 @@ func (tl *TimerList) DoPending() {
 			continue
 		}
 		elem := tl.list.PushBack(timer)
-		timer.TimerElement.element = elem
+		timer.TimerElement.Store(&TimerElement{element: elem})
 	}
 	tl.pendingInsert.Init()
 

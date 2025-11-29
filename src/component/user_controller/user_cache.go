@@ -242,7 +242,9 @@ func (u *UserCache) OnSendResponse(ctx cd.RpcContext) error {
 		ObjectID: u.GetUserId(),
 	})
 	if cache.obj == u.Impl {
-		cache.RefreshVisitTime(ctx)
+		if ctx.GetAction().GetActorExecutor() != nil && cache.CheckActorExecutor(ctx) {
+			cache.RefreshVisitTime(ctx)
+		}
 	}
 	return nil
 }

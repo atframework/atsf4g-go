@@ -283,33 +283,30 @@ func (manager *RouterManager[T, PrivData]) MutableObjectWithGuard(ctx cd.Awaitab
 
 func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, cache RouterObjectImpl, privData PrivData, guard *IoTaskGuard) cd.RpcResult {
 	var managerCache T
-	{
-		if !lu.IsNil(cache) {
-			managerCache = manager.GetCache(cache.GetKey())
-		} else {
-			managerCache = manager.GetCache(key)
-		}
+	if !lu.IsNil(cache) {
+		managerCache = manager.GetCache(cache.GetKey())
+	} else {
+		managerCache = manager.GetCache(key)
+	}
 
-		if lu.IsNil(managerCache) {
-			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
-		}
+	if lu.IsNil(managerCache) {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
+	}
 
-		if !lu.IsNil(cache) && !lu.Compare(managerCache, cache) {
-			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
-		}
-
-		if managerCache.IsWritable() {
-			if result := manager.RemoveObjectWithGuard(ctx, key, managerCache, privData, guard); result.IsError() {
-				return result
-			}
-		}
+	if !lu.IsNil(cache) && !lu.Compare(managerCache, cache) {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
 	}
 
 	// 占用令牌
 	managerCache.GetActorExecutor().TryTakeCurrentRunningAction(ctx.GetAction())
-
 	if !managerCache.CheckActorExecutor(ctx) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	if managerCache.IsWritable() {
+		if result := manager.RemoveObjectWithGuard(ctx, key, managerCache, privData, guard); result.IsError() {
+			return result
+		}
 	}
 
 	result := guard.Take(ctx, managerCache)
@@ -354,7 +351,6 @@ func (manager *RouterManager[T, PrivData]) RemoveObjectWithGuard(ctx cd.Awaitabl
 
 	// 占用令牌
 	managerCache.GetActorExecutor().TryTakeCurrentRunningAction(ctx.GetAction())
-
 	if !managerCache.CheckActorExecutor(ctx) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}

@@ -17,7 +17,7 @@ const (
 )
 
 type ActorExecutor struct {
-	currentRunningAction TaskActionImpl
+	currentRunningAction lu.AtomicInterface[TaskActionImpl]
 	currentRunningLock   sync.Mutex
 
 	actionStatus   ActorExecutorStatus
@@ -36,7 +36,7 @@ func CreateActorExecutor(actorInstance interface{}) *ActorExecutor {
 }
 
 func (actor *ActorExecutor) getCurrentRunningAction() TaskActionImpl {
-	return actor.currentRunningAction
+	return actor.currentRunningAction.Load()
 }
 
 func (actor *ActorExecutor) takeCurrentRunningAction(action TaskActionImpl) {
@@ -45,7 +45,7 @@ func (actor *ActorExecutor) takeCurrentRunningAction(action TaskActionImpl) {
 	}
 
 	actor.currentRunningLock.Lock()
-	actor.currentRunningAction = action
+	actor.currentRunningAction.Store(action)
 }
 
 func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, expectAction TaskActionImpl, spawnNewGoroutine bool) {
@@ -53,11 +53,9 @@ func (actor *ActorExecutor) releaseCurrentRunningAction(app libatapp.AppImpl, ex
 		return
 	}
 
-	if actor.currentRunningAction != expectAction {
+	if !actor.currentRunningAction.CompareAndSwap(expectAction, nil) {
 		return
 	}
-
-	actor.currentRunningAction = nil
 
 	actor.currentRunningLock.Unlock()
 
@@ -106,7 +104,7 @@ func (actor *ActorExecutor) TryTakeCurrentRunningAction(action TaskActionImpl) b
 	}
 
 	actor.currentRunningLock.Lock()
-	actor.currentRunningAction = action
+	actor.currentRunningAction.Store(action)
 	action.SetActorExecutor(actor)
 	return true
 }

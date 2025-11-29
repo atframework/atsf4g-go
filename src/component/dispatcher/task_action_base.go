@@ -17,7 +17,7 @@ import (
 type TaskActionBase struct {
 	impl   TaskActionImpl
 	taskId uint64
-	status TaskActionStatus
+	status atomic.Int32
 	kill   atomic.Bool
 
 	responseCode     int32
@@ -42,10 +42,10 @@ type TaskActionBase struct {
 	callbackFinish   bool
 }
 
-func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeout time.Duration) TaskActionBase {
-	return TaskActionBase{
+func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeout time.Duration) (ret TaskActionBase) {
+	ret = TaskActionBase{
 		taskId:           libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).AllocTaskId(),
-		status:           TaskActionStatusCreated,
+		status:           atomic.Int32{},
 		responseCode:     0,
 		prepareHookRun:   false,
 		awaitableContext: nil,
@@ -64,6 +64,8 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeo
 			Channel: nil,
 		},
 	}
+	ret.status.Store(int32(TaskActionStatusCreated))
+	return
 }
 
 func (t *TaskActionBase) GetTaskId() uint64 {
@@ -103,15 +105,16 @@ func (t *TaskActionBase) GetStatus() TaskActionStatus {
 		return TaskActionStatusInvalid
 	}
 
-	if t.status >= TaskActionStatusDone {
-		return t.status
+	status := TaskActionStatus(t.status.Load())
+	if status >= TaskActionStatusDone {
+		return status
 	}
 
 	if t.kill.Load() {
 		return TaskActionStatusKilled
 	}
 
-	return t.status
+	return status
 }
 
 func (t *TaskActionBase) IsExiting() bool {
@@ -143,7 +146,7 @@ func (t *TaskActionBase) setStatus(status TaskActionStatus) {
 		return
 	}
 
-	t.status = status
+	t.status.Store(int32(status))
 }
 
 func (t *TaskActionBase) PrepareHookRun(startData *DispatcherStartData) {

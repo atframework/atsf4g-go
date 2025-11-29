@@ -135,9 +135,7 @@ func (t *TaskActionRouterCloseManagerSet) saveFallback(ctx cd.AwaitableContext) 
 }
 
 func (t *TaskActionRouterCloseManagerSet) resetClosingTask() {
-	if t.manager.closingTask == t {
-		t.manager.closingTask = nil
-	}
+	t.manager.closingTask.CompareAndSwap(t, nil)
 }
 
 func (t *TaskActionRouterCloseManagerSet) OnSuccess() {

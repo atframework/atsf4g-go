@@ -106,6 +106,9 @@ type RouterObjectBaseImpl interface {
 	GetActorExecutor() *cd.ActorExecutor
 	CheckActorExecutor(ctx cd.RpcContext) bool
 
+	// 推送操作至Actor执行器
+	PushActorAction(ctx cd.RpcContext, name string, f func(childCtx cd.AwaitableContext, obj RouterObjectImpl))
+
 	// 任务调度相关
 	GetAwaitTaskId() uint64
 	SetAwaitTaskAction(taskActionImpl cd.TaskActionImpl)
@@ -545,6 +548,19 @@ func (obj *RouterObjectBase) InternalSaveObject(ctx cd.AwaitableContext, guard *
 	// 刷新保存时间
 	obj.RefreshSaveTime(ctx)
 	return cd.CreateRpcResultOk()
+}
+
+func (obj *RouterObjectBase) PushActorAction(ctx cd.RpcContext, name string, f func(childCtx cd.AwaitableContext, obj RouterObjectImpl)) {
+	if obj == nil || f == nil {
+		return
+	}
+	task := cd.AsyncInvoke(ctx, name, obj.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
+		f(childCtx, obj.impl)
+		return cd.CreateRpcResultOk()
+	})
+	if lu.IsNil(task) {
+		ctx.LogError("PushActorAction create async task failed", "name", name)
+	}
 }
 
 // ResetTimerRef 重置定时器引用

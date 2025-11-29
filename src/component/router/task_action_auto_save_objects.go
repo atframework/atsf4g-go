@@ -40,18 +40,23 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 	left := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetPendingActionMaxCount()
 	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetPendingActionBatchCount()
 	if left == 0 {
-		left = uint64(len(t.manager.pendingActionList))
+		t.manager.taskPendingActionListLock.Lock()
+		left = uint64(t.manager.taskPendingActionList.Len())
+		t.manager.taskPendingActionListLock.Unlock()
 	}
 
 	pendingActionBatchTask := make([]cd.TaskActionImpl, 0, batchCount)
 	for left > 0 {
-		if len(t.manager.pendingActionList) == 0 {
+		t.manager.taskPendingActionListLock.Lock()
+		if t.manager.taskPendingActionList.Len() == 0 {
+			t.manager.taskPendingActionListLock.Unlock()
 			break
 		}
 
-		pending := t.manager.pendingActionList[0]
-		t.manager.pendingActionList = t.manager.pendingActionList[1:]
+		pending := t.manager.taskPendingActionList.Front().Value.(PendingActionData)
+		t.manager.taskPendingActionList.Remove(t.manager.taskPendingActionList.Front())
 		left--
+		t.manager.taskPendingActionListLock.Unlock()
 
 		// 批量等待并完成
 		taskAction := cd.AsyncInvoke(t.GetRpcContext(), "TaskActionAutoSaveObjects Execute Pending Action", pending.Object.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
@@ -145,9 +150,7 @@ func (t *TaskActionAutoSaveObjects) handleAutoSaveResult(data PendingActionData,
 }
 
 func (t *TaskActionAutoSaveObjects) resetAutoSaveTask() {
-	if t.manager != nil && t.manager.autoSaveActionTask == t {
-		t.manager.autoSaveActionTask = nil
-	}
+	t.manager.autoSaveActionTask.CompareAndSwap(t, nil)
 }
 
 func (t *TaskActionAutoSaveObjects) OnSuccess() {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,13 +36,18 @@ type PendingActionData struct {
 type RouterManagerSet struct {
 	libatapp.AppModuleBase
 
-	timers            TimerSet
-	lastProcTime      int64
-	mgrs              []RouterManagerBaseImpl
-	pendingActionList []PendingActionData
+	timers       TimerSet
+	lastProcTime int64
+	mgrs         []RouterManagerBaseImpl
 
-	autoSaveActionTask cd.TaskActionImpl
-	closingTask        cd.TaskActionImpl
+	pendingActionListLock sync.Mutex
+	pendingActionList     []PendingActionData
+
+	taskPendingActionListLock sync.Mutex
+	taskPendingActionList     *list.List
+
+	autoSaveActionTask lu.AtomicInterface[cd.TaskActionImpl]
+	closingTask        lu.AtomicInterface[cd.TaskActionImpl]
 
 	isClosing    bool
 	isClosed     bool
@@ -67,6 +73,7 @@ func CreateRouterManagerSet(app libatapp.AppImpl) *RouterManagerSet {
 			DefaultTimerList: NewTimerList(),
 			FastTimerList:    NewTimerList(),
 		},
+		taskPendingActionList: list.New(),
 	}
 
 	// 假设最大类型数为256
@@ -87,7 +94,6 @@ func (m *RouterManagerSet) Name() string { return "RouterManagerSet" }
 
 // Tick 定时处理
 func (set *RouterManagerSet) Tick(parent context.Context) bool {
-	ret := 0
 	now := set.GetApp().GetSysNow().Unix()
 
 	// 如果不是正在关闭,则每秒只需要判定一次
@@ -136,15 +142,22 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		objectExpire := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectFreeTimeout().GetSeconds()
 		objectSave := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectSaveInterval().GetSeconds()
 
-		ret += set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.DefaultTimerList, false)
-		ret += set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.FastTimerList, true)
+		set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.DefaultTimerList, false)
+		set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.FastTimerList, true)
 	}
 
-	if ret != 0 {
-		set.GetApp().GetDefaultLogger().Debug("RouterManagerSet Tick processed timers", "count", ret)
-	}
-
+	// 启动保存任务
+	set.pendingActionListLock.Lock()
 	if len(set.pendingActionList) > 0 && !set.IsClosed() && !set.isSaveTaskRunning() && !set.isClosingTaskRunning() {
+		// 处理列表
+		set.taskPendingActionListLock.Lock()
+		for _, v := range set.pendingActionList {
+			set.taskPendingActionList.PushBack(v)
+		}
+		set.taskPendingActionListLock.Unlock()
+		set.pendingActionList = set.pendingActionList[:0]
+		set.pendingActionListLock.Unlock()
+
 		// 创建 AutoSave 任务
 		autoSaveTask, startData := cd.CreateNoMessageTaskAction(
 			d, ctx, nil,
@@ -161,8 +174,10 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		if err != nil {
 			set.GetApp().GetDefaultLogger().Error("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
 		} else {
-			set.autoSaveActionTask = autoSaveTask
+			set.autoSaveActionTask.Store(autoSaveTask)
 		}
+	} else {
+		set.pendingActionListLock.Unlock()
 	}
 
 	if set.IsClosing() && !set.isClosingTaskRunning() {
@@ -233,14 +248,14 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 
 	if set.isSaveTaskRunning() {
 		// 需要等待Save结束后再启动
-		set.closingTask = closingTask
-		cd.AsyncThenStartTask(ctx, nil, set.autoSaveActionTask, closingTask, &startData)
+		set.closingTask.Store(closingTask)
+		cd.AsyncThenStartTask(ctx, nil, set.autoSaveActionTask.Load(), closingTask, &startData)
 	} else {
 		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
 		if err != nil {
 			set.GetApp().GetDefaultLogger().Error("TaskActionRouterCloseManagerSet StartTaskAction failed", "error", err)
 		} else {
-			set.closingTask = closingTask
+			set.closingTask.Store(closingTask)
 		}
 	}
 
@@ -256,10 +271,10 @@ func (set *RouterManagerSet) ForceClose(ctx cd.RpcContext) {
 	// 强制停止清理任务
 	if set.isClosingTaskRunning() {
 		result := cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
-		cd.KillTaskAction(ctx, set.closingTask, &result)
+		cd.KillTaskAction(ctx, set.closingTask.Load(), &result)
 	}
 
-	set.closingTask = nil
+	set.closingTask.Store(nil)
 }
 
 // insertTimer 插入定时器 多线程操作
@@ -298,8 +313,8 @@ func (set *RouterManagerSet) insertTimer(ctx cd.RpcContext, mgr RouterManagerBas
 		TimerList:     tmTimer,
 	}
 
-	timer.TimerElement = tmTimer.PushBack(timer)
-	obj.ResetTimerRef(tmTimer, timer.TimerElement)
+	timer.TimerElement.Store(tmTimer.PushBack(timer))
+	obj.ResetTimerRef(tmTimer, timer.TimerElement.Load())
 
 	return true
 }
@@ -348,74 +363,84 @@ func (set *RouterManagerSet) Size() int {
 }
 
 // AddSaveSchedule 添加保存计划
-func (set *RouterManagerSet) AddSaveSchedule(ctx cd.RpcContext, obj RouterObjectImpl) bool {
+func (set *RouterManagerSet) AddSaveSchedule(ctx cd.RpcContext, obj RouterObjectImpl) {
 	if lu.IsNil(obj) {
-		return false
+		return
 	}
 
-	if obj.CheckFlag(FlagSchedSaveObject) {
-		return false
-	}
+	obj.PushActorAction(ctx, "RouterManagerSet AddSaveSchedule", func(childCtx cd.AwaitableContext, childObj RouterObjectImpl) {
+		if childObj.CheckFlag(FlagSchedSaveObject) {
+			return
+		}
 
-	if !obj.IsWritable() {
-		return false
-	}
+		if !childObj.IsWritable() {
+			return
+		}
 
-	set.pendingActionList = append(set.pendingActionList, PendingActionData{
-		Action: AutoSaveActionSave,
-		TypeID: obj.GetKey().TypeID,
-		Object: obj,
+		set.pendingActionListLock.Lock()
+		set.pendingActionList = append(set.pendingActionList, PendingActionData{
+			Action: AutoSaveActionSave,
+			TypeID: childObj.GetKey().TypeID,
+			Object: childObj,
+		})
+		set.pendingActionListLock.Unlock()
+		childObj.RefreshSaveTime(childCtx)
+		childObj.SetFlag(FlagSchedSaveObject)
 	})
-	obj.RefreshSaveTime(ctx)
-	obj.SetFlag(FlagSchedSaveObject)
-	return true
 }
 
 // AddDowngradeSchedule 添加降级计划
-func (set *RouterManagerSet) AddDowngradeSchedule(ctx cd.RpcContext, obj RouterObjectImpl) bool {
+func (set *RouterManagerSet) AddDowngradeSchedule(ctx cd.RpcContext, obj RouterObjectImpl) {
 	if lu.IsNil(obj) {
-		return false
+		return
 	}
 
-	if obj.CheckFlag(FlagSchedRemoveObject) {
-		return false
-	}
+	obj.PushActorAction(ctx, "RouterManagerSet AddDowngradeSchedule", func(childCtx cd.AwaitableContext, childObj RouterObjectImpl) {
+		if childObj.CheckFlag(FlagSchedRemoveObject) {
+			return
+		}
 
-	if !obj.IsWritable() {
-		return false
-	}
+		if !childObj.IsWritable() {
+			return
+		}
 
-	set.pendingActionList = append(set.pendingActionList, PendingActionData{
-		Action: AutoSaveActionRemoveObject,
-		TypeID: obj.GetKey().TypeID,
-		Object: obj,
+		set.pendingActionListLock.Lock()
+		set.pendingActionList = append(set.pendingActionList, PendingActionData{
+			Action: AutoSaveActionRemoveObject,
+			TypeID: childObj.GetKey().TypeID,
+			Object: childObj,
+		})
+		set.pendingActionListLock.Unlock()
+
+		childObj.RefreshSaveTime(childCtx)
+		childObj.SetFlag(FlagSchedRemoveObject)
+		childObj.UnsetFlag(FlagSchedSaveObject)
 	})
-	obj.RefreshSaveTime(ctx)
-	obj.SetFlag(FlagSchedRemoveObject)
-	obj.UnsetFlag(FlagSchedSaveObject)
-	return true
 }
 
 // MarkFastSave 标记快速保存
-func (set *RouterManagerSet) MarkFastSave(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObjectImpl) bool {
+func (set *RouterManagerSet) MarkFastSave(ctx cd.RpcContext, mgr RouterManagerBaseImpl, obj RouterObjectImpl) {
 	if lu.IsNil(obj) || lu.IsNil(mgr) {
-		return false
+		return
 	}
 
-	if !obj.IsWritable() {
-		return false
-	}
+	obj.PushActorAction(ctx, "RouterManagerSet MarkFastSave", func(childCtx cd.AwaitableContext, childObj RouterObjectImpl) {
+		if !childObj.IsWritable() {
+			return
+		}
 
-	if obj.CheckFlag(FlagSchedSaveObject) {
-		return false
-	}
+		if childObj.CheckFlag(FlagSchedSaveObject) {
+			return
+		}
 
-	obj.SetFlag(FlagForceSaveObject)
-	if obj.GetTimerList() == set.timers.FastTimerList {
-		return false
-	}
+		childObj.SetFlag(FlagForceSaveObject)
+		if childObj.GetTimerList() == set.timers.FastTimerList {
+			return
+		}
 
-	return set.insertTimer(ctx, mgr, obj, true)
+		set.insertTimer(childCtx, mgr, childObj, true)
+	})
+
 }
 
 // IsClosing 是否正在关闭
@@ -435,29 +460,28 @@ func (set *RouterManagerSet) SetPreClosing() {
 
 // 私有方法
 func (set *RouterManagerSet) isSaveTaskRunning() bool {
-	if lu.IsNil(set.autoSaveActionTask) {
+	if lu.IsNil(set.autoSaveActionTask.Load()) {
 		return false
 	}
-	if set.autoSaveActionTask.IsExiting() {
-		set.autoSaveActionTask = nil
+	if set.autoSaveActionTask.Load().IsExiting() {
+		set.autoSaveActionTask.Store(nil)
 		return false
 	}
 	return true
 }
 
 func (set *RouterManagerSet) isClosingTaskRunning() bool {
-	if lu.IsNil(set.closingTask) {
+	if lu.IsNil(set.closingTask.Load()) {
 		return false
 	}
-	if set.closingTask.IsExiting() {
-		set.closingTask = nil
+	if set.closingTask.Load().IsExiting() {
+		set.closingTask.Store(nil)
 		return false
 	}
 	return true
 }
 
-func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExpire, objectSave int64, timerList *TimerList, isFast bool) int {
-	ret := 0
+func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExpire, objectSave int64, timerList *TimerList, isFast bool) {
 	for {
 		if timerList.list.Len() == 0 {
 			break
@@ -470,81 +494,82 @@ func (set *RouterManagerSet) tickTimer(ctx cd.RpcContext, cacheExpire, objectExp
 		if set.lastProcTime <= timer.Timeout {
 			break
 		}
+		timerList.list.Remove(timerElem)
 
 		// 如果已下线并且缓存失效则跳过
 		obj := timer.ObjWatcher
 		if lu.IsNil(obj) {
-			timerList.list.Remove(timerElem)
 			continue
 		}
 
-		// 如果操作序列失效则跳过
-		if !obj.CheckTimerSequence(timer.TimerSequence) {
-			obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
-			timerList.list.Remove(timerElem)
-			continue
-		}
+		obj.PushActorAction(ctx, "RouterManagerSet TimerTick", func(childCtx cd.AwaitableContext, childObj RouterObjectImpl) {
+			// 如果操作序列失效则跳过
+			if !childObj.CheckTimerSequence(timer.TimerSequence) {
+				childObj.CheckAndRemoveTimerRef(timerList, timer.TimerElement.Load())
+				return
+			}
 
-		// 已销毁则跳过
-		mgr := set.GetManager(timer.TypeID)
-		if mgr == nil {
-			obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
-			timerList.list.Remove(timerElem)
-			continue
-		}
+			// 已销毁则跳过
+			mgr := set.GetManager(timer.TypeID)
+			if mgr == nil {
+				childObj.CheckAndRemoveTimerRef(timerList, timer.TimerElement.Load())
+				return
+			}
 
-		// 管理器中的对象已被替换或移除则跳过
-		if mgr.GetBaseCache(obj.GetKey()) != obj {
-			obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
-			timerList.list.Remove(timerElem)
-			continue
-		}
+			// 管理器中的对象已被替换或移除则跳过
+			if mgr.GetBaseCache(childObj.GetKey()) != childObj {
+				childObj.CheckAndRemoveTimerRef(timerList, timer.TimerElement.Load())
+				return
+			}
 
-		isNextTimerFast := isFast // 快队列定时器只能进入快队列
-		// 正在执行IO任务则不需要任何流程,因为IO任务结束后可能改变状态
-		if !obj.IsIORunning() {
-			if obj.CheckFlag(FlagIsObject) {
-				// 实体过期
-				if obj.GetLastVisitTime()+objectExpire < set.lastProcTime || obj.CheckFlag(FlagForceRemoveObject) {
-					set.pendingActionList = append(set.pendingActionList, PendingActionData{
-						Action: AutoSaveActionRemoveObject,
-						TypeID: timer.TypeID,
-						Object: obj,
-					})
-					obj.SetFlag(FlagSchedRemoveObject)
-					obj.UnsetFlag(FlagForceRemoveObject)
-				} else if obj.GetLastSaveTime()+objectSave < set.lastProcTime || obj.CheckFlag(FlagForceSaveObject) {
-					// 实体保存
-					set.pendingActionList = append(set.pendingActionList, PendingActionData{
-						Action: AutoSaveActionSave,
-						TypeID: timer.TypeID,
-						Object: obj,
-					})
-					obj.RefreshSaveTime(ctx)
-					obj.SetFlag(FlagSchedSaveObject)
-					obj.UnsetFlag(FlagForceSaveObject)
+			isNextTimerFast := isFast // 快队列定时器只能进入快队列
+			// 正在执行IO任务则不需要任何流程,因为IO任务结束后可能改变状态
+			if !childObj.IsIORunning() {
+				if childObj.CheckFlag(FlagIsObject) {
+					// 实体过期
+					if childObj.GetLastVisitTime()+objectExpire < set.lastProcTime || childObj.CheckFlag(FlagForceRemoveObject) {
+						set.pendingActionListLock.Lock()
+						set.pendingActionList = append(set.pendingActionList, PendingActionData{
+							Action: AutoSaveActionRemoveObject,
+							TypeID: timer.TypeID,
+							Object: childObj,
+						})
+						set.pendingActionListLock.Unlock()
+						childObj.SetFlag(FlagSchedRemoveObject)
+						childObj.UnsetFlag(FlagForceRemoveObject)
+					} else if childObj.GetLastSaveTime()+objectSave < set.lastProcTime || childObj.CheckFlag(FlagForceSaveObject) {
+						// 实体保存
+						set.pendingActionListLock.Lock()
+						set.pendingActionList = append(set.pendingActionList, PendingActionData{
+							Action: AutoSaveActionSave,
+							TypeID: timer.TypeID,
+							Object: childObj,
+						})
+						set.pendingActionListLock.Unlock()
+						childObj.RefreshSaveTime(childCtx)
+						childObj.SetFlag(FlagSchedSaveObject)
+						childObj.UnsetFlag(FlagForceSaveObject)
+					}
+				} else {
+					// 缓存过期
+					if childObj.GetLastVisitTime()+cacheExpire < set.lastProcTime {
+						set.pendingActionListLock.Lock()
+						set.pendingActionList = append(set.pendingActionList, PendingActionData{
+							Action: AutoSaveActionRemoveCache,
+							TypeID: timer.TypeID,
+							Object: childObj,
+						})
+						set.pendingActionListLock.Unlock()
+						childObj.SetFlag(FlagSchedRemoveCache)
+						isNextTimerFast = true
+					}
 				}
 			} else {
-				// 缓存过期
-				if obj.GetLastVisitTime()+cacheExpire < set.lastProcTime {
-					set.pendingActionList = append(set.pendingActionList, PendingActionData{
-						Action: AutoSaveActionRemoveCache,
-						TypeID: timer.TypeID,
-						Object: obj,
-					})
-					obj.SetFlag(FlagSchedRemoveCache)
-					isNextTimerFast = true
-				}
+				isNextTimerFast = true
 			}
-		} else {
-			isNextTimerFast = true
-		}
 
-		obj.CheckAndRemoveTimerRef(timerList, timer.TimerElement)
-		set.insertTimer(ctx, mgr, obj, isNextTimerFast)
-		timerList.list.Remove(timerElem)
-		ret++
+			childObj.CheckAndRemoveTimerRef(timerList, timer.TimerElement.Load())
+			set.insertTimer(childCtx, mgr, childObj, isNextTimerFast)
+		})
 	}
-
-	return ret
 }
