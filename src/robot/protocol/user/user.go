@@ -330,8 +330,8 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 	}
 	userMapLock.Unlock()
 
-	bufferWriter, _ := libatapp.NewlogBufferedRotatingWriter(nil,
-		"../log", openId, 20*1024*1024, 3, time.Second*3, false, false)
+	bufferWriter, _ := libatapp.NewLogBufferedRotatingWriter(nil,
+		fmt.Sprintf("../log/%s.%%N.log", openId), "", 20*1024*1024, 3, time.Second*3)
 	runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
 		writer.Close()
 	})

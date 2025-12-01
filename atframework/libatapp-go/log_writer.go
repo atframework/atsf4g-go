@@ -64,33 +64,32 @@ func (f *RefFD) Relese() {
 }
 
 type GetTime interface {
-	GetNow() time.Time
+	GetSysNow() time.Time
 }
 
 type DefaultGetTime struct{}
 
-func (d *DefaultGetTime) GetNow() time.Time {
+func (d *DefaultGetTime) GetSysNow() time.Time {
 	return time.Now()
 }
 
 type LogBufferedRotatingWriter struct {
 	GetTime
-	path     string
-	fileName string
-	maxSize  uint64
-	retain   uint32
+	fileNameFormat  string
+	fileAliasFormat string
+	maxSize         uint64
+	retain          uint32
 
+	currentFileName    string
 	currentFileIndex   uint32
 	currentSize        atomic.Uint64
-	init               bool
-	hardLink           bool
+	firstFile          bool
 	needTruncateOnOpen bool
 
 	flushInterval time.Duration
 	nextFlushTime time.Time
 
-	timeRotateInterval      int
-	timeRotateCheckInterval int
+	timeRotateCheckInterval int64
 	lastCheckRotateTime     int64
 	currentTimeRotateTime   time.Time
 
@@ -99,23 +98,53 @@ type LogBufferedRotatingWriter struct {
 	fileMu      sync.RWMutex
 }
 
-// NewlogBufferedRotatingWriter 创建新的日志 writer
-func NewlogBufferedRotatingWriter(getTime GetTime, path string, fileName string, maxSize uint64, retain uint32, flushInterval time.Duration, hardLink bool, enableTimeRotating bool) (*LogBufferedRotatingWriter, error) {
+var intervalLut = [128]int64{}
+
+const (
+	secondsPerMinute = int64(time.Minute / time.Second)
+	secondsPerHour   = int64(time.Hour / time.Second)
+)
+
+// NewLogBufferedRotatingWriter 创建新的日志 writer
+func NewLogBufferedRotatingWriter(getTime GetTime, fileName string, fileAlias string, maxSize uint64, retain uint32, flushInterval time.Duration) (*LogBufferedRotatingWriter, error) {
 	if lu.IsNil(getTime) {
 		getTime = &DefaultGetTime{}
 	}
 	w := &LogBufferedRotatingWriter{
-		GetTime:       getTime,
-		path:          path,
-		fileName:      fileName,
-		maxSize:       maxSize,
-		retain:        retain,
-		flushInterval: flushInterval,
-		hardLink:      hardLink,
+		GetTime:         getTime,
+		fileNameFormat:  fileName,
+		fileAliasFormat: fileAlias,
+		maxSize:         maxSize,
+		retain:          retain,
+		flushInterval:   flushInterval,
 	}
-	if enableTimeRotating {
-		w.timeRotateInterval = 60 * 60 * 24
-		w.timeRotateCheckInterval = 60 * 60
+
+	if intervalLut['S'] == 0 {
+		intervalLut['f'] = 1
+		intervalLut['R'] = secondsPerMinute
+		intervalLut['T'] = 1
+		intervalLut['F'] = secondsPerHour
+		intervalLut['S'] = 1
+		intervalLut['M'] = secondsPerMinute
+		intervalLut['I'] = secondsPerHour
+		intervalLut['H'] = secondsPerHour
+		intervalLut['w'] = secondsPerHour
+		intervalLut['d'] = secondsPerHour
+		intervalLut['j'] = secondsPerHour
+		intervalLut['m'] = secondsPerHour
+		intervalLut['y'] = secondsPerHour
+		intervalLut['Y'] = secondsPerHour
+	}
+
+	for i := 0; i+1 < len(fileName); i++ {
+		if fileName[i] == '%' {
+			checked := fileName[i+1]
+			if checked > 0 && checked < 128 {
+				if v := intervalLut[checked]; v > 0 && (w.timeRotateCheckInterval == 0 || v < w.timeRotateCheckInterval) {
+					w.timeRotateCheckInterval = v
+				}
+			}
+		}
 	}
 	return w, nil
 }
@@ -137,16 +166,16 @@ func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 		return w.currentFile.Copy(), nil
 	}
 
-	now := w.GetNow()
+	now := w.GetSysNow()
 
-	if !w.init {
+	if !w.firstFile {
 		// 第一次创建 不覆盖
 		// 找到第一个可以写入的文件
-		w.init = true
+		w.firstFile = true
 		var index uint32
 		for index = 0; index < w.retain; index++ {
-			path := w.getFilename(index, now)
-			info, err := os.Stat(path)
+			fileName := w.getFilename(index, now)
+			info, err := os.Stat(fileName)
 			if err != nil {
 				break
 			}
@@ -190,9 +219,9 @@ func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 		return nil, err
 	}
 
-	if w.hardLink {
-		// 创建硬链接
-		linkFileName := w.getLinkFilename(now)
+	// 创建硬链接
+	linkFileName := w.getLinkFilename(now)
+	if linkFileName != "" {
 		os.Remove(linkFileName)
 		os.Link(newFile, linkFileName)
 	}
@@ -210,17 +239,16 @@ func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 }
 
 func (w *LogBufferedRotatingWriter) getFilename(index uint32, now time.Time) string {
-	if w.timeRotateInterval == 0 {
-		return fmt.Sprintf("%s.%d", filepath.Join(w.path, w.fileName), index)
-	}
-	return fmt.Sprintf("%s.%d", filepath.Join(w.path, now.Format("2006-01-02"), w.fileName), index)
+	return LogFormat(w.fileNameFormat, &strings.Builder{}, CallerInfo{
+		Now:         now,
+		RotateIndex: index,
+	}, nil)
 }
 
 func (w *LogBufferedRotatingWriter) getLinkFilename(now time.Time) string {
-	if w.timeRotateInterval == 0 {
-		return filepath.Join(w.path, w.fileName)
-	}
-	return filepath.Join(w.path, now.Format("2006-01-02"), w.fileName)
+	return LogFormat(w.fileAliasFormat, &strings.Builder{}, CallerInfo{
+		Now: now,
+	}, nil)
 }
 
 func (w *LogBufferedRotatingWriter) rotateFile() error {
@@ -258,15 +286,14 @@ func (w *LogBufferedRotatingWriter) needRotateFile() bool {
 	if w.currentSize.Load() >= w.maxSize {
 		return true
 	}
-	if w.timeRotateInterval != 0 {
-		now := w.GetNow()
+	if w.timeRotateCheckInterval != 0 {
+		now := w.GetSysNow()
 		if now.Unix()/int64(w.timeRotateCheckInterval) != w.lastCheckRotateTime/int64(w.timeRotateCheckInterval) {
-			// 需要检查时间Format
-			if !w.currentTimeRotateTime.IsZero() && strings.Compare(w.currentTimeRotateTime.Format("2006-01-02"), now.Format("2006-01-02")) != 0 {
-				// Format变化 Rotating
+			w.lastCheckRotateTime = now.Unix()
+			if w.currentFileName != w.getFilename(w.currentFileIndex, now) {
+				// 文件名变化 Rotating
 				return true
 			}
-			w.lastCheckRotateTime = now.Unix()
 		}
 	}
 	return false
@@ -287,7 +314,7 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	n, err := f.fd.Write(p)
 	w.currentSize.Add(uint64(n))
 
-	now := w.GetNow()
+	now := w.GetSysNow()
 	if now.After(w.nextFlushTime) {
 		w.updateFlushTime(now)
 		f.fd.Sync()
@@ -307,7 +334,7 @@ func (w *LogBufferedRotatingWriter) Flush() error {
 	}
 	defer f.Relese()
 
-	w.updateFlushTime(w.GetNow())
+	w.updateFlushTime(w.GetSysNow())
 	f.fd.Sync()
 	return nil
 }

@@ -321,14 +321,12 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
 				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)
-				bufferWriter, err := NewlogBufferedRotatingWriter(app,
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Path,
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().File,
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Size,
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().Rotate.Number,
-					time.Duration(flushInterval),
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().HardLink,
-					false)
+				bufferWriter, err := NewLogBufferedRotatingWriter(app,
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetFileName(),
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetFileAliasName(),
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetSize(),
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetNumber(),
+					time.Duration(flushInterval))
 				if err != nil {
 					return nil, err
 				}
@@ -1046,9 +1044,8 @@ func (app *AppInstance) setupStartupLog() error {
 				}
 			default:
 				{
-
-					out, _ := NewlogBufferedRotatingWriter(app,
-						"../log", logFile, 50*1024*1024, 1, time.Second*1, false, false)
+					out, _ := NewLogBufferedRotatingWriter(app,
+						fmt.Sprintf("../log/%s", logFile), "", 50*1024*1024, 1, time.Second*1)
 					handler.AppendWriter(logHandlerWriter{
 						minLevel:         slog.LevelDebug,
 						maxLevel:         slog.LevelError,

@@ -62,11 +62,10 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 20MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.error.log"
+            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.%N.log"
+            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
-            hard_link: true
           - type: file
             level:
               min: fatal
@@ -74,11 +73,10 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 20MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.all.log"
+            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.All.%N.log"
+            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.All.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
-            hard_link: true
       - name: redis
         index: 1
         prefix: "[%F %T.%f]: "
@@ -93,8 +91,8 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.all.log"
+            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.All.%N.log"
+            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.All.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
           - type: file
@@ -104,8 +102,8 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.log"
+            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.%N.log"
+            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
       - name: db_inner
@@ -122,8 +120,8 @@ atapp:
             rotate:
               number: 10
               size: 10MB
-            path: "{{ .Values.server_log_dir }}"
-            file: "{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.info.log"
+            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.all.%N.log"
+            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.all.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
   # =========== timer ===========

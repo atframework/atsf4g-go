@@ -19,9 +19,16 @@ type logBuffer []byte
 // Having an initial size gives a dramatic speedup.
 var bufPool = sync.Pool{
 	New: func() any {
-		b := make([]byte, 0, 1024)
+		b := make([]byte, 0, 2048)
 		return (*logBuffer)(&b)
 	},
+}
+
+type LogFormatBufferWriter interface {
+	Write(p []byte) (int, error)
+	WriteByte(c byte) error
+	WriteString(s string) (int, error)
+	String() string
 }
 
 func newlogBuffer() *logBuffer {
@@ -47,8 +54,9 @@ func (b *logBuffer) WriteString(s string) (int, error) {
 	return len(s), nil
 }
 
-func (b *logBuffer) WriteByte(c byte) {
+func (b *logBuffer) WriteByte(c byte) error {
 	*b = append(*b, c)
+	return nil
 }
 
 func (b *logBuffer) Bytes() []byte {
@@ -57,19 +65,6 @@ func (b *logBuffer) Bytes() []byte {
 
 func (b *logBuffer) Len() int {
 	return len(*b)
-}
-
-func (b *logBuffer) AppendLogLevel(level slog.Level) {
-	switch {
-	case level >= slog.LevelError:
-		b.WriteString("[ERROR]")
-	case level >= slog.LevelWarn:
-		b.WriteString("[ WARN]")
-	case level >= slog.LevelInfo:
-		b.WriteString("[ INFO]")
-	default:
-		b.WriteString("[DEBUG]")
-	}
 }
 
 type timestampCacheEntry struct {
@@ -83,7 +78,7 @@ func init() {
 	appendTimestampCache.Store(timestampCacheEntry{second: -1})
 }
 
-func appendTimestamp(b *logBuffer, t time.Time) {
+func appendTimestamp(b LogFormatBufferWriter, t time.Time) {
 	entry := appendTimestampCache.Load().(timestampCacheEntry)
 	second := t.Unix()
 	if entry.second != second {
@@ -92,13 +87,13 @@ func appendTimestamp(b *logBuffer, t time.Time) {
 		appendTimestampCache.Store(entry)
 	}
 
-	*b = append(*b, entry.prefix...)
-	*b = append(*b, '.')
+	b.WriteString(entry.prefix)
+	b.WriteByte('.')
 	millis := int(t.Nanosecond() / 1_000_000)
-	*b = append(*b, byte('0'+millis/100))
+	b.WriteByte(byte('0' + millis/100))
 	millis %= 100
-	*b = append(*b, byte('0'+millis/10))
-	*b = append(*b, byte('0'+millis%10))
+	b.WriteByte(byte('0' + millis/10))
+	b.WriteByte(byte('0' + millis%10))
 }
 
 type LogWriter interface {
@@ -221,20 +216,11 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	sb := newlogBuffer()
 	defer sb.Free()
 	// Format Prefix Begin
-	sb.WriteByte('[')
-	appendTimestamp(sb, r.Time)
-	sb.WriteString("]")
-	sb.AppendLogLevel(r.Level)
-	sb.WriteString("(")
 	if r.PC != 0 {
-		frameInfo := h.getFrameInfo(r.PC)
-		sb.WriteString(frameInfo.file)
-		sb.WriteByte(':')
-		sb.WriteString(strconv.Itoa(frameInfo.line))
+		LogFormat("[%P][%L](%k:%n): ", sb, CallerInfo{Now: r.Time, LogLevel: r.Level, Frame: h.getFrameInfo(r.PC)}, appendTimestamp)
 	} else {
-		sb.WriteString("unknown:0")
+		LogFormat("[%P][%L](unknow:0): ", sb, CallerInfo{Now: r.Time, LogLevel: r.Level}, appendTimestamp)
 	}
-	sb.WriteString("): ")
 	// Format Prefix End
 	sb.WriteString(r.Message)
 

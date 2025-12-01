@@ -107,12 +107,11 @@ message atapp_log_sink_file_rotate {
 }
 
 message atapp_log_sink_file {
-  string path = 1;
-  string file = 2;
+  string file_name = 1;
+  string file_alias_name = 2;
   atapp_log_sink_file_rotate rotate = 3;
   string auto_flush = 4;
   google.protobuf.Duration flush_interval = 5;
-  bool hard_link = 6;
 }
 
 message atapp_log_sink_std {}
