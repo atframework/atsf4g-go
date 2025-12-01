@@ -219,14 +219,11 @@ func CreateAppInstance() AppImpl {
 		},
 	}
 
-	ret.logger.loggers = append(ret.logger.loggers, slog.New(&logHandlerImpl{
-		writers: []logHandlerWriter{
-			{
-				out: NewlogStdoutWriter(),
-			},
-		},
-		frameInfoCache: &ret.logFrameInfoCache,
-	}))
+	handler := NewLogHandlerImpl(&ret.logFrameInfoCache)
+	handler.AppendWriter(logHandlerWriter{
+		out: NewlogStdoutWriter(),
+	})
+	ret.logger.loggers = append(ret.logger.loggers, slog.New(handler))
 
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
@@ -316,11 +313,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 	for i := range config.Category {
 		index := config.Category[i].Index
 
-		handler := logHandlerImpl{
-			writers:        make([]logHandlerWriter, 0),
-			frameInfoCache: &app.logFrameInfoCache,
-		}
-
+		handler := NewLogHandlerImpl(&app.logFrameInfoCache)
 		for sinkIndex := range config.Category[i].Sink {
 			writer := logHandlerWriter{}
 			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max))
@@ -345,19 +338,19 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 					writer.stackTraceLevel = ConvertLogLevel(config.Category[i].Stacktrace.Min)
 				}
 				writer.autoFlushLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].GetLogBackendFile().AutoFlush)
-				handler.writers = append(handler.writers, writer)
+				handler.AppendWriter(writer)
 				appLog.writers = append(appLog.writers, writer.out)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stdout" {
 				writer.out = NewlogStdoutWriter()
-				handler.writers = append(handler.writers, writer)
+				handler.AppendWriter(writer)
 				appLog.writers = append(appLog.writers, writer.out)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stderr" {
 				writer.out = NewlogStderrWriter()
-				handler.writers = append(handler.writers, writer)
+				handler.AppendWriter(writer)
 				appLog.writers = append(appLog.writers, writer.out)
 			}
 		}
@@ -365,19 +358,16 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 		if len(appLog.loggers) <= int(index) {
 			appLog.loggers = append(appLog.loggers, make([]*slog.Logger, int(index)+1-len(appLog.loggers))...)
 		}
-		appLog.loggers[index] = slog.New(&handler)
+		appLog.loggers[index] = slog.New(handler)
 	}
 
 	for i := range appLog.loggers {
 		if appLog.loggers[i] == nil {
-			appLog.loggers[i] = slog.New(&logHandlerImpl{
-				writers: []logHandlerWriter{
-					{
-						out: NewlogStdoutWriter(),
-					},
-				},
-				frameInfoCache: &app.logFrameInfoCache,
+			handler := NewLogHandlerImpl(&app.logFrameInfoCache)
+			handler.AppendWriter(logHandlerWriter{
+				out: NewlogStdoutWriter(),
 			})
+			appLog.loggers[i] = slog.New(handler)
 		}
 	}
 	return appLog, nil
@@ -1030,15 +1020,13 @@ func (app *AppInstance) setupStartupLog() error {
 	if len(app.config.StartupLog) > 0 {
 		app.GetDefaultLogger().Info("Setting up startup log", "config", app.config.StartupLog)
 		app.logger.loggers = nil
-		handler := logHandlerImpl{
-			writers:        make([]logHandlerWriter, 0),
-			frameInfoCache: &app.logFrameInfoCache,
-		}
+
+		handler := NewLogHandlerImpl(&app.logFrameInfoCache)
 		for _, logFile := range app.config.StartupLog {
 			switch logFile {
 			case "stdout":
 				{
-					handler.writers = append(handler.writers, logHandlerWriter{
+					handler.AppendWriter(logHandlerWriter{
 						minLevel: slog.LevelError,
 						maxLevel: slog.LevelError,
 						out:      NewlogStdoutWriter(),
@@ -1046,7 +1034,7 @@ func (app *AppInstance) setupStartupLog() error {
 				}
 			case "stderr":
 				{
-					handler.writers = append(handler.writers, logHandlerWriter{
+					handler.AppendWriter(logHandlerWriter{
 						minLevel: slog.LevelError,
 						maxLevel: slog.LevelError,
 						out:      NewlogStderrWriter(),
@@ -1061,7 +1049,7 @@ func (app *AppInstance) setupStartupLog() error {
 
 					out, _ := NewlogBufferedRotatingWriter(app,
 						"../log", logFile, 50*1024*1024, 1, time.Second*1, false, false)
-					handler.writers = append(handler.writers, logHandlerWriter{
+					handler.AppendWriter(logHandlerWriter{
 						minLevel:         slog.LevelDebug,
 						maxLevel:         slog.LevelError,
 						out:              out,
@@ -1072,7 +1060,7 @@ func (app *AppInstance) setupStartupLog() error {
 				}
 			}
 		}
-		app.logger.loggers = append(app.logger.loggers, slog.New(&handler))
+		app.logger.loggers = append(app.logger.loggers, slog.New(handler))
 	}
 
 	if app.config.CrashOutputFile != "" {

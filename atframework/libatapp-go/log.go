@@ -122,9 +122,32 @@ type logHandlerWriter struct {
 }
 
 type logHandlerImpl struct {
-	writers []logHandlerWriter
+	innerWriters []logHandlerWriter
+	minLevel     slog.Level
+	maxLevel     slog.Level
 
 	frameInfoCache *sync.Map // pc -> runtime.Frame
+}
+
+func NewLogHandlerImpl(cache *sync.Map) *logHandlerImpl {
+	return &logHandlerImpl{
+		minLevel:       slog.Level(^uint(0) >> 1),
+		maxLevel:       slog.Level(-(int(^uint(0) >> 1)) - 1),
+		frameInfoCache: cache,
+	}
+}
+
+func (h *logHandlerImpl) AppendWriter(writer logHandlerWriter) {
+	if writer.maxLevel < writer.minLevel {
+		writer.maxLevel = writer.minLevel
+	}
+	h.innerWriters = append(h.innerWriters, writer)
+	if writer.minLevel < h.minLevel {
+		h.minLevel = writer.minLevel
+	}
+	if writer.maxLevel > h.maxLevel {
+		h.maxLevel = writer.maxLevel
+	}
 }
 
 type frameInfo struct {
@@ -189,12 +212,7 @@ func (h *logHandlerWriter) Enabled(level slog.Level) bool {
 }
 
 func (h *logHandlerImpl) Enabled(_ context.Context, level slog.Level) bool {
-	for k := range h.writers {
-		if h.writers[k].Enabled(level) {
-			return true
-		}
-	}
-	return false
+	return level >= h.minLevel && level <= h.maxLevel
 }
 
 // Handle不需要是线程安全
@@ -202,6 +220,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	// 主信息
 	sb := newlogBuffer()
 	defer sb.Free()
+	// Format Prefix Begin
 	sb.WriteByte('[')
 	appendTimestamp(sb, r.Time)
 	sb.WriteString("]")
@@ -216,6 +235,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 		sb.WriteString("unknown:0")
 	}
 	sb.WriteString("): ")
+	// Format Prefix End
 	sb.WriteString(r.Message)
 
 	// 额外字段
@@ -229,12 +249,12 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	sb.WriteByte('\n')
 
 	var stackTrace *logBuffer
-	for k := range h.writers {
-		if !h.writers[k].Enabled(r.Level) {
+	for k := range h.innerWriters {
+		if !h.innerWriters[k].Enabled(r.Level) {
 			continue
 		}
 		// 写入基础日志
-		if r.PC != 0 && h.writers[k].enableStackTrace && r.Level >= h.writers[k].stackTraceLevel {
+		if r.PC != 0 && h.innerWriters[k].enableStackTrace && r.Level >= h.innerWriters[k].stackTraceLevel {
 			// 需要StackTrace
 			if stackTrace == nil {
 				// 生成
@@ -245,13 +265,13 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 				defer stackTrace.Free()
 			}
 			// 写入StackTrace
-			h.writers[k].out.Write(stackTrace.Bytes())
+			h.innerWriters[k].out.Write(stackTrace.Bytes())
 		} else {
-			h.writers[k].out.Write(sb.Bytes())
+			h.innerWriters[k].out.Write(sb.Bytes())
 		}
 
-		if r.Level >= h.writers[k].autoFlushLevel {
-			h.writers[k].out.Flush()
+		if r.Level >= h.innerWriters[k].autoFlushLevel {
+			h.innerWriters[k].out.Flush()
 		}
 	}
 	return nil
