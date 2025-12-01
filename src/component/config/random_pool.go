@@ -1,6 +1,7 @@
 package atframework_component_config
 
 import (
+	"fmt"
 	"math/rand/v2"
 
 	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
@@ -38,11 +39,20 @@ func RandomWithPool(poolID int32, count int64, customIndex []int32) (ret int32, 
 	return
 }
 
+func GetRandomPoolObtainedElements(poolID int32) map[int32]struct{} {
+	row := GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetRandomPool(poolID)
+	if row == nil {
+		return nil
+	}
+	return row.ObtainedElements
+}
+
 // ---------------- 内部随机逻辑 ----------------
 
 func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 	// 初始化随机池自定义索引
 	group.GetCustomIndex().RandomPoolIndex = make(map[int32]*atframework_component_config_custom_index_type.ExcelConfigRandomPool)
+	// 处理随机
 	for k, v := range *group.GetExcelRandomPoolAllOfPoolId() {
 		if len(v) == 0 {
 			continue
@@ -51,6 +61,7 @@ func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 		data, ok := group.GetCustomIndex().RandomPoolIndex[k.PoolId]
 		if !ok {
 			data = &atframework_component_config_custom_index_type.ExcelConfigRandomPool{
+				PoolId:     k.PoolId,
 				Times:      v[0].GetTimes(),
 				RandomType: v[0].GetRandomType(),
 				Elements:   make([]*public_protocol_config.Readonly_DRandomPoolElement, 0),
@@ -65,6 +76,48 @@ func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 				data.Elements = append(data.Elements, row)
 			}
 		}
+	}
+	// 处理内容物数据
+	for _, randomPool := range group.GetCustomIndex().RandomPoolIndex {
+		if randomPool.ObtainedElements != nil {
+			continue
+		}
+		used := make(map[int32]struct{})
+		err := initObtainedElements(group.GetCustomIndex().RandomPoolIndex, randomPool, used)
+		if err != nil {
+			return fmt.Errorf("random pool id: %d init error %v", randomPool.PoolId, err)
+		}
+	}
+
+	return nil
+}
+
+func initObtainedElements(config map[int32]*atframework_component_config_custom_index_type.ExcelConfigRandomPool, randomPool *atframework_component_config_custom_index_type.ExcelConfigRandomPool, used map[int32]struct{}) error {
+	if _, exists := used[randomPool.PoolId]; exists {
+		return fmt.Errorf("RandomPool RECURSIVE")
+	}
+	used[randomPool.PoolId] = struct{}{}
+
+	if randomPool.ObtainedElements != nil {
+		return nil
+	}
+	randomPool.ObtainedElements = make(map[int32]struct{})
+	for _, element := range randomPool.Elements {
+		if isRandomPool(element.GetTypeId()) {
+			subPool, ok := config[element.GetTypeId()]
+			if !ok {
+				return fmt.Errorf("RandomPool NOT FOUND")
+			}
+			err := initObtainedElements(config, subPool, used)
+			if err != nil {
+				return err
+			}
+			for obtainedElementTypeId := range subPool.ObtainedElements {
+				randomPool.ObtainedElements[obtainedElementTypeId] = struct{}{}
+			}
+			continue
+		}
+		randomPool.ObtainedElements[element.GetTypeId()] = struct{}{}
 	}
 	return nil
 }

@@ -15,9 +15,11 @@ type ExcelConfigCustomIndex struct {
 }
 
 type ExcelConfigRandomPool struct {
-	Times      int32
-	RandomType public_protocol_config.EnRandomPoolType
-	Elements   []*public_protocol_config.Readonly_DRandomPoolElement
+	PoolId           int32
+	Times            int32
+	RandomType       public_protocol_config.EnRandomPoolType
+	Elements         []*public_protocol_config.Readonly_DRandomPoolElement
+	ObtainedElements map[int32]struct{}
 }
 
 type ExcelConfigUserLevelExpIndex struct {
