@@ -30,46 +30,6 @@ func LoginAuthRpc(user user_data.User) error {
 		return fmt.Errorf("already login auth")
 	}
 
-	return user.SendReq(makeLoginAuthMessage(user))
-}
-
-func LoginRpc(user user_data.User) error {
-	if user.GetLoginCode() == "" {
-		return fmt.Errorf("need login auth")
-	}
-
-	if user.GetLogined() {
-		return fmt.Errorf("already login")
-	}
-
-	return user.SendReq(makeLoginMessage(user))
-}
-
-func PingRpc(user user_data.User) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
-	return user.SendReq(makePingMessage(user))
-}
-
-func GetInfoRpc(user user_data.User, args []string) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
-	return user.SendReq(makeUserGetInfoMessage(user, args))
-}
-
-func GMRpc(user user_data.User, args []string) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
-	return user.SendReq(makeUserGMMessage(user, args))
-}
-
-func makeLoginAuthMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSLoginAuthReq{
 		OpenId: user.GetOpenId(),
 		Account: &public_protocol_pbdesc.DAccountData{
@@ -82,15 +42,18 @@ func makeLoginAuthMessage(user user_data.User) (*public_protocol_extension.CSMsg
 		ResourceVersion: "0.0.0.1",
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.login_auth", string(proto.MessageName(csBody))),
-	}
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
-	return &csMsg, csBody
+	return user_data.SendLoginAuth(user, csBody)
 }
 
-func makeLoginMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
+func LoginRpc(user user_data.User) error {
+	if user.GetLoginCode() == "" {
+		return fmt.Errorf("need login auth")
+	}
+
+	if user.GetLogined() {
+		return fmt.Errorf("already login")
+	}
+
 	vmem, _ := mem.VirtualMemory()
 	cpuInfo, _ := cpu.Info()
 
@@ -120,32 +83,26 @@ func makeLoginMessage(user user_data.User) (*public_protocol_extension.CSMsg, pr
 		},
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.login", string(proto.MessageName(csBody))),
-	}
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-	return &csMsg, csBody
+	return user_data.SendLogin(user, csBody)
 }
 
-func makePingMessage(user user_data.User) (*public_protocol_extension.CSMsg, proto.Message) {
+func PingRpc(user user_data.User) error {
+	if lu.IsNil(user) || !user.IsLogin() {
+		return fmt.Errorf("need login")
+	}
+
 	csBody := &lobysvr_protocol_pbdesc.CSPingReq{
 		Timepoint: time.Now().UnixNano(),
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.ping", string(proto.MessageName(csBody))),
-	}
-
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
-	csMsg.BodyBin, _ = proto.Marshal(&lobysvr_protocol_pbdesc.CSPingReq{
-		Timepoint: time.Now().UnixNano(),
-	})
-
-	return &csMsg, csBody
+	return user_data.SendPing(user, csBody)
 }
 
-func makeUserGetInfoMessage(user user_data.User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+func GetInfoRpc(user user_data.User, args []string) error {
+	if lu.IsNil(user) || !user.IsLogin() {
+		return fmt.Errorf("need login")
+	}
+
 	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{}
 
 	ref := csBody.ProtoReflect()
@@ -176,25 +133,19 @@ func makeUserGetInfoMessage(user user_data.User, args []string) (*public_protoco
 		}
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.user_get_info", string(proto.MessageName(csBody))),
-	}
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
-	return &csMsg, csBody
+	return user_data.SendUserGetInfo(user, csBody)
 }
 
-func makeUserGMMessage(user user_data.User, args []string) (*public_protocol_extension.CSMsg, proto.Message) {
+func GMRpc(user user_data.User, args []string) error {
+	if lu.IsNil(user) || !user.IsLogin() {
+		return fmt.Errorf("need login")
+	}
+
 	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
 		Args: args,
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.user_send_gm_command", string(proto.MessageName(csBody))),
-	}
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
-	return &csMsg, csBody
+	return user_data.SendUserSendGmCommand(user, csBody)
 }
 
 func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
@@ -300,10 +251,10 @@ func init() {
 	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
 	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
 
-	user_data.RegisterResponseHandle("proy.LobbyClientService.login_auth", ProcessLoginAuthResponse)
-	user_data.RegisterResponseHandle("proy.LobbyClientService.login", ProcessLoginResponse)
-	user_data.RegisterResponseHandle("proy.LobbyClientService.ping", ProcessPongResponse)
-	user_data.RegisterResponseHandle("proy.LobbyClientService.user_get_info", ProcessGetInfoResponse)
+	user_data.RegisterResponseHandle(user_data.GetLoginAuthTypeName(), ProcessLoginAuthResponse)
+	user_data.RegisterResponseHandle(user_data.GetLoginTypeName(), ProcessLoginResponse)
+	user_data.RegisterResponseHandle(user_data.GetPingTypeName(), ProcessPongResponse)
+	user_data.RegisterResponseHandle(user_data.GetUserGetInfoTypeName(), ProcessGetInfoResponse)
 
 	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func([]string) string {
 		userMapLock.Lock()

@@ -234,7 +234,6 @@ func (user *User) ActionHandler() {
 	}
 }
 
-// 这个接口对于同一个User不能并发
 func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message) error {
 	if user == nil {
 		return fmt.Errorf("no login")

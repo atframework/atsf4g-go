@@ -73,3 +73,4 @@ _generated/
 !/src/lobbysvr/app/register_modules.go
 /src/lobbysvr/rpc/lobbyclientservice/*
 /src/component/db/*.go
+/src/robot/data/rpc_handle.go

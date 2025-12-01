@@ -5,11 +5,9 @@ import (
 	"strconv"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
-	"google.golang.org/protobuf/proto"
 )
 
 // QuestReceiveRewardRpc 发送任务领奖请求
@@ -18,20 +16,11 @@ func QuestReceiveRewardRpc(user user_data.User, questID int32) error {
 		return fmt.Errorf("need login")
 	}
 
-	return user.SendReq(makeQuestReceiveRewardMessage(user, questID))
-}
-
-func makeQuestReceiveRewardMessage(user user_data.User, questID int32) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSQuestReceiveRewardReq{
 		QuestIds: []int32{questID},
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.quest_receive_reward", string(proto.MessageName(csBody))),
-	}
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
-	return &csMsg, csBody
+	return user_data.SendQuestReceiveReward(user, csBody)
 }
 
 // QuestReceiveRewardsRpc 发送多个任务领奖请求
@@ -40,20 +29,11 @@ func QuestReceiveRewardsRpc(user user_data.User, questIDs []int32) error {
 		return fmt.Errorf("need login")
 	}
 
-	return user.SendReq(makeQuestReceiveRewardsMessage(user, questIDs))
-}
-
-func makeQuestReceiveRewardsMessage(user user_data.User, questIDs []int32) (*public_protocol_extension.CSMsg, proto.Message) {
 	csBody := &lobysvr_protocol_pbdesc.CSQuestReceiveRewardReq{
 		QuestIds: questIDs,
 	}
 
-	csMsg := public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("proy.LobbyClientService.quest_receive_reward", string(proto.MessageName(csBody))),
-	}
-	csMsg.BodyBin, _ = proto.Marshal(csBody)
-
-	return &csMsg, csBody
+	return user_data.SendQuestReceiveReward(user, csBody)
 }
 
 // ========================= 注册指令 =========================
