@@ -490,7 +490,7 @@ func (obj *RouterObjectBase) InternalPullObject(ctx cd.AwaitableContext, guard *
 	obj.RefreshSaveTime(ctx)
 
 	// 检查路由服务器ID 从config获取本地服务器ID进行比较
-	if uint64(ctx.GetApp().GetLogicId()) != obj.GetRouterSvrId() {
+	if uint64(config.GetConfigManager().GetLogicId()) != obj.GetRouterSvrId() {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE)
 	}
 

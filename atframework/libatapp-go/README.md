@@ -113,7 +113,7 @@ app.GetConfig().SetAppID(12345)
 app.GetConfig().SetTypeID(67890)
 
 // Get configuration values
-fmt.Printf("App ID: %d\n", app.GetConfig().GetAppID())
+fmt.Printf("App ID: %d\n", app.GetConfig().GetId())
 fmt.Printf("Version: %s\n", app.GetConfig().GetVersion())
 ```
 

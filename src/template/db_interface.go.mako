@@ -18,6 +18,7 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+    config "github.com/atframework/atsf4g-go/component-config"
 
 	"github.com/atframework/libatapp-go"
 )

@@ -545,6 +545,21 @@ func convertField(yamlData interface{}, minData interface{}, maxData interface{}
 	return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", fd.Kind())
 }
 
+func pickSizeMode(value interface{}) (uint64, error) {
+	switch reflect.ValueOf(value).Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v := reflect.ValueOf(value).Int()
+		return uint64(v), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v := reflect.ValueOf(value).Uint()
+		return uint64(v), nil
+	case reflect.String:
+		return pickSize(value.(string))
+	default:
+		return 0, fmt.Errorf("SizeMode true expected String or int, got %T", value)
+	}
+}
+
 // 从一个Field内读出数据 非Message 且为最底层 嵌套终点
 func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
 	// 获取最大最小值
@@ -582,39 +597,27 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 			// 需要从String 转为 Int
 			if yamlData != nil {
 				// 基础
-				v, ok := yamlData.(string)
-				if !ok {
-					return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", yamlData)
-				}
-				size, err := pickSize(v)
+				var err error
+				yamlData, err = pickSizeMode(yamlData)
 				if err != nil {
 					return protoreflect.Value{}, err
 				}
-				yamlData = size
 			}
 			if minValue != nil {
 				// 最小
-				v, ok := minValue.(string)
-				if !ok {
-					return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", minValue)
-				}
-				size, err := pickSize(v)
+				var err error
+				minValue, err = pickSizeMode(minValue)
 				if err != nil {
 					return protoreflect.Value{}, err
 				}
-				minValue = size
 			}
 			if maxValue != nil {
 				// 最大
-				v, ok := maxValue.(string)
-				if !ok {
-					return protoreflect.Value{}, fmt.Errorf("SizeMode true expected String, got %T", maxValue)
-				}
-				size, err := pickSize(v)
+				var err error
+				maxValue, err = pickSizeMode(maxValue)
 				if err != nil {
 					return protoreflect.Value{}, err
 				}
-				maxValue = size
 			}
 		}
 	}

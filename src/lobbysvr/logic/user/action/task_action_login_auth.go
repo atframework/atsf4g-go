@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	config "github.com/atframework/atsf4g-go/component-config"
 	db "github.com/atframework/atsf4g-go/component-db"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
@@ -47,7 +48,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		return nil
 	}
 
-	zoneId := t.GetDispatcher().GetApp().GetLogicId()
+	zoneId := config.GetConfigManager().GetLogicId()
 
 	user := uc.UserManagerFindUserAs[*data.User](t.GetRpcContext(), t.GetDispatcher().GetApp(), zoneId, userId)
 	if !t.checkExistedUser(user) {

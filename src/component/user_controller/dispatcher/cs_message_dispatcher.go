@@ -91,7 +91,7 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl, webServerConfigu
 
 	d.SetOnNewSession(func(ctx cd.RpcContext, session *cd.WebSocketSession) error {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
-		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
+		sessionKey := uc.CreateSessionKey(owner.GetId(), session.SessionId)
 		session.PrivateData = libatapp.AtappGetModule[*uc.SessionManager](owner).CreateSession(ctx, sessionKey, &SessionNetworkWebsocketHandle{
 			dispatcher:     d,
 			networkSession: session,
@@ -102,7 +102,7 @@ func WebsocketDispatcherCreateCSMessage(owner libatapp.AppImpl, webServerConfigu
 
 	d.SetOnRemoveSession(func(ctx cd.RpcContext, session *cd.WebSocketSession) {
 		// WS消息都是本地监听，所以NodeId都是自己的AppId
-		sessionKey := uc.CreateSessionKey(owner.GetAppId(), session.SessionId)
+		sessionKey := uc.CreateSessionKey(owner.GetId(), session.SessionId)
 
 		uc_act.RemoveSessionAndMaybeLogoutUser(d, ctx, &sessionKey)
 	})

@@ -35,10 +35,10 @@ import sys
 
     if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD"].descriptor.number:
         prefix_fmt_key += "-%d-"
-        prefix_fmt_value += ", ctx.GetApp().GetWorldId()"
+        prefix_fmt_value += ", config.GetConfigManager().GetWorldId()"
     if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE"].descriptor.number:
         prefix_fmt_key += "-%d-%d-"
-        prefix_fmt_value += ", ctx.GetApp().GetWorldId(), ctx.GetApp().GetZoneId()"
+        prefix_fmt_value += ", config.GetConfigManager().GetWorldId(), config.GetConfigManager().GetZoneId()"
 
     load_index_key = (
         "index := fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "

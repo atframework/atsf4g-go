@@ -249,8 +249,11 @@ message logic_excel_cfg {
 
 message logic_section_cfg {
   // 通用配置
-  logic_localization_cfg localization = 1;
-  google.protobuf.Duration remote_configure_update_interval = 2
+  uint32 world_id = 1;
+  uint32 zone_id = 2;
+  uint32 logic_id = 3;
+  logic_localization_cfg localization = 4;
+  google.protobuf.Duration remote_configure_update_interval = 5
       [(atapp.protocol.CONFIGURE) = { default_value: "300s" min_value: "60s" }];
 
   logic_server_cfg server = 102;

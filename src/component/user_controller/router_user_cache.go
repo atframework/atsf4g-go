@@ -134,7 +134,7 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 	p.obj.GetLoginLockInfo().LoginZoneId = p.obj.GetZoneId()
 
-	p.obj.GetLoginLockInfo().RouterServerId = uint64(ctx.GetApp().GetLogicId())
+	p.obj.GetLoginLockInfo().RouterServerId = uint64(config.GetConfigManager().GetLogicId())
 	// 手动版本更新
 	p.obj.GetLoginLockInfo().RouterVersion = oldRouterServerVersion + 1
 
@@ -176,7 +176,7 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 			err.LogInfo(ctx, "reload login lock table from db success", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId())
 		}
 
-		if p.obj.GetLoginLockInfo().GetRouterServerId() != uint64(ctx.GetApp().GetLogicId()) {
+		if p.obj.GetLoginLockInfo().GetRouterServerId() != uint64(config.GetConfigManager().GetLogicId()) {
 			// 别的地方登录成功 尝试下线
 			ctx.LogError("login lock occupied by other router server, cannot save user, need kick off", "zone_id", p.obj.GetZoneId(), "user_id", p.obj.GetUserId(), "router_server_id", p.obj.GetLoginLockInfo().GetRouterServerId())
 			s := p.obj.GetUserSession()

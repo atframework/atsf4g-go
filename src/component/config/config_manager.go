@@ -144,6 +144,18 @@ func (configManagerInst *ConfigManager) GetCurrentConfigGroup() *generate_config
 	return configManagerInst.currentConfigGroup
 }
 
+func (configManagerInst *ConfigManager) GetZoneId() uint32 {
+	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetZoneId()
+}
+
+func (configManagerInst *ConfigManager) GetWorldId() uint32 {
+	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetWorldId()
+}
+
+func (configManagerInst *ConfigManager) GetLogicId() uint32 {
+	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetLogicId()
+}
+
 func GetConfigManager() *ConfigManager {
 	return &globalConfigManagerInst
 }

@@ -22,6 +22,7 @@ replace github.com/atframework/atsf4g-go/component-config => ../config
 
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
@@ -29,7 +30,6 @@ require (
 )
 
 require (
-	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000 // indirect
 	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

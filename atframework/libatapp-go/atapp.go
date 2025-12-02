@@ -96,7 +96,7 @@ type AppImpl interface {
 	Stop() error
 	Reload() error
 
-	GetAppId() uint64
+	GetId() uint64
 	GetTypeId() uint64
 	GetTypeName() string
 	GetAppName() string
@@ -105,10 +105,6 @@ type AppImpl interface {
 	GetAppVersion() string
 	GetBuildVersion() string
 	GetConfigFile() string
-
-	GetWorldId() uint32
-	GetZoneId() uint32
-	GetLogicId() uint32
 
 	SetAppTime(newTime time.Time)
 	GetAppTimeOffset() time.Duration
@@ -270,7 +266,7 @@ func (app *AppInstance) destroy() {
 // 生成哈希码
 func (app *AppInstance) generateHashCode() {
 	hasher := sha256.New()
-	hasher.Write([]byte(fmt.Sprintf("%s_%d_%s", app.GetAppName(), app.GetAppId(), app.config.ExecutePath)))
+	hasher.Write([]byte(fmt.Sprintf("%s_%d_%s", app.GetAppName(), app.GetId(), app.config.ExecutePath)))
 	app.config.HashCode = hex.EncodeToString(hasher.Sum(nil))
 }
 
@@ -322,8 +318,8 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
 				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)
 				bufferWriter, err := NewLogBufferedRotatingWriter(app,
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetFileName(),
-					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetFileAliasName(),
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetFile(),
+					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetWritingAlias(),
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetSize(),
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetNumber(),
 					time.Duration(flushInterval))
@@ -481,7 +477,7 @@ func (app *AppInstance) Init(arguments []string) error {
 	}
 
 	if app.config.AppName == "" {
-		app.config.AppName = fmt.Sprintf("%s-0x%x", app.GetAppName(), app.GetAppId())
+		app.config.AppName = fmt.Sprintf("%s-0x%x", app.GetAppName(), app.GetId())
 	}
 
 	// 生成哈希码
@@ -820,7 +816,7 @@ func (app *AppInstance) Reload() error {
 }
 
 // Getter methods
-func (app *AppInstance) GetAppId() uint64        { return app.config.ConfigPb.GetAppId() }
+func (app *AppInstance) GetId() uint64           { return app.config.ConfigPb.GetId() }
 func (app *AppInstance) GetTypeId() uint64       { return app.config.ConfigPb.GetTypeId() }
 func (app *AppInstance) GetTypeName() string     { return app.config.ConfigPb.GetTypeName() }
 func (app *AppInstance) GetAppName() string      { return app.config.AppName }
@@ -829,9 +825,6 @@ func (app *AppInstance) GetHashCode() string     { return app.config.HashCode }
 func (app *AppInstance) GetAppVersion() string   { return app.config.AppVersion }
 func (app *AppInstance) GetBuildVersion() string { return app.config.BuildVersion }
 func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
-func (app *AppInstance) GetWorldId() uint32      { return app.config.ConfigPb.GetWorldId() }
-func (app *AppInstance) GetZoneId() uint32       { return app.config.ConfigPb.GetZoneId() }
-func (app *AppInstance) GetLogicId() uint32      { return app.config.ConfigPb.GetArea().GetZoneId() }
 func (app *AppInstance) GetConfigFile() string   { return app.config.ConfigFile }
 
 func (app *AppInstance) SetAppTime(newTime time.Time) {

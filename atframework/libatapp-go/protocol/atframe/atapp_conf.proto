@@ -107,8 +107,8 @@ message atapp_log_sink_file_rotate {
 }
 
 message atapp_log_sink_file {
-  string file_name = 1;
-  string file_alias_name = 2;
+  string file = 1;
+  string writing_alias = 2;
   atapp_log_sink_file_rotate rotate = 3;
   string auto_flush = 4;
   google.protobuf.Duration flush_interval = 5;
@@ -374,19 +374,16 @@ message atapp_resource {
 }
 
 message atapp_configure {
-  string id = 101;       // maybe hex or a.b.c.d
-  uint64 app_id = 102;
-  uint32 world_id = 103;
-  uint32 zone_id = 104;
-  string name = 105;
-  uint64 type_id = 106;
-  string type_name = 107;
-  atapp_area area = 108;  // Some service is splited by area
+  uint64 id = 101;         // maybe hex or a.b.c.d
+  string name = 102;       // "a.b.c.d"
+  uint64 type_id = 103;    // Svr Type
+  string type_name = 104;  // Svr Type Name
+  atapp_area area = 105;   // Some service is splited by area
   // See these document below for details:
   //   https://kubernetes.io/docs/concepts/workloads/pods/downward-api/#available-fields
   //   https://kubernetes.io/zh-cn/docs/concepts/workloads/pods/downward-api/#available-fields
-  atapp_metadata metadata = 109;
-  atapp_runtime runtime = 110;
+  atapp_metadata metadata = 106;
+  atapp_runtime runtime = 107;
 
   string hostname = 121;
   // The same identity means the same instance of a app.

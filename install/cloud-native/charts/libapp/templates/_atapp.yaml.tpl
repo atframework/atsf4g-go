@@ -3,14 +3,13 @@
 {{- $uniq_id := .Values.uniq_id -}}
 atapp:
   # =========== bus configure ===========
-  id: {{ $bus_addr | quote }}
-  app_id: {{ $uniq_id }}
+  id: {{ $uniq_id }}
+  name: {{ .Values.type_name | default (include "libapp.name" .) }}_{{ $bus_addr }}
   world_id: {{ .Values.world_id }}
   zone_id: {{ .Values.zone_id }}
   type_id: {{ required ".Values.type_id who entry required!" .Values.type_id }} # server type id
   type_name: {{ .Values.type_name | default (include "libapp.name" .) }}         # server type name
   area:
-    zone_id: {{ include "libapp.logicID" . }} # svr_zone_id
 {{ include "atapp.default.metadata.yaml" . | indent 4 }}
   remove_pidfile_after_exit: false     # keep pid file after exited
   {{- with .Values.inner_ip }}
@@ -62,8 +61,8 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 20MB
-            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.%N.log"
-            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.log"
+            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.%N.log"
+            writing_alias: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.error.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
           - type: file
@@ -73,8 +72,8 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 20MB
-            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.All.%N.log"
-            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.All.log"
+            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.All.%N.log"
+            writing_alias: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.All.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
       - name: redis
@@ -91,8 +90,8 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
-            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.All.%N.log"
-            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.All.log"
+            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.All.%N.log"
+            writing_alias: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.All.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
           - type: file
@@ -102,8 +101,8 @@ atapp:
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
-            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.%N.log"
-            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.log"
+            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.%N.log"
+            writing_alias: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.redis.error.log"
             auto_flush: error
             flush_interval: 1s        # flush log interval
       - name: db_inner
@@ -120,8 +119,8 @@ atapp:
             rotate:
               number: 10
               size: 10MB
-            file_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.all.%N.log"
-            file_alias_name: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.all.log"
+            file: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.all.%N.log"
+            writing_alias: "{{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ $bus_addr }}.db_inner.all.log"
             auto_flush: error
             flush_interval: 1s    # flush log interval
   # =========== timer ===========

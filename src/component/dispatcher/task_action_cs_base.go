@@ -272,7 +272,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 			Version:         "0.1.0",
 			RpcName:         string(t.rpcDescriptor.FullName()),
 			TypeUrl:         string(t.rpcDescriptor.Output().FullName()),
-			CallerNodeId:    t.GetDispatcher().GetApp().GetAppId(),
+			CallerNodeId:    t.GetDispatcher().GetApp().GetId(),
 			CallerNodeName:  t.GetDispatcher().GetApp().GetAppName(),
 			CallerTimestamp: timestamppb.New(now),
 		},
