@@ -109,5 +109,19 @@
       "problemMatcher": "$go",
       "group": "none"
     },
+    {
+      "label": "Clean Pb go",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "run",
+        "."
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/tools/delete-generate-go"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
   ]
 }
