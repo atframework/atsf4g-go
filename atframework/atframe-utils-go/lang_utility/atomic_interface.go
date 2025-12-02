@@ -2,24 +2,23 @@
 package libatframe_utils_lang_utility
 
 import (
-	"reflect"
 	"sync/atomic"
 )
 
 // AtomicInterface is a lock-free holder dedicated to interface values, providing nil-safe helpers.
-type AtomicInterface[T interface{}] struct {
+type AtomicInterface[T comparable] struct {
 	ptr atomic.Pointer[atomicInterfaceHolder[T]]
 }
 
 // NewAtomicInterface creates an AtomicInterface initialized with the provided value.
 // The initial value may be nil.
-func NewAtomicInterface[T interface{}](initial T) *AtomicInterface[T] {
+func NewAtomicInterface[T comparable](initial T) *AtomicInterface[T] {
 	av := &AtomicInterface[T]{}
 	av.Store(initial)
 	return av
 }
 
-type atomicInterfaceHolder[T interface{}] struct {
+type atomicInterfaceHolder[T comparable] struct {
 	value T
 	isNil bool
 }
@@ -52,21 +51,11 @@ func (av *AtomicInterface[T]) Swap(newV T) T {
 		return zero
 	}
 	newHolder := newAtomicInterfaceHolder(newV)
-	for {
-		current := av.ptr.Load()
-		if current == nil {
-			if av.ptr.CompareAndSwap(nil, newHolder) {
-				return zero
-			}
-			continue
-		}
-		if av.ptr.CompareAndSwap(current, newHolder) {
-			if current.isNil {
-				return zero
-			}
-			return current.value
-		}
+	value := av.ptr.Swap(newHolder)
+	if value == nil || value.isNil {
+		return zero
 	}
+	return value.value
 }
 
 // CompareAndSwap atomically replaces the stored value with newV when the current value matches oldV.
@@ -100,30 +89,19 @@ func (av *AtomicInterface[T]) CompareAndSwap(oldV, newV T) bool {
 	}
 }
 
-func newAtomicInterfaceHolder[T interface{}](v T) *atomicInterfaceHolder[T] {
+func newAtomicInterfaceHolder[T comparable](v T) *atomicInterfaceHolder[T] {
 	return &atomicInterfaceHolder[T]{
 		value: v,
 		isNil: IsNil(any(v)),
 	}
 }
 
-func holderEquals[T interface{}](holder *atomicInterfaceHolder[T], expected T) bool {
+func holderEquals[T comparable](holder *atomicInterfaceHolder[T], expected T) bool {
 	if holder == nil || holder.isNil {
 		return IsNil(any(expected))
 	}
 	if IsNil(any(expected)) {
 		return false
 	}
-	left := reflect.ValueOf(holder.value)
-	right := reflect.ValueOf(expected)
-	if !left.IsValid() || !right.IsValid() {
-		return !left.IsValid() && !right.IsValid()
-	}
-	if left.Type() != right.Type() {
-		return false
-	}
-	if left.Type().Comparable() {
-		return left.Interface() == right.Interface()
-	}
-	return reflect.DeepEqual(left.Interface(), right.Interface())
+	return holder.value == expected
 }
