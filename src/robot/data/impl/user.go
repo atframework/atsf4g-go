@@ -1,13 +1,14 @@
 package atsf4g_go_robot_user_impl
 
 import (
-	"container/list"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	base "github.com/atframework/atsf4g-go/robot/base"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 	libatapp "github.com/atframework/libatapp-go"
 	"github.com/gorilla/websocket"
@@ -35,17 +36,19 @@ type User struct {
 
 	connectionSequence uint64
 	connection         *websocket.Conn
-
-	rpcTimeout list.List
-	rpcSeq     map[uint64]struct{}
+	rpcAwaitTask       sync.Map
 
 	csLog       *libatapp.LogBufferedRotatingWriter
 	heartbeatFn func(user user_data.User) error
 
-	onClosed []func(user user_data.User)
+	onClosed        []func(user user_data.User)
+	taskManager     *base.TaskActionManager
+	taskActionGuard sync.Mutex
+}
 
-	receiveAction chan func()
-	sendAction    chan func()
+type CmdAction struct {
+	cmdFn           func(user user_data.User)
+	allowedNotLogin bool
 }
 
 func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter,
@@ -61,9 +64,7 @@ func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogB
 		connection:         conn,
 		csLog:              bufferWriter,
 		heartbeatFn:        heartbeatFn,
-		rpcSeq:             make(map[uint64]struct{}),
-		receiveAction:      make(chan func(), 50),
-		sendAction:         make(chan func(), 50),
+		taskManager:        base.NewTaskActionManager(),
 	}
 
 	var _ user_data.User = ret
@@ -114,6 +115,14 @@ func (u *User) Logout() {
 	u.Close()
 }
 
+func (u *User) TakeActionGuard() {
+	u.taskActionGuard.Lock()
+}
+
+func (u *User) ReleaseActionGuard() {
+	u.taskActionGuard.Unlock()
+}
+
 func (user *User) MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
 	user.connectionSequence++
 	return &public_protocol_extension.CSMsgHead{
@@ -128,14 +137,38 @@ func (user *User) MakeMessageHead(rpcName string, typeName string) *public_proto
 	}
 }
 
+func (user *User) RunTask(timeout time.Duration, f func(*user_data.TaskActionUser)) *user_data.TaskActionUser {
+	if user == nil {
+		utils.StdoutLog("User nil")
+		return nil
+	}
+	task := &user_data.TaskActionUser{
+		TaskActionBase: *base.NewTaskActionBase(timeout),
+		User:           user,
+		Fn:             f,
+	}
+	task.TaskActionBase.Impl = task
+
+	user.taskManager.RunTaskAction(task)
+	return task
+}
+
+func (user *User) RunTaskDefaultTimeout(f func(*user_data.TaskActionUser)) *user_data.TaskActionUser {
+	return user.RunTask(time.Duration(8)*time.Second, f)
+}
+
+type rpcResumeData struct {
+	body    proto.Message
+	rspCode int32
+}
+
 func (user *User) ReceiveHandler() {
 	defer func() {
 		utils.StdoutLog(fmt.Sprintf("User %v:%v connection closed.\n", user.ZoneId, user.UserId))
-		user.receiveAction <- func() {
+		user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) {
 			user.connection = nil
 			user.Close()
-		}
-		close(user.receiveAction)
+		})
 	}()
 	for {
 		_, bytes, err := user.connection.ReadMessage()
@@ -183,13 +216,21 @@ func (user *User) ReceiveHandler() {
 			utils.StdoutLog(fmt.Sprintf("Error in Unmarshal: %v", err))
 			return
 		}
+
 		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
-		user.receiveAction <- func() {
-			// 通知收包
-			delete(user.rpcSeq, csMsg.Head.GetClientSequence())
-			if handle, ok := user_data.GetResponseHandles()[rpcName]; ok {
-				handle(user, rpcName, csMsg, csBody)
-			}
+		task, ok := user.rpcAwaitTask.Load(csMsg.Head.ClientSequence)
+		if ok {
+			user.rpcAwaitTask.Delete(csMsg.Head.ClientSequence)
+			task.(*user_data.TaskActionUser).Resume(&base.TaskActionAwaitData{
+				WaitingType: base.TaskActionAwaitTypeRPC,
+				WaitingId:   csMsg.Head.ClientSequence,
+			}, &base.TaskActionResumeData{
+				Err: nil,
+				Data: rpcResumeData{
+					body:    csBody,
+					rspCode: csMsg.Head.ErrorCode,
+				},
+			})
 		}
 	}
 }
@@ -200,78 +241,48 @@ type RpcTimeout struct {
 	seq      uint64
 }
 
-func (user *User) ActionHandler() {
-	for {
-		select {
-		case f := <-user.receiveAction:
-			if f == nil {
-				return
-			}
-			f()
-		case f := <-user.sendAction:
-			if f == nil {
-				return
-			}
-			f()
-		case <-time.After(time.Second):
-			for {
-				if user.rpcTimeout.Len() == 0 {
-					break
-				}
-				firstRpc := user.rpcTimeout.Front().Value.(RpcTimeout)
-				if time.Now().After(firstRpc.sendTime.Add(8 * time.Second)) {
-					_, ok := user.rpcSeq[firstRpc.seq]
-					if ok {
-						fmt.Printf("timeout rpc %s\n", firstRpc.rpcName)
-						delete(user.rpcSeq, firstRpc.seq)
-					}
-					user.rpcTimeout.Remove(user.rpcTimeout.Front())
-				} else {
-					break
-				}
-			}
-		}
-	}
-}
-
-func (user *User) SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message) error {
+func (user *User) SendReq(action *user_data.TaskActionUser, csMsg *public_protocol_extension.CSMsg, csBody proto.Message, needRsp bool) (int32, proto.Message, error) {
 	if user == nil {
-		return fmt.Errorf("no login")
+		return 0, nil, fmt.Errorf("no login")
 	}
 
 	if user.connection == nil {
-		return fmt.Errorf("connection not found")
+		return 0, nil, fmt.Errorf("connection not found")
 	}
 
 	if user.Closed.Load() {
-		return fmt.Errorf("connection lost")
+		return 0, nil, fmt.Errorf("connection lost")
 	}
 
-	user.sendAction <- func() {
-		var csBin []byte
-		csBin, _ = proto.Marshal(csMsg)
-		titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
-		utils.StdoutLog(fmt.Sprintf("%s\n", titleString))
+	var csBin []byte
+	csBin, _ = proto.Marshal(csMsg)
+	titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
+	utils.StdoutLog(fmt.Sprintf("%s\n", titleString))
 
-		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format("2006-01-02 15:04:05.000"), titleString)
-		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
-		fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
+	fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format("2006-01-02 15:04:05.000"), titleString)
+	fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
+	fmt.Fprintf(user.csLog, "Body:{\n%s}\n\n", pu.MessageReadableText(csBody))
 
-		// Send an echo packet every second
-		err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
-		if err != nil {
-			utils.StdoutLog(fmt.Sprintf("Error during writing to websocket: %v", err))
-			return
-		}
+	// Send an echo packet every second
+	err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
+	if err != nil {
+		utils.StdoutLog(fmt.Sprintf("Error during writing to websocket: %v", err))
+		return 0, nil, err
+	}
 
-		user.rpcTimeout.PushBack(RpcTimeout{
-			sendTime: time.Now(),
-			rpcName:  csMsg.Head.GetRpcRequest().GetRpcName(),
-			seq:      csMsg.Head.GetClientSequence(),
+	if needRsp {
+		user.rpcAwaitTask.Store(csMsg.Head.ClientSequence, action)
+		resumeData := action.Yield(base.TaskActionAwaitData{
+			WaitingType: base.TaskActionAwaitTypeRPC,
+			WaitingId:   csMsg.Head.ClientSequence,
 		})
-		user.rpcSeq[csMsg.Head.GetClientSequence()] = struct{}{}
+		if resumeData.Err != nil {
+			return 0, nil, resumeData.Err
+		}
+		data := resumeData.Data.(rpcResumeData)
+		return data.rspCode, data.body, nil
 	}
-	return nil
+	return 0, nil, nil
 }
 
 func (user *User) Close() {

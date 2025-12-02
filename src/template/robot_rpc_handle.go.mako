@@ -26,26 +26,25 @@ if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
 
 rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
-func Send${rpc_name}(user User, reqBody *lobysvr_protocol_pbdesc.${rpc.get_request().get_name()}) error {
-	if lu.IsNil(user) || reqBody == nil {
-		return fmt.Errorf("user or request is nil")
+func Send${rpc_name}(task *TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rpc.get_request().get_name()}, needLogin bool) (
+	int32, *lobysvr_protocol_pbdesc.${rpc.get_response().get_name()}, error) {
+	if lu.IsNil(task.User) || reqBody == nil {
+		return 0, nil, fmt.Errorf("user or request is nil")
+	}
+	if needLogin {
+		if !task.User.IsLogin() {
+			return 0, nil, fmt.Errorf("user not login")
+		}
 	}
 	csMsg := &public_protocol_extension.CSMsg{
-		Head: user.MakeMessageHead("${rpc.descriptor.full_name}", "${rpc.get_request_descriptor().full_name}"),
+		Head: task.User.MakeMessageHead("${rpc.descriptor.full_name}", "${rpc.get_request_descriptor().full_name}"),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(reqBody)
-	return user.SendReq(csMsg, reqBody)
-}
-% endfor
-
-% for rpc in rpcs.values():
-<%
-if rpc.get_response_descriptor().full_name == "google.protobuf.Empty":
-  continue
-
-rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
-%>
-func Get${rpc_name}TypeName() string {
-	return "${rpc.descriptor.full_name}"
+	code, bodyRaw, err := task.User.SendReq(task, csMsg, reqBody, true)
+	body, ok := bodyRaw.(*lobysvr_protocol_pbdesc.${rpc.get_response().get_name()})
+	if !ok {
+		return code, nil, fmt.Errorf("type assertion to ${rpc.get_response().get_name()} failed")
+	}
+	return code, body, err
 }
 % endfor

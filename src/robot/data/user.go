@@ -17,7 +17,11 @@ type User interface {
 	Logout()
 	MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead
 	ReceiveHandler()
-	SendReq(csMsg *public_protocol_extension.CSMsg, csBody proto.Message) error
+	SendReq(action *TaskActionUser, csMsg *public_protocol_extension.CSMsg, csBody proto.Message, needRsp bool) (int32, proto.Message, error)
+	TakeActionGuard()
+	ReleaseActionGuard()
+	RunTask(timeout time.Duration, f func(*TaskActionUser)) *TaskActionUser
+	RunTaskDefaultTimeout(f func(*TaskActionUser)) *TaskActionUser
 
 	GetLoginCode() string
 	GetLogined() bool
@@ -65,20 +69,11 @@ func SetCurrentUser(user User) {
 	}
 }
 
-type ResponseHandle = func(user User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message)
-
-var responseHandles map[string]ResponseHandle
-
-func GetResponseHandles() map[string]ResponseHandle {
-	if responseHandles == nil {
-		responseHandles = make(map[string]ResponseHandle)
+func CurrentUserRunTaskDefaultTimeout(f func(*TaskActionUser)) *TaskActionUser {
+	user := GetCurrentUser()
+	if user == nil {
+		utils.StdoutLog("GetCurrentUser: User nil")
+		return nil
 	}
-	return responseHandles
-}
-
-func RegisterResponseHandle(rpcName string, handle ResponseHandle) {
-	if responseHandles == nil {
-		responseHandles = make(map[string]ResponseHandle)
-	}
-	responseHandles[rpcName] = handle
+	return user.RunTaskDefaultTimeout(f)
 }

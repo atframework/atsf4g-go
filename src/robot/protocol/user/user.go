@@ -8,26 +8,25 @@ import (
 	"sync"
 	"time"
 
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	base "github.com/atframework/atsf4g-go/robot/base"
 	config "github.com/atframework/atsf4g-go/robot/config"
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 	user_impl "github.com/atframework/atsf4g-go/robot/data/impl"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-func LoginAuthRpc(user user_data.User) error {
+func LoginAuthRpc(action *user_data.TaskActionUser) (int32, *lobysvr_protocol_pbdesc.SCLoginAuthRsp, error) {
+	user := action.User
 	if user.GetLoginCode() != "" {
-		return fmt.Errorf("already login auth")
+		return 0, nil, fmt.Errorf("already login auth")
 	}
 
 	csBody := &lobysvr_protocol_pbdesc.CSLoginAuthReq{
@@ -41,17 +40,17 @@ func LoginAuthRpc(user user_data.User) error {
 		PackageVersion:  "0.0.0.1",
 		ResourceVersion: "0.0.0.1",
 	}
-
-	return user_data.SendLoginAuth(user, csBody)
+	return user_data.SendLoginAuth(action, csBody, false)
 }
 
-func LoginRpc(user user_data.User) error {
+func LoginRpc(action *user_data.TaskActionUser) (int32, *lobysvr_protocol_pbdesc.SCLoginRsp, error) {
+	user := action.User
 	if user.GetLoginCode() == "" {
-		return fmt.Errorf("need login auth")
+		return 0, nil, fmt.Errorf("need login auth")
 	}
 
 	if user.GetLogined() {
-		return fmt.Errorf("already login")
+		return 0, nil, fmt.Errorf("already login")
 	}
 
 	vmem, _ := mem.VirtualMemory()
@@ -75,34 +74,40 @@ func LoginRpc(user user_data.User) error {
 			CpuInfo: func() string {
 				if len(cpuInfo) > 0 {
 					return fmt.Sprintf("%s - %gMHz", strings.TrimSpace(cpuInfo[0].ModelName), cpuInfo[0].Mhz)
-				} else {
-					return "unknown"
 				}
+				return "unknown"
 			}(),
 			Memory: uint32(vmem.Total / (1024 * 1024)),
 		},
 	}
 
-	return user_data.SendLogin(user, csBody)
+	return user_data.SendLogin(action, csBody, false)
 }
 
-func PingRpc(user user_data.User) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
+func PingRpc(action *user_data.TaskActionUser) error {
 	csBody := &lobysvr_protocol_pbdesc.CSPingReq{
 		Timepoint: time.Now().UnixNano(),
 	}
 
-	return user_data.SendPing(user, csBody)
+	errCode, _, err := user_data.SendPing(action, csBody, true)
+	if err != nil {
+		return err
+	}
+	if errCode < 0 {
+		return fmt.Errorf("ping failed, errCode: %d", errCode)
+	}
+	action.User.SetLastPingTime(time.Now())
+	return nil
 }
 
-func GetInfoRpc(user user_data.User, args []string) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
+func PingTask(user user_data.User) error {
+	user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) {
+		PingRpc(action)
+	})
+	return nil
+}
 
+func GetInfoRpc(action *user_data.TaskActionUser, args []string) (int32, *lobysvr_protocol_pbdesc.SCUserGetInfoRsp, error) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGetInfoReq{}
 
 	ref := csBody.ProtoReflect()
@@ -133,115 +138,14 @@ func GetInfoRpc(user user_data.User, args []string) error {
 		}
 	}
 
-	return user_data.SendUserGetInfo(user, csBody)
+	return user_data.SendUserGetInfo(action, csBody, true)
 }
 
-func GMRpc(user user_data.User, args []string) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
+func GMRpc(action *user_data.TaskActionUser, args []string) (int32, *lobysvr_protocol_pbdesc.SCUserGMCommandRsp, error) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
 		Args: args,
 	}
-
-	return user_data.SendUserSendGmCommand(user, csBody)
-}
-
-func ProcessLoginAuthResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
-	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginAuthRsp)
-	if !ok {
-		utils.StdoutLog("Can not convert to SCLoginAuthRsp\n")
-		return
-	}
-
-	head := msg.Head
-	if head.ErrorCode < 0 {
-		return
-	}
-
-	if user == nil {
-		userMapLock.Lock()
-		defer userMapLock.Unlock()
-
-		userInst, ok := mutableUserMapContainer()[body.GetOpenId()]
-		if !ok || userInst == nil {
-			user = userInst
-			user = mutableUserMapContainer()[strconv.FormatUint(body.GetUserId(), 10)]
-		}
-	}
-
-	if user == nil {
-		utils.StdoutLog("user is nil in ProcessLoginAuthResponse\n")
-		return
-	}
-
-	if body.GetLoginCode() != "" {
-		user.SetLoginCode(body.GetLoginCode())
-	}
-	if body.GetUserId() != 0 {
-		user.SetUserId(body.GetUserId())
-	}
-	if body.GetZoneId() != 0 {
-		user.SetZoneId(body.GetZoneId())
-	}
-
-	err := LoginRpc(user)
-	if err != nil {
-		utils.StdoutLog(fmt.Sprintf("user login failed, error: %v, open_id: %s, user_id: %d, zone_id: %d", err, user.GetOpenId(), user.GetUserId(), user.GetZoneId()))
-		return
-	}
-}
-
-func ProcessLoginResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
-	body, ok := rawBody.(*lobysvr_protocol_pbdesc.SCLoginRsp)
-	if !ok {
-		utils.StdoutLog("Can not convert to SCLoginResp\n")
-		return
-	}
-
-	head := msg.Head
-	if head.ErrorCode < 0 {
-		return
-	}
-
-	if body.GetZoneId() != 0 {
-		user.SetZoneId(body.GetZoneId())
-	}
-	user.SetLogined(true)
-
-	if body.GetHeartbeatInterval() > 0 {
-		user.SetHeartbeatInterval(time.Duration(body.GetHeartbeatInterval()) * time.Second)
-	}
-
-	user_data.SetCurrentUser(user)
-
-	// 创建Ping流程
-	user.CheckPingTask()
-}
-
-func ProcessPongResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
-	head := msg.Head
-	if head.ErrorCode < 0 {
-		return
-	}
-
-	user.SetLastPingTime(time.Now())
-}
-
-func ProcessGetInfoResponse(user user_data.User, rpcName string, msg *public_protocol_extension.CSMsg, rawBody proto.Message) {
-	_, ok := rawBody.(*lobysvr_protocol_pbdesc.SCUserGetInfoRsp)
-	if !ok {
-		utils.StdoutLog("Can not convert to SCUserGetInfoRsp\n")
-		return
-	}
-
-	head := msg.Head
-	if head.ErrorCode < 0 {
-		return
-	}
-
-	user.SetHasGetInfo(true)
+	return user_data.SendUserSendGmCommand(action, csBody, true)
 }
 
 // ========================= 注册指令 =========================
@@ -250,13 +154,7 @@ func init() {
 	utils.RegisterCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议", nil)
 	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
 	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
-
-	user_data.RegisterResponseHandle(user_data.GetLoginAuthTypeName(), ProcessLoginAuthResponse)
-	user_data.RegisterResponseHandle(user_data.GetLoginTypeName(), ProcessLoginResponse)
-	user_data.RegisterResponseHandle(user_data.GetPingTypeName(), ProcessPongResponse)
-	user_data.RegisterResponseHandle(user_data.GetUserGetInfoTypeName(), ProcessGetInfoResponse)
-
-	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func([]string) string {
+	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func(action base.TaskActionImpl, cmd []string) string {
 		userMapLock.Lock()
 		defer userMapLock.Unlock()
 		for _, v := range userMapContainer {
@@ -264,7 +162,7 @@ func init() {
 		}
 		return ""
 	}, "", "显示所有登录User", nil)
-	utils.RegisterCommand([]string{"user", "switch"}, func(cmd []string) string {
+	utils.RegisterCommand([]string{"user", "switch"}, func(action base.TaskActionImpl, cmd []string) string {
 		if len(cmd) < 1 {
 			return "Need User Id"
 		}
@@ -345,7 +243,7 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 	var ret *user_impl.User = nil
 	userMapLock.Lock()
 	defer userMapLock.Unlock()
-	ret = user_impl.CreateUser(openId, conn, bufferWriter, PingRpc)
+	ret = user_impl.CreateUser(openId, conn, bufferWriter, PingTask)
 
 	mutableUserMapContainer()[openId] = ret
 
@@ -364,7 +262,6 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 			user_data.SetCurrentUser(nil)
 		}
 	})
-	go ret.ActionHandler()
 	go ret.ReceiveHandler()
 
 	utils.StdoutLog(fmt.Sprintf("Create User: %s\n", openId))
@@ -372,7 +269,7 @@ func CreateUser(openId string, socketUrl string) *user_impl.User {
 	return ret
 }
 
-func LogoutCmd(cmd []string) string {
+func LogoutCmd(action base.TaskActionImpl, cmd []string) string {
 	if user_data.GetCurrentUser() != nil {
 		fmt.Printf("user %s logout\n", user_data.GetCurrentUser().GetOpenId())
 		user_data.GetCurrentUser().Logout()
@@ -381,37 +278,103 @@ func LogoutCmd(cmd []string) string {
 	return ""
 }
 
-func LoginCmd(cmd []string) string {
+func LoginCmd(action base.TaskActionImpl, cmd []string) string {
 	if len(cmd) < 1 {
 		return "Need OpenId"
 	}
+
 	// 创建角色
 	u := CreateUser(cmd[0], config.SocketUrl)
 	if u == nil {
 		return "Failed to create user"
 	}
 
-	// 发送登录请求
-	err := LoginAuthRpc(u)
+	var err error
+	action.AwaitTask(u.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		errCode, rsp, rpcErr := LoginAuthRpc(task)
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
+		if errCode < 0 {
+			err = fmt.Errorf("login auth failed, errCode: %d", errCode)
+			return
+		}
+
+		user := task.User
+
+		if rsp.GetLoginCode() != "" {
+			user.SetLoginCode(rsp.GetLoginCode())
+		}
+		if rsp.GetUserId() != 0 {
+			user.SetUserId(rsp.GetUserId())
+		}
+		if rsp.GetZoneId() != 0 {
+			user.SetZoneId(rsp.GetZoneId())
+		}
+
+		var loginRsp *lobysvr_protocol_pbdesc.SCLoginRsp
+		errCode, loginRsp, rpcErr = LoginRpc(task)
+		if rpcErr != nil {
+			utils.StdoutLog(fmt.Sprintf("user login failed, error: %v, open_id: %s, user_id: %d, zone_id: %d", err, user.GetOpenId(), user.GetUserId(), user.GetZoneId()))
+			err = rpcErr
+			return
+		}
+		if errCode < 0 {
+			err = fmt.Errorf("login req failed, errCode: %d", errCode)
+			return
+		}
+
+		if loginRsp.GetZoneId() != 0 {
+			user.SetZoneId(loginRsp.GetZoneId())
+		}
+		user.SetLogined(true)
+
+		if loginRsp.GetHeartbeatInterval() > 0 {
+			user.SetHeartbeatInterval(time.Duration(loginRsp.GetHeartbeatInterval()) * time.Second)
+		}
+
+		user_data.SetCurrentUser(user)
+
+		// 创建Ping流程
+		user.CheckPingTask()
+	}))
 	if err != nil {
 		return err.Error()
 	}
-
 	return ""
 }
 
-func GetInfoCmd(cmd []string) string {
+func GetInfoCmd(action base.TaskActionImpl, cmd []string) string {
 	// 发送登录请求
-	err := GetInfoRpc(user_data.GetCurrentUser(), cmd)
+	var err error
+	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		errCode, _, rpcErr := GetInfoRpc(task, cmd)
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
+		if errCode < 0 {
+			return
+		}
+		task.User.SetHasGetInfo(true)
+	}))
 	if err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
-func GMCmd(cmd []string) string {
+func GMCmd(action base.TaskActionImpl, cmd []string) string {
 	// 发送登录请求
-	err := GMRpc(user_data.GetCurrentUser(), cmd)
+	var err error
+	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		_, _, rpcErr := GMRpc(task, cmd)
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
+	}))
 	if err != nil {
 		return err.Error()
 	}

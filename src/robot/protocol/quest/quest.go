@@ -1,39 +1,28 @@
 package atsf4g_go_robot_protocol_quest
 
 import (
-	"fmt"
 	"strconv"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	base "github.com/atframework/atsf4g-go/robot/base"
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 // QuestReceiveRewardRpc 发送任务领奖请求
-func QuestReceiveRewardRpc(user user_data.User, questID int32) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
+func QuestReceiveRewardRpc(action *user_data.TaskActionUser, questID int32) (int32, *lobysvr_protocol_pbdesc.SCQuestReceiveRewardRsp, error) {
 	csBody := &lobysvr_protocol_pbdesc.CSQuestReceiveRewardReq{
 		QuestIds: []int32{questID},
 	}
-
-	return user_data.SendQuestReceiveReward(user, csBody)
+	return user_data.SendQuestReceiveReward(action, csBody, true)
 }
 
 // QuestReceiveRewardsRpc 发送多个任务领奖请求
-func QuestReceiveRewardsRpc(user user_data.User, questIDs []int32) error {
-	if lu.IsNil(user) || !user.IsLogin() {
-		return fmt.Errorf("need login")
-	}
-
+func QuestReceiveRewardsRpc(action *user_data.TaskActionUser, questIDs []int32) (int32, *lobysvr_protocol_pbdesc.SCQuestReceiveRewardRsp, error) {
 	csBody := &lobysvr_protocol_pbdesc.CSQuestReceiveRewardReq{
 		QuestIds: questIDs,
 	}
-
-	return user_data.SendQuestReceiveReward(user, csBody)
+	return user_data.SendQuestReceiveReward(action, csBody, true)
 }
 
 // ========================= 注册指令 =========================
@@ -42,7 +31,7 @@ func init() {
 	utils.RegisterCommand([]string{"quest", "receiveMulti"}, QuestReceiveRewardsCmd, "<quest_id1> [quest_id2] ...", "批量领取任务奖励", nil)
 }
 
-func QuestReceiveRewardCmd(cmd []string) string {
+func QuestReceiveRewardCmd(action base.TaskActionImpl, cmd []string) string {
 	if len(cmd) < 1 {
 		return "Args Error"
 	}
@@ -52,14 +41,20 @@ func QuestReceiveRewardCmd(cmd []string) string {
 		return err.Error()
 	}
 
-	err = QuestReceiveRewardRpc(user_data.GetCurrentUser(), int32(questID))
+	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		_, _, rpcErr := QuestReceiveRewardRpc(task, int32(questID))
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
+	}))
 	if err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
-func QuestReceiveRewardsCmd(cmd []string) string {
+func QuestReceiveRewardsCmd(action base.TaskActionImpl, cmd []string) string {
 	if len(cmd) < 1 {
 		return "Args Error"
 	}
@@ -73,7 +68,14 @@ func QuestReceiveRewardsCmd(cmd []string) string {
 		questIDs = append(questIDs, int32(questID))
 	}
 
-	err := QuestReceiveRewardsRpc(user_data.GetCurrentUser(), questIDs)
+	var err error
+	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		_, _, rpcErr := QuestReceiveRewardsRpc(task, questIDs)
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
+	}))
 	if err != nil {
 		return err.Error()
 	}

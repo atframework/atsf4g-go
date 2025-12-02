@@ -6,12 +6,24 @@ import (
 	"sort"
 	"strings"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
 	"github.com/chzyer/readline"
+
+	base "github.com/atframework/atsf4g-go/robot/base"
 )
 
-type CommandFunc func([]string) string
+type TaskActionCmd struct {
+	base.TaskActionBase
+	Fn func()
+}
+
+func (t *TaskActionCmd) HookRun() {
+	t.Fn()
+}
+
+type CommandFunc func(base.TaskActionImpl, []string) string
 
 type CommandNode struct {
 	Children        map[string]*CommandNode
@@ -35,6 +47,7 @@ func StdoutLog(log string) {
 
 func init() {
 	stdoutLog = log.Default()
+	var _ base.TaskActionImpl = &TaskActionCmd{}
 }
 
 func (node *CommandNode) SelfHelpString() []string {
@@ -239,7 +252,7 @@ func splitArgs(input string) []string {
 }
 
 // ExecuteCommand 执行命令
-func ExecuteCommand(rl *readline.Instance, input string) {
+func ExecuteCommand(mgr *base.TaskActionManager, rl *readline.Instance, input string) {
 	tokens := strings.Fields(input)
 	if len(tokens) == 0 {
 		return
@@ -255,20 +268,28 @@ func ExecuteCommand(rl *readline.Instance, input string) {
 	}
 
 	if node.Func != nil {
-		result := node.Func(args)
-		if result != "" {
-			fmt.Println(result)
+		taskAction := &TaskActionCmd{
+			TaskActionBase: *base.NewTaskActionBase(time.Duration(5) * time.Second),
 		}
+		taskAction.Fn = func() {
+			result := node.Func(taskAction, args)
+			if result != "" {
+				fmt.Println(result)
+			}
+		}
+		taskAction.TaskActionBase.Impl = taskAction
+		mgr.RunTaskAction(taskAction)
+		base.AwaitTask(taskAction)
 	} else {
 		fmt.Print(AllHelpString(node))
 	}
 }
 
-func QuitCmd([]string) string {
+func QuitCmd(base.TaskActionImpl, []string) string {
 	return ""
 }
 
-func HistoryCmd([]string) string {
+func HistoryCmd(base.TaskActionImpl, []string) string {
 	for _, item := range _historyManager.Items {
 		fmt.Println(item)
 	}
@@ -313,6 +334,8 @@ func ReadLine() {
 
 	fmt.Println("Enter 'quit' to Exit, 'Tab' to AutoComplete")
 
+	mgr := base.NewTaskActionManager()
+
 	for {
 		cmd, err := rlIn.Readline()
 		if err != nil {
@@ -323,7 +346,7 @@ func ReadLine() {
 			_historyManager.save()
 			break
 		}
-		ExecuteCommand(rlIn, cmd)
+		ExecuteCommand(mgr, rlIn, cmd)
 
 		if cmd != "history" && cmd != "help" {
 			_historyManager.add(cmd)
