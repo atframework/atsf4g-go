@@ -250,7 +250,7 @@ func (t *TaskActionUserSendGmCommand) runGMCmdQueryQuestStatus(ctx component_dis
 
 func (t *TaskActionUserSendGmCommand) runGMCmdDelAccount(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	component_dispatcher.AsyncThen(ctx, "del account", user.GetActorExecutor(), ctx.GetAction(), func(childCtx cd.AwaitableContext) {
-		libatapp.AtappGetModule[*uc.UserManager](uc.GetReflectTypeUserManager(), childCtx.GetApp()).Remove(childCtx, user.GetZoneId(), user.GetUserId(), user, true)
+		libatapp.AtappGetModule[*uc.UserManager](childCtx.GetApp()).Remove(childCtx, user.GetZoneId(), user.GetUserId(), user, true)
 		db.DatabaseTableAccessDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())
 		db.DatabaseTableLoginLockDelWithUserId(childCtx, user.GetUserId())
 		db.DatabaseTableUserDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())

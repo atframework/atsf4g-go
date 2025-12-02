@@ -205,7 +205,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 	}
 	awaitableContext.BindAction(action)
 
-	err = libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), dispatcher.impl.GetApp()).StartTaskAction(awaitableContext, action, startData)
+	err = libatapp.AtappGetModule[*TaskManager](dispatcher.impl.GetApp()).StartTaskAction(awaitableContext, action, startData)
 	if err != nil {
 		dispatcher.GetLogger().Error("OnReceiveMessage StartTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
 		if awaitableContext.GetCancelFn() != nil {

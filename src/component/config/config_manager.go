@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -17,11 +18,7 @@ import (
 var configManagerModuleReflectType reflect.Type
 
 func init() {
-	configManagerModuleReflectType = reflect.TypeOf((*ConfigManagerModule)(nil)).Elem()
-}
-
-func GetReflectTypeConfigManagerModule() reflect.Type {
-	return configManagerModuleReflectType
+	configManagerModuleReflectType = lu.GetStaticReflectType[ConfigManagerModule]()
 }
 
 type ConfigManager struct {

@@ -17,6 +17,7 @@ replace github.com/atframework/atsf4g-go/component-protocol-private => ../protoc
 replace github.com/atframework/atsf4g-go/component-logical_time => ../logical_time
 
 require (
+	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
@@ -26,7 +27,6 @@ require (
 )
 
 require (
-	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/panjf2000/ants/v2 v2.11.3 // indirect
 	github.com/xresloader/xres-code-generator v0.0.0-00010101000000-000000000000 // indirect

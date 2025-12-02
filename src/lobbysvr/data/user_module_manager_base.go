@@ -11,6 +11,7 @@ import (
 
 type UserModuleManagerImpl interface {
 	GetOwner() *User
+	GetReflectType() reflect.Type
 
 	// 每次执行任务前刷新
 	RefreshLimit(cd.RpcContext)

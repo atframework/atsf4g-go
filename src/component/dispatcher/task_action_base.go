@@ -44,7 +44,7 @@ type TaskActionBase struct {
 
 func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeout time.Duration) (ret TaskActionBase) {
 	ret = TaskActionBase{
-		taskId:           libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).AllocTaskId(),
+		taskId:           libatapp.AtappGetModule[*TaskManager](rd.GetApp()).AllocTaskId(),
 		status:           atomic.Int32{},
 		responseCode:     0,
 		prepareHookRun:   false,

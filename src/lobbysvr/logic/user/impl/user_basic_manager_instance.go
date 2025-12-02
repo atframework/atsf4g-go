@@ -2,6 +2,7 @@ package lobbysvr_logic_user_impl
 
 import (
 	"fmt"
+	"reflect"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
@@ -15,13 +16,17 @@ import (
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
+var userManagerReflectType reflect.Type
+
 func init() {
 	var _ logic_user.UserBasicManager = (*UserBasicManager)(nil)
+	userManagerReflectType = lu.GetStaticReflectType[UserBasicManager]()
 	data.RegisterUserModuleManagerCreator[logic_user.UserBasicManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
@@ -37,6 +42,10 @@ type UserBasicManager struct {
 	dirtyExp      bool
 	dirtyUserInfo bool
 	userOptions   *private_protocol_pbdesc.UserOptionsData
+}
+
+func (m *UserBasicManager) GetReflectType() reflect.Type {
+	return userManagerReflectType
 }
 
 func CreateUserBasicManager(owner *data.User) *UserBasicManager {

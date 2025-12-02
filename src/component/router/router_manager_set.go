@@ -57,12 +57,8 @@ type RouterManagerSet struct {
 var routerManagerSetReflectType reflect.Type
 
 func init() {
-	routerManagerSetReflectType = reflect.TypeOf((*RouterManagerSet)(nil)).Elem()
 	var _ libatapp.AppModuleImpl = (*RouterManagerSet)(nil)
-}
-
-func GetReflectTypeRouterManagerSet() reflect.Type {
-	return routerManagerSetReflectType
+	routerManagerSetReflectType = lu.GetStaticReflectType[RouterManagerSet]()
 }
 
 // CreateRouterManagerSet 创建路由管理器集合
@@ -133,7 +129,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 	}
 	set.lastProcTime = now
 
-	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](cd.GetReflectTypeNoMessageDispatcher(), set.GetApp())
+	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](set.GetApp())
 	ctx := d.CreateRpcContext()
 
 	// 正在执行closing任务则不需要自动清理/保存了
@@ -170,7 +166,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 			},
 		)
 
-		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, autoSaveTask, &startData)
+		err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, autoSaveTask, &startData)
 		if err != nil {
 			set.GetApp().GetDefaultLogger().Error("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
 		} else {
@@ -230,7 +226,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 		}
 	}
 
-	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](cd.GetReflectTypeNoMessageDispatcher(), set.GetApp())
+	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](set.GetApp())
 	ctx := d.CreateRpcContext()
 
 	// 创建并启动closing_task
@@ -251,7 +247,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 		set.closingTask.Store(closingTask)
 		cd.AsyncThenStartTask(ctx, nil, set.autoSaveActionTask.Load(), closingTask, &startData)
 	} else {
-		err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
+		err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
 		if err != nil {
 			set.GetApp().GetDefaultLogger().Error("TaskActionRouterCloseManagerSet StartTaskAction failed", "error", err)
 		} else {

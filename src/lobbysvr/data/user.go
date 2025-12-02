@@ -122,8 +122,8 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, 
 		curr := ret.itemManagerList[i]
 		if prev.idRange.endTypeId >= curr.idRange.beginTypeId {
 			ctx.LogError("user item manager type id range conflict",
-				"prev_manager", reflect.TypeOf(prev.manager).String(),
-				"curr_manager", reflect.TypeOf(curr.manager).String(),
+				"prev_manager", prev.manager.GetReflectType().String(),
+				"curr_manager", curr.manager.GetReflectType().String(),
 				"prev_range", prev.idRange,
 				"prev_begin", prev.idRange.beginTypeId,
 				"prev_end", prev.idRange.endTypeId,

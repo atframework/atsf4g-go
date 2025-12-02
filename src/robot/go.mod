@@ -15,6 +15,7 @@ replace github.com/atframework/atsf4g-go/component-protocol-private => ../compon
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/service-lobbysvr v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
@@ -26,7 +27,6 @@ require (
 
 require (
 	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000 // indirect
-	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000 // indirect
 	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect

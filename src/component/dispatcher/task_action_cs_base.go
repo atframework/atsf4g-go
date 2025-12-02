@@ -3,7 +3,6 @@ package atframework_component_dispatcher
 import (
 	"fmt"
 	"log/slog"
-	"reflect"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -57,10 +56,11 @@ type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] str
 	session TaskActionCSSession
 	user    TaskActionCSUser
 
-	rpcDescriptor protoreflect.MethodDescriptor
-	requestHead   *public_protocol_extension.CSMsgHead
-	requestBody   RequestType
-	responseBody  ResponseType
+	rpcDescriptor   protoreflect.MethodDescriptor
+	requestHead     *public_protocol_extension.CSMsgHead
+	requestBody     RequestType
+	responseBody    ResponseType
+	responseFactory func() ResponseType
 }
 
 func CreateCSTaskAction(
@@ -72,7 +72,7 @@ func CreateCSTaskAction(
 ) TaskActionImpl {
 	ret := createFn(ctx, rd, session, rpcDescriptor)
 	ret.SetImplementation(ret)
-	libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).InsertTaskAction(ctx, ret)
+	libatapp.AtappGetModule[*TaskManager](rd.GetApp()).InsertTaskAction(ctx, ret)
 	return ret
 }
 
@@ -81,6 +81,8 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 	rd DispatcherImpl,
 	session TaskActionCSSession,
 	rpcDescriptor protoreflect.MethodDescriptor,
+	zeroRequest RequestType,
+	responseFactory func() ResponseType,
 ) TaskActionCSBase[RequestType, ResponseType] {
 	var user TaskActionCSUser = nil
 	var actor *ActorExecutor = nil
@@ -91,15 +93,14 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 		actor = user.GetActorExecutor()
 	}
 
-	// 创建RequestType的零值实例
-	requestBodyType := reflect.TypeOf((*RequestType)(nil)).Elem().Elem()
 	return TaskActionCSBase[RequestType, ResponseType]{
-		TaskActionBase: CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
-		session:        session,
-		user:           user,
-		rpcDescriptor:  rpcDescriptor,
-		requestHead:    nil,
-		requestBody:    reflect.New(requestBodyType).Interface().(RequestType),
+		TaskActionBase:  CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
+		session:         session,
+		user:            user,
+		rpcDescriptor:   rpcDescriptor,
+		requestHead:     nil,
+		requestBody:     zeroRequest,
+		responseFactory: responseFactory,
 	}
 }
 
@@ -173,11 +174,9 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetRequestBody() RequestTy
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) MutableResponseBody() ResponseType {
 	// 检查responseBody是否为nil
-	if reflect.ValueOf(t.responseBody).IsNil() {
+	if lu.IsNil(t.responseBody) {
 		// 使用反射创建ResponseType的新实例
-		responseType := reflect.TypeOf(t.responseBody).Elem()
-		newInstance := reflect.New(responseType)
-		t.responseBody = newInstance.Interface().(ResponseType)
+		t.responseBody = t.responseFactory()
 	}
 
 	return t.responseBody

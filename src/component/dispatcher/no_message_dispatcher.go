@@ -3,6 +3,7 @@ package atframework_component_dispatcher
 import (
 	"reflect"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -10,11 +11,7 @@ var noMessageDispatcherReflectType reflect.Type
 
 func init() {
 	var _ libatapp.AppModuleImpl = (*NoMessageDispatcher)(nil)
-	noMessageDispatcherReflectType = reflect.TypeOf((*NoMessageDispatcher)(nil)).Elem()
-}
-
-func GetReflectTypeNoMessageDispatcher() reflect.Type {
-	return noMessageDispatcherReflectType
+	noMessageDispatcherReflectType = lu.GetStaticReflectType[NoMessageDispatcher]()
 }
 
 type NoMessageDispatcher struct {

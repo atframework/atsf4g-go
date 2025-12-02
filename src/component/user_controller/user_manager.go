@@ -24,12 +24,8 @@ type UserManager struct {
 }
 
 func init() {
-	userManagerReflectType = reflect.TypeOf((*UserManager)(nil)).Elem()
+	userManagerReflectType = lu.GetStaticReflectType[UserManager]()
 	var _ libatapp.AppModuleImpl = (*UserManager)(nil)
-}
-
-func GetReflectTypeUserManager() reflect.Type {
-	return userManagerReflectType
 }
 
 func (m *UserManager) GetReflectType() reflect.Type {
@@ -81,11 +77,11 @@ func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uin
 		return cd.CreateRpcResultOk()
 	}
 
-	if !lu.IsNil(checked) && !lu.Compare(cache.obj, checked) {
+	if !lu.IsNil(checked) && cache.obj != checked {
 		// 不匹配当前缓存 尝试移除Session
 		if checked.GetUserSession() != nil {
 			checked.UnbindSession(ctx, nil)
-			libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp()).RemoveSession(ctx,
+			libatapp.AtappGetModule[*SessionManager](ctx.GetApp()).RemoveSession(ctx,
 				checked.GetUserSession().GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "closed by server on remove user")
 		}
 		return cd.CreateRpcResultOk()
@@ -111,7 +107,7 @@ func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uin
 }
 
 func UserManagerFindUserAs[T UserImpl](ctx cd.RpcContext, app libatapp.AppImpl, zoneID uint32, userID uint64) T {
-	um := libatapp.AtappGetModule[*UserManager](GetReflectTypeUserManager(), app)
+	um := libatapp.AtappGetModule[*UserManager](app)
 
 	userImpl := um.Find(ctx, zoneID, userID)
 	if lu.IsNil(userImpl) {
@@ -136,7 +132,7 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 	tryLockUserResource func(user T) cd.RpcResult,
 	unlockUserResource func(user T),
 ) (T, cd.RpcResult) {
-	um := libatapp.AtappGetModule[*UserManager](GetReflectTypeUserManager(), app)
+	um := libatapp.AtappGetModule[*UserManager](app)
 	urm := GetUserRouterManager(app)
 
 	var zero T

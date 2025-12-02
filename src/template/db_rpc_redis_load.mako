@@ -16,7 +16,7 @@ func ${message_name}LoadWith${index_key_name}(
 % else:
 ) (table *private_protocol_pbdesc.${message_name}, retResult cd.RpcResult) {
 % endif
-	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](cd.GetReflectTypeRedisMessageDispatcher(), ctx.GetApp())
+	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
 	instance := dispatcher.GetRedisInstance()
 	if instance == nil {
         ctx.LogError("get redis instance failed")

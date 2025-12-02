@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -22,12 +23,8 @@ type SessionManager struct {
 var sessionManagerReflectType reflect.Type
 
 func init() {
-	sessionManagerReflectType = reflect.TypeOf((*SessionManager)(nil)).Elem()
+	sessionManagerReflectType = lu.GetStaticReflectType[SessionManager]()
 	var _ libatapp.AppModuleImpl = (*SessionManager)(nil)
-}
-
-func GetReflectTypeSessionManager() reflect.Type {
-	return sessionManagerReflectType
 }
 
 func (m *SessionManager) GetReflectType() reflect.Type {

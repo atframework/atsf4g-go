@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
 
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
@@ -25,11 +26,7 @@ var websocketMessageDispatcherReflectType reflect.Type
 
 func init() {
 	var _ libatapp.AppModuleImpl = (*WebSocketMessageDispatcher)(nil)
-	websocketMessageDispatcherReflectType = reflect.TypeOf((*WebSocketMessageDispatcher)(nil)).Elem()
-}
-
-func GetReflectTypeWebSocketMessageDispatcher() reflect.Type {
-	return websocketMessageDispatcherReflectType
+	websocketMessageDispatcherReflectType = lu.GetStaticReflectType[WebSocketMessageDispatcher]()
 }
 
 type closeParam struct {

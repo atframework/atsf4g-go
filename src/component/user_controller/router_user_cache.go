@@ -183,7 +183,7 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 			// 在其他设备登入的要把这里的Session踢下线
 			if s != nil {
 				s.UnbindUser(ctx, p.obj)
-				libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp()).
+				libatapp.AtappGetModule[*SessionManager](ctx.GetApp()).
 					RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "other device login")
 			}
 			p.Downgrade(ctx)

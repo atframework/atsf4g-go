@@ -12,7 +12,7 @@ func ${message_name}DelWith${index_key_name}(
     ${field["ident"]} ${field["go_type"]},
 % endfor
 ) (retResult cd.RpcResult) {
-	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](cd.GetReflectTypeRedisMessageDispatcher(), ctx.GetApp())
+	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
 	instance := dispatcher.GetRedisInstance()
 	if instance == nil {
         ctx.LogError("get redis instance failed")

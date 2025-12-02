@@ -20,11 +20,7 @@ var taskManagerReflectType reflect.Type
 
 func init() {
 	var _ libatapp.AppModuleImpl = (*TaskManager)(nil)
-	taskManagerReflectType = reflect.TypeOf((*TaskManager)(nil)).Elem()
-}
-
-func GetReflectTypeTaskManager() reflect.Type {
-	return taskManagerReflectType
+	taskManagerReflectType = lu.GetStaticReflectType[TaskManager]()
 }
 
 type TaskManager struct {
@@ -291,7 +287,7 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 }
 
 func AsyncInvoke(ctx RpcContext, name string, actor *ActorExecutor, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
-	rd := libatapp.AtappGetModule[*NoMessageDispatcher](GetReflectTypeNoMessageDispatcher(), ctx.GetApp())
+	rd := libatapp.AtappGetModule[*NoMessageDispatcher](ctx.GetApp())
 	childTask, startData := CreateNoMessageTaskAction(rd, rd.CreateRpcContext(), actor, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
 		ta := &taskActionAsyncInvoke{
 			TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, timeout),
@@ -302,7 +298,7 @@ func AsyncInvoke(ctx RpcContext, name string, actor *ActorExecutor, invoke func(
 	},
 	)
 
-	if err := libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, childTask, &startData); err != nil {
+	if err := libatapp.AtappGetModule[*TaskManager](ctx.GetApp()).StartTaskAction(ctx, childTask, &startData); err != nil {
 		ctx.LogError("AsyncInvoke StartTaskAction failed", slog.String("task_name", childTask.Name()), slog.Any("error", err))
 		return nil
 	}
@@ -323,7 +319,7 @@ func AsyncThen(ctx RpcContext, name string, actor *ActorExecutor, waiting TaskAc
 
 func AsyncThenStartTask(ctx RpcContext, actor *ActorExecutor, waiting TaskActionImpl, startTask TaskActionImpl, startData *DispatcherStartData) {
 	AsyncThen(ctx, startTask.Name(), actor, waiting, func(childCtx AwaitableContext) {
-		if err := libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), childCtx.GetApp()).StartTaskAction(childCtx, startTask, startData); err != nil {
+		if err := libatapp.AtappGetModule[*TaskManager](childCtx.GetApp()).StartTaskAction(childCtx, startTask, startData); err != nil {
 			childCtx.LogError("AsyncInvoke StartTaskAction failed", slog.String("task_name", startTask.Name()), slog.Any("error", err))
 		}
 	})

@@ -29,16 +29,16 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 		"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
 
 	t.session.UnbindUser(t.GetRpcContext(), t.user)
-	libatapp.AtappGetModule[*uc.SessionManager](uc.GetReflectTypeSessionManager(), t.GetRpcContext().GetApp()).
+	libatapp.AtappGetModule[*uc.SessionManager](t.GetRpcContext().GetApp()).
 		RemoveSession(t.GetRpcContext(), t.session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 
 	// TODO: 等待当前任务执行完毕
-	libatapp.AtappGetModule[*uc.UserManager](uc.GetReflectTypeUserManager(), t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
+	libatapp.AtappGetModule[*uc.UserManager](t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
 	return nil
 }
 
 func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, sessionKey *uc.SessionKey) {
-	sessionMgr := libatapp.AtappGetModule[*uc.SessionManager](uc.GetReflectTypeSessionManager(), ctx.GetApp())
+	sessionMgr := libatapp.AtappGetModule[*uc.SessionManager](ctx.GetApp())
 	session := sessionMgr.GetSession(sessionKey)
 	if session == nil {
 		return
@@ -76,7 +76,7 @@ func RemoveSessionAndMaybeLogoutUser(rd cd.DispatcherImpl, ctx cd.RpcContext, se
 		},
 	)
 
-	err := libatapp.AtappGetModule[*cd.TaskManager](cd.GetReflectTypeTaskManager(), ctx.GetApp()).StartTaskAction(ctx, logoutTask, &startData)
+	err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, logoutTask, &startData)
 	if err != nil {
 		ctx.LogError("TaskActionUserLogout StartTaskAction failed", "error", err,
 			"zone_id", userImpl.GetZoneId(), "user_id", userImpl.GetUserId(), "session_id", sessionKey.SessionId, "session_node_id", sessionKey.NodeId)

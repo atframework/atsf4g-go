@@ -409,13 +409,13 @@ func (app *AppInstance) GetModule(typeInst reflect.Type) AppModuleImpl {
 	return mod
 }
 
-func AtappGetModule[ModuleType AppModuleImpl](typeInst reflect.Type, app AppImpl) ModuleType {
+func AtappGetModule[ModuleType AppModuleImpl](app AppImpl) ModuleType {
 	var zero ModuleType
 	if lu.IsNil(app) {
 		return zero
 	}
 
-	ret := app.GetModule(typeInst)
+	ret := app.GetModule(lu.GetReflectType[ModuleType]())
 	if ret == nil {
 		return zero
 	}

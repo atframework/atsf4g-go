@@ -112,7 +112,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 
 	// 如果有缓存要强制失效，因为可能其他地方登入了，这时候也不能复用缓存
-	libatapp.AtappGetModule[*uc.UserManager](uc.GetReflectTypeUserManager(), t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), zoneId, userId, nil, true)
+	libatapp.AtappGetModule[*uc.UserManager](t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), zoneId, userId, nil, true)
 
 	loginTb, loginCASVersion, result := t.kickoffOtherSession(t.GetAwaitableContext(), zoneId, userId)
 	if result.IsError() {

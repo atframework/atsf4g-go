@@ -2,6 +2,7 @@ package lobbysvr_logic_quest_internal
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
@@ -20,9 +22,11 @@ import (
 	logic_quest_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest/data"
 )
 
+var userManagerReflectType reflect.Type
+
 func init() {
 	var _ logic_quest.UserQuestManager = (*UserQuestManager)(nil)
-
+	userManagerReflectType = lu.GetStaticReflectType[UserQuestManager]()
 	data.RegisterUserModuleManagerCreator[logic_quest.UserQuestManager](func(_ cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
@@ -49,6 +53,10 @@ func init() {
 	})
 
 	registerCondition()
+}
+
+func (m *UserQuestManager) GetReflectType() reflect.Type {
+	return userManagerReflectType
 }
 
 type EventQueueItem struct {

@@ -3,6 +3,7 @@ package lobbysvr_logic_condition_impl
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -17,17 +18,24 @@ import (
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 )
 
+var userManagerReflectType reflect.Type
+
 func init() {
 	var _ logic_condition.UserConditionManager = (*UserConditionManager)(nil)
-
+	userManagerReflectType = lu.GetStaticReflectType[UserConditionManager]()
 	data.RegisterUserModuleManagerCreator[logic_condition.UserConditionManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
 		return CreateUserConditionManager(owner)
 	})
+}
+
+func (m *UserConditionManager) GetReflectType() reflect.Type {
+	return userManagerReflectType
 }
 
 type UserConditionManager struct {

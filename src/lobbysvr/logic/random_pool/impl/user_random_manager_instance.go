@@ -2,6 +2,7 @@ package lobbysvr_logic_random_pool_impl
 
 import (
 	"fmt"
+	"reflect"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
@@ -11,12 +12,15 @@ import (
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	logic_random_pool "github.com/atframework/atsf4g-go/service-lobbysvr/logic/random_pool"
 )
 
+var userManagerReflectType reflect.Type
+
 func init() {
 	var _ logic_random_pool.UserRandomPoolManager = (*UserRandomPoolManager)(nil)
-
+	userManagerReflectType = lu.GetStaticReflectType[UserRandomPoolManager]()
 	data.RegisterUserModuleManagerCreator[logic_random_pool.UserRandomPoolManager](func(ctx cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
 		return CreateUserRandomPoolManager(owner)
 	})
@@ -44,6 +48,10 @@ type UserRandomPoolManager struct {
 	owner *data.User
 	data.UserModuleManagerBase
 	data.UserItemManagerBase
+}
+
+func (m *UserRandomPoolManager) GetReflectType() reflect.Type {
+	return userManagerReflectType
 }
 
 func CreateUserRandomPoolManager(owner *data.User) *UserRandomPoolManager {

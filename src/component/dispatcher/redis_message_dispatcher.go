@@ -15,6 +15,7 @@ import (
 
 	"sync/atomic"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -25,11 +26,7 @@ var redisMessageDispatcherReflectType reflect.Type
 
 func init() {
 	var _ libatapp.AppModuleImpl = (*RedisMessageDispatcher)(nil)
-	redisMessageDispatcherReflectType = reflect.TypeOf((*RedisMessageDispatcher)(nil)).Elem()
-}
-
-func GetReflectTypeRedisMessageDispatcher() reflect.Type {
-	return redisMessageDispatcherReflectType
+	redisMessageDispatcherReflectType = lu.GetStaticReflectType[RedisMessageDispatcher]()
 }
 
 type RedisLog struct {

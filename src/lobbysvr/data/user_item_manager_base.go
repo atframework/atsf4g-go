@@ -1,6 +1,7 @@
 package lobbysvr_data
 
 import (
+	"reflect"
 	"slices"
 
 	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
@@ -44,6 +45,7 @@ func CreateItemTypeStatistics() ItemTypeStatistics {
 
 type UserItemManagerImpl interface {
 	GetOwner() *User
+	GetReflectType() reflect.Type
 
 	BindDescriptor(descriptor *UserItemManagerDescriptor)
 

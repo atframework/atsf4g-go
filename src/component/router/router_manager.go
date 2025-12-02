@@ -12,7 +12,12 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 )
 
-type RouterManager[T RouterObjectImpl, PrivData RouterPrivateData] struct {
+type RouterObjectImplComparable interface {
+	RouterObjectImpl
+	comparable
+}
+
+type RouterManager[T RouterObjectImplComparable, PrivData RouterPrivateData] struct {
 	RouterManagerBase
 
 	cacheFactory RouterCacheFactory[T]
@@ -28,13 +33,13 @@ type RouterManager[T RouterObjectImpl, PrivData RouterPrivateData] struct {
 	onPullObject    RouterPullHandler[T, PrivData]
 }
 
-type RouterCacheFactory[T RouterObjectImpl] func(ctx cd.RpcContext, key RouterObjectKey) T
+type RouterCacheFactory[T RouterObjectImplComparable] func(ctx cd.RpcContext, key RouterObjectKey) T
 
-type RouterRemoveHandler[T RouterObjectImpl, PrivData RouterPrivateData] func(ctx cd.RpcContext, manager *RouterManager[T, PrivData], key RouterObjectKey, cache T, priv PrivData) cd.RpcResult
+type RouterRemoveHandler[T RouterObjectImplComparable, PrivData RouterPrivateData] func(ctx cd.RpcContext, manager *RouterManager[T, PrivData], key RouterObjectKey, cache T, priv PrivData) cd.RpcResult
 
-type RouterPullHandler[T RouterObjectImpl, PrivData RouterPrivateData] func(ctx cd.RpcContext, manager *RouterManager[T, PrivData], cache T, priv PrivData) cd.RpcResult
+type RouterPullHandler[T RouterObjectImplComparable, PrivData RouterPrivateData] func(ctx cd.RpcContext, manager *RouterManager[T, PrivData], cache T, priv PrivData) cd.RpcResult
 
-func CreateRouterManager[T RouterObjectImpl, PrivData RouterPrivateData](app libatapp.AppImpl, name string, typeID public_protocol_pbdesc.EnRouterObjectType, factory RouterCacheFactory[T], impl RouterManagerBaseImpl) *RouterManager[T, PrivData] {
+func CreateRouterManager[T RouterObjectImplComparable, PrivData RouterPrivateData](app libatapp.AppImpl, name string, typeID public_protocol_pbdesc.EnRouterObjectType, factory RouterCacheFactory[T], impl RouterManagerBaseImpl) *RouterManager[T, PrivData] {
 	manager := &RouterManager[T, PrivData]{
 		RouterManagerBase: CreateRouterManagerBase(name, uint32(typeID)),
 		cacheFactory:      factory,
@@ -293,7 +298,7 @@ func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.Awaitable
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
 	}
 
-	if !lu.IsNil(cache) && !lu.Compare(managerCache, cache) {
+	if !lu.IsNil(cache) && managerCache != cache {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
 	}
 
@@ -324,7 +329,7 @@ func (manager *RouterManager[T, PrivData]) RemoveCacheWithGuard(ctx cd.Awaitable
 	}
 
 	manager.cachesMu.Lock()
-	if current, ok := manager.caches[managerCache.GetKey()]; ok && lu.Compare(current, managerCache) {
+	if current, ok := manager.caches[managerCache.GetKey()]; ok && current == managerCache {
 		managerCache.UnsetTimerRef()
 		delete(manager.caches, managerCache.GetKey())
 	}
@@ -402,7 +407,7 @@ func (manager *RouterManager[T, PrivData]) ensureCache(ctx cd.RpcContext, key Ro
 		newCache = manager.caches[key]
 	} else {
 		manager.caches[key] = newCache
-		libatapp.AtappGetModule[*RouterManagerSet](GetReflectTypeRouterManagerSet(), ctx.GetApp()).insertTimer(ctx, manager.impl, newCache, false)
+		libatapp.AtappGetModule[*RouterManagerSet](ctx.GetApp()).insertTimer(ctx, manager.impl, newCache, false)
 	}
 	manager.cachesMu.Unlock()
 

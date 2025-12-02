@@ -32,7 +32,7 @@ func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
 		awaitableContext.SetContextCancelFn(context.WithCancel(context.Background()))
 	}
 	awaitableContext.BindAction(ta)
-	libatapp.AtappGetModule[*TaskManager](GetReflectTypeTaskManager(), rd.GetApp()).InsertTaskAction(awaitableContext, ta)
+	libatapp.AtappGetModule[*TaskManager](rd.GetApp()).InsertTaskAction(awaitableContext, ta)
 
 	return ta, DispatcherStartData{
 		Message:           nil,

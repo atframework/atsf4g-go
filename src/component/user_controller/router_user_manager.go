@@ -36,11 +36,11 @@ func InitUserRouterManager(app libatapp.AppImpl) {
 		},
 		playerRouterManager,
 	)
-	libatapp.AtappGetModule[*router.RouterManagerSet](router.GetReflectTypeRouterManagerSet(), app).RegisterManager(playerRouterManager)
+	libatapp.AtappGetModule[*router.RouterManagerSet](app).RegisterManager(playerRouterManager)
 }
 
 func GetUserRouterManager(app libatapp.AppImpl) *UserRouterManager {
-	return libatapp.AtappGetModule[*router.RouterManagerSet](router.GetReflectTypeRouterManagerSet(), app).
+	return libatapp.AtappGetModule[*router.RouterManagerSet](app).
 		GetManager(uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER)).(*UserRouterManager)
 }
 
@@ -51,7 +51,7 @@ func (manager *UserRouterManager) OnRemoveObject(ctx cd.RpcContext, key router.R
 		ctx.LogError("UserRouterManager OnRemoveObject ActorExecutor mismatch")
 	}
 	s := cache.GetUserSession()
-	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	mgr := libatapp.AtappGetModule[*SessionManager](ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
 		cache.UnbindSession(ctx, s)
 		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Object")
@@ -65,7 +65,7 @@ func (manager *UserRouterManager) OnRemoveCache(ctx cd.RpcContext, key router.Ro
 		ctx.LogError("UserRouterManager OnRemoveCache ActorExecutor mismatch")
 	}
 	s := cache.GetUserSession()
-	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	mgr := libatapp.AtappGetModule[*SessionManager](ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
 		cache.UnbindSession(ctx, s)
 		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Cache")
@@ -79,7 +79,7 @@ func (manager *UserRouterManager) OnObjectRemoved(ctx cd.RpcContext, key router.
 		ctx.LogError("UserRouterManager OnObjectRemoved ActorExecutor mismatch")
 	}
 	s := cache.GetUserSession()
-	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	mgr := libatapp.AtappGetModule[*SessionManager](ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
 		cache.UnbindSession(ctx, s)
 		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Object")
@@ -93,7 +93,7 @@ func (manager *UserRouterManager) OnCacheRemoved(ctx cd.RpcContext, key router.R
 		ctx.LogError("UserRouterManager OnCacheRemoved ActorExecutor mismatch")
 	}
 	s := cache.GetUserSession()
-	mgr := libatapp.AtappGetModule[*SessionManager](GetReflectTypeSessionManager(), ctx.GetApp())
+	mgr := libatapp.AtappGetModule[*SessionManager](ctx.GetApp())
 	if !lu.IsNil(s) && mgr != nil {
 		cache.UnbindSession(ctx, s)
 		mgr.RemoveSession(ctx, s.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_TFRAMEHEAD_REASON_SELF_CLOSE), "Remove Cache")
