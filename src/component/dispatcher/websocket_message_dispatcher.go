@@ -49,7 +49,7 @@ type WebSocketSession struct {
 	sendQueueClose   chan closeParam
 	sentCloseMessage atomic.Bool
 
-	errorCounter int
+	errorCounter atomic.Int32
 
 	PrivateData interface{}
 }
@@ -458,15 +458,13 @@ func (d *WebSocketMessageDispatcher) closeSession(_ctx RpcContext, session *WebS
 }
 
 func (d *WebSocketMessageDispatcher) increaseErrorCounter(session *WebSocketSession) {
-	session.errorCounter++
-
-	if session.errorCounter > 10 {
+	if session.errorCounter.Add(1) > 10 {
 		d.AsyncClose(d.CreateRpcContext(), session, websocket.ClosePolicyViolation, "Too many errors")
 	}
 }
 
 func (s *WebSocketSession) resetErrorCounter() {
-	s.errorCounter = 0
+	s.errorCounter.Store(0)
 }
 
 func (d *WebSocketMessageDispatcher) Reload() error {

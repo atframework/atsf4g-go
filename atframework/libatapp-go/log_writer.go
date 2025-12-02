@@ -94,7 +94,7 @@ type LogBufferedRotatingWriter struct {
 	currentTimeRotateTime   time.Time
 
 	// 对于FD的读写都需要加锁
-	currentFile *RefFD
+	currentFile atomic.Pointer[RefFD]
 	fileMu      sync.RWMutex
 }
 
@@ -152,18 +152,18 @@ func NewLogBufferedRotatingWriter(getTime GetTime, fileName string, fileAlias st
 func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 	// 读锁
 	w.fileMu.RLock()
-	if w.currentFile != nil {
+	if w.currentFile.Load() != nil {
 		defer w.fileMu.RUnlock()
-		return w.currentFile.Copy(), nil
+		return w.currentFile.Load().Copy(), nil
 	}
 	w.fileMu.RUnlock()
 
 	// 创建流程
 	w.fileMu.Lock()
 	defer w.fileMu.Unlock()
-	if w.currentFile != nil {
+	if w.currentFile.Load() != nil {
 		// 防止多次创建
-		return w.currentFile.Copy(), nil
+		return w.currentFile.Load().Copy(), nil
 	}
 
 	now := w.GetSysNow()
@@ -229,7 +229,7 @@ func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 	// 创建好文件
 	ref := &RefFD{}
 	ref.fd = f
-	w.currentFile = ref.Copy()
+	w.currentFile.Store(ref.Copy())
 	w.currentSize.Store(uint64(info.Size()))
 	w.needTruncateOnOpen = false
 
@@ -253,11 +253,11 @@ func (w *LogBufferedRotatingWriter) getLinkFilename(now time.Time) string {
 
 func (w *LogBufferedRotatingWriter) rotateFile() error {
 	// 仅用于对比是否需要再次 rotate 防止多次进入
-	currentFile := w.currentFile
+	currentFile := w.currentFile.Load()
 	// 写锁
 	w.fileMu.Lock()
 	defer w.fileMu.Unlock()
-	if currentFile != w.currentFile {
+	if currentFile != w.currentFile.Load() {
 		// 已经有人替换了
 		return nil
 	}
@@ -267,9 +267,9 @@ func (w *LogBufferedRotatingWriter) rotateFile() error {
 	if w.currentFileIndex >= w.retain {
 		w.currentFileIndex = 0
 	}
-	if w.currentFile != nil {
-		w.currentFile.Relese()
-		w.currentFile = nil
+	if w.currentFile.Load() != nil {
+		w.currentFile.Load().Relese()
+		w.currentFile.Store(nil)
 	}
 	w.currentSize.Store(0)
 	w.needTruncateOnOpen = true
@@ -343,9 +343,9 @@ func (w *LogBufferedRotatingWriter) Flush() error {
 func (w *LogBufferedRotatingWriter) Close() {
 	w.fileMu.Lock()
 	defer w.fileMu.Unlock()
-	if w.currentFile != nil {
-		w.currentFile.Relese()
-		w.currentFile = nil
+	if w.currentFile.Load() != nil {
+		w.currentFile.Load().Relese()
+		w.currentFile.Store(nil)
 	}
 	w.currentSize.Store(0)
 }

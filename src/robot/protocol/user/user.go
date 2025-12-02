@@ -153,6 +153,7 @@ func init() {
 	utils.RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议", nil)
 	utils.RegisterCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议", nil)
 	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
+	utils.RegisterCommand([]string{"user", "benchmark"}, BenchmarkCmd, "", "压测协议", nil)
 	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
 	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func(action base.TaskActionImpl, cmd []string) string {
 		userMapLock.Lock()
@@ -361,6 +362,20 @@ func GetInfoCmd(action base.TaskActionImpl, cmd []string) string {
 	}))
 	if err != nil {
 		return err.Error()
+	}
+	return ""
+}
+
+func BenchmarkCmd(action base.TaskActionImpl, cmd []string) string {
+	var count int64 = 1000
+	if len(cmd) >= 1 {
+		count, _ = strconv.ParseInt(cmd[0], 10, 32)
+	}
+
+	for range count {
+		user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+			_ = PingRpc(task)
+		})
 	}
 	return ""
 }
