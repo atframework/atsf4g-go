@@ -859,7 +859,7 @@ func (u *User) CheckCostItem(ctx cd.RpcContext,
 	countByTypeId := make(map[int32]int64)
 	for _, cost := range realCost {
 		typeId := cost.GetTypeId()
-		if countByTypeId[typeId] <= 0 {
+		if typeId == 0 || cost.GetCount() <= 0 {
 			continue
 		}
 
