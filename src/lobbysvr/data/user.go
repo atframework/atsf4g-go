@@ -847,7 +847,37 @@ func (u *User) CheckTypeIdValid(typeId int32) bool {
 	return mgr.CheckTypeIdValid(typeId)
 }
 
-// 检查期望消耗是否满足配置要求
+// 检查期望消耗是否满足配置要求.
+func (u *User) CheckCostItemCfg(ctx cd.RpcContext,
+	realCost []*public_protocol_common.DItemBasic,
+	expectCost []*public_protocol_common.Readonly_DItemOffset,
+) Result {
+	if len(expectCost) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	countByTypeId := make(map[int32]int64)
+	for _, cost := range realCost {
+		typeId := cost.GetTypeId()
+		if typeId == 0 || cost.GetCount() <= 0 {
+			continue
+		}
+
+		countByTypeId[typeId] += cost.GetCount()
+	}
+
+	for _, expect := range expectCost {
+		typeId := expect.GetTypeId()
+		expectCount := expect.GetCount()
+		actualCount, exists := countByTypeId[typeId]
+		if !exists || actualCount < expectCount {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(u.GetNotEnoughErrorCode(typeId)))
+		}
+	}
+
+	return cd.CreateRpcResultOk()
+}
+
 func (u *User) CheckCostItem(ctx cd.RpcContext,
 	realCost []*public_protocol_common.DItemBasic,
 	expectCost []*public_protocol_common.DItemOffset,
