@@ -345,7 +345,7 @@ func (obj *RouterObjectBase) AwaitIOTask(ctx cd.AwaitableContext) cd.RpcResult {
 		_, _ = cd.YieldTaskAction(ctx, ctx.GetAction(), &cd.DispatcherAwaitOptions{
 			Type:     uint64(uintptr(unsafe.Pointer(obj))),
 			Sequence: ctx.GetAction().GetTaskId(),
-			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().LogValue().Duration(),
+			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
 		}, nil)
 		obj.awaitIOTaskList.Remove(e)
 	}
