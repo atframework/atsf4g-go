@@ -63,7 +63,7 @@ func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback Conf
 		// 使用默认配置
 		callback.GetLogger().Info("Load config from default")
 		serverConfig := &private_protocol_config.LogicSectionCfg{}
-		err = libatapp.ParsePlainMessage(nil, serverConfig, callback.GetLogger())
+		err = libatapp.LoadDefaultConfigMessageFields(serverConfig, callback.GetLogger(), nil, "")
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
