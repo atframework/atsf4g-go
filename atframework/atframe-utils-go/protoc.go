@@ -31,6 +31,10 @@ func EnsureProtocExecutable(binDir string) string {
 	return ensureProtoc(protocVersion, binDir)
 }
 
+func EnsureProtocExecutableByVersion(version string, binDir string) string {
+	return ensureProtoc(version, binDir)
+}
+
 func EnsureProtocGenGo() {
 	ensureGoInstall("protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go@"+protocGoPluginVersion)
 }
@@ -121,7 +125,6 @@ func ensureProtoc(version string, binDir string) string {
 		return protocFallbackPath
 	}
 
-	log.Printf("Downloading protoc %s for %s/%s\nURL: %s", version, osName, arch, assetURL)
 	mustMkdirAll(targetDir)
 
 	// 下载到内存（也可落盘后再解压）

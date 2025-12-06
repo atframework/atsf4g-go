@@ -1,0 +1,98 @@
+version: "3"
+includes:
+  tools: ../../tools/Taskfile.yml
+  inn-tools: ../../.taskfiles/Taskfile.tools.yml
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+tasks:
+  generate-code:
+    desc: "Generate configuration files"
+    dir: "{{.TASKFILE_DIR}}"
+    # sources:
+    #   - ./**/*.proto        # 监控所有proto
+    # generates:
+    #   - "{{.PROJECT_ROOT}}/{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}/lobbysvr.pb"
+    vars:
+      PROJECT_ROOT: "{{.PROJECT_ROOT | default .ROOT_DIR}}"
+      PROTOC_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get protoc -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+    cmds:
+      - task: _generate-protocol
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+      - task: _generate-tpl
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+    silent: true
+  #协议生成任务
+  _generate-protocol:
+    desc: "Generate lobby protoc protocol"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        echo "Generate lobby protocol... PROTOC_EXEC_BIN={{.PROTOC_EXEC_BIN}}"
+        "{{.PROTOC_EXEC_BIN}}" --go_out=protocol/private --mutable_out=protocol/private --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=../component/protocol/public/pbdesc --proto_path=../component/protocol/public/config --proto_path=../component/protocol/public/common --proto_path=../component/protocol/public/extension --proto_path=../component/protocol/private/config --proto_path=../component/protocol/private/common --proto_path=../component/protocol/private/extension --proto_path=../../third_party/xresloader/protocols/core --proto_path=../../third_party/xresloader/protocols/code --proto_path=../../atframework/libatapp-go/protocol --proto_path=./protocol/private --proto_path=./protocol/public  protocol/private/protocol/pbdesc/*.proto
+        "{{.PROTOC_EXEC_BIN}}" --go_out=protocol/public --mutable_out=protocol/public --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=../component/protocol/public/pbdesc --proto_path=../component/protocol/public/config --proto_path=../component/protocol/public/common --proto_path=../component/protocol/public/extension --proto_path=../component/protocol/private/config --proto_path=../component/protocol/private/common --proto_path=../component/protocol/private/extension --proto_path=../../third_party/xresloader/protocols/core --proto_path=../../third_party/xresloader/protocols/code --proto_path=../../atframework/libatapp-go/protocol --proto_path=./protocol/private --proto_path=./protocol/public  protocol/public/protocol/pbdesc/*.proto
+
+        OUTPUT_PATH="{{.PROJECT_ROOT}}/{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}/lobbysvr.pb"
+        "{{.PROTOC_EXEC_BIN}}" --proto_path=../component/protocol/public/pbdesc --proto_path=../component/protocol/public/config --proto_path=../component/protocol/public/common --proto_path=../component/protocol/public/extension --proto_path=../component/protocol/private/config --proto_path=../component/protocol/private/common --proto_path=../component/protocol/private/extension --proto_path=../../third_party/xresloader/protocols/core --proto_path=../../third_party/xresloader/protocols/code --proto_path=../../atframework/libatapp-go/protocol --proto_path=./protocol/private --proto_path=./protocol/public  -o $OUTPUT_PATH  protocol/private/protocol/pbdesc/*.proto protocol/public/protocol/pbdesc/*.proto
+        echo Generate lobby protocol... done
+    silent: true
+
+  _generate-tpl:
+    desc: "Generate Python environment and dependencies"
+    cmds:
+      - task: tools:generate-for-pbtool
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          BUILD_TARGET_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_DIR}}"
+          BUILD_TARGET_GEN_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_GEN_DIR}}"
+          NAMESPACE: "proy"
+          TEMPLATE_DIR: "{{.PROJECT_ROOT}}/src/template"
+          BUILD_TOOLS_INSTALL_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}"
+          GEN_PB_DIR: "{{.PROJECT_ROOT}}/src/lobbysvr"
+    silent: true
+
+  _build_bin:
+    desc: "Execute Go build for lobbysvr"
+    dir: "{{.TASKFILE_DIR}}"
+    # sources:
+    #   - ./**/*.go
+    #   - go.mod
+    #   - go.sum
+    # generates:
+    #   - "{{.BUILD_TOOLS_INSTALL_DIR}}/lobbysvr/bin/lobbysvrd{{.EXE_EXT}}"
+    cmds:
+      - task: inn-tools:go-build
+        vars:
+          SRC: "{{.TASKFILE_DIR}}"
+          BUILD_OUTPUT_PATH: "{{.BUILD_TOOLS_INSTALL_DIR}}/lobbysvr/bin/lobbysvrd{{.EXE_EXT}}"
+    silent: true
+
+  build:
+    desc: "Build lobbysvr"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - echo  build PROTOC_EXEC_BIN = "{{.PROTOC_EXEC_BIN}}"
+      - echo  build PYTHON_BIN_PATH = "{{.PYTHON_BIN_PATH}}"
+      - task: generate-code
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_RESOURCE_TARGET_PBDESC_PATH: "{{.PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+      - task: inn-tools:tidy-dir
+        vars:
+          TIDY_DIR: "{{.PROJECT_ROOT}}/src/lobbysvr"
+      - task: _build_bin
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          BUILD_TOOLS_INSTALL_DIR: "{{.BUILD_TOOLS_INSTALL_DIR}}"
+    silent: true

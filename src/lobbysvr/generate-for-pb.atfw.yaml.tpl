@@ -19,9 +19,6 @@
       - overwrite: false
         input: "{{ .project_template_dir }}/task_action_cs_rpc.go.mako"
         output: 'logic/${rpc.get_extension_field("rpc_options", lambda x: x.module_name, "action")}/action/task_action_${rpc.get_name()}.go'
-    # rpc_include: ""
-    # rpc_exclude: ""
-    # rpc_include_request: [] # include request types for rpc template
     rpc_exclude_request: # exclude request types for rpc template
       - "google.protobuf.Empty"
 - service:

@@ -1,0 +1,256 @@
+version: "3"
+includes:
+  atframe-utils: ../atframework/atframe-utils-go/Taskfile.yml
+  libatapp-go: ../atframework/libatapp-go/Taskfile.yml
+  component: ../src/component/Taskfile.yml
+  3rdparty: ../third_party/Taskfile.yml
+  tools: ../tools/Taskfile.yml
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+vars:
+  # 跨平台 Python 相关变量
+  PYTHON_VENV:
+    sh: |
+      # 优先使用环境变量 PYTHON_VENV_PATH，允许用户自定义位置
+      if [ -n "$PYTHON_VENV_PATH" ]; then
+        echo "$PYTHON_VENV_PATH"
+      elif [ "{{OS}}" = "windows" ]; then
+        echo "./protject_venv"
+      else
+        echo "${HOME}/protject_venv"
+      fi
+  PYTHON_CMD:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo "python"
+      else
+        echo "python3"
+      fi
+  PIP_BIN:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo "${PYTHON_VENV}/Scripts/pip.exe"
+      else
+        echo "${PYTHON_VENV}/bin/pip"
+      fi
+  SET_VENV_CMD:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo ""
+      else
+        echo "export PATH=$PYTHON_VENV/bin:$PATH"
+      fi
+
+  # Java 相关变量
+  JAVA_BIN_PATH:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        powershell -Command "(where.exe java.exe | Select-Object -First 1)"
+      else
+        which java
+      fi
+
+  JAVA_VERSION:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        powershell -NoProfile -Command '$out = java -version 2>&1 | Out-String; if ($out -match "version .(\d+)") { $matches[1] } else { Write-Error "Java version not found" }'
+      else
+        java -version 2>&1 | grep -oP 'version \"\K[0-9]+' | head -n 1
+      fi
+
+tasks:
+  # 工具准备任务
+  build-tools-prepare:
+    desc: "Prepare build tools"
+    cmds:
+      - task: _install-build-settings
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+      - task: _prepare-other-tools
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+      - task: _prepare-protoc
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+      - task: _prepare-java
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          JAVA_VERSION: "{{.JAVA_VERSION}}"
+          ENV_JAVA_VERSON: "{{.ENV_JAVA_VERSON}}"
+          ENV_BUILD_TOOLS_DOWNLOAD_DIR: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+          ENV_BUILD_TARGET_DIR: "{{.ENV_BUILD_TARGET_DIR}}"
+          EXE_EXT: "{{.EXE_EXT}}"
+          OS: "{{.OS}}"
+      - task: _prepare-python
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          GET_PYTHON_VERSION: "{{.GET_PYTHON_VERSION}}"
+          ENV_BUILD_TOOLS_DOWNLOAD_DIR: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+          ENV_BUILD_TARGET_DIR: "{{.ENV_BUILD_TARGET_DIR}}"
+          EXE_EXT: "{{.EXE_EXT}}"
+          SET_VENV_CMD: "{{.SET_VENV_CMD}}"
+          PIP_BIN: "{{.PIP_BIN}}"
+    silent: true
+
+  _install-build-settings:
+    desc: "Install build settings tools"
+    cmds:
+      - task: atframe-utils:install-build-settings-tools
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+    silent: true
+
+  _prepare-protoc:
+    desc: "Prepare protoc and related plugins"
+    vars:
+      PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+    cmds:
+      - task: atframe-utils:install-protoc
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          ToolsDir: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+    silent: false
+
+  _prepare-java:
+    desc: "Prepare Java environment"
+    dir: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+    cmds:
+      - |
+        echo "Preparing Java environment..."
+        if [ "{{OS}}" = "windows" ]; then
+          powershell -NoProfile -Command "if ({{.JAVA_VERSION}} -lt {{.ENV_JAVA_VERSON}}) { Write-Host 'Error: Java version {{.JAVA_VERSION}} is less than {{.ENV_JAVA_VERSON}}'; exit 1 } else { Write-Host 'Java version check passed: {{.JAVA_VERSION}}' }"
+        else
+          if [ "{{.JAVA_VERSION}}" -lt "{{.ENV_JAVA_VERSON}}" ]; then
+            echo "Error: Java version {{.JAVA_VERSION}} is less than {{.ENV_JAVA_VERSON}}"
+            exit 1
+          else
+            echo "Java version check passed: {{.JAVA_VERSION}}"
+          fi
+        fi
+
+        ./build_setting{{.EXE_EXT}} set java -path "{{.JAVA_BIN_PATH}}" -version "{{.JAVA_VERSION}}" -settings-file "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+        echo "✅ Java Version: {{.JAVA_VERSION}} environment OK!"
+    silent: true
+  _prepare-python-deps:
+    desc: "Setup Python virtual environment"
+    cmds:
+      - |
+        if [ ! -d "{{.PYTHON_VENV}}" ]; then
+          echo "🐍 Creating Python venv at {{.PYTHON_VENV}}..."
+          {{.PYTHON_CMD}} -m venv {{.PYTHON_VENV}}
+          echo "✅ venv created successfully"
+        else
+          echo "✅ Python venv already exists at {{.PYTHON_VENV}}"
+        fi
+    silent: true
+
+  _prepare-python:
+    desc: "Prepare Python environment"
+    deps:
+      - _prepare-python-deps
+    cmds:
+      - |
+        cd "{{.PROJECT_ROOT}}"
+        {{.SET_VENV_CMD}}
+        if [ -f "third_party/python_env/requirements.txt" ]; then
+          echo "📦 Installing Python dependencies... pip= {{.PIP_BIN}}"
+          {{.PIP_BIN}} install -r "third_party/python_env/requirements.txt"
+          echo "✅ Dependencies installed"
+        else
+          echo "⚠️ requirements.txt not found"
+        fi
+
+        # 根据平台获取 Python 路径和版本
+        if [ "{{OS}}" = "windows" ]; then
+          PYTHON_BIN="$(cd {{.PYTHON_VENV}} && pwd)/Scripts/python.exe"
+          PYTHON_VERSION=$(powershell -NoProfile -Command "&{
+            \$output = & '$PYTHON_BIN' --version 2>&1
+            \$version = \$output -replace '^Python ', '' -replace '[^0-9.]', ''
+            Write-Host \$version
+          }")
+        else
+          PYTHON_BIN="{{.PYTHON_VENV}}/bin/python"
+          PYTHON_VERSION=$("$PYTHON_BIN" --version 2>&1 | awk '{print $2}')
+        fi
+
+        "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}}" set python -path "$PYTHON_BIN" -version "$PYTHON_VERSION" -settings-file "{{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+        echo "✅ Python Version: $PYTHON_VERSION environment OK!"
+    silent: true
+
+  # _prepare-resloader:
+  #   desc: "Prepare xresloader tool"
+  #   cmds:
+  #     - task: 3rdparty:xresloader-install
+  #       vars:
+  #         PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+  #         ENV_BUILD_TOOLS_DOWNLOAD_DIR: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+  #         ENV_BUILD_TARGET_DIR: "{{.ENV_BUILD_TARGET_DIR}}"
+  #         EXE_EXT: "{{.EXE_EXT}}"
+  #   silent: true
+
+  _prepare-other-tools:
+    desc: "Prepare other build tools"
+    cmds:
+      - task: atframe-utils:install-other-tools
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+    silent: true
+
+  build-code-generate:
+    desc: "Build code generate"
+    cmds:
+      - task: 3rdparty:xresloader-gen
+        vars:
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+      - task: libatapp-go:generate-protocol
+        vars:
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+      - task: component:generate-protocol
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_XRESLOADER_PATH: "{{.PROJECT_XRESLOADER_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          BUILD_TARGET_GEN_DIR: "{{.BUILD_TARGET_GEN_DIR}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.XRESLOADER_RES_CONFIG_PB}}"
+      - task: tools:generate-for-pbtool
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          BUILD_TARGET_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_DIR}}"
+          BUILD_TARGET_GEN_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_GEN_DIR}}"
+          NAMESPACE: "proy"
+          TEMPLATE_DIR: "{{.PROJECT_ROOT}}/src/template"
+          BUILD_TOOLS_INSTALL_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}"
+          GEN_PB_DIR: "{{.PROJECT_ROOT}}/src/component"
+
+    silent: false
+
+  gen-code-by-resloader:
+    desc: "Generate code by xresloader"
+    cmds:
+      # - |
+      #   echo  XRESCONV_XML_PATH: "{{ .XRESCONV_XML_PATH}}"
+      #   echo  XRESLOADER_EXEC_PATH: "{{ .XRESLOADER_EXEC_PATH}}"
+      #   echo  XRESLOADER_RES_CONFIG_PB: "{{ .XRESLOADER_RES_CONFIG_PB}}"
+      #   echo  XRESLOADER_BYPES_OUT: "{{ .XRESLOADER_BYPES_OUT}}"
+      #   echo  INPUT_EXCEL_RES_PATH: "{{ .INPUT_EXCEL_RES_PATH}}"
+      #   echo  BUILD_TARGET_GEN_DIR : "{{ .BUILD_TARGET_GEN_DIR}}"
+      #   echo XRELOADER_RESOURCE : "{{ .XRELOADER_RESOURCE}}"
+      - task: atframe-utils:generate-by-xresloader
+        vars:
+          XRESCONV_XML_TPL: "{{.XRESCONV_XML_TPL}}"
+          XRESCONV_XML_PATH: "{{ .XRESCONV_XML_PATH}}"
+          XRELOADER_RESOURCE: "{{ .XRELOADER_RESOURCE}}"
+          XRESLOADER_EXEC_PATH: "{{ .XRESLOADER_EXEC_PATH}}"
+          XRESLOADER_RES_CONFIG_PB: "{{ .XRESLOADER_RES_CONFIG_PB}}"
+          XRESLOADER_BYPES_OUT: "{{ .XRESLOADER_BYPES_OUT}}"
+          INPUT_EXCEL_RES_PATH: "{{ .INPUT_EXCEL_RES_PATH}}"
+          BUILD_TARGET_GEN_DIR: "{{ .BUILD_TARGET_GEN_DIR}}"
+    silent: false

@@ -685,7 +685,11 @@ func generateReadonlyOneofCopy(g *protogen.GeneratedFile, msg *protogen.Message,
 		case field.Message != nil:
 			g.P(fmt.Sprintf("    var inner %s", valueType))
 			g.P(fmt.Sprintf("    if nested := v.%s; nested != nil {", field.GoName))
-			g.P("      inner = nested.ToReadonly()")
+			if hasReadonlyWrapper(msg, field.Message) {
+				g.P("      inner = nested.ToReadonly()")
+			} else {
+				g.P("      inner = proto.Clone(nested).(*", g.QualifiedGoIdent(field.Message.GoIdent), ")")
+			}
 			g.P("    }")
 			g.P(fmt.Sprintf("    r.%s = &%s{value: inner}", oneofVar, structName))
 		case field.Desc.Kind() == protoreflect.BytesKind:

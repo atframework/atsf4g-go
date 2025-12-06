@@ -1,0 +1,16 @@
+version: "3"
+includes:
+  _deploy: ../install/Taskfile.yml
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+tasks:
+  install-deploy-tools:
+    desc: "Install deploy tools"
+    cmds:
+      - task: _deploy:install-deploy-tools
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+    silent: true

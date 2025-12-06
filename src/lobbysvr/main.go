@@ -15,6 +15,9 @@ import (
 )
 
 func main() {
+	// 处理 --info 标志（在应用初始化前）
+	atapp.RegisterBuildInfoCommand()
+
 	app := ssc.CreateServiceApplication()
 
 	uc.InitUserRouterManager(app)

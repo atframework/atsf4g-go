@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/Masterminds/sprig/v3 v3.2.1
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.9
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -25,5 +25,5 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904 // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -17,6 +17,8 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
+	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
+
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 )
 
@@ -95,7 +97,7 @@ func (u *User) CheckPingTask() {
 	if !u.IsLogin() {
 		return
 	}
-	if u.LastPingTime.Add(u.HeartbeatInterval).Before(time.Now()) {
+	if u.LastPingTime.Add(u.HeartbeatInterval).Before(logical_time.GetSysNow()) {
 		if u.heartbeatFn != nil {
 			err := u.heartbeatFn(u)
 			if err != nil {
@@ -126,7 +128,7 @@ func (u *User) ReleaseActionGuard() {
 func (user *User) MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
 	user.connectionSequence++
 	return &public_protocol_extension.CSMsgHead{
-		Timestamp:      time.Now().Unix(),
+		Timestamp:      logical_time.GetLogicalNow().Unix(),
 		ClientSequence: user.connectionSequence,
 		RpcType: &public_protocol_extension.CSMsgHead_RpcRequest{
 			RpcRequest: &public_protocol_extension.RpcRequestMeta{
@@ -201,7 +203,7 @@ func (user *User) ReceiveHandler() {
 
 		utils.StdoutLog(fmt.Sprintf("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<\n", user.GetUserId(), csMsg.Head.ErrorCode, rpcName))
 
-		fmt.Fprintf(user.csLog, "%s %s\n", time.Now().Format("2006-01-02 15:04:05.000"), fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName))
+		fmt.Fprintf(user.csLog, "%s %s\n", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"), fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName))
 		fmt.Fprintf(user.csLog, "Head:{\n%s}\n", pu.MessageReadableText(csMsg.Head))
 
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))

@@ -948,3 +948,126 @@ func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Mes
 	err = LoadConfigFromOriginData(yamlData, prefixPath, configPb, logger)
 	return
 }
+
+/*
+func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
+	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil {
+		return false
+	}
+
+	val := os.Getenv(envPrefix)
+	if val == "" {
+		return false
+	}
+
+	var existedSetKey string
+	if dumpExistedSet != nil {
+		if fd.IsList() {
+			existedSetKey = fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), dst.ProtoReflect().Get(fd).List().Len())
+		} else {
+			existedSetKey = fmt.Sprintf("%s%s", existedSetPrefix, fd.Name())
+		}
+	}
+
+	// 记录已设置的环境变量
+	if dumpExistedSet != nil {
+		dumpExistedSet[fmt.Sprintf("%s%s", existedSetPrefix, envPrefix)] = struct{}{}
+	}
+}
+
+func dumpEnvironemntIntoMessageFieldValueMessage(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
+	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil {
+		return false
+	}
+
+	var envKeyPrefix string
+	if len(envPrefix) == 0 {
+		envKeyPrefix = string(fd.Name())
+	} else {
+		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fd.Name())
+	}
+}
+
+func dumpEnvironemntIntoMessageFieldValue(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
+	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil {
+		return false
+	}
+
+	if fd.IsMap() || fd.Kind() == protoreflect.MessageKind {
+		return dumpEnvironemntIntoMessageFieldValueMessage(envPrefix, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+	} else {
+		return dumpEnvironemntIntoMessageFieldValueBasic(envPrefix, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+	}
+}
+
+func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
+	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil {
+		return false
+	}
+
+	var envKeyPrefix string
+	if len(envPrefix) == 0 {
+		envKeyPrefix = string(fd.Name())
+	} else {
+		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fd.Name())
+	}
+
+	if fd.IsList() || fd.IsMap() {
+		hasValue := false
+		for i := 0; ; i++ {
+			if dumpEnvironemntIntoMessageFieldValue(fmt.Sprint("%s_%d", envKeyPrefix, i), dst, fd, logger, dumpExistedSet, existedSetPrefix) {
+				hasValue = true
+			} else {
+				break
+			}
+		}
+
+		// Fallback to no-index key
+		if !hasValue {
+			hasValue = dumpEnvironemntIntoMessageFieldValue(envKeyPrefix, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+		}
+		return hasValue
+	} else {
+		return dumpEnvironemntIntoMessageFieldValue(envKeyPrefix, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+	}
+}
+
+func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *slog.Logger,
+	dumpExistedSet map[string]struct{}, existedSetPrefix string,
+) bool {
+	if dst == nil {
+		return false
+	}
+
+	ret := false
+
+	// protoreflect.Fie
+	fields := dst.ProtoReflect().Descriptor().Fields()
+	fieldSize := fields.Len()
+	for i := 0; i < fieldSize; i++ {
+		fd := fields.Get(i)
+		res := dumpEnvironemntIntoMessageFieldItem(envPrefix, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+		ret = ret || res
+	}
+
+	return ret
+}
+
+func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger *slog.Logger,
+	dumpExistedSet map[string]struct{}, existedSetPrefix string,
+) (bool, error) {
+	if logger == nil || configPb == nil {
+		return false, fmt.Errorf("dumpEnvironemntIntoMessage logger or configPb is nil")
+	}
+
+	return dumpEnvironemntIntoMessage(envPrefix, configPb, logger, dumpExistedSet, existedSetPrefix), nil
+}
+*/

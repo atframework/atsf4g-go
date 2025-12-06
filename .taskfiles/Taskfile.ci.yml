@@ -1,0 +1,46 @@
+version: "3"
+
+set: [errexit, nounset, pipefail]
+shopt: [globstar]
+vars:
+  LintReportDir:
+    sh: |
+        echo "build/lint_report"
+  # 定义需要进行 lint 检查的目录列表（数组格式）
+  LintDirs:
+    - src/lobbysvr
+    - src/robot
+    - src/component/db
+    - src/component/config
+    - src/component/dispatcher
+    - src/component/protocol/private
+    - src/component/protocol/public
+    - src/component/router
+    - src/component/service_shared_collection
+    - src/component/user_controller
+    - atframework/libatapp-go
+    - atframework/atframe-utils-go
+
+tasks:
+  install-golangci-lint:
+    desc: Install golangci-lint tool
+    cmds:
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.0
+    silent: true
+
+  lint:
+    internal: true
+    desc: Run golangci-lint for all modules
+    dir: tools/lint-runner
+    cmds:
+      - cmd: go run . "{{.ROOT_DIR}}" "{{.LintReportDir}}" {{range .LintDirs}}{{.}} {{end}}
+    silent: true
+
+  ci:
+    desc: "Run all CI tasks (lint, build, test)"
+    deps:
+      - install-golangci-lint 
+      - lint
+    cmds:
+      - echo "✅ All CI checks passed!"
+    silent: false

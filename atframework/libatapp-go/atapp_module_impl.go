@@ -130,22 +130,6 @@ func (m *AppModuleBase) Disable() {
 	m.enabled = false
 }
 
-func (m *AppModuleBase) SetAppTime(newTime time.Time) {
-	m.owner.SetAppTime(newTime)
-}
-
-func (m *AppModuleBase) GetAppTimeOffset() time.Duration {
-	return m.owner.GetAppTimeOffset()
-}
-
-func (m *AppModuleBase) ResetAppTime() {
-	m.owner.ResetAppTime()
-}
-
-func (m *AppModuleBase) GetNow() time.Time {
-	return m.owner.GetNow()
-}
-
 func (m *AppModuleBase) GetSysNow() time.Time {
 	return m.owner.GetSysNow()
 }

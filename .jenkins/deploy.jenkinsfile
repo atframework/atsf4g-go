@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+    parameters {
+        choice(name: 'NODE_LABEL', choices: ['linux', 'windows'], description: '选择构建平台')
+        booleanParam(name: 'FULL_BUILD', defaultValue: false, description: 'Clean workspace before build')
+    }
+
+    stages {
+
+        stage('SVN同步Excel与Protocol至GIT') {
+            steps {
+                build job: 'SVN同步Excel与Protocol至GIT', wait: true
+            }
+        }
+
+        stage('编译') {
+            steps {
+                script {
+                    // 触发下游构建并取得返回的 RunWrapper 对象
+                    def serverBuild = build job: 'Server_Build',   
+                    parameters: [
+                        string(name: 'NODE_LABEL', value: params.NODE_LABEL),
+                        booleanParam(name: 'FULL_BUILD', value: params.FULL_BUILD)
+                      ],
+                      wait: true
+                    def desc = serverBuild.getDescription()
+                    echo "Child description (raw): ${desc}"
+            
+                    if (desc) {
+                        def meta = new groovy.json.JsonSlurper().parseText(desc)
+                        echo "Parsed child meta: image=${meta.package_name}"
+                        env.PACKAGE_NAME = meta.package_name
+                    } else {
+                        error "No description returned from child job."
+                    }
+                }
+            }
+        }
+
+        stage('打包') {
+            when {
+                expression { env.NODE_LABEL == 'linux' }
+            }
+            steps {
+                script {
+                    // 触发下游构建并取得返回的 RunWrapper 对象
+                    def serverBuild = build job: 'Server_Package_Images',   
+                    parameters: [
+                        string(name: 'PACKAGE_NAME', value: env.PACKAGE_NAME),
+                      ],
+                      wait: true
+                    def desc = serverBuild.getDescription()
+                    echo "Child description (raw): ${desc}"
+            
+                    if (desc) {
+                        def meta = new groovy.json.JsonSlurper().parseText(desc)
+                        echo "Parsed child meta: image=${meta.chart_name}"
+                        env.CHART_NAME = meta.chart_name
+                    } else {
+                        error "No description returned from child job."
+                    }
+                }
+            }
+        }
+
+
+        stage('部署') {
+            when {
+                expression { env.NODE_LABEL == 'linux' }
+            }
+            steps {
+                script {
+                    echo "触发 部署到k8s，传入 CHART_PACKAGE=${env.CHART_NAME} 和 ZONE_ID=${params.ZONE_ID}"
+                    build job: '部署到k8s', parameters: [
+                        string(name: 'CHART_PACKAGE', value: env.CHART_NAME ?: ''),
+                        string(name: 'ZONE_ID', value: params.ZONE_ID ?: '')
+                    ], wait: true
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+        }
+    }
+}

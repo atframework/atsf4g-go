@@ -73,4 +73,14 @@ _generated/
 !/src/lobbysvr/app/register_modules.go
 /src/lobbysvr/rpc/lobbyclientservice/*
 /src/component/db/*.go
+*.log
 /src/robot/data/rpc_handle.go
+
+# ignore git-lfs auto gen hooks
+script/hooks/post-checkout
+script/hooks/post-commit
+script/hooks/post-merge
+script/hooks/pre-push
+
+# task file sum cache
+.task

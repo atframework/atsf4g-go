@@ -1,0 +1,121 @@
+version: "3"
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+##TODO cmd task 放到 component/cmd
+##TODO protocol task 放到 component/protocol
+tasks:
+  generate-config:
+    desc: "Generate Component configuration files"
+    cmds:
+      - task: _generate-base-config
+        vars:
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_XRESLOADER_PATH: "{{.PROJECT_XRESLOADER_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          BUILD_TARGET_GEN_DIR: "{{.BUILD_TARGET_GEN_DIR}}"
+      - task: _generate-cmd-config
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_XRESLOADER_PATH: "{{.PROJECT_XRESLOADER_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          BUILD_TARGET_GEN_DIR: "{{.BUILD_TARGET_GEN_DIR}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.XRESLOADER_RES_CONFIG_PB}}"
+    silent: true
+
+  _generate-base-config:
+    desc: "Generate Component base configuration files"
+    cmds:
+      - |
+        echo -e "\033[34;1m Generate Component base configuration files... \033[0m"
+        echo "PYTHON_BIN_PATH = {{.PYTHON_BIN_PATH}}"
+        "{{.PYTHON_BIN_PATH}}" "{{.PROJECT_XRESLOADER_PATH}}/xresconv-cli/xresconv-cli.py" --java-path "{{.JAVA_BIN_PATH}}" "{{.BUILD_TARGET_GEN_DIR}}/xresconv.xml"
+        echo -e "\033[34;1m Generate Component base configuration files... done \033[0m"
+    silent: true
+
+  _generate-cmd-config: # 代替 src\component\config\cmd\main.go
+    desc: "Generate Component command configuration files replace src\\component\\config\\cmd\\main.go"
+    dir: "{{.TASKFILE_DIR}}/config/cmd"
+    cmds:
+      - |
+        echo -e "\033[34;1m Generate Component command configuration files... \033[0m"
+         "{{.PYTHON_BIN_PATH}}" "{{.PROJECT_XRESLOADER_PATH}}/xres-code-generator/xrescode-gen.py" -i "{{.PROJECT_ROOT}}/src/template" -p "{{.XRESLOADER_RES_CONFIG_PB}}" -o ../generate_config -g config_group.go.mako:config_group.go -l "config_set.go.mako:\${\"config_set_{0}.go\".format(loader.get_go_pb_name())}" -t server
+        echo -e "\033[34;1m Generate Component command configuration files... done \033[0m"
+    silent: true
+
+  #协议生成任务
+  generate-protocol:
+    desc: "Generate protoc protocol"
+    dir: "{{.TASKFILE_DIR}}/protocol"
+    cmds:
+      - |
+        echo "PROTOC_EXEC_BIN = {{.PROTOC_EXEC_BIN}}"
+        echo "PROJECT_ROOT = {{.PROJECT_ROOT}}"
+      - task: _generate-private-protocol
+        vars:
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+
+      - task: _generate-public-protocol
+        vars:
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+      - task: generate-config
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_XRESLOADER_PATH: "{{.PROJECT_XRESLOADER_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          BUILD_TARGET_GEN_DIR: "{{.BUILD_TARGET_GEN_DIR}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.XRESLOADER_RES_CONFIG_PB}}"
+    silent: true
+
+  _generate-private-protocol:
+    desc: "Generate private protoc protocol"
+    dir: "{{.TASKFILE_DIR}}/protocol/private"
+    cmds:
+      - |
+        echo -e "\033[34;1m Generate Component private protoc protocol... \033[0m"
+        "{{.PROTOC_EXEC_BIN}}" --go_out=extension --mutable_out=extension --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=extension --proto_path=../public/extension extension/protocol/extension/*.proto
+        "{{.PROTOC_EXEC_BIN}}" --go_out=common --mutable_out=common --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=common --proto_path=extension --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../public/common --proto_path=../public/extension common/protocol/common/*.proto
+        "{{.PROTOC_EXEC_BIN}}" --go_out=config --mutable_out=config --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=config --proto_path=common --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=extension --proto_path=../public/config --proto_path=../public/common --proto_path=../public/extension --proto_path=../../../../atframework/libatapp-go/protocol config/protocol/config/*.proto
+        "{{.PROTOC_EXEC_BIN}}" --go_out=pbdesc --mutable_out=pbdesc --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=pbdesc --proto_path=common --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=extension --proto_path=../public/pbdesc --proto_path=../public/common --proto_path=../public/extension --proto_path=../../../../atframework/libatapp-go/protocol pbdesc/protocol/pbdesc/*.proto
+
+        OUTPUT_PATH="{{.PROJECT_ROOT}}/{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}/private-pbdesc.pb"
+        "{{.PROTOC_EXEC_BIN}}" --proto_path=pbdesc --proto_path=config --proto_path=common --proto_path=extension --proto_path=../public/common --proto_path=../public/pbdesc --proto_path=../public/extension --proto_path=../../../../third_party/xresloader/protocols/core -o $OUTPUT_PATH pbdesc/protocol/pbdesc/*.proto extension/protocol/extension/*.proto
+
+        echo -e "\033[34;1m Generate Component private protoc protocol... done \033[0m"
+    silent: true
+
+  _generate-public-protocol:
+    desc: "Generate public protoc protocol"
+    dir: "{{.TASKFILE_DIR}}/protocol/public"
+    cmds:
+      - |
+        echo -e "\033[34;1m Generate Component public protoc protocol... \033[0m"
+        OUTPUT_PATH="{{.PROJECT_ROOT}}/{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
+
+        "{{.PROTOC_EXEC_BIN}}" --go_out=extension --mutable_out=extension --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=extension extension/protocol/extension/*.proto -o $OUTPUT_PATH/public-extension.pb
+        "{{.PROTOC_EXEC_BIN}}" --go_out=common --mutable_out=common --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=common --proto_path=extension --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../../../../third_party/xresloader/protocols/code common/protocol/common/*.proto -o $OUTPUT_PATH/public-common.pb
+        "{{.PROTOC_EXEC_BIN}}" --go_out=config --mutable_out=config --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=config --proto_path=common --proto_path=extension --proto_path=../../../../atframework/libatapp-go/protocol --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../../../../third_party/xresloader/protocols/code config/protocol/config/*.proto
+        "{{.PROTOC_EXEC_BIN}}" --go_out=pbdesc --mutable_out=pbdesc --go_opt=paths=source_relative --mutable_opt=paths=source_relative --proto_path=pbdesc --proto_path=common --proto_path=extension --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../../../../third_party/xresloader/protocols/code pbdesc/protocol/pbdesc/*.proto -o $OUTPUT_PATH/public-pbdesc.pb
+
+        "{{.PROTOC_EXEC_BIN}}" --proto_path=../../../../atframework/libatapp-go/protocol --proto_path=../../../../atframework/libatbus-go/protocol ../../../../atframework/libatapp-go/protocol/atframe/atapp_conf.proto ../../../../atframework/libatbus-go/protocol/libatbus_protocol.proto -o $OUTPUT_PATH/atframework-all.pb
+        "{{.PROTOC_EXEC_BIN}}" --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../../../../third_party/xresloader/protocols/code ../../../../third_party/xresloader/protocols/core/protocol/extension/v3/xresloader.proto ../../../../third_party/xresloader/protocols/core/protocol/extension/v3/xresloader_ue.proto ../../../../third_party/xresloader/protocols/core/protocol/config/pb_header_v3.proto ../../../../third_party/xresloader/protocols/code/protocol/extension/xrescode_extensions_v3.proto -o $OUTPUT_PATH/third_party-extension.pb
+        "{{.PROTOC_EXEC_BIN}}" --proto_path=config --proto_path=common --proto_path=extension --proto_path=../../../../atframework/libatapp-go/protocol --proto_path=../../../../third_party/xresloader/protocols/core --proto_path=../../../../third_party/xresloader/protocols/code -o $OUTPUT_PATH/public-config.pb extension/protocol/extension/*.proto common/protocol/common/*.proto config/protocol/config/*.proto ../../../../third_party/xresloader/protocols/core/protocol/extension/v3/xresloader.proto ../../../../third_party/xresloader/protocols/core/protocol/extension/v3/xresloader_ue.proto ../../../../third_party/xresloader/protocols/core/protocol/config/pb_header_v3.proto ../../../../third_party/xresloader/protocols/code/protocol/extension/xrescode_extensions_v3.proto
+        echo -e "\033[34;1m Generate Component public protoc protocol... done \033[0m"
+    silent: true
+
+  component-tidy:
+    desc: "Tidy component generated code"
+    cmds:
+      - task: inn-tools:tidy-dir
+        vars:
+          TIDY_DIR: "{{.PROJECT_ROOT}}/src/component"
+    silent: true

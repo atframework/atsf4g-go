@@ -1,0 +1,22 @@
+version: "3"
+
+set : [errexit, pipefail]
+
+tasks:
+  install-deploy-tools:
+    desc: "Install install-deploy:"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - cmd: |
+            {{if eq OS "windows"}}
+            {{$destPath := printf "%s\\%s\\deploy" .PROJECT_ROOT .INSTALL_DEST}}
+            powershell -Command "New-Item -ItemType Directory -Force -Path '{{$destPath}}' | Out-Null; Copy-Item -Path 'cloud-native\*' -Destination '{{$destPath}}' -Recurse -Force"
+            {{else}}
+            {{$destPath := printf "%s/%s/deploy" .PROJECT_ROOT .INSTALL_DEST}}
+            mkdir -p "{{$destPath}}"
+            cp -r cloud-native/* "{{$destPath}}/"
+            {{end}}
+    vars:
+      PROJECT_ROOT: "{{.PROJECT_ROOT| default \".\" }}"
+      INSTALL_DEST: "{{.ENV_BUILD_TOOLS_INSTALL_DIR | default \"build/deploy\"}}"
+    silent: true

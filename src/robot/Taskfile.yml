@@ -1,0 +1,53 @@
+version : "3"
+
+includes:
+  tools: ../../tools/Taskfile.yml
+  inn-tools: ../../.taskfiles/Taskfile.tools.yml
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+tasks:
+  build_bin:
+    desc: "Build Robot Server Binary"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: inn-tools:go-build
+        vars:
+          SRC: "{{.TASKFILE_DIR}}"
+          BUILD_OUTPUT_PATH: "{{.BUILD_TOOLS_INSTALL_DIR}}/robot/bin/robotd{{.EXE_EXT}}"
+    silent: true
+
+  _generate-tpl :
+    desc: "Generate Python environment and dependencies"
+    cmds:
+      - task: tools:generate-for-pbtool
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+          BUILD_TARGET_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_DIR}}"
+          BUILD_TARGET_GEN_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TARGET_GEN_DIR}}"
+          NAMESPACE: "proy"
+          TEMPLATE_DIR: "{{.PROJECT_ROOT}}/src/template"
+          BUILD_TOOLS_INSTALL_DIR: "{{.PROJECT_ROOT}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}"
+          GEN_PB_DIR: "{{.PROJECT_ROOT}}/src/robot"
+    silent: false
+
+  build:
+    desc: "Build Robot Server"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: _generate-tpl
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+      - task: inn-tools:tidy-dir
+        vars:
+          TIDY_DIR: "{{.PROJECT_ROOT}}/src/robot"
+      - task: build_bin
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+          BUILD_TOOLS_INSTALL_DIR: "{{.BUILD_TOOLS_INSTALL_DIR}}"
+    silent: true

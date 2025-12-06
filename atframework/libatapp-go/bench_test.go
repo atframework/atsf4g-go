@@ -21,15 +21,15 @@ func BenchmarkTick(b *testing.B) {
 	}
 }
 
-func BenchmarkModuleAdd(b *testing.B) {
-	app := CreateAppInstance().(*AppInstance)
+// func BenchmarkModuleAdd(b *testing.B) {
+// 	app := CreateAppInstance().(*AppInstance)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		module := NewExampleModule("benchmark")
-		AtappAddModule(app, module)
-	}
-}
+// 	b.ResetTimer()
+// 	for i := 0; i < b.N; i++ {
+// 		module := NewExampleModule("benchmark")
+// 		AtappAddModule(app, module)
+// 	}
+// }
 
 func BenchmarkEventTrigger(b *testing.B) {
 	app := CreateAppInstance().(*AppInstance)

@@ -34,7 +34,7 @@ type RedisLog struct {
 }
 
 func (l *RedisLog) Printf(ctx context.Context, format string, v ...interface{}) {
-	libatapp.LogInner(l.app.GetNow(), l.app.GetLogger(1), libatapp.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
+	libatapp.LogInner(l.app.GetSysNow(), l.app.GetLogger(1), libatapp.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
 }
 
 type RedisMessageDispatcher struct {

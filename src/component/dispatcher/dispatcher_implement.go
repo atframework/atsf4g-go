@@ -111,28 +111,11 @@ func (dispatcher *DispatcherBase) AllocSequence() uint64 {
 }
 
 func (dispatcher *DispatcherBase) GetNow() time.Time {
-	return dispatcher.AppModuleBase.GetNow()
+	return logical_time.GetLogicalNow()
 }
 
 func (dispatcher *DispatcherBase) GetSysNow() time.Time {
 	return logical_time.GetSysNow()
-}
-
-// ====================== GM 接口 - 调整服务器时间 =========================
-
-// GmSetServerTime 设置服务器时间为指定时间，所有后续的 GetNow() 调用都会返回调整后的时间
-func (dispatcher *DispatcherBase) GmSetServerTime(newTime time.Time) {
-	dispatcher.AppModuleBase.SetAppTime(newTime)
-}
-
-// GmGetServerTimeOffset 获取当前的时间偏移量
-func (dispatcher *DispatcherBase) GmGetServerTimeOffset() time.Duration {
-	return dispatcher.AppModuleBase.GetAppTimeOffset()
-}
-
-// GmResetServerTime 重置服务器时间为系统时间
-func (dispatcher *DispatcherBase) GmResetServerTime() {
-	dispatcher.AppModuleBase.ResetAppTime()
 }
 
 func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {

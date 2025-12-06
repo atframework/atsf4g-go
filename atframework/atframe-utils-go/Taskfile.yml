@@ -1,0 +1,114 @@
+version: "3"
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+vars:
+  # 可执行文件扩展名
+  EXE_EXT:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo ".exe"
+      else
+        echo ""
+      fi
+
+tasks:
+  # build-setting 工具安装
+  install-build-settings-tools:
+    desc: "Install build settings tools"
+    dir: "{{.TASKFILE_DIR}}/cmd/build-setting"
+    vars:
+      PROJECT_ROOT: '{{.PROJECT_ROOT| default "." }}'
+      ToolsDir: '{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR | default "tools/build"}}'
+      BUILDSET_DOC_Dir: '{{.ENV_BUILD_TARGET_DIR| default "build"}}'
+    cmds:
+      - echo "AtFrame Start - Installing build setting tool..."
+      - go build -o "{{.PROJECT_ROOT}}/{{.ToolsDir}}/build_setting{{.EXE_EXT}}" ./main.go
+      - cd "{{.PROJECT_ROOT}}/{{.ToolsDir}}" && ./build_setting{{.EXE_EXT}} init -settings-file "{{.PROJECT_ROOT}}/{{.BUILDSET_DOC_Dir}}/build-settings.json"
+    silent: true
+  # protoc 安装
+  install-protoc:
+    desc: Install specific version of protoc and related plugins
+    vars:
+      PROJECT_ROOT: '{{.PROJECT_ROOT| default "." }}'
+      # ToolsDir 应该从环境变量 ENV_BUILD_TOOLS_DOWNLOAD_DIR 获取，不能直接接收运行时参数
+      ToolsDir: '{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR | default "tools/build"}}'
+      ProtocVersion: '{{.ENV_PROTOC_VERSION | default "32.1"}}'
+      ProtocGenGoVersion: '{{.ENV_PROTOC_GOPLUGIN_VERSION | default "v1.36.9"}}'
+      ProtocGenGoGrpcVersion: '{{.ENV_PROTOC_GOGRPCPLUGIN_VERSION | default "v1.6.0"}}'
+      BuildSettingDoc: '{{.ENV_BUILD_TARGET_DIR | default "build"}}'
+    dir: "{{.TASKFILE_DIR}}/cmd/install-protoc"
+    cmds:
+      # - echo "===== ToolsDir =  {{.ToolsDir}}..."
+      # - echo "===== ENV_BUILD_TOOLS_DOWNLOAD_DIR =  {{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}..."
+      # - echo "===== PROJECT_ROOT =  {{.PROJECT_ROOT}}..."
+      # - echo "===== ENV_PROTOC_VERSION =  {{.ENV_PROTOC_VERSION}}..."
+      # - echo "===== ENV_PROTOC_GOPLUGIN_VERSION =  {{.ENV_PROTOC_GOPLUGIN_VERSION}}..."
+      # - echo "===== ENV_PROTOC_GOGRPCPLUGIN_VERSION =  {{.ENV_PROTOC_GOGRPCPLUGIN_VERSION}}..."
+
+      - echo "AtFrame Start - Installing protoc and related plugins..."
+      - go run . --protoc-version {{.ProtocVersion}} --go-plugin-version {{.ProtocGenGoVersion}} --tools-dir "{{.PROJECT_ROOT}}/{{.ToolsDir}}" --settings-file "{{.PROJECT_ROOT}}/{{.BuildSettingDoc}}/build-settings.json"
+    silent: true
+  # 工具安装
+  install-other-tools:
+    desc: "Install other build tools like atdtool and xresloader"
+    vars:
+      ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.2"}}'
+      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.0"}}'
+      PROJECT_ROOT: '{{.PROJECT_ROOT| default "." }}'
+      ToolsDir: '{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR | default "tools/build"}}'
+      BUILDSET_DOC_DIR: '{{.ENV_BUILD_TARGET_DIR| default "build" }}'
+      INSTALL_PATH: '{{.ENV_BUILD_TOOLS_INSTALL_DIR | default "tools/install"}}'
+      ATDTOOL_EXT:
+        sh: |
+          if [ "{{OS}}" = "windows" ]; then
+            echo "zip"
+          else
+            echo "tar.gz"
+          fi
+      apps:
+        - name: "atdtool"
+          version: "{{.ADTOOLS_VERSION}}"
+          url: "https://download.m-oa.com/temporary/ProjectY/Tool/atdtool-{{OS}}-amd64.{{.ATDTOOL_EXT}}"
+          # 可添加其他字段（如系统区分、安装路径等）
+        - name: "xresloader"
+          url: "https://download.m-oa.com/temporary/ProjectY/Tool/xresloader-{{.XRESLOADER_VERSION}}.jar"
+          version: "{{.XRESLOADER_VERSION}}"
+
+    dir: "{{.TASKFILE_DIR}}/cmd/install-build-tools"
+    cmds:
+      - echo "AtFrame Start - Installing other build tools... "
+      - |
+        {{ range .apps }}
+        echo "Installing {{.name}} version {{.version}}..."
+        go run . --app-name {{.name}} --url {{.url}} --app-version {{.version}} --download-path "{{$.PROJECT_ROOT}}/{{$.ToolsDir}}"  --install-path "{{$.PROJECT_ROOT}}/{{$.INSTALL_PATH}}" --settings-file "{{$.PROJECT_ROOT}}/{{$.BUILDSET_DOC_DIR}}/build-settings.json"
+        {{ end }}
+    silent: true
+  # xreloader tpl 生成
+  generate-by-xresloader:
+    desc: "gernerate files by xresloader tool"
+    vars:
+      XRESCONV_XML_TPL: '{{.XRESCONV_XML_TPL | default "xresconv.xml.tpl"}}'
+      XRELOADER_RESOURCE: '{{.XRELOADER_RESOURCE | default "./resource"}}'
+      XRESCONV_XML_PATH: '{{.XRESCONV_XML_PATH | default "./resource/xresconv.xml"}}'
+      XRESLOADER_EXEC_PATH: '{{.XRESLOADER_EXEC_PATH | default "./xresloader.jar"}}'
+      XRESLOADER_RES_CONFIG_PB: '{{.XRESLOADER_RES_CONFIG_PB | default "./pbdesc/public-config.pb"}}'
+      XRESLOADER_BYPES_OUT: '{{.XRESLOADER_BYPES_OUT | default "./resource/excel"}}'
+      INPUT_EXCEL_RES_PATH: '{{.INPUT_EXCEL_RES_PATH | default "./resource/ExcelTables"}}'
+      BUILD_TARGET_GEN_DIR: '{{.BUILD_TARGET_GEN_DIR | default "./build/_gen"}}'
+    dir: "{{.TASKFILE_DIR}}/cmd/gen-xreloader-tpl"
+    cmds:
+      # - |
+      #   echo ######### Xreloader start gen code####
+      #   echo  XRESCONV_XML_PATH: {{ .XRESCONV_XML_PATH}}
+      #   echo  XRESLOADER_EXEC_PATH: {{ .XRESLOADER_EXEC_PATH}}
+      #   echo  XRESLOADER_RES_CONFIG_PB: {{ .XRESLOADER_RES_CONFIG_PB}}
+      #   echo  XRESLOADER_BYPES_OUT: {{ .XRESLOADER_BYPES_OUT}}
+      #   echo  INPUT_EXCEL_RES_PATH: {{ .INPUT_EXCEL_RES_PATH}}
+      #   echo  BUILD_TARGET_GEN_DIR : {{ .BUILD_TARGET_GEN_DIR}}
+      - |
+        go run . "{{ .XRESCONV_XML_TPL}}" "{{.XRELOADER_RESOURCE}}" "{{.XRESCONV_XML_PATH}}" "{{.XRESLOADER_EXEC_PATH}}" "{{.XRESLOADER_RES_CONFIG_PB}}" "{{.XRESLOADER_BYPES_OUT}}" "{{.INPUT_EXCEL_RES_PATH}}" "{{.BUILD_TARGET_GEN_DIR}}"
+
+    silent: true

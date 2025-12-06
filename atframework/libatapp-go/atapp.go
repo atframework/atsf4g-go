@@ -106,10 +106,6 @@ type AppImpl interface {
 	GetBuildVersion() string
 	GetConfigFile() string
 
-	SetAppTime(newTime time.Time)
-	GetAppTimeOffset() time.Duration
-	ResetAppTime()
-	GetNow() time.Time
 	GetSysNow() time.Time
 
 	AddModule(typeInst reflect.Type, module AppModuleImpl) error
@@ -215,6 +211,9 @@ func CreateAppInstance() AppImpl {
 		},
 	}
 
+	// 初始化编译信息
+	initBuildInfo()
+
 	handler := NewLogHandlerImpl(&ret.logFrameInfoCache)
 	handler.AppendWriter(logHandlerWriter{
 		out: NewlogStdoutWriter(),
@@ -224,6 +223,7 @@ func CreateAppInstance() AppImpl {
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
 	ret.flagSet.Bool("version", false, "print version and exit")
+	ret.flagSet.Bool("info", false, "print build information and exit")
 	ret.flagSet.Bool("help", false, "print help and exit")
 	ret.flagSet.String("config", "", "config file path")
 	ret.flagSet.String("pid", "", "pid file path")
@@ -827,22 +827,6 @@ func (app *AppInstance) GetBuildVersion() string { return app.config.BuildVersio
 func (app *AppInstance) GetConfig() *AppConfig   { return &app.config }
 func (app *AppInstance) GetConfigFile() string   { return app.config.ConfigFile }
 
-func (app *AppInstance) SetAppTime(newTime time.Time) {
-	app.timeOffset = time.Until(newTime)
-}
-
-func (app *AppInstance) GetAppTimeOffset() time.Duration {
-	return app.timeOffset
-}
-
-func (app *AppInstance) ResetAppTime() {
-	app.timeOffset = 0
-}
-
-func (app *AppInstance) GetNow() time.Time {
-	// TODO: 使用逻辑时间戳 Timestamp
-	return time.Now().Add(app.timeOffset)
-}
 func (app *AppInstance) GetSysNow() time.Time {
 	// TODO: 使用逻辑时间戳 Timestamp
 	return time.Now()
@@ -955,6 +939,13 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	if app.flagSet.Lookup("version").Value.String() == "true" {
 		app.mode = AppModeInfo
 		println(app.GetBuildVersion())
+		return nil
+	}
+
+	// 检查 --info 标志
+	if app.flagSet.Lookup("info").Value.String() == "true" {
+		app.mode = AppModeInfo
+		PrintBuildInfo()
 		return nil
 	}
 

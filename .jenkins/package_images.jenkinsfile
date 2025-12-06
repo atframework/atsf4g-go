@@ -1,0 +1,122 @@
+pipeline {
+    agent {
+        node {
+            label 'linux'
+        }
+    }
+    
+    parameters {
+        string(name: 'PACKAGE_NAME', defaultValue: '', description: '包名称, 例如: ProjectY_Server_1.0.123.tar.gz')
+    }
+    environment {
+        PATH = "$PATH:${env.WORKSPACE}/../../../go/bin:/opt/tools/bin"
+
+        DOWNLOAD_URL = "https://download.m-oa.com/temporary/ProjectY/Server/linux/${params.PACKAGE_NAME}"
+
+        HARBOR_URL = 'harbor.m-oa.com:6023'
+        HARBOR_PROJECT = 'project-y'
+        IMAGES_NAME = 'project-y-server'
+        HARBOR_CREDS = '0769cb67-6730-41be-9660-e79ea52a2f27'
+        HARBOR_DEV_DOCKER_CREDS = 'harbor-dev-docker'
+        ADTOOL_PATH = '../../atdtool/atdtool'
+
+        CHART_NAME = 'lobbysvr'
+    }
+    stages {
+        stage('init path') {
+            steps {
+                script {
+                    // Parse filename in Groovy to avoid shell quoting and Groovy interpolation issues
+                    def filename = params.PACKAGE_NAME ?: ''
+                    def base = filename.replaceAll(/\.tar(\.gz)?$|\.tgz$/, '')
+                    def idx = base.lastIndexOf('_')
+                    def name = (idx > 0) ? base.substring(0, idx) : base
+                    def version = (idx > 0) ? base.substring(idx + 1) : ''
+                    echo "Extracted name=${name} version=${version}"
+                    env.PACKAGE_NAME = name
+                    env.VERSION = "1.0." + version
+                    env.IMAGES_PATH = "${env.WORKSPACE}/${env.PACKAGE_NAME}/"
+                    env.HELM_PATH = "${env.WORKSPACE}/${env.PACKAGE_NAME}/deploy/charts"
+                    env.HELM_CHARTS_NAME = "${CHART_NAME}-${env.VERSION}.tgz"
+                }
+            }
+        }
+
+        stage('download package') {
+            steps {
+                script {
+                    // Use escaped $ so Groovy does not interpolate shell variables
+                    sh """
+                        wget -O ${params.PACKAGE_NAME} "${env.DOWNLOAD_URL}"
+                        mkdir -p "${env.PACKAGE_NAME}"
+                        tar -xzvf ${params.PACKAGE_NAME} -C "${env.PACKAGE_NAME}/"
+                    """
+                }
+            }
+        }
+
+        stage('package iamges && push to harbor') {
+            steps {
+                script {
+                    dir(IMAGES_PATH) {
+                        sh """
+                            cp ${IMAGES_PATH}/deploy/images/server/Dockerfile .
+                        """
+                        withCredentials([usernamePassword(credentialsId: "${HARBOR_DEV_DOCKER_CREDS}", passwordVariable: 'HARBOR_DEV_DOCKER_PASSWORD', usernameVariable: 'HARBOR_DEV_DOCKER_USERNAME')]) {
+                            sh '''
+                                podman login ${HARBOR_URL} --username ${HARBOR_DEV_DOCKER_USERNAME} --password ${HARBOR_DEV_DOCKER_PASSWORD}
+                            '''
+                            def dockerImage = docker.build("${HARBOR_URL}/${HARBOR_PROJECT}/${IMAGES_NAME}:${VERSION}")
+                            docker.withRegistry("https://${HARBOR_URL}", "${HARBOR_CREDS}") {
+                                // dockerImage.tag()
+                                dockerImage.push("${VERSION}")
+                                dockerImage.tag("latest")
+                                dockerImage.push("latest")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('package helm && push to harbor') {
+            steps {
+                script {
+                    dir(HELM_PATH) {
+                        sh """
+                            helm dependency update ${CHART_NAME}
+                            chmod +x ${ADTOOL_PATH}
+                            ${ADTOOL_PATH} merge-values ${CHART_NAME}/ --values ../values/default/
+                            helm lint ./${CHART_NAME}
+                            helm package ./${CHART_NAME} --version ${VERSION}
+                        """
+                        withCredentials([usernamePassword(credentialsId: "${HARBOR_CREDS}", passwordVariable: 'HARBOR_PASSWORD', usernameVariable: 'HARBOR_USERNAME')]) {
+                            sh '''
+                                helm push ${HELM_CHARTS_NAME} oci://${HARBOR_URL}/${HARBOR_PROJECT} \
+                                --username=${HARBOR_USERNAME} \
+                                --password=${HARBOR_PASSWORD}
+                            '''
+                        }
+                    }
+                    // 传输包名给上游任务
+                    def meta = [chart_name: "${HELM_CHARTS_NAME}"]
+                    // 设置显示名与描述（描述用 JSON）
+                    currentBuild.displayName = "package_data"
+                    currentBuild.description = groovy.json.JsonOutput.toJson(meta)
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo '当前阶段构建完成。'
+        }
+        success {
+            echo '流水线执行成功！'
+        }
+        failure {
+            echo '流水线执行失败！'
+        }
+    }
+}

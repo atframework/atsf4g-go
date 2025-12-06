@@ -100,7 +100,6 @@ func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl, webServerConfigu
 	ret.DispatcherBase.impl = ret
 
 	ret.sessionIdAllocator.Store(uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()))
-
 	return ret
 }
 
@@ -497,12 +496,12 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 
 	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webServerConfigurePath, serverConfig, d.GetLogger())
 	if loadErr != nil {
-		err = loadErr
+		d.GetLogger().Warn("Failed to load web server config", "error", loadErr)
 	}
 
 	loadErr = libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webSocketServerConfigurePath, wsConfig, d.GetLogger())
 	if loadErr != nil {
-		err = loadErr
+		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
 	}
 
 	if serverConfig.GetPort() <= 0 || serverConfig.GetPort() > 65535 {

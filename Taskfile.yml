@@ -1,0 +1,450 @@
+version: "3"
+
+includes:
+  ci: .taskfiles/Taskfile.ci.yml
+  deploy-utils: .taskfiles/Taskfile.depoy.yml
+  build-prepare: .taskfiles/Taskfile.build.prepare.yml
+  tools: tools/Taskfile.yml
+  lobbysvr: src/lobbysvr/Taskfile.yml
+  robot: src/robot/Taskfile.yml
+  inn-tools: .taskfiles/Taskfile.tools.yml
+  component: src/component/Taskfile.yml
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+dotenv:
+  - .taskfiles/build-tools.env
+
+vars:
+  # 可执行文件扩展名
+  EXE_EXT:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo ".exe"
+      else
+        echo ""
+      fi
+  # 路径分隔符
+  PATH_SEP:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo "\\"
+      else
+        echo "/"
+      fi
+
+tasks:
+  clean-venv:
+    desc: "Remove Python venv"
+    internal: true
+    cmds:
+      - |
+        if [ -d "{{.PYTHON_VENV}}" ]; then
+          echo "🗑️  Removing venv at {{.PYTHON_VENV}}..."
+          rm -rf "{{.PYTHON_VENV}}"
+          echo "✅ venv removed"
+        fi
+    silent: true
+
+  clean-build:
+    internal: true
+    desc: "Clean build artifacts"
+    cmds:
+      - |
+        if [ -d "build" ]; then
+          rm -rf build
+        fi
+    silent: true
+
+  clean:
+    internal: true
+    desc: "Clean everything (venv + build artifacts)"
+    deps:
+      - clean-venv
+      - clean-build
+      - tools:clean-generate-pb
+    silent: true
+
+  clean-dir:
+    internal: true
+    desc: "Remove all files in a directory"
+    vars:
+      TARGET_DIR: '{{.TARGET_DIR | default ""}}'
+    cmds:
+      - |
+        if [ -z "{{.TARGET_DIR}}" ]; then
+          echo "❌ Error: TARGET_DIR is required"
+          exit 1
+        fi
+      - cmd: |
+          if [ -d "{{.TARGET_DIR}}" ]; then
+            echo "🗑️  Cleaning directory {{.TARGET_DIR}}..."
+            rm -rf "{{.TARGET_DIR}}"/*
+            echo "✅ Directory cleaned"
+          else
+            echo "⚠️  Directory {{.TARGET_DIR}} does not exist"
+          fi
+        platforms: [linux, darwin]
+      - cmd: powershell -NoProfile -Command "if (Test-Path '{{.TARGET_DIR}}') { Write-Host '🗑️  Cleaning directory {{.TARGET_DIR}}...'; Remove-Item -Path '{{.TARGET_DIR}}\*' -Recurse -Force; Write-Host '✅ Directory cleaned' } else { Write-Host '⚠️  Directory {{.TARGET_DIR}} does not exist' }"
+        platforms: [windows]
+    silent: true
+
+  # _clean_build_settings_file:
+  #   desc: "Clean build settings file"
+  #   cmds:
+  #     - |
+  #         if [ -f "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build-settings.json" ]; then
+  #           rm "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build-settings.json"
+  #         fi
+  #   silent: true
+
+  lint:
+    desc: "Run golangci-lint on the codebase"
+    cmds:
+      - task ci:lint
+    silent: false
+
+  help:
+    desc: "Show all available tasks"
+    cmds:
+      - task -l
+    silent: false
+
+  inner_build-module:lobbysvr:
+    internal: true
+    desc: "构建 lobbysvr 模块"
+    vars:
+      PROTOC_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get protoc -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PYTHON_BIN_PATH:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get python -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+    cmds:
+      - echo -e "\033[34;1m Start Building lobbysvr module... \033[0m"
+      - task: lobbysvr:build
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_RESOURCE_TARGET_PBDESC_PATH: "{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
+          BUILD_TOOLS_INSTALL_DIR: "{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+    silent: true
+
+  inner_build-module:robot:
+    internal: true
+    desc: "构建 robot 模块"
+    vars:
+      PYTHON_BIN_PATH:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get python -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+    cmds:
+      - echo -e  "\033[34;1m Start Building Robot module... \033[0m "
+      - task: robot:build
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          BUILD_TOOLS_INSTALL_DIR: "{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
+    silent: true
+
+  inner_build-module:all:
+    internal: true
+    desc: "构建所有模块"
+    cmds:
+      - echo -e "\033[34;1m Start Building all modules...  \033[0m"
+      - task: inner_build-module:lobbysvr
+      - task: inner_build-module:robot
+      - echo -e "\033[34;1m Building all modules... End \033[0m"
+    silent: true
+
+  build*:
+    desc: "Build services"
+    vars:
+      modlue_name: '{{ .MATCH | first | default ":all" }}'
+    cmds:
+      - task: clean
+      - task: inner_build-tools-prepare
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+      - task: fast-build{{.modlue_name}}
+        vars:
+          modlue_name: "{{.modlue_name}}"
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  fast-build*:
+    desc: "Fast build services without code generation"
+    vars:
+      modlue_name: '{{ .MATCH | first | default ":all" }}'
+    cmds:
+      - echo -e "\033[34;1m build on {{OS}} ... \033[0m"
+
+      - task: try-update-develop-build-tools
+      - task: deploy-tools-install
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+      - task: generate-base-code
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          PROJECT_XRESLOADER_PATH: "{{.ROOT_DIR}}/{{.ENV_XRESLOADER_PATH}}"
+      - task: tidy-base
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+      - echo  -e "\033[34;1m Building module {{.modlue_name}} ... \033[0m"
+      - task: inner_build-module{{.modlue_name}}
+        vars:
+          modlue_name: "{{.modlue_name}}"
+      - task: launch-cfg-script-install
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  inner_build-tools-prepare:
+    internal: true
+    desc: "Prepare build tools"
+    cmds:
+      - echo "Preparing build tools... in {{.TASKFILE_DIR}}/{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+
+      - task: build-prepare:build-tools-prepare
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          JAVA_VERSION: "{{.JAVA_VERSION}}"
+          ENV_JAVA_VERSON: "{{.ENV_JAVA_VERSON}}"
+          ENV_BUILD_TOOLS_DOWNLOAD_DIR: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+          ENV_BUILD_TARGET_DIR: "{{.ENV_BUILD_TARGET_DIR}}"
+          BUILD_TARGET_DIR: "{{.ENV_BUILD_TARGET_DIR}}"
+          EXE_EXT: "{{.EXE_EXT}}"
+          OS: "{{.OS}}"
+    silent: true
+
+  deploy-tools-install:
+    internal: true
+    desc: "Install deploy tools"
+    cmds:
+      - task: deploy-utils:install-deploy-tools
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+    silent: true
+
+  generate-base-code:
+    # internal: true
+    desc: "Gen code "
+    dir: "{{.TaskFile_DIR}}"
+    vars:
+      JAVA_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get java -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PYTHON_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get python -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PROTOC_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get protoc -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      XRESLOADER_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get xresloader -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+    cmds:
+      - |
+        mkdir -p "{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
+        mkdir -p "{{.ENV_PROJECT_RESOURCE_TARGET_EXCEL_PATH}}"
+        mkdir -p "{{.ENV_BUILD_TARGET_GEN_DIR}}"
+      # - task: clean-dir
+      #   vars:
+      #     TARGET_DIR: "{{.ROOT_DIR}}/{{ .ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
+      - git submodule update --init --recursive
+      # # hard task , generate now is append mode , need clean old files first
+      # - cmd: |
+      #     if [ -f "{{.ENV_BUILD_TARGET_GEN_DIR}}/generate-for-pb.yaml" ]; then
+      #       rm -f "{{.ENV_BUILD_TARGET_GEN_DIR}}/generate-for-pb.yaml"
+      #     fi
+      #   platforms: [linux, darwin]
+      # - cmd: powershell -NoProfile -Command "if (Test-Path '{{.ENV_BUILD_TARGET_GEN_DIR}}\generate-for-pb.yaml') { Remove-Item -Path '{{.ENV_BUILD_TARGET_GEN_DIR}}\generate-for-pb.yaml' -Force }"
+      #   platforms: [windows]
+
+      - task: build-prepare:gen-code-by-resloader
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          XRESCONV_XML_TPL: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_XML_TPL}}"
+          XRESCONV_XML_PATH: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_XML_PATH}}"
+          XRESLOADER_EXEC_PATH: "{{ .XRESLOADER_EXEC_BIN}}"
+          XRELOADER_RESOURCE: "{{.ROOT_DIR}}/{{ .ENV_XRELOADER_RESOURCE}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_CONFIG_PB}}"
+          XRESLOADER_BYPES_OUT: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_BYTES_OUTPUT}}"
+          INPUT_EXCEL_RES_PATH: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_EXCEL_SRC}}"
+          BUILD_TARGET_GEN_DIR: "{{.ROOT_DIR}}/{{ .ENV_BUILD_TARGET_GEN_DIR}}"
+
+      - task: build-prepare:build-code-generate
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_XRESLOADER_PATH: "{{.ROOT_DIR}}/{{.ENV_XRESLOADER_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_EXEC_BIN}}"
+          JAVA_BIN_PATH: "{{.JAVA_EXEC_BIN}}"
+          BUILD_TARGET_GEN_DIR: "{{.ROOT_DIR}}/{{ .ENV_BUILD_TARGET_GEN_DIR}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_CONFIG_PB}}"
+          BUILD_TARGET_DIR: "{{.ROOT_DIR}}/{{.ENV_BUILD_TARGET_DIR}}"
+          BUILD_TOOLS_INSTALL_DIR: "{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+    silent: true
+
+  tidy-base:
+    internal: true
+    desc: "Tidy base go modules"
+    cmds:
+      - task: inn-tools:tidy-dir
+        vars:
+          TIDY_DIR: "{{.ROOT_DIR}}/atframework"
+      - task: inn-tools:tidy-dir
+        vars:
+          TIDY_DIR: "{{.ROOT_DIR}}/src/component"
+    silent: true
+
+  launch-cfg-script-install:
+    internal: true
+    desc: "Install launch config script to build/install and execute"
+    cmds:
+      # Copy only files (not directories) from script directory to build/install directory
+      - cmd: find "{{.ROOT_DIR}}/script" -maxdepth 1 -type f -exec cp {} "{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}/" \;
+        platforms: [linux, darwin]
+      - cmd: powershell -NoProfile -Command "Get-ChildItem -Path '{{.ROOT_DIR}}/script' -File | Copy-Item -Destination '{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}/'"
+        platforms: [windows]
+    silent: true
+
+  # Exported tasks for mouse clicks
+  fast-[lobby]-build:
+    desc: "Fast build lobby server only"
+    cmds:
+      - task: fast-build:lobbysvr
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  fast-[robot]-build:
+    desc: "Fast build robot server only"
+    cmds:
+      - task: fast-build:robot
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  fast-[all]-build:
+    desc: "Fast build all servers"
+    cmds:
+      - task: fast-build:all
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  fast-[proto]-gen:
+    desc: "Generate proto code only"
+    vars:
+      JAVA_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get java -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PYTHON_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get python -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PROTOC_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get protoc -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      XRESLOADER_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get xresloader -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+    cmds:
+      - task: component:generate-protocol
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_XRESLOADER_PATH: "{{.ROOT_DIR}}/{{.ENV_XRESLOADER_PATH}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_EXEC_BIN}}"
+          JAVA_BIN_PATH: "{{.JAVA_BIN_PATH}}"
+          BUILD_TARGET_GEN_DIR: "{{.ROOT_DIR}}/{{.ENV_BUILD_TARGET_GEN_DIR}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_CONFIG_PB}}"
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  fast-[config]-gen:
+    desc: "Generate config only"
+    vars:
+      JAVA_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get java -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PYTHON_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get python -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      PROTOC_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get protoc -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+      XRESLOADER_EXEC_BIN:
+        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get xresloader -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
+    cmds:
+      - task: component:generate-config
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PYTHON_BIN_PATH: "{{.PYTHON_EXEC_BIN}}"
+          XRESCONV_XML_TPL: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_XML_TPL}}"
+          XRESCONV_XML_PATH: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_XML_PATH}}"
+          XRESLOADER_EXEC_PATH: "{{ .XRESLOADER_EXEC_BIN}}"
+          XRELOADER_RESOURCE: "{{.ROOT_DIR}}/{{ .ENV_XRELOADER_RESOURCE}}"
+          XRESLOADER_RES_CONFIG_PB: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_CONFIG_PB}}"
+          XRESLOADER_BYPES_OUT: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_BYTES_OUTPUT}}"
+          INPUT_EXCEL_RES_PATH: "{{.ROOT_DIR}}/{{ .ENV_XRESCONV_EXCEL_SRC}}"
+          BUILD_TARGET_GEN_DIR: "{{.ROOT_DIR}}/{{ .ENV_BUILD_TARGET_GEN_DIR}}"
+          PROJECT_XRESLOADER_PATH: "{{.ROOT_DIR}}/{{.ENV_XRESLOADER_PATH}}"
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
+  sync-proto-to-svn:
+    desc: "Sync protocol files to SVN"
+    cmds:
+      - task: tools:sync-protocol-to-svn
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+          PROTOCOL_PATH: "../../.vscode/project_env.json"
+    silent: true
+
+  try-update-develop-build-tools:
+    desc: "Check and update build tools if needed"
+    dir: "{{.TASKFILE_DIR}}"
+    vars:
+      ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.2"}}'
+      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.0"}}'
+    cmds:
+      - task: build-prepare:atframe-utils:install-other-tools
+        vars:
+          PROJECT_ROOT: "{{.ROOT_DIR}}"
+      - cd ./atframework/atframe-utils-go && go install ./protoc-gen-mutable  
+    silent: true
+# # 测试使用
+# prepare-xreloader:
+#   desc: "Prepare XRELOADER environment"
+#   cmds:
+#     - echo "Preparing XRELOADER environment..."
+#     - task: build-prepare:prepare-xreloader
+#       vars:
+#         PROJECT_ROOT: "{{.ROOT_DIR}}"
+#         PYTHON_BIN_PATH: "{{.PYTHON_BIN}}"
+#   silent: true
+
+#   build-setting-get:
+#     desc: "Get build settings and prepare environment"
+#     dir: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+#     cmds:
+#       - echo "#### == {{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}} == "
+#       - echo "#### == $(pwd) == "
+#       - |
+#         PROTOC_EXEC_BIN=$(./build_setting{{.EXE_EXT}} get protoc -settings-file "{{.PROJECT_ROOT}}\{{.ENV_BUILD_TARGET_DIR}}\build-settings.json")
+#         echo "PROTOC_BIN=$PROTOC_EXEC_BIN"
+#         $PROTOC_EXEC_BIN --version
+#     vars:
+#       PROJECT_ROOT: "{{.ROOT_DIR}}"
+
+#   build-setting-set:
+#     desc: "Get build settings and prepare environment"
+#     dir: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+#     cmds:
+#       - echo "#### == {{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}} == "
+#       - echo "#### == $(pwd) == "
+#       - |
+#         ./build_setting{{.EXE_EXT}} set protoc -path "/usr/bin/protoc" -version "32.1" -settings-file "{{.PROJECT_ROOT}}\{{.ENV_BUILD_TARGET_DIR}}\build-settings.json"
+#     vars:
+#       PROJECT_ROOT: "{{.ROOT_DIR}}"
+
+#   build-setting-java-get:
+#     desc: "Get build settings and prepare environment"
+#     dir: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
+#     cmds:
+#       - |
+#         JAVA_PATH=$(./build_setting{{.EXE_EXT}} get java -settings-file "{{.PROJECT_ROOT}}\{{.ENV_BUILD_TARGET_DIR}}\build-settings.json")
+#         echo "Java Setting Path: $JAVA_PATH"
+#     vars:
+#       PROJECT_ROOT: "{{.ROOT_DIR}}"

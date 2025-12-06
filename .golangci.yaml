@@ -1,0 +1,186 @@
+# golangci-lint configuration for v2.6+
+# Reference: https://golangci-lint.run/docs/configuration/
+
+version: "2"
+
+linters:
+  enable:
+    # 错误检查
+    - errcheck
+    - errorlint
+    # - err113
+    # 错误处理    
+    - wrapcheck
+    - nilerr
+    - nilnil
+
+    # 代码质量
+    - ineffassign
+    - unused
+    - staticcheck
+    - govet
+    - revive
+    - shadow
+    # magic num
+    - mnd
+    
+    # 性能优化
+    - prealloc
+    - goconst
+    
+    # 安全性
+    - gosec
+    
+    # 复杂度
+    - cyclop
+    - funlen
+    - gocognit
+    
+    # 注释和文档
+    - godot
+    - misspell
+    - lll
+
+    # 其他
+    - unconvert
+    - unparam
+    - whitespace
+    - nakedret
+    - durationcheck # 检查 time.Duration 类型操作
+    - exhaustive # 检查 switch 语句的全面性
+
+  settings:
+  
+    lll:
+      line-length: 150
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+      match-constant: true
+      numbers: false
+
+    cyclop:
+      max-complexity: 15
+
+    funlen:
+      lines: 80
+      statements: 50
+
+    gocognit:
+      min-complexity: 20
+
+    gosec:
+      excludes:
+        - G104
+        - G204
+      severity: medium
+      confidence: medium
+
+    godot:
+      scope: declarations
+      capital: true
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 30
+
+    unparam:
+      check-exported: false
+
+    govet:
+      enable:
+        - shadow
+      settings:
+        shadow:
+          strict: false
+    # 暂时不支持集成到 golangci-lint v2 中，建议单独运行 nilaway CLI
+    # custom:
+    #   nilaway:
+    #     type: module
+    #     description: Static analysis tool to detect potential nil panics in Go code.
+    #     settings:
+    #       # Settings must be a "map from string to string" to mimic command line flags: the keys are
+    #       # flag names and the values are the values to the particular flags.
+    #       include-pkgs: "<YOUR_PACKAGE_PREFIXES>"
+  
+  exclusions:
+    rules: 
+      - path: ".*_test\\.go$"  # 匹配所有测试文件
+        linters:
+          - goconst
+          - funlen           # 测试函数允许 longer（如测试用例多，行数多）
+          - cyclop           # 测试函数允许高复杂度（如多分支测试场景）
+          - gocognit         # 同上，测试代码无需严格控制复杂度
+          - gosec            # 测试代码可能用模拟输入，避免安全告警误报
+
+      # 忽略自动生成的代码（_gen.go结尾）的部分检查
+      - path: ".*_gen\\.go$"  # 匹配所有以 _gen.go 结尾的文件（如 protobuf自动生成的代码）
+        linters:
+          - revive           # 忽略代码规范检查（自动生成的代码无需符合注释规范）
+          - gosec            # 忽略安全检查（自动生成的代码无安全风险）
+          - goconst          # 忽略重复常量检查（自动生成的代码可能重复字符串）
+
+       # 忽略protobuf生成的代码（.pb.go结尾）的部分检查
+      - path: ".*\\.pb\\.go$"  # 匹配所有 .pb.go 文件（protobuf编译产物）
+        linters:
+          - revive
+          - gosec
+          - goconst          # 原因同上：自动生成的代码无需严格检查
+          # 规则4：忽略 main.go 的部分检查
+      - path: "main\\.go$"  # 匹配程序入口文件 main.go
+        linters:
+          - funlen           # main函数可能包含初始化逻辑，允许行数多
+          - cyclop           # main函数可能有多个初始化步骤，允许高复杂度
+      # 忽略 gosec 的 G404 规则告警
+      - text: "G404"        # 匹配告警文本中的规则ID G404（使用不安全的随机数生成器）
+        linters:
+          - gosec            # 忽略该规则（如项目中用 math/rand 仅生成非安全场景的随机数）
+
+      # 忽略 revive 的 ST1000 规则告警
+      - text: "ST1000"      # 匹配 revive 的 ST1000 规则（包注释格式问题，如包注释未以Package名开头）
+        linters:
+          - revive           # 忽略该规则（如内部包无需严格的包注释格式）
+      
+      # # 忽略编译依赖错误（无法导入包的问题）
+      # - text: "could not import"
+      #   linters:
+      #     - govet
+      
+      # 忽略 revive 的 var-naming 规则（包名中的下划线）
+      - text: "var-naming: don't use an underscore in package name"
+        linters:
+          - revive
+      
+      # 忽略 revive 的 exported 规则（导出标识符缺少注释）
+      - text: "exported:"
+        linters:
+          - revive
+      
+      # 忽略 revive 的 package-comments 规则（缺少包注释）
+      - text: "package-comments: should have a package comment"
+        linters:
+          - revive
+
+    paths:
+      - third_party
+      - py_venv
+      - protject_venv
+      - testdata
+      - test
+      - tests
+      - mock
+      - mocks
+      - build
+      - dist
+      - bin
+      - vendor
+      - .vscode
+      - .git
+      - docs
+run:
+  timeout: 5m
+
+

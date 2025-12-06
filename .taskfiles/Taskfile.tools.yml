@@ -1,0 +1,72 @@
+version: "3"
+
+set: [errexit, pipefail]
+
+
+vars:
+  BUILD_VERSION:
+    sh: echo "${BUILD_VERSION:-v0.0.0}"
+  GIT_COMMIT:
+    sh: git rev-parse HEAD 2>/dev/null || echo "unknown"
+  LOCAL_GIT_BRANCH:
+    sh: git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown"
+  BUILD_TIME:
+    sh: |
+      if command -v date &> /dev/null; then
+        date -u +"%Y-%m-%dT%H:%M:%SZ"
+      else
+        powershell -Command "Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'"
+      fi
+  CONFIG_VERSION: 
+    sh: echo "${CONFIG_VERSION:-v0.0.0}"
+  BUILD_MODE:
+    sh: echo "${BUILD_MODE:-Release}"
+  
+  GO_FLAGS:
+   sh: |
+      if [ {{.BUILD_MODE}} = "Release" ]; then
+        echo ""
+      else
+        echo "-gcflags=\"all=-N -l\" -race -v"
+      fi
+  GO_BUILD_TAGS:
+    sh: |
+      if [ {{.BUILD_MODE}} = "Release" ]; then
+        echo "-tags=\"release\""
+      else
+        echo "-tags=\"debug\""
+      fi
+  GO_LDFLAGS:
+    sh: |
+      echo "-X github.com/atframework/libatapp-go.Version={{.BUILD_VERSION}} \
+            -X github.com/atframework/libatapp-go.Commit={{.GIT_COMMIT}} \
+            -X github.com/atframework/libatapp-go.Branch={{.GIT_BRANCH | default .LOCAL_GIT_BRANCH}}\
+            -X github.com/atframework/libatapp-go.BuildTime={{.BUILD_TIME}} \
+            -X github.com/atframework/libatapp-go.ConfigVer={{.CONFIG_VERSION}} \
+            -X github.com/atframework/libatapp-go.BuildMode={{.BUILD_MODE}}"
+
+shopt: [globstar]
+tasks:
+  tidy-dir:
+    desc: 递归查找所有含 go.mod 的目录并执行 go mod tidy
+    cmds:
+      # Linux/macOS
+      - cmd: find "{{.TIDY_DIR}}" -name go.mod -not -path "*/vendor/*" -exec dirname {} \; | sort -u | while read dir; do echo "Running go mod tidy in $dir"; (cd "$dir" && go mod tidy); done
+        platforms: [linux, darwin]
+      # Windows
+      - cmd: powershell -NoProfile -Command 'Get-ChildItem -Path "{{.TIDY_DIR}}" -Recurse -Filter go.mod -File | Where-Object { $_.DirectoryName -notmatch "vendor" } | ForEach-Object { Write-Host "Running go mod tidy in $($_.DirectoryName)"; Push-Location $_.DirectoryName; go mod tidy; Pop-Location }'
+        platforms: [windows]
+    silent: true
+
+  go-build:
+    desc: "Build Go project"
+    dir: "{{.TASKFILE_DIR}}"
+    vars:
+      SRC: '{{ .SRC | default "./" }}'
+      BUILD_OUTPUT_PATH: '{{ .BUILD_OUTPUT_PATH | default "./a.out" }}'
+    cmds:
+      - |
+        echo "Building Go project..."
+        cd "{{.SRC}}" && go build {{.GO_FLAGS}} {{.GO_BUILD_TAGS}} -ldflags="{{.GO_LDFLAGS}}" -o "{{.BUILD_OUTPUT_PATH}}" .
+        echo "Go project built at {{.BUILD_OUTPUT_PATH}} build flag :{{.GO_FLAGS}} ,mode: {{.GO_BUILD_TAGS}}"
+    silent: true

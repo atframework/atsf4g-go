@@ -1,0 +1,42 @@
+version: "3"
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+tasks:
+  generate-for-pbtool:
+    vars:
+      GEN_PB_DIR: '{{ .GEN_PB_DIR | default "src" }}'
+      PYTHON_BIN_PATH: '{{ .PYTHON_BIN_PATH | default "./python.exe" }}'
+    desc: "Tools generate template for pb"
+    cmds:
+      - echo -e "\033[34;1m Tools generate template for pb... GEN-DIR= {{.GEN_PB_DIR}}\033[0m"
+      - cd "{{.TASKFILE_DIR}}/generate-for-pbtool" && go run . --root "{{.PROJECT_ROOT}}" --build "{{.BUILD_TARGET_DIR}}" --gen "{{.BUILD_TARGET_GEN_DIR}}" --namespace {{.NAMESPACE}} --template "{{.TEMPLATE_DIR}}" --resource "{{.BUILD_TOOLS_INSTALL_DIR}}/resource" "{{.GEN_PB_DIR}}"
+      - cd "{{.TASKFILE_DIR}}/generate-for-pbtool" && "{{.PYTHON_BIN_PATH}}" mako-generator.py --project-dir "{{.PROJECT_ROOT}}" -c "{{.BUILD_TARGET_GEN_DIR}}/generate-for-pb.yaml"
+      - echo "Tools generate template for pb... done"
+    silent: true
+
+  sync-protocol-to-svn:
+    desc: "Sync protocol files to SVN"
+    dir: "{{.TASKFILE_DIR}}/sync-protocol-to-svn"
+    cmds:
+      - |
+        echo -e "\033[34;1m Sync protocol files to SVN... \033[0m"
+        go run . -root "{{.PROJECT_ROOT}}" -env "{{.PROTOCOL_PATH}}"
+        echo -e "\033[34;1m Sync protocol files to SVN... done \033[0m"
+    vars:
+        PROJECT_ROOT: '{{ .PROJECT_ROOT | default "./" }}'
+        PROTOCOL_PATH: '{{ .PROTOCOL_PATH | default "../../.vscode/project_env.json" }}'
+    silent: true
+
+  clean-generate-pb:
+    desc: "Clean generated pb files"
+    dir: "{{.TASKFILE_DIR}}/delete-generate-go"
+    vars:
+      DELETE_PATH: '{{ .DELETE_PATH | default "" }}'
+    cmds:
+      - |
+        echo -e "\033[34;1m Clean generated pb files... \033[0m"
+        go run . {{.DELETE_PATH}}
+        echo -e "\033[34;1m Clean generated pb files... done \033[0m"
