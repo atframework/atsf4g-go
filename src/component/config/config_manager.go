@@ -30,7 +30,7 @@ type ConfigManager struct {
 	reloading    atomic.Bool
 	reloadFinish atomic.Bool
 
-	configFile           string
+	originConfigData     interface{}
 	overwriteResourceDir string
 	logger               *slog.Logger
 }
@@ -38,8 +38,8 @@ type ConfigManager struct {
 // 管理所有配置
 var globalConfigManagerInst = ConfigManager{}
 
-func (configManagerInst *ConfigManager) SetConfigFile(path string) {
-	configManagerInst.configFile = path
+func (configManagerInst *ConfigManager) SetConfigOriginData(data interface{}) {
+	configManagerInst.originConfigData = data
 }
 
 func (configManagerInst *ConfigManager) SetResourceDir(path string) {
@@ -112,7 +112,7 @@ func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_confi
 	// 加载配置逻辑
 	configManagerInst.GetLogger().Info("Excel Loading Begin")
 	var callback ExcelConfigCallback
-	err := loadConfigGroup.Init(configManagerInst.configFile, callback)
+	err := loadConfigGroup.Init(configManagerInst.originConfigData, callback)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func CreateConfigManagerModule(app libatapp.AppImpl) *ConfigManagerModule {
 }
 
 func (m *ConfigManagerModule) Init(parent context.Context) error {
-	GetConfigManager().SetConfigFile(m.GetApp().GetConfigFile())
+	GetConfigManager().SetConfigOriginData(m.GetApp().GetConfig().ConfigOriginData)
 	m.SharedConfigManager.logger = m.GetApp().GetDefaultLogger()
 	return m.SharedConfigManager.Init(parent)
 }

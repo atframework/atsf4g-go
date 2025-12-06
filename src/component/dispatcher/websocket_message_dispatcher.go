@@ -499,12 +499,14 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 		Path:                 "/ws/v1",
 	}
 
-	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webServerConfigurePath, serverConfig, d.GetLogger())
+	loadErr := d.GetApp().LoadConfigByPath(serverConfig, d.webServerConfigurePath,
+		strings.ToUpper(strings.ReplaceAll(d.webServerConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
 		d.GetLogger().Warn("Failed to load web server config", "error", loadErr)
 	}
 
-	loadErr = libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, d.webSocketServerConfigurePath, wsConfig, d.GetLogger())
+	loadErr = d.GetApp().LoadConfigByPath(wsConfig, d.webSocketServerConfigurePath,
+		strings.ToUpper(strings.ReplaceAll(d.webSocketServerConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
 		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
 	}

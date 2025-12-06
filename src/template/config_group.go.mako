@@ -48,11 +48,12 @@ func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Reado
 	return configGroup.serverConfig
 }
 
-func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback) (err error) {
-	if configFile != "" {
-		callback.GetLogger().Info("Load config from file", "file", configFile)
+func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback ConfigCallback) (err error) {
+	if originConfigData != nil {
+		callback.GetLogger().Info("Load config from file", "file", originConfigData)
 		serverConfig := &private_protocol_config.LogicSectionCfg{}
-		_, err = libatapp.LoadConfigFromYaml(configFile, "logic", serverConfig, callback.GetLogger())
+		err = libatapp.LoadConfigFromOriginDataByPath(callback.GetLogger(),
+			originConfigData, serverConfig, "logic", "ATAPP_LOGIC", nil, "")
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
@@ -62,7 +63,7 @@ func (configGroup *ConfigGroup) Init(configFile string, callback ConfigCallback)
 		// 使用默认配置
 		callback.GetLogger().Info("Load config from default")
 		serverConfig := &private_protocol_config.LogicSectionCfg{}
-		err = libatapp.ParseMessage(nil, serverConfig, callback.GetLogger())
+		err = libatapp.ParsePlainMessage(nil, serverConfig, callback.GetLogger())
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return

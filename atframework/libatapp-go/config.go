@@ -14,6 +14,8 @@ import (
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
+
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
@@ -288,63 +290,91 @@ func splitStringToArray(start string) (result []string) {
 	return
 }
 
-func parseStringToYamlData(defaultValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *slog.Logger) (interface{}, error) {
+func parseStringToYamlData(stringValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *slog.Logger) (interface{}, error) {
 	if sizeMode {
-		return defaultValue, nil
+		return stringValue, nil
 	}
 	switch fd.Kind() {
 	case protoreflect.MessageKind:
-		return defaultValue, nil
+		return stringValue, nil
 	case protoreflect.BoolKind:
-		v, err := strconv.ParseBool(defaultValue)
+		v, err := strconv.ParseBool(stringValue)
 		if err == nil {
 			return v, nil
 		}
-		return nil, fmt.Errorf("expected bool, got %s err %s", defaultValue, err)
+		return nil, fmt.Errorf("expected bool, got %s err %s", stringValue, err)
 	case protoreflect.Int32Kind:
-		v, err := strconv.ParseInt(defaultValue, 10, 32)
-		if err == nil {
-			return int32(v), nil
-		}
-		return nil, fmt.Errorf("expected int32, got %s err %s", defaultValue, err)
 	case protoreflect.Sint32Kind:
-		v, err := strconv.ParseInt(defaultValue, 10, 32)
+		var v int64
+		var err error
+		if strings.HasPrefix(stringValue, "0x") || strings.HasPrefix(stringValue, "0X") {
+			v, err = strconv.ParseInt(stringValue, 16, 32)
+		} else if strings.HasPrefix(stringValue, "0o") || strings.HasPrefix(stringValue, "0O") {
+			v, err = strconv.ParseInt(stringValue[2:], 8, 32)
+		} else {
+			v, err = strconv.ParseInt(stringValue, 10, 32)
+		}
 		if err == nil {
 			return int32(v), nil
 		}
-		return nil, fmt.Errorf("expected int32, got %s err %s", defaultValue, err)
+		return nil, fmt.Errorf("expected int32, got %s err %s", stringValue, err)
 	case protoreflect.Int64Kind:
-		v, err := strconv.ParseInt(defaultValue, 10, 64)
-		if err == nil {
-			return int64(v), nil
-		}
-		return nil, fmt.Errorf("expected int64, got %s err %s", defaultValue, err)
 	case protoreflect.Sint64Kind:
-		v, err := strconv.ParseInt(defaultValue, 10, 64)
+		var v int64
+		var err error
+		if strings.HasPrefix(stringValue, "0x") || strings.HasPrefix(stringValue, "0X") {
+			v, err = strconv.ParseInt(stringValue, 16, 64)
+		} else if strings.HasPrefix(stringValue, "0o") || strings.HasPrefix(stringValue, "0O") {
+			v, err = strconv.ParseInt(stringValue[2:], 8, 64)
+		} else {
+			v, err = strconv.ParseInt(stringValue, 10, 64)
+		}
 		if err == nil {
 			return int64(v), nil
 		}
-		return nil, fmt.Errorf("expected int64, got %s err %s", defaultValue, err)
+		return nil, fmt.Errorf("expected int64, got %s err %s", stringValue, err)
 	case protoreflect.Uint32Kind:
-		v, err := strconv.ParseUint(defaultValue, 10, 32)
+		var v uint64
+		var err error
+		if strings.HasPrefix(stringValue, "0x") || strings.HasPrefix(stringValue, "0X") {
+			v, err = strconv.ParseUint(stringValue, 16, 32)
+		} else if strings.HasPrefix(stringValue, "0o") || strings.HasPrefix(stringValue, "0O") {
+			v, err = strconv.ParseUint(stringValue[2:], 8, 32)
+		} else {
+			v, err = strconv.ParseUint(stringValue, 10, 32)
+		}
 		if err == nil {
 			return uint32(v), nil
 		}
-		return nil, fmt.Errorf("expected uint32, got %s err %s", defaultValue, err)
+		return nil, fmt.Errorf("expected uint32, got %s err %s", stringValue, err)
 	case protoreflect.Uint64Kind:
-		v, err := strconv.ParseUint(defaultValue, 10, 64)
+		var v uint64
+		var err error
+		if strings.HasPrefix(stringValue, "0x") || strings.HasPrefix(stringValue, "0X") {
+			v, err = strconv.ParseUint(stringValue, 16, 64)
+		} else if strings.HasPrefix(stringValue, "0o") || strings.HasPrefix(stringValue, "0O") {
+			v, err = strconv.ParseUint(stringValue[2:], 8, 64)
+		} else {
+			v, err = strconv.ParseUint(stringValue, 10, 64)
+		}
 		if err == nil {
 			return uint64(v), nil
 		}
-		return nil, fmt.Errorf("expected uint64, got %s err %s", defaultValue, err)
+		return nil, fmt.Errorf("expected uint64, got %s err %s", stringValue, err)
 	case protoreflect.StringKind:
-		return defaultValue, nil
+		return stringValue, nil
 	case protoreflect.FloatKind:
-		v, err := strconv.ParseFloat(defaultValue, 32)
+		v, err := strconv.ParseFloat(stringValue, 32)
 		if err == nil {
 			return float32(v), nil
 		}
-		return nil, fmt.Errorf("expected float32, got %s err %s", defaultValue, err)
+		return nil, fmt.Errorf("expected float32, got %s err %s", stringValue, err)
+	case protoreflect.DoubleKind:
+		v, err := strconv.ParseFloat(stringValue, 64)
+		if err == nil {
+			return float64(v), nil
+		}
+		return nil, fmt.Errorf("expected float64, got %s err %s", stringValue, err)
 	}
 	return nil, fmt.Errorf("parseDefaultToYamlData unsupported field type: %v", fd.Kind())
 }
@@ -561,21 +591,12 @@ func pickSizeMode(value interface{}) (uint64, error) {
 }
 
 // 从一个Field内读出数据 非Message 且为最底层 嵌套终点
-func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
+func parseField(inputData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
 	// 获取最大最小值
 	var minValue interface{}
 	var maxValue interface{}
 
 	if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
-		// 首先覆盖默认值
-		if confMeta.DefaultValue != "" && yamlData == nil {
-			var err error
-			yamlData, err = parseStringToYamlData(confMeta.DefaultValue, fd, confMeta.SizeMode, logger)
-			if err != nil {
-				return protoreflect.Value{}, err
-			}
-		}
-
 		// 取出极值
 		if confMeta.MinValue != "" {
 			var err error
@@ -595,10 +616,10 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 		// 转换值
 		if confMeta.SizeMode {
 			// 需要从String 转为 Int
-			if yamlData != nil {
+			if inputData != nil {
 				// 基础
 				var err error
-				yamlData, err = pickSizeMode(yamlData)
+				inputData, err = pickSizeMode(inputData)
 				if err != nil {
 					return protoreflect.Value{}, err
 				}
@@ -625,16 +646,16 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 	if fd.Kind() == protoreflect.MessageKind {
 		// 转换值
 		if fd.Message().FullName() == proto.MessageName(&durationpb.Duration{}) {
-			if yamlData != nil {
-				v, ok := yamlData.(string)
+			if inputData != nil {
+				v, ok := inputData.(string)
 				if !ok {
-					return protoreflect.Value{}, fmt.Errorf("duration expected string, got %T", yamlData)
+					return protoreflect.Value{}, fmt.Errorf("duration expected string, got %T", inputData)
 				}
 				duration, err := pickDuration(v)
 				if err != nil {
 					return protoreflect.Value{}, err
 				}
-				yamlData = duration
+				inputData = duration
 			}
 			if minValue != nil {
 				v, ok := minValue.(string)
@@ -659,16 +680,16 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 				maxValue = duration
 			}
 		} else if fd.Message().FullName() == proto.MessageName(&timestamppb.Timestamp{}) {
-			if yamlData != nil {
-				v, ok := yamlData.(string)
+			if inputData != nil {
+				v, ok := inputData.(string)
 				if !ok {
-					return protoreflect.Value{}, fmt.Errorf("timestamp expected string, got %T", yamlData)
+					return protoreflect.Value{}, fmt.Errorf("timestamp expected string, got %T", inputData)
 				}
 				timestamp, err := pickTimestamp(v)
 				if err != nil {
 					return protoreflect.Value{}, err
 				}
-				yamlData = timestamp
+				inputData = timestamp
 			}
 			if minValue != nil {
 				v, ok := minValue.(string)
@@ -693,18 +714,71 @@ func parseField(yamlData interface{}, fd protoreflect.FieldDescriptor, logger *s
 				maxValue = timestamp
 			}
 		} else {
-			return protoreflect.Value{}, fmt.Errorf("%s expected Duration or Timestamp, got %T", fd.FullName(), yamlData)
+			return protoreflect.Value{}, fmt.Errorf("%s expected Duration or Timestamp, got %T", fd.FullName(), inputData)
 		}
 	}
-	return convertField(yamlData, minValue, maxValue, fd, logger)
+
+	return convertField(inputData, minValue, maxValue, fd, logger)
 }
 
-func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
+type ConfigExistedIndex struct {
+	ExistedSet  map[string]struct{}
+	MapKeyIndex map[string]int
+}
+
+func (i *ConfigExistedIndex) MutableExistedSet() map[string]struct{} {
+	if i.ExistedSet == nil {
+		i.ExistedSet = make(map[string]struct{})
+	}
+
+	return i.ExistedSet
+}
+
+func (i *ConfigExistedIndex) MutableMapKeyIndex() map[string]int {
+	if i.MapKeyIndex == nil {
+		i.MapKeyIndex = make(map[string]int)
+	}
+
+	return i.MapKeyIndex
+}
+
+func CreateConfigExistIndex() *ConfigExistedIndex {
+	return &ConfigExistedIndex{
+		ExistedSet:  make(map[string]struct{}),
+		MapKeyIndex: make(map[string]int),
+	}
+}
+
+func makeExistedMapKeyIndexKey(existedSetPrefix string, fd protoreflect.FieldDescriptor, mk protoreflect.MapKey) string {
+	keyFd := fd.MapKey()
+
+	switch keyFd.Kind() {
+	case protoreflect.BoolKind:
+		if mk.Bool() {
+			return fmt.Sprintf("%s%s.1", existedSetPrefix, fd.Name())
+		} else {
+			return fmt.Sprintf("%s%s.0", existedSetPrefix, fd.Name())
+		}
+	case protoreflect.StringKind:
+		return fmt.Sprintf("%s%s.%s", existedSetPrefix, fd.Name(), mk.String())
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind:
+		return fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), mk.Int())
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind:
+		return fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), mk.Int())
+	case protoreflect.Uint32Kind:
+		return fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), mk.Uint())
+	case protoreflect.Uint64Kind:
+		return fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), mk.Uint())
+	}
+	return fmt.Sprintf("%s%s.%s", existedSetPrefix, fd.FullName(), mk.String())
+}
+
+func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
 	len := msg.ProtoReflect().Descriptor().Fields().Len()
 	for i := 0; i < len; i++ {
 		fd := msg.ProtoReflect().Descriptor().Fields().Get(i)
-		fieldName := fd.TextName()
-		field_match := false
+		fieldName := string(fd.Name())
+		fieldMatch := false
 
 		if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
 			if confMeta.FieldMatch != nil && confMeta.FieldMatch.FieldName != "" && confMeta.FieldMatch.FieldValue != "" {
@@ -712,7 +786,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 				if value, ok := yamlData[confMeta.FieldMatch.FieldName].(string); ok {
 					// 存在
 					if value == confMeta.FieldMatch.FieldValue {
-						field_match = true
+						fieldMatch = true
 					} else {
 						continue
 					}
@@ -774,7 +848,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 						// Message
 						innerMap, ok := item.(map[string]interface{})
 						if ok {
-							if err := ParseMessage(innerMap, msg.ProtoReflect().Mutable(fd).List().AppendMutable().Message().Interface(), logger); err != nil {
+							if err := ParsePlainMessage(innerMap, msg.ProtoReflect().Mutable(fd).List().AppendMutable().Message().Interface(), logger); err != nil {
 								return err
 							}
 						} else {
@@ -786,7 +860,7 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 								if err != nil {
 									return err
 								}
-								if err = ParseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+								if err = ParsePlainMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 									return err
 								}
 							}
@@ -811,20 +885,20 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 				fd.Message().FullName() != proto.MessageName(&timestamppb.Timestamp{}) {
 				// 需要继续解析的字段
 				if yamlData == nil {
-					if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+					if err := ParsePlainMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
 					}
 					continue
 				}
-				if field_match {
+				if fieldMatch {
 					// 在同层查找
-					if err := ParseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+					if err := ParsePlainMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 						return err
 					}
 				} else {
 					innerMap, ok := yamlData[fieldName].(map[string]interface{})
 					if ok {
-						if err := ParseMessage(innerMap, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+						if err := ParsePlainMessage(innerMap, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 							return err
 						}
 					} else {
@@ -836,12 +910,12 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 							if err != nil {
 								return err
 							}
-							if err = ParseMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+							if err = ParsePlainMessage(yamlData, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 								return err
 							}
 						} else {
 							logger.Warn("ParseMessage message field not found, use default", "field", fieldName)
-							if err := ParseMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
+							if err := ParsePlainMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 								return err
 							}
 						}
@@ -864,14 +938,228 @@ func ParseMessage(yamlData map[string]interface{}, msg proto.Message, logger *sl
 			return fmt.Errorf("parseField error fieldName %s err %v", fieldName, err)
 		}
 		if value.IsValid() {
-			msg.ProtoReflect().Set(fd, value)
+			if !msg.ProtoReflect().Get(fd).IsValid() {
+				msg.ProtoReflect().Set(fd, value)
+			}
 		}
 	}
 
 	return nil
 }
 
-func LoadConfigFromOriginData(originData interface{}, prefixPath string, configPb proto.Message, logger *slog.Logger) (err error) {
+func dumpYamlIntoMessageFieldValue(yamlData interface{}, dst proto.Message, fd protoreflect.FieldDescriptor,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil || yamlData == nil {
+		return false
+	}
+
+	var fieldExistedKey string
+	if dumpExistedSet != nil {
+		if fd.IsList() {
+			fieldExistedKey = fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), dst.ProtoReflect().Get(fd).List().Len())
+		} else {
+			fieldExistedKey = fmt.Sprintf("%s%s", existedSetPrefix, fd.Name())
+		}
+	}
+
+	fieldValue := protoreflect.Value{}
+	var err error
+
+	if fd.Kind() == protoreflect.MessageKind {
+		if fd.Message().FullName() == proto.MessageName(&durationpb.Duration{}) ||
+			fd.Message().FullName() == proto.MessageName(&timestamppb.Timestamp{}) {
+			fieldValue, err = parseField(yamlData, fd, logger)
+			if err != nil {
+				return false
+			}
+		} else {
+			// Message
+			innerMap, ok := yamlData.(map[string]interface{})
+			if !ok {
+				return false
+			}
+
+			fieldMessage := dynamicpb.NewMessage(fd.Message())
+			if fieldMessage == nil {
+				return false
+			}
+
+			if !dumpYamlIntoMessage(innerMap, fieldMessage, logger, dumpExistedSet, existedSetPrefix+string(fd.Name())+".") {
+				return false
+			}
+
+			fieldValue = protoreflect.ValueOfMessage(fieldMessage)
+		}
+	} else {
+		fieldValue, err = parseField(yamlData, fd, logger)
+		if err != nil {
+			return false
+		}
+	}
+
+	if !fieldValue.IsValid() {
+		return false
+	}
+
+	if fd.IsList() {
+		dst.ProtoReflect().Mutable(fd).List().Append(fieldValue)
+	} else {
+		dst.ProtoReflect().Set(fd, fieldValue)
+	}
+
+	if dumpExistedSet != nil {
+		dumpExistedSet.MutableExistedSet()[fieldExistedKey] = struct{}{}
+	}
+
+	return true
+}
+
+func dumpYamlIntoMessageFieldItem(yamlData map[string]interface{}, dst proto.Message, fd protoreflect.FieldDescriptor,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil || len(yamlData) == 0 {
+		return false
+	}
+
+	fieldName := string(fd.Name())
+	fieldData, ok := yamlData[fieldName]
+	if !ok || fieldData == nil {
+		return false
+	}
+
+	if fd.IsMap() {
+		innerMap, ok := fieldData.(map[string]interface{})
+		if !ok {
+			return false
+		}
+
+		hasValue := false
+
+		nextMapExistedKeyIndex := 0
+		// 这边需要循环Value
+		for k, v := range innerMap {
+			mapExistedKeyIndex := nextMapExistedKeyIndex
+			nextMapExistedKeyIndex++
+			// 使用 dynamicpb 创建临时消息来收集环境变量数据
+			tempMsg := dynamicpb.NewMessage(fd.Message())
+			if tempMsg == nil {
+				return false
+			}
+
+			// mapKeyExistedKey := makeExistedMapKeyIndexKey(existedSetPrefix, fd, protoreflect.ValueOfString(k).MapKey(), mapExistedKeyIndex)
+			mapMessagePrefix := fmt.Sprintf("%s%s.%d.", existedSetPrefix, fd.Name(), mapExistedKeyIndex)
+			keyOk := dumpYamlIntoMessageFieldValue(k, tempMsg, fd.MapKey(), logger, dumpExistedSet, mapMessagePrefix)
+			valueOk := dumpYamlIntoMessageFieldValue(v, tempMsg, fd.MapValue(), logger, dumpExistedSet, mapMessagePrefix)
+			if !keyOk || !valueOk {
+				continue
+			}
+
+			keyValue := tempMsg.ProtoReflect().Get(fd.MapKey())
+			valueValue := tempMsg.ProtoReflect().Get(fd.MapValue())
+
+			if !keyValue.IsValid() || !valueValue.IsValid() {
+				continue
+			}
+
+			dst.ProtoReflect().Mutable(fd).Map().Set(keyValue.MapKey(), valueValue)
+			hasValue = true
+			if dumpExistedSet != nil {
+				mapExistedKey := makeExistedMapKeyIndexKey(existedSetPrefix, fd, keyValue.MapKey())
+				dumpExistedSet.MutableExistedSet()[fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), mapExistedKeyIndex)] = struct{}{}
+				dumpExistedSet.MutableMapKeyIndex()[mapExistedKey] = mapExistedKeyIndex
+			}
+		}
+
+		return hasValue
+	}
+
+	if fd.IsList() {
+		hasValue := false
+
+		innerList, ok := fieldData.([]interface{})
+		if !ok {
+			// 如果不是数组，fallback为单字段模式
+			if dumpYamlIntoMessageFieldValue(fieldData, dst, fd, logger, dumpExistedSet, existedSetPrefix) {
+				return true
+			}
+
+			return false
+		}
+
+		for _, item := range innerList {
+			if dumpYamlIntoMessageFieldValue(item, dst, fd, logger, dumpExistedSet, existedSetPrefix) {
+				hasValue = true
+			} else {
+				break
+			}
+		}
+
+		return hasValue
+	} else {
+		fieldMatch := false
+		if fd.Message() != nil {
+			if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
+				if confMeta.FieldMatch != nil && confMeta.FieldMatch.FieldName != "" && confMeta.FieldMatch.FieldValue != "" {
+					// 存在跳过规则
+					if value, ok := yamlData[confMeta.FieldMatch.FieldName].(string); ok {
+						// 存在
+						if value == confMeta.FieldMatch.FieldValue {
+							fieldMatch = true
+						} else {
+							return false
+						}
+					}
+				}
+			}
+		}
+
+		// 同层级展开
+		if fieldMatch && fd.Message() != nil {
+			tempMsg := dynamicpb.NewMessage(fd.Message())
+			if tempMsg == nil {
+				return false
+			}
+
+			if dumpYamlIntoMessage(yamlData, tempMsg, logger, dumpExistedSet, existedSetPrefix) {
+				dst.ProtoReflect().Set(fd, protoreflect.ValueOfMessage(tempMsg.ProtoReflect()))
+				return true
+			} else {
+				return false
+			}
+		}
+
+		return dumpYamlIntoMessageFieldValue(fieldData, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+	}
+}
+
+func dumpYamlIntoMessage(yamlData map[string]interface{}, dst proto.Message, logger *slog.Logger,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) bool {
+	if dst == nil {
+		return false
+	}
+	if len(yamlData) == 0 {
+		return false
+	}
+
+	ret := false
+
+	// protoreflect.Fie
+	fields := dst.ProtoReflect().Descriptor().Fields()
+	fieldSize := fields.Len()
+	for i := 0; i < fieldSize; i++ {
+		fd := fields.Get(i)
+		res := dumpYamlIntoMessageFieldItem(yamlData, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+		ret = ret || res
+	}
+
+	return ret
+}
+
+func LoadConfigFromOriginData(originData interface{}, prefixPath string, configPb proto.Message, logger *slog.Logger,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) (err error) {
 	parent := originData
 	pathParts := strings.Split(prefixPath, ".")
 	for i, pathPart := range pathParts {
@@ -881,7 +1169,7 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 		}
 
 		if lu.IsNil(parent) {
-			err = fmt.Errorf("LoadConfigFromYaml data nil")
+			err = fmt.Errorf("LoadConfigFromOriginData data nil")
 			break
 		}
 
@@ -890,11 +1178,11 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 			// 数组下标
 			parentArray, ok := parent.([]interface{})
 			if !ok {
-				err = fmt.Errorf("LoadConfigFromYaml expected array at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
+				err = fmt.Errorf("LoadConfigFromOriginData expected array at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
 				break
 			}
 			if len(parentArray) <= arrayIndex {
-				err = fmt.Errorf("LoadConfigFromYaml array index out of range at %s, got %d >= %d", strings.Join(pathParts[0:i+1], "."), arrayIndex, len(parentArray))
+				err = fmt.Errorf("LoadConfigFromOriginData array index out of range at %s, got %d >= %d", strings.Join(pathParts[0:i+1], "."), arrayIndex, len(parentArray))
 				break
 			}
 			parent = parentArray[arrayIndex]
@@ -902,12 +1190,12 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 			// 字符串key
 			parentMap, ok := parent.(map[string]interface{})
 			if !ok {
-				err = fmt.Errorf("LoadConfigFromYaml expected map at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
+				err = fmt.Errorf("LoadConfigFromOriginData expected map at %s, got %T", strings.Join(pathParts[0:i+1], "."), reflect.TypeOf(parent).Elem().Name())
 				break
 			}
 			parent, ok = parentMap[trimPart]
 			if !ok {
-				err = fmt.Errorf("LoadConfigFromYaml key not found at %s", strings.Join(pathParts[0:i+1], "."))
+				err = fmt.Errorf("LoadConfigFromOriginData key not found at %s", strings.Join(pathParts[0:i+1], "."))
 				break
 			}
 		}
@@ -916,23 +1204,24 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 	if err != nil {
 		logger.Error("load prefixPath failed", "err", err)
 		// 使用初始值初始化
-		parseErr := ParseMessage(nil, configPb, logger)
+		parseErr := LoadDefaultConfigMessageFields(configPb, logger, dumpExistedSet, existedSetPrefix)
 		if parseErr != nil {
-			logger.Error("ParseMessage failed", "err", parseErr)
+			logger.Error("LoadDefaultConfigMessageFields failed", "err", parseErr)
 		}
 		return
 	}
 
 	atappData, ok := parent.(map[string]interface{})
 	if !ok {
-		err = fmt.Errorf("LoadConfigFromYaml expected map at %s, got %T", strings.Join(pathParts, "."), reflect.TypeOf(parent).Elem().Name())
+		err = fmt.Errorf("LoadConfigFromOriginData expected map at %s, got %T", strings.Join(pathParts, "."), reflect.TypeOf(parent).Elem().Name())
 		return
 	}
-	err = ParseMessage(atappData, configPb, logger)
+
+	dumpYamlIntoMessage(atappData, configPb, logger, dumpExistedSet, existedSetPrefix)
 	return
 }
 
-func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Message, logger *slog.Logger) (yamlData map[string]interface{}, err error) {
+func LoadConfigOriginYaml(configPath string) (yamlData map[string]interface{}, err error) {
 	var data []byte
 	data, err = os.ReadFile(configPath)
 	if err != nil {
@@ -941,59 +1230,157 @@ func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Mes
 
 	yamlData = make(map[string]interface{})
 	err = yaml.Unmarshal(data, yamlData)
+	return
+}
+
+func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Message, logger *slog.Logger,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) (yamlData map[string]interface{}, err error) {
+	yamlData, err = LoadConfigOriginYaml(configPath)
 	if err != nil {
 		return
 	}
 
-	err = LoadConfigFromOriginData(yamlData, prefixPath, configPb, logger)
+	err = LoadConfigFromOriginData(yamlData, prefixPath, configPb, logger, dumpExistedSet, existedSetPrefix)
 	return
 }
 
-/*
 func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
 	}
 
-	val := os.Getenv(envPrefix)
-	if val == "" {
+	envVal := os.Getenv(envPrefix)
+	if envVal == "" {
 		return false
 	}
 
-	var existedSetKey string
-	if dumpExistedSet != nil {
-		if fd.IsList() {
-			existedSetKey = fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), dst.ProtoReflect().Get(fd).List().Len())
-		} else {
-			existedSetKey = fmt.Sprintf("%s%s", existedSetPrefix, fd.Name())
-		}
+	parsedVal, err := parseField(envVal, fd, logger)
+	if err != nil {
+		return false
 	}
 
-	// 记录已设置的环境变量
-	if dumpExistedSet != nil {
-		dumpExistedSet[fmt.Sprintf("%s%s", existedSetPrefix, envPrefix)] = struct{}{}
+	if !parsedVal.IsValid() {
+		return false
 	}
+
+	if fd.IsList() {
+		if parsedVal.IsValid() {
+			if dumpExistedSet != nil {
+				existedSetKey := fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), dst.ProtoReflect().Get(fd).List().Len())
+				dumpExistedSet.MutableExistedSet()[existedSetKey] = struct{}{}
+			}
+
+			dst.ProtoReflect().Mutable(fd).List().Append(parsedVal)
+			return true
+		}
+
+		return false
+	}
+
+	existedSetKey := fmt.Sprintf("%s%s", existedSetPrefix, fd.Name())
+	if parsedVal.IsValid() {
+		existed := false
+		if dumpExistedSet != nil {
+			_, existed = dumpExistedSet.MutableExistedSet()[existedSetKey]
+		}
+		if !existed {
+			dst.ProtoReflect().Set(fd, parsedVal)
+			return true
+		}
+	} else {
+		dst.ProtoReflect().Set(fd, parsedVal)
+		if dumpExistedSet != nil {
+			dumpExistedSet.MutableExistedSet()[existedSetKey] = struct{}{}
+		}
+		return true
+	}
+
+	return false
 }
 
 func dumpEnvironemntIntoMessageFieldValueMessage(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
 	}
 
-	var envKeyPrefix string
-	if len(envPrefix) == 0 {
-		envKeyPrefix = string(fd.Name())
+	if fd.Message() == nil && !fd.IsMap() {
+		return false
+	}
+
+	if fd.Message().FullName() == proto.MessageName(&durationpb.Duration{}) ||
+		fd.Message().FullName() == proto.MessageName(&timestamppb.Timestamp{}) {
+		// 基础类型处理
+		return dumpEnvironemntIntoMessageFieldValueBasic(envPrefix, dst, fd, logger, dumpExistedSet, existedSetPrefix)
+	}
+
+	if fd.IsMap() || fd.IsList() {
+		var index int
+		if fd.IsMap() {
+			index = dst.ProtoReflect().Get(fd).Map().Len()
+		} else {
+			index = dst.ProtoReflect().Get(fd).List().Len()
+		}
+		// 使用 dynamicpb 创建临时消息来收集环境变量数据
+		tempMsg := dynamicpb.NewMessage(fd.Message())
+		if tempMsg == nil {
+			return false
+		}
+
+		var nextExistedSetPrefix string
+		if dumpExistedSet != nil {
+			nextExistedSetPrefix = fmt.Sprintf("%s%s.%d.", existedSetPrefix, fd.Name(), index)
+		}
+
+		if dumpEnvironemntIntoMessage(envPrefix, tempMsg, logger, dumpExistedSet, nextExistedSetPrefix) {
+			if fd.IsMap() {
+				mapKeyFd := fd.MapKey()
+				mapValueFd := fd.MapValue()
+				mapKey := tempMsg.ProtoReflect().Get(mapKeyFd)
+				mapValue := tempMsg.ProtoReflect().Get(mapValueFd)
+				dst.ProtoReflect().Mutable(fd).Map().Set(mapKey.MapKey(), mapValue)
+
+				if dumpExistedSet != nil {
+					dumpExistedSet.MutableMapKeyIndex()[makeExistedMapKeyIndexKey(existedSetPrefix, fd, mapKey.MapKey())] = index
+				}
+			} else {
+				// 使用 AppendMutable 获取正确类型的消息，然后复制字段
+				dst.ProtoReflect().Mutable(fd).List().Append(protoreflect.ValueOfMessage(tempMsg.ProtoReflect()))
+			}
+
+			if dumpExistedSet != nil {
+				dumpExistedSet.MutableExistedSet()[fmt.Sprintf("%s%s.%d", existedSetPrefix, fd.Name(), index)] = struct{}{}
+			}
+			return true
+		} else {
+			return false
+		}
+
 	} else {
-		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fd.Name())
+		subMsg := dynamicpb.NewMessage(fd.Message())
+		if subMsg == nil {
+			return false
+		}
+
+		var nextExistedSetPrefix string
+		if dumpExistedSet != nil {
+			nextExistedSetPrefix = fmt.Sprintf("%s%s.", existedSetPrefix, fd.Name())
+		}
+		if dumpEnvironemntIntoMessage(envPrefix, subMsg, logger, dumpExistedSet, nextExistedSetPrefix) {
+			dst.ProtoReflect().Set(fd, protoreflect.ValueOfMessage(subMsg.ProtoReflect()))
+			return true
+		} else {
+			return false
+		}
 	}
 }
 
 func dumpEnvironemntIntoMessageFieldValue(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
@@ -1007,23 +1394,25 @@ func dumpEnvironemntIntoMessageFieldValue(envPrefix string, dst proto.Message, f
 }
 
 func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, dumpExistedSet map[string]struct{}, existedSetPrefix string,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
 	}
 
+	// 将字段名转换为大写形式以匹配环境变量命名惯例
+	fieldNameUpper := strings.ToUpper(string(fd.Name()))
 	var envKeyPrefix string
 	if len(envPrefix) == 0 {
-		envKeyPrefix = string(fd.Name())
+		envKeyPrefix = fieldNameUpper
 	} else {
-		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fd.Name())
+		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fieldNameUpper)
 	}
 
 	if fd.IsList() || fd.IsMap() {
 		hasValue := false
 		for i := 0; ; i++ {
-			if dumpEnvironemntIntoMessageFieldValue(fmt.Sprint("%s_%d", envKeyPrefix, i), dst, fd, logger, dumpExistedSet, existedSetPrefix) {
+			if dumpEnvironemntIntoMessageFieldValue(fmt.Sprintf("%s_%d", envKeyPrefix, i), dst, fd, logger, dumpExistedSet, existedSetPrefix) {
 				hasValue = true
 			} else {
 				break
@@ -1041,7 +1430,7 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 }
 
 func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *slog.Logger,
-	dumpExistedSet map[string]struct{}, existedSetPrefix string,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if dst == nil {
 		return false
@@ -1062,7 +1451,7 @@ func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *slo
 }
 
 func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger *slog.Logger,
-	dumpExistedSet map[string]struct{}, existedSetPrefix string,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) (bool, error) {
 	if logger == nil || configPb == nil {
 		return false, fmt.Errorf("dumpEnvironemntIntoMessage logger or configPb is nil")
@@ -1070,4 +1459,272 @@ func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger 
 
 	return dumpEnvironemntIntoMessage(envPrefix, configPb, logger, dumpExistedSet, existedSetPrefix), nil
 }
-*/
+
+func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.FieldDescriptor, logger *slog.Logger,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) {
+	if logger == nil || configPb == nil || fd == nil {
+		return
+	}
+
+	if fd.ContainingOneof() != nil {
+		if configPb.ProtoReflect().WhichOneof(fd.ContainingOneof()) != nil {
+			return
+		}
+	}
+
+	allowStringDefaultValue := fd.Message() == nil && !fd.IsMap()
+	if !allowStringDefaultValue && !fd.IsMap() {
+		allowStringDefaultValue = fd.Message().FullName() == proto.MessageName(&durationpb.Duration{}) ||
+			fd.Message().FullName() == proto.MessageName(&timestamppb.Timestamp{})
+	}
+
+	confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta)
+	if allowStringDefaultValue {
+		if confMeta == nil {
+			return
+		}
+
+		if confMeta.DefaultValue == "" {
+			return
+		}
+
+		if fd.IsList() {
+			return
+		}
+
+		if dumpExistedSet != nil {
+			checkKey := fmt.Sprintf("%s%s", existedSetPrefix, fd.Name())
+			_, existed := dumpExistedSet.MutableExistedSet()[checkKey]
+			if existed {
+				return
+			}
+		}
+	}
+
+	if fd.Message() == nil && !fd.IsMap() {
+		v, err := parseField(confMeta.DefaultValue, fd, logger)
+		if err != nil && v.IsValid() {
+			if dumpExistedSet != nil {
+				dumpExistedSet.MutableExistedSet()[fmt.Sprintf("%s%s", existedSetPrefix, fd.Name())] = struct{}{}
+			}
+		}
+		return
+	}
+
+	// Map展开默认值
+	if fd.IsMap() {
+		mapValueFd := fd.MapValue()
+		if mapValueFd.Message() == nil {
+			return
+		}
+		nextMapIndex := 0
+		// parseField
+		configPb.ProtoReflect().Mutable(fd).Map().Range(func(mk protoreflect.MapKey, v protoreflect.Value) bool {
+			var foundIndex int
+			var exists bool = false
+			mapIndexKey := makeExistedMapKeyIndexKey(existedSetPrefix, fd, mk)
+			if dumpExistedSet != nil {
+				foundIndex, exists = dumpExistedSet.MutableMapKeyIndex()[mapIndexKey]
+			}
+			if !exists {
+				foundIndex = nextMapIndex
+				nextMapIndex++
+
+				dumpExistedSet.MutableMapKeyIndex()[mapIndexKey] = foundIndex
+			}
+
+			LoadDefaultConfigMessageFields(v.Message().Interface(), logger, dumpExistedSet,
+				fmt.Sprintf("%s%s.%d.", existedSetPrefix, fd.Name(), foundIndex))
+			return true
+		})
+
+		return
+	}
+
+	// List展开默认值
+	if fd.IsList() {
+		if fd.Message() == nil {
+			return
+		}
+
+		list := configPb.ProtoReflect().Get(fd).List()
+		for i := 0; i < list.Len(); i++ {
+			LoadDefaultConfigMessageFields(list.Get(i).Message().Interface(), logger, dumpExistedSet,
+				fmt.Sprintf("%s%s.%d.", existedSetPrefix, fd.Name(), i))
+		}
+		return
+	}
+
+	// 普通Message默认值填充
+	subMsg := configPb.ProtoReflect().Get(fd).Message()
+	if subMsg == nil {
+		return
+	}
+
+	LoadDefaultConfigMessageFields(subMsg.Interface(), logger, dumpExistedSet,
+		fmt.Sprintf("%s%s.", existedSetPrefix, fd.Name()))
+}
+
+func LoadDefaultConfigMessageFields(configPb proto.Message, logger *slog.Logger,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) error {
+	if logger == nil || configPb == nil {
+		return fmt.Errorf("LoadDefaultConfigFields logger or configPb is nil")
+	}
+
+	if dumpExistedSet == nil {
+		dumpExistedSet = CreateConfigExistIndex()
+	}
+
+	fields := configPb.ProtoReflect().Descriptor().Fields()
+	fieldSize := fields.Len()
+	for i := 0; i < fieldSize; i++ {
+		fd := fields.Get(i)
+		dumpDefaultConfigMessageField(configPb, fd, logger, dumpExistedSet, existedSetPrefix)
+	}
+
+	return nil
+}
+
+// dumpEnvironemntIntoLogCategorySink 从环境变量加载 sink 配置
+// 环境变量格式: <envPrefix>_<CATEGORY_NAME>_<sink_index>_<FIELD_NAME>
+func dumpEnvironemntIntoLogCategorySink(envPrefix string, categoryName string, categoryIndex int, sink proto.Message, sinkIndex int,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) bool {
+	if sink == nil {
+		return false
+	}
+
+	ret := false
+	// 优先使用新格式: <envPrefix>_<CATEGORY_NAME>_<sink_index>
+	// 回退到旧格式: <envPrefix>_CATEGORY_<category_index>_SINK_<sink_index>
+	sinkEnvPrefixNew := fmt.Sprintf("%s_%s_%d", envPrefix, strings.ToUpper(categoryName), sinkIndex)
+	sinkEnvPrefixOld := fmt.Sprintf("%s_CATEGORY_%d_SINK_%d", envPrefix, categoryIndex, sinkIndex)
+
+	// 检查新格式是否存在
+	sinkEnvPrefix := sinkEnvPrefixNew
+	if os.Getenv(sinkEnvPrefixNew+"_TYPE") == "" && os.Getenv(sinkEnvPrefixOld+"_TYPE") != "" {
+		sinkEnvPrefix = sinkEnvPrefixOld
+	}
+
+	fields := sink.ProtoReflect().Descriptor().Fields()
+	fieldSize := fields.Len()
+	for i := 0; i < fieldSize; i++ {
+		fd := fields.Get(i)
+		res := dumpEnvironemntIntoMessageFieldItem(sinkEnvPrefix, sink, fd, logger, dumpExistedSet, existedSetPrefix)
+		ret = ret || res
+	}
+
+	return ret
+}
+
+// dumpEnvironemntIntoLogCategory 从环境变量加载 category 配置
+func dumpEnvironemntIntoLogCategory(envPrefix string, category *atframe_protocol.AtappLogCategory, categoryIndex int,
+	logger *slog.Logger, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) bool {
+	if category == nil {
+		return false
+	}
+
+	ret := false
+	categoryName := category.GetName()
+	if categoryName == "" {
+		return false
+	}
+
+	// 加载 category 的基础字段（除了 sink）
+	categoryEnvPrefix := fmt.Sprintf("%s_CATEGORY", envPrefix)
+	fields := category.ProtoReflect().Descriptor().Fields()
+	fieldSize := fields.Len()
+
+	// 加载 category 的非 sink 字段
+	itemEnvPrefix := fmt.Sprintf("%s_%d", categoryEnvPrefix, categoryIndex)
+	for i := 0; i < fieldSize; i++ {
+		fd := fields.Get(i)
+		// 跳过 sink 字段，后面单独处理
+		if fd.Name() == "sink" {
+			continue
+		}
+		res := dumpEnvironemntIntoMessageFieldItem(itemEnvPrefix, category, fd, logger, dumpExistedSet, existedSetPrefix)
+		ret = ret || res
+	}
+
+	// 加载 sink 列表
+	// 优先使用新格式: <envPrefix>_<CATEGORY_NAME>_<sink_index>_<FIELD_NAME>
+	// 回退到旧格式: <envPrefix>_CATEGORY_<category_index>_SINK_<sink_index>_<FIELD_NAME>
+	for sinkIndex := 0; ; sinkIndex++ {
+		// 检查是否存在该 sink（通过检查 TYPE 字段）
+		sinkTypeEnvKeyNew := fmt.Sprintf("%s_%s_%d_TYPE", envPrefix, strings.ToUpper(categoryName), sinkIndex)
+		sinkTypeEnvKeyOld := fmt.Sprintf("%s_CATEGORY_%d_SINK_%d_TYPE", envPrefix, categoryIndex, sinkIndex)
+
+		sinkType := os.Getenv(sinkTypeEnvKeyNew)
+		if sinkType == "" {
+			sinkType = os.Getenv(sinkTypeEnvKeyOld)
+		}
+		if sinkType == "" {
+			break
+		}
+
+		// 创建新的 sink 并添加到 category
+		sinkList := category.ProtoReflect().Mutable(fields.ByName("sink")).List()
+		newSink := sinkList.AppendMutable().Message().Interface()
+
+		if dumpEnvironemntIntoLogCategorySink(envPrefix, categoryName, categoryIndex, newSink, sinkIndex, logger, dumpExistedSet, existedSetPrefix) {
+			ret = true
+		}
+	}
+
+	return ret
+}
+
+// LoadLogConfigFromEnvironemnt 从环境变量加载日志配置
+// 支持特殊的 sink 配置格式: <前缀>_<CATEGORY_NAME>_<sink 下标>_<大写字段名>
+func LoadLogConfigFromEnvironemnt(envPrefix string, logConfigPb *atframe_protocol.AtappLog, logger *slog.Logger,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) (bool, error) {
+	if logger == nil || logConfigPb == nil {
+		return false, fmt.Errorf("LoadLogConfigFromEnvironemnt logger or logConfigPb is nil")
+	}
+
+	ret := false
+
+	// 加载 log 的基础字段
+	fields := logConfigPb.ProtoReflect().Descriptor().Fields()
+	fieldSize := fields.Len()
+	for i := 0; i < fieldSize; i++ {
+		fd := fields.Get(i)
+		// 跳过 category 字段，后面单独处理
+
+		if fd.Name() == "category" {
+			continue
+		}
+		res := dumpEnvironemntIntoMessageFieldItem(envPrefix, logConfigPb, fd, logger, dumpExistedSet, existedSetPrefix)
+		ret = ret || res
+	}
+
+	// 加载 category 列表
+	categoryEnvPrefix := fmt.Sprintf("%s_CATEGORY", envPrefix)
+	for categoryIndex := 0; ; categoryIndex++ {
+		// 检查是否存在该 category（通过检查 NAME 字段）
+		categoryNameEnvKey := fmt.Sprintf("%s_%d_NAME", categoryEnvPrefix, categoryIndex)
+		categoryName := os.Getenv(categoryNameEnvKey)
+		if categoryName == "" {
+			break
+		}
+
+		// 创建新的 category 并添加到 log
+		categoryFd := fields.ByName("category")
+		categoryList := logConfigPb.ProtoReflect().Mutable(categoryFd).List()
+		newCategory := categoryList.AppendMutable().Message().Interface().(*atframe_protocol.AtappLogCategory)
+
+		// 先设置 name，以便后续处理可以获取
+		newCategory.Name = categoryName
+
+		if dumpEnvironemntIntoLogCategory(envPrefix, newCategory, categoryIndex, logger, dumpExistedSet, existedSetPrefix) {
+			ret = true
+		}
+	}
+
+	return ret, nil
+}

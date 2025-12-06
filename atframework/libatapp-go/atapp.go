@@ -21,6 +21,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	"google.golang.org/protobuf/proto"
 
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
 	"github.com/panjf2000/ants/v2"
@@ -71,6 +72,7 @@ type AppConfig struct {
 
 	// 文件配置
 	ConfigPb         *atframe_protocol.AtappConfigure
+	ConfigLog        *atframe_protocol.AtappLog
 	ConfigOriginData interface{}
 }
 
@@ -125,7 +127,11 @@ type AppImpl interface {
 
 	// 配置相关
 	GetConfig() *AppConfig
-	LoadConfig(configFile string) error
+	LoadConfig(configFile string, configurePrefixPath string, loadEnvironemntPrefix string, existedKeys *ConfigExistedIndex) error
+	LoadConfigByPath(target proto.Message,
+		configurePrefixPath string, loadEnvironemntPrefix string,
+		existedKeys *ConfigExistedIndex, existedSetPrefix string,
+	) error
 
 	// 状态相关
 	IsInited() bool
@@ -469,7 +475,7 @@ func (app *AppInstance) Init(arguments []string) error {
 	}
 
 	// 加载配置
-	if err := app.LoadConfig(app.config.ConfigFile); err != nil {
+	if err := app.LoadConfig(app.config.ConfigFile, "atapp", "ATAPP", nil); err != nil {
 		if app.mode == AppModeStart {
 			app.writeStartupErrorFile(err)
 		}
@@ -800,7 +806,7 @@ func (app *AppInstance) Stop() error {
 
 func (app *AppInstance) Reload() error {
 	// 重新加载配置
-	if err := app.LoadConfig(app.config.ConfigFile); err != nil {
+	if err := app.LoadConfig(app.config.ConfigFile, "atapp", "ATAPP", nil); err != nil {
 		return fmt.Errorf("reload config failed: %w", err)
 	}
 
@@ -832,33 +838,112 @@ func (app *AppInstance) GetSysNow() time.Time {
 	return time.Now()
 }
 
-// 配置管理
-func (app *AppInstance) LoadConfig(configFile string) (err error) {
-	if configFile != "" {
-		// 先生成再替换
-		app.config.ConfigFile = configFile
-		// 实际的配置文件解析逻辑
-		app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
-		app.config.ConfigPb = &atframe_protocol.AtappConfigure{}
-		app.config.ConfigOriginData, err = LoadConfigFromYaml(configFile, "atapp", app.config.ConfigPb, app.GetDefaultLogger())
-		if err != nil {
-			app.GetDefaultLogger().Error("Load config failed", "error", err)
-			return
-		}
+func (app *AppInstance) LoadOriginConfigData(configFile string) (err error) {
+	if configFile == "" {
+		return
+	}
 
-		if app.config.ConfigPb.GetLog().GetCrashOutputFile() != "" {
-			app.config.CrashOutputFile = app.config.ConfigPb.GetLog().GetCrashOutputFile()
-		}
-	} else {
-		// 使用默认配置
-		app.GetDefaultLogger().Info("No config file specified, using default config")
-		app.config.ConfigPb = &atframe_protocol.AtappConfigure{}
-		err = ParseMessage(nil, app.config.ConfigPb, app.GetDefaultLogger())
-		if err != nil {
-			app.GetDefaultLogger().Error("Load config failed", "error", err)
-			return
+	app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
+	var yamlData map[string]interface{}
+	yamlData, err = LoadConfigOriginYaml(configFile)
+	if err != nil {
+		app.GetDefaultLogger().Error("Load config failed", "error", err)
+		return
+	}
+
+	app.config.ConfigOriginData = yamlData
+	return
+}
+
+// 配置管理
+func LoadConfigFromOriginDataByPath(logger *slog.Logger,
+	originData interface{}, target proto.Message,
+	configurePrefixPath string, loadEnvironemntPrefix string,
+	existedKeys *ConfigExistedIndex, existedSetPrefix string,
+) (err error) {
+	if target == nil {
+		return fmt.Errorf("target is nil")
+	}
+
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	if existedKeys == nil {
+		existedKeys = CreateConfigExistIndex()
+	}
+
+	if loadEnvironemntPrefix != "" {
+		if _, err := LoadConfigFromEnvironemnt(loadEnvironemntPrefix, target, logger, existedKeys, existedSetPrefix); err != nil {
+			logger.Error("Load config from environment failed", "error", err,
+				"env prefix", loadEnvironemntPrefix, "message_type", target.ProtoReflect().Descriptor().FullName())
 		}
 	}
+
+	err = LoadConfigFromOriginData(originData, configurePrefixPath, target, logger, existedKeys, existedSetPrefix)
+	if err != nil {
+		logger.Error("Load config by path failed", "error", err, "path", configurePrefixPath,
+			"message_type", target.ProtoReflect().Descriptor().FullName())
+		return err
+	}
+
+	// 补全Default values
+	LoadDefaultConfigMessageFields(target, logger, existedKeys, existedSetPrefix)
+	return
+}
+
+func (app *AppInstance) LoadConfigByPath(target proto.Message,
+	configurePrefixPath string, loadEnvironemntPrefix string,
+	existedKeys *ConfigExistedIndex, existedSetPrefix string,
+) error {
+	if app == nil {
+		return fmt.Errorf("app is nil")
+	}
+
+	return LoadConfigFromOriginDataByPath(app.GetDefaultLogger(), app.config.ConfigOriginData, target,
+		configurePrefixPath, loadEnvironemntPrefix, existedKeys, existedSetPrefix)
+}
+
+// 配置管理
+func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string,
+	loadEnvironemntPrefix string, existedKeys *ConfigExistedIndex,
+) (err error) {
+	err = app.LoadOriginConfigData(configFile)
+	if err != nil {
+		return
+	}
+
+	if existedKeys == nil {
+		existedKeys = CreateConfigExistIndex()
+	}
+
+	configPb := &atframe_protocol.AtappConfigure{}
+	err = app.LoadConfigByPath(configPb, configurePrefixPath, loadEnvironemntPrefix, existedKeys, "")
+	if err != nil {
+		app.GetDefaultLogger().Error("Load config failed", "error", err)
+		return
+	}
+	app.config.ConfigPb = configPb
+
+	// 日志配置单独处理
+	configLog := &atframe_protocol.AtappLog{}
+	var logLoadEnvironemntPrefix string
+	if loadEnvironemntPrefix != "" {
+		logLoadEnvironemntPrefix = loadEnvironemntPrefix + "_LOG"
+	}
+	var logConfigurePrefixPath string
+	if configurePrefixPath == "" {
+		logConfigurePrefixPath = "log"
+	} else {
+		logConfigurePrefixPath = configurePrefixPath + ".log"
+	}
+	err = app.LoadConfigByPath(configLog, logConfigurePrefixPath, logLoadEnvironemntPrefix, existedKeys, "log.")
+	if err != nil {
+		app.GetDefaultLogger().Error("Load log config failed", "error", err)
+	} else {
+		app.config.ConfigLog = configLog
+	}
+
 	return
 }
 
@@ -1071,11 +1156,11 @@ func (app *AppInstance) setupStartupLog() error {
 }
 
 func (app *AppInstance) setupLog() error {
-	if app.config.ConfigPb == nil {
+	if app.config.ConfigLog == nil {
 		return fmt.Errorf("setup process error, configure not loaded")
 	}
 	// 根据配置设置日志
-	appLog, err := app.InitLog(app.config.ConfigPb.Log)
+	appLog, err := app.InitLog(app.config.ConfigLog)
 	if err != nil {
 		return err
 	}

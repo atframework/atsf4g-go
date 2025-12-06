@@ -11,9 +11,8 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"time"
-
 	"sync/atomic"
+	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
@@ -137,7 +136,7 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	}
 
 	redisCfg := &private_protocol_config.LogicRedisCfg{}
-	loadErr := libatapp.LoadConfigFromOriginData(d.GetApp().GetConfig().ConfigOriginData, "lobbysvr.redis", redisCfg, d.GetLogger())
+	loadErr := d.GetApp().LoadConfigByPath(redisCfg, "lobbysvr.redis", "ATAPP_LOBBYSVR_REDIS", nil, "")
 	if loadErr != nil {
 		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
 	}
