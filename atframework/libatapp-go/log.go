@@ -132,6 +132,17 @@ func NewLogHandlerImpl(cache *sync.Map) *logHandlerImpl {
 	}
 }
 
+func createLogHandlerWriter(out LogWriter) logHandlerWriter {
+	return logHandlerWriter{
+		minLevel:         slog.LevelInfo,
+		maxLevel:         slog.LevelError,
+		out:              out,
+		enableStackTrace: true,
+		stackTraceLevel:  slog.LevelError,
+		autoFlushLevel:   slog.LevelError,
+	}
+}
+
 func (h *logHandlerImpl) AppendWriter(writer logHandlerWriter) {
 	if writer.maxLevel < writer.minLevel {
 		writer.maxLevel = writer.minLevel

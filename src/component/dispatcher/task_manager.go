@@ -135,7 +135,7 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 
 		} else {
 			if action.GetResponseCode() < 0 {
-				t.GetApp().GetDefaultLogger().Error("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
+				t.GetApp().GetDefaultLogger().Warn("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 
 				// 超时错误码
 				if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) {

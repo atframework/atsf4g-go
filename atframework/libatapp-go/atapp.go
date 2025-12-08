@@ -132,6 +132,10 @@ type AppImpl interface {
 		configurePrefixPath string, loadEnvironemntPrefix string,
 		existedKeys *ConfigExistedIndex, existedSetPrefix string,
 	) error
+	LoadLogConfigByPath(target *atframe_protocol.AtappLog,
+		configurePrefixPath string, loadEnvironemntPrefix string,
+		existedKeys *ConfigExistedIndex, existedSetPrefix string,
+	) error
 
 	// 状态相关
 	IsInited() bool
@@ -221,9 +225,7 @@ func CreateAppInstance() AppImpl {
 	initBuildInfo()
 
 	handler := NewLogHandlerImpl(&ret.logFrameInfoCache)
-	handler.AppendWriter(logHandlerWriter{
-		out: NewlogStdoutWriter(),
-	})
+	handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
 	ret.logger.loggers = append(ret.logger.loggers, slog.New(handler))
 
 	ret.flagSet = flag.NewFlagSet(
@@ -317,7 +319,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 
 		handler := NewLogHandlerImpl(&app.logFrameInfoCache)
 		for sinkIndex := range config.Category[i].Sink {
-			writer := logHandlerWriter{}
+			writer := createLogHandlerWriter(nil)
 			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max))
 			writer.maxLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min)
 
@@ -364,9 +366,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 	for i := range appLog.loggers {
 		if appLog.loggers[i] == nil {
 			handler := NewLogHandlerImpl(&app.logFrameInfoCache)
-			handler.AppendWriter(logHandlerWriter{
-				out: NewlogStdoutWriter(),
-			})
+			handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
 			appLog.loggers[i] = slog.New(handler)
 		}
 	}
@@ -464,6 +464,8 @@ func (app *AppInstance) Init(arguments []string) error {
 		return fmt.Errorf("setup startup log failed: %w", err)
 	}
 
+	app.GetDefaultLogger().Warn("======================== App Initializing(startup log) ========================")
+
 	// 设置信号处理
 	if app.mode != AppModeCustom && app.mode != AppModeStop && app.mode != AppModeReload {
 		if err := app.setupSignal(); err != nil {
@@ -500,6 +502,8 @@ func (app *AppInstance) Init(arguments []string) error {
 		}
 		return fmt.Errorf("setup log failed: %w", err)
 	}
+
+	app.GetDefaultLogger().Warn("======================== App Initializing(setup log) ========================")
 
 	// 设置定时器
 	if err := app.setupTickTimer(); err != nil {
@@ -606,11 +610,22 @@ func (app *AppInstance) Init(arguments []string) error {
 			app.cleanupStartupErrorFile()
 		}
 
+		readyMessage := fmt.Sprintf("======================== App Ready ========================\nApp Version: %s\nBuild Version: %s\nExecute Path: %s\nConfig File: %s\nHash Code: %s",
+			app.GetAppVersion(),
+			app.GetBuildVersion(),
+			app.GetConfig().ExecutePath,
+			app.GetConfig().ConfigFile,
+			app.GetHashCode(),
+		)
+		app.GetDefaultLogger().Warn(readyMessage)
+
 		// Ready phase
 		for _, m := range app.modules {
 			m.Ready()
 		}
 	} else {
+		app.GetDefaultLogger().Warn("======================== App Startup Failed ========================")
+
 		// 失败处理
 		app.Stop()
 
@@ -796,15 +811,16 @@ func (app *AppInstance) Stop() error {
 	if app.IsClosing() {
 		return nil
 	}
+	app.GetDefaultLogger().Warn("======================== App Stopping ========================")
 
 	app.stopTimeout = app.GetSysNow().Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
 	app.SetFlag(AppFlagStopping, true)
 	app.stopAppHandle()
-	app.GetDefaultLogger().Info("Start to stop...")
 	return nil
 }
 
 func (app *AppInstance) Reload() error {
+	app.GetDefaultLogger().Warn("======================== App Reloading ========================")
 	// 重新加载配置
 	if err := app.LoadConfig(app.config.ConfigFile, "atapp", "ATAPP", nil); err != nil {
 		return fmt.Errorf("reload config failed: %w", err)
@@ -852,6 +868,10 @@ func (app *AppInstance) LoadOriginConfigData(configFile string) (err error) {
 	}
 
 	app.config.ConfigOriginData = yamlData
+
+	if app.config.ConfigFile == "" {
+		app.config.ConfigFile = configFile
+	}
 	return
 }
 
@@ -859,6 +879,7 @@ func (app *AppInstance) LoadOriginConfigData(configFile string) (err error) {
 func LoadConfigFromOriginDataByPath(logger *slog.Logger,
 	originData interface{}, target proto.Message,
 	configurePrefixPath string, loadEnvironemntPrefix string,
+	loadOptions *LoadConfigOptions,
 	existedKeys *ConfigExistedIndex, existedSetPrefix string,
 ) (err error) {
 	if target == nil {
@@ -870,21 +891,25 @@ func LoadConfigFromOriginDataByPath(logger *slog.Logger,
 	}
 
 	if existedKeys == nil {
-		existedKeys = CreateConfigExistIndex()
+		existedKeys = CreateConfigExistedIndex()
 	}
 
 	if loadEnvironemntPrefix != "" {
-		if _, err := LoadConfigFromEnvironemnt(loadEnvironemntPrefix, target, logger, existedKeys, existedSetPrefix); err != nil {
+		if _, err := LoadConfigFromEnvironemnt(loadEnvironemntPrefix, target, logger,
+			loadOptions, existedKeys, existedSetPrefix); err != nil {
 			logger.Error("Load config from environment failed", "error", err,
 				"env prefix", loadEnvironemntPrefix, "message_type", target.ProtoReflect().Descriptor().FullName())
 		}
 	}
 
-	err = LoadConfigFromOriginData(originData, configurePrefixPath, target, logger, existedKeys, existedSetPrefix)
-	if err != nil {
-		logger.Error("Load config by path failed", "error", err, "path", configurePrefixPath,
-			"message_type", target.ProtoReflect().Descriptor().FullName())
-		return err
+	if originData != nil {
+		err = LoadConfigFromOriginData(originData, configurePrefixPath, target, logger,
+			loadOptions, existedKeys, existedSetPrefix)
+		if err != nil {
+			logger.Error("Load config by path failed", "error", err, "path", configurePrefixPath,
+				"message_type", target.ProtoReflect().Descriptor().FullName())
+			return err
+		}
 	}
 
 	// 补全Default values
@@ -901,7 +926,51 @@ func (app *AppInstance) LoadConfigByPath(target proto.Message,
 	}
 
 	return LoadConfigFromOriginDataByPath(app.GetDefaultLogger(), app.config.ConfigOriginData, target,
-		configurePrefixPath, loadEnvironemntPrefix, existedKeys, existedSetPrefix)
+		configurePrefixPath, loadEnvironemntPrefix, nil, existedKeys, existedSetPrefix)
+}
+
+func (app *AppInstance) LoadLogConfigByPath(target *atframe_protocol.AtappLog,
+	configurePrefixPath string, loadEnvironemntPrefix string,
+	existedKeys *ConfigExistedIndex, existedSetPrefix string,
+) error {
+	if app == nil {
+		return fmt.Errorf("app is nil")
+	}
+
+	if target == nil {
+		return fmt.Errorf("target is nil")
+	}
+
+	err := LoadConfigFromOriginDataByPath(app.GetDefaultLogger(), app.config.ConfigOriginData, target,
+		configurePrefixPath, loadEnvironemntPrefix, &LoadConfigOptions{
+			ReorderListIndexByField: "index",
+		}, existedKeys, existedSetPrefix)
+	if err != nil {
+		return err
+	}
+
+	if loadEnvironemntPrefix == "" {
+		return nil
+	}
+
+	// 日志Category的环境变量读取支持转义
+	for i, category := range target.Category {
+		if category.Name == "" {
+			continue
+		}
+		category.Index = int32(i)
+
+		LoadLogCategoryConfigFromEnvironemnt(fmt.Sprintf("%s_%s", loadEnvironemntPrefix, category.Name), category,
+			app.GetDefaultLogger(), existedKeys, fmt.Sprintf("%scategory.%d.", existedSetPrefix, i))
+
+		// Force index existed key
+		if existedKeys != nil {
+			forceIndexKey := fmt.Sprintf("%scategory.%d.index", existedSetPrefix, i)
+			existedKeys.MutableExistedSet()[forceIndexKey] = struct{}{}
+		}
+	}
+
+	return nil
 }
 
 // 配置管理
@@ -914,7 +983,7 @@ func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string
 	}
 
 	if existedKeys == nil {
-		existedKeys = CreateConfigExistIndex()
+		existedKeys = CreateConfigExistedIndex()
 	}
 
 	configPb := &atframe_protocol.AtappConfigure{}
@@ -937,7 +1006,7 @@ func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string
 	} else {
 		logConfigurePrefixPath = configurePrefixPath + ".log"
 	}
-	err = app.LoadConfigByPath(configLog, logConfigurePrefixPath, logLoadEnvironemntPrefix, existedKeys, "log.")
+	err = app.LoadLogConfigByPath(configLog, logConfigurePrefixPath, logLoadEnvironemntPrefix, existedKeys, "log.")
 	if err != nil {
 		app.GetDefaultLogger().Error("Load log config failed", "error", err)
 	} else {
@@ -1093,19 +1162,13 @@ func (app *AppInstance) setupStartupLog() error {
 			switch logFile {
 			case "stdout":
 				{
-					handler.AppendWriter(logHandlerWriter{
-						minLevel: slog.LevelError,
-						maxLevel: slog.LevelError,
-						out:      NewlogStdoutWriter(),
-					})
+					logHandler := createLogHandlerWriter(NewlogStdoutWriter())
+					handler.AppendWriter(logHandler)
 				}
 			case "stderr":
 				{
-					handler.AppendWriter(logHandlerWriter{
-						minLevel: slog.LevelError,
-						maxLevel: slog.LevelError,
-						out:      NewlogStderrWriter(),
-					})
+					logHandler := createLogHandlerWriter(NewlogStderrWriter())
+					handler.AppendWriter(logHandler)
 				}
 			case "stdsys":
 				{
@@ -1115,14 +1178,7 @@ func (app *AppInstance) setupStartupLog() error {
 				{
 					out, _ := NewLogBufferedRotatingWriter(app,
 						fmt.Sprintf("../log/%s", logFile), "", 50*1024*1024, 1, time.Second*1)
-					handler.AppendWriter(logHandlerWriter{
-						minLevel:         slog.LevelDebug,
-						maxLevel:         slog.LevelError,
-						out:              out,
-						enableStackTrace: true,
-						stackTraceLevel:  slog.LevelError,
-						autoFlushLevel:   slog.LevelError,
-					})
+					handler.AppendWriter(createLogHandlerWriter(out))
 				}
 			}
 		}
