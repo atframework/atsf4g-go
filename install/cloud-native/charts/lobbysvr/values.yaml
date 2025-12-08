@@ -20,6 +20,15 @@ volumeMounts:
   configMountPath: /service/lobbysvr/cfg
   logMountPath: /service/lobbysvr/log
 
+vector:
+  image:
+    repository: harbor.m-oa.com:6023/vector/vector:latest
+    pullPolicy: Always
+  opensearch:
+    username: project-Y-log-writer
+    password: 11bo1B{OE,gjzZ4D
+    endpoint: https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
+
 imagePullSecrets:
   - name: jijunliang-harbor-regcred
 

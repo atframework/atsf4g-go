@@ -2,5 +2,5 @@
 {{- define "lobbysvr.configmap" -}}
 data:
   {{ include "lobbysvr.name" . }}.yaml: {{ tpl (.Files.Get "cfg/lobbysvr.yaml.tpl") . | quote }}
-  # {{ include "lobbysvr.name" . }}_tlog.xml: {{ tpl (.Files.Get "cfg/lobbysvr.xml.tpl") . | quote }}
+  vector.yaml: {{ tpl (.Files.Get "cfg/vector.yaml.tpl") . | quote }}
 {{- end -}}

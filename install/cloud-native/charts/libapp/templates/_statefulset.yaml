@@ -41,6 +41,10 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - {{ include "libapp.container.tpl" . | nindent 10 }}
+      {{- if and .Values.vector (default true .Values.vector.enabled) }}
+      initContainers:
+        - {{ include "libapp.vector.container.tpl" . | nindent 10 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -70,8 +70,19 @@ env:
       containerName: {{ include "libapp.name" . }}
       resource: requests.memory
 {{- end -}}
-{{- define "libapp.container" -}}
-{{- /* clear new line so indentation works correctly */ -}}
-{{- println "" -}}
-{{- include "libapp.util.merge" (append . "libapp.container.tpl") | indent 4 -}}
+
+{{- define "libapp.vector.container.tpl" -}}
+{{- if and .Values.vector (default true .Values.vector.enabled) }}
+name: vector
+image: "{{ .Values.vector.image.repository }}"
+imagePullPolicy: {{ .Values.vector.image.pullPolicy }}
+restartPolicy: Always
+args: [--config, {{ .Values.volumeMounts.configMountPath }}/vector.yaml]
+volumeMounts:
+- name: config
+  mountPath: {{ .Values.volumeMounts.configMountPath | quote }}
+  readOnly: true
+- name: log
+  mountPath: {{ .Values.volumeMounts.logMountPath | quote }}
+{{- end }}
 {{- end -}}

@@ -2,28 +2,18 @@ sources:
   lobbysvr_logs_normal:
     type: file
     include:
-      - /service/lobbysvr/log/*.normal.all.log
-    data_dir: /service/lobbysvr/log
+      - {{ .Values.volumeMounts.logMountPath }}/*.normal.all.log
+    data_dir: {{ .Values.volumeMounts.logMountPath }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
     glob_minimum_cooldown_ms: 1000
 
-  # lobbysvr_logs_crash:
-  #   type: file
-  #   include:
-  #     - ${LOG_PATH}/*.crash.log
-  #   data_dir: /service/lobbysvr/log
-  #   ignore_older_secs: 600
-  #   read_from: beginning
-  #   line_delimiter: "\n"
-  #   glob_minimum_cooldown_ms: 1000
-
   lobbysvr_logs_db_inner:
     type: file
     include:
-      - /service/lobbysvr/log/*.db_inner.all.log
-    data_dir: /service/lobbysvr/log
+      - {{ .Values.volumeMounts.logMountPath }}/*.db_inner.all.log
+    data_dir: {{ .Values.volumeMounts.logMountPath }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -32,8 +22,8 @@ sources:
   lobbysvr_logs_redis:
     type: file
     include:
-      - /service/lobbysvr/log/*.redis.all.log
-    data_dir: /service/lobbysvr/log
+      - {{ .Values.volumeMounts.logMountPath }}/*.redis.all.log
+    data_dir: {{ .Values.volumeMounts.logMountPath }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -42,8 +32,8 @@ sources:
   lobbysvr_logs_actor:
     type: file
     include:
-      - /service/lobbysvr/log/*/*.new.log
-    data_dir: /service/lobbysvr/log
+      - {{ .Values.volumeMounts.logMountPath }}/*/*.new.log
+    data_dir: {{ .Values.volumeMounts.logMountPath }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -86,24 +76,6 @@ transforms:
       .@timestamp = now()
       .log_type = "normal"
 
-  # crash_enrich:
-  #   type: remap
-  #   inputs:
-  #     - lobbysvr_logs_crash
-  #   source: |
-  #     .file_path = string!(.file)
-  #     .file_name = basename!(.file_path)
-  #     . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+)')
-  #     del(.file)
-  #     del(.file_path)
-  #     del(.file_name)
-  #     del(.host)
-  #     del(.timestamp)
-  #     del(.source_type)
-
-  #     .@timestamp = now()
-  #     .log_type = "crash"
-
   db_inner_enrich:
     type: remap
     inputs:
@@ -141,106 +113,81 @@ transforms:
       .log_type = "redis"
 
 sinks:
-  # out:
-  #   type: console
-  #   inputs:
-  #     - actor_enrich
-  #     - normal_enrich
-  #     # - crash_enrich
-  #     - db_inner_enrich
-  #     - redis_enrich
-  #   encoding:
-  #     codec: json
-
   # OpenSearch sinks (Elasticsearch-compatible) for indexing
   # Configure endpoint and credentials via environment variables:
   #   VECTOR_OPENSEARCH_ENDPOINT, VECTOR_OPENSEARCH_USERNAME, VECTOR_OPENSEARCH_PASSWORD
   opensearch_normal:
     type: elasticsearch
+    mode: data_stream
     inputs:
       - normal_enrich
     endpoints:
-      - https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
+      - {{ .Values.vector.opensearch.endpoint }}
     auth:
       strategy: basic
-      user: project-Y-log-writer
-      password: 11bo1B{OE,gjzZ4D
+      user: {{ .Values.vector.opensearch.username }}
+      password: {{ .Values.vector.opensearch.password }}
     tls:
       verify_certificate: false
       verify_hostname: false
     data_stream:
-      type: logs
-      namespace: "project-y"
-      dataset: "lobbysvr-normal"
-
-  # opensearch_crash:
-  #   type: elasticsearch
-  #   inputs:
-  #     - crash_enrich
-  #   endpoints:
-  #     - https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
-  #   auth:
-  #     strategy: basic
-  #     user: project-Y-log-writer
-  #     password: 11bo1B{OE,gjzZ4D
-  #   tls:
-  #     verify_certificate: false
-  #     verify_hostname: false
-  #   data_stream:
-  #     type: logs
-  #     namespace: "project-y"
-  #     dataset: "lobbysvr-crash"
+      type: project-y
+      dataset: "lobbysvr"
+      namespace: "normal"
 
   opensearch_db_inner:
     type: elasticsearch
+    mode: data_stream
     inputs:
       - db_inner_enrich
     endpoints:
-      - https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
+      - {{ .Values.vector.opensearch.endpoint }}
     auth:
       strategy: basic
-      user: project-Y-log-writer
-      password: 11bo1B{OE,gjzZ4D
+      user: {{ .Values.vector.opensearch.username }}
+      password: {{ .Values.vector.opensearch.password }}
     tls:
       verify_certificate: false
       verify_hostname: false
     data_stream:
-      type: logs
-      namespace: "project-y"
-      dataset: "lobbysvr-db-inner"
+      type: project-y
+      dataset: "lobbysvr"
+      namespace: "db-inner"
 
   opensearch_redis:
     type: elasticsearch
+    mode: data_stream
     inputs:
       - redis_enrich
     endpoints:
-      - https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
+      - {{ .Values.vector.opensearch.endpoint }}
     auth:
       strategy: basic
-      user: project-Y-log-writer
-      password: 11bo1B{OE,gjzZ4D
+      user: {{ .Values.vector.opensearch.username }}
+      password: {{ .Values.vector.opensearch.password }}
     tls:
       verify_certificate: false
       verify_hostname: false
     data_stream:
-      type: logs
-      namespace: "project-y"
-      dataset: "lobbysvr-redis"
+      type: project-y
+      dataset: "lobbysvr"
+      namespace: "redis"
 
   opensearch_actor:
     type: elasticsearch
+    mode: data_stream
     inputs:
       - actor_enrich
     endpoints:
-      - https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
+      - {{ .Values.vector.opensearch.endpoint }}
     auth:
       strategy: basic
-      user: project-Y-log-writer
-      password: 11bo1B{OE,gjzZ4D
+      user: {{ .Values.vector.opensearch.username }}
+      password: {{ .Values.vector.opensearch.password }}
     tls:
       verify_certificate: false
       verify_hostname: false
     data_stream:
-      type: logs
-      namespace: "project-y"
-      dataset: "lobbysvr-actor"
+      type: project-y
+      dataset: "lobbysvr"
+      namespace: "actor"
