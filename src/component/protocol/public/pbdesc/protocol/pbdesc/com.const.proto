@@ -115,6 +115,7 @@ enum EnCloseReasonType {
   // 0x20000 == 131072
   // 0x20000 - 0x30000 是自定义网络层可重连原因
   EN_CRT_SESSION_KICKOFF_BY_SERVER = 131073;  // kickoff by server
+  EN_CRT_ANOTHER_DEVICE_LOGIN = 188888 [(error_code.description) = "其他设备登入"];
 
   // 0x30000 == 196608
   // 0x30000 - 0x40000 是自定义网络层不可重连，逻辑层可重连关闭原因

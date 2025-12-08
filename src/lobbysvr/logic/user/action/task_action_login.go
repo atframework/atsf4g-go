@@ -13,6 +13,8 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 
 	config "github.com/atframework/atsf4g-go/component-config"
+
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	db "github.com/atframework/atsf4g-go/component-db"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	router "github.com/atframework/atsf4g-go/component-router"
@@ -107,7 +109,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	// 如果是在线用户，走替换Session流程
 	if user != nil && user.IsWriteable() {
-		t.replaceSession(user, session)
+		t.replaceSession(t.GetRpcContext(), user, session)
 		return nil
 	}
 
@@ -225,7 +227,7 @@ func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
 	return true
 }
 
-func (t *TaskActionLogin) replaceSession(user *data.User, session *uc.Session) bool {
+func (t *TaskActionLogin) replaceSession(ctx cd.RpcContext, user *data.User, session *uc.Session) bool {
 	if user == nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		t.GetLogger().Error("user is required")
@@ -239,7 +241,12 @@ func (t *TaskActionLogin) replaceSession(user *data.User, session *uc.Session) b
 	}
 
 	// 先解锁旧的Session
+	oldSession := user.GetUserSession()
 	user.BindSession(t.GetRpcContext(), session)
+	if !lu.IsNil(oldSession) {
+		sessionMgr := libatapp.AtappGetModule[*uc.SessionManager](t.GetAwaitableContext().GetApp())
+		sessionMgr.RemoveSession(ctx, oldSession.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_ANOTHER_DEVICE_LOGIN), "replace session")
+	}
 	return true
 }
 
