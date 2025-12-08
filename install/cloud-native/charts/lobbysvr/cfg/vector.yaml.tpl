@@ -83,7 +83,7 @@ transforms:
     source: |
       .file_path = string!(.file)
       .file_name = basename!(.file_path)
-      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+)')
+      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
       del(.file)
       del(.file_path)
       del(.file_name)
@@ -101,7 +101,7 @@ transforms:
     source: |
       .file_path = string!(.file)
       .file_name = basename!(.file_path)
-      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+)')
+      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
       del(.file)
       del(.file_path)
       del(.file_name)
