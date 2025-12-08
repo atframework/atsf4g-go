@@ -53,7 +53,7 @@ func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback Conf
 		callback.GetLogger().Info("Load config from file", "file", originConfigData)
 		serverConfig := &private_protocol_config.LogicSectionCfg{}
 		err = libatapp.LoadConfigFromOriginDataByPath(callback.GetLogger(),
-			originConfigData, serverConfig, "logic", "ATAPP_LOGIC", nil, "")
+			originConfigData, serverConfig, "logic", "ATAPP_LOGIC", nil, nil, "")
 		if err != nil {
 			callback.GetLogger().Error("Load config failed", "error", err)
 			return
