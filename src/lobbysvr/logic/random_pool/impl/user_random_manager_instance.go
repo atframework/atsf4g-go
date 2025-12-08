@@ -136,11 +136,11 @@ func (m *UserRandomPoolManager) SubItem(ctx cd.RpcContext, itemOffset []*data.It
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 
-func (m *UserRandomPoolManager) GetTypeStatistics(typeId int32) *data.ItemTypeStatistics {
+func (m *UserRandomPoolManager) GetTypeStatistics(ctx cd.RpcContext, typeId int32) *data.ItemTypeStatistics {
 	return nil
 }
 
-func (m *UserRandomPoolManager) GetItemFromBasic(itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserRandomPoolManager) GetItemFromBasic(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
 	return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_IMPLEMENTED)
 }
 

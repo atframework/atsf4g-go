@@ -806,16 +806,16 @@ func (u *User) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 	return ret, cd.CreateRpcResultOk()
 }
 
-func (u *User) GetItemTypeStatistics(typeId int32) *ItemTypeStatistics {
+func (u *User) GetItemTypeStatistics(ctx cd.RpcContext, typeId int32) *ItemTypeStatistics {
 	mgr := u.GetItemManager(typeId)
 	if mgr == nil {
 		return nil
 	}
 
-	return mgr.GetTypeStatistics(typeId)
+	return mgr.GetTypeStatistics(ctx, typeId)
 }
 
-func (u *User) GetItemFromBasic(itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
+func (u *User) GetItemFromBasic(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, Result) {
 	if itemBasic == nil {
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
@@ -826,7 +826,7 @@ func (u *User) GetItemFromBasic(itemBasic *public_protocol_common.DItemBasic) (*
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 	}
 
-	return mgr.GetItemFromBasic(itemBasic)
+	return mgr.GetItemFromBasic(ctx, itemBasic)
 }
 
 func (u *User) GetNotEnoughErrorCode(typeId int32) int32 {

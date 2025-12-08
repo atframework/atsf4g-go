@@ -62,8 +62,8 @@ type UserItemManagerImpl interface {
 	CheckAddItem(ctx cd.RpcContext, itemOffset []*ppc.DItemInstance) ([]*ItemAddGuard, Result)
 	CheckSubItem(ctx cd.RpcContext, itemOffset []*ppc.DItemBasic) ([]*ItemSubGuard, Result)
 
-	GetTypeStatistics(typeId int32) *ItemTypeStatistics
-	GetItemFromBasic(itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, Result)
+	GetTypeStatistics(ctx cd.RpcContext, typeId int32) *ItemTypeStatistics
+	GetItemFromBasic(ctx cd.RpcContext, itemBasic *ppc.DItemBasic) (*ppc.DItemInstance, Result)
 	ForeachItem(fn func(item *ppc.DItemInstance) bool)
 	GetNotEnoughErrorCode(typeId int32) int32
 

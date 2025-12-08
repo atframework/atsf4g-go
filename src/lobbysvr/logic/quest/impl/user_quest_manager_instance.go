@@ -162,11 +162,11 @@ func (m *UserQuestManager) GenerateItemInstanceFromOffset(_ cd.RpcContext,
 	return nil, cd.CreateRpcResultOk()
 }
 
-func (m *UserQuestManager) GetTypeStatistics(_ int32) *data.ItemTypeStatistics {
+func (m *UserQuestManager) GetTypeStatistics(ctx cd.RpcContext, _ int32) *data.ItemTypeStatistics {
 	return nil
 }
 
-func (m *UserQuestManager) GetItemFromBasic(_ *public_protocol_common.DItemBasic) (
+func (m *UserQuestManager) GetItemFromBasic(ctx cd.RpcContext, _ *public_protocol_common.DItemBasic) (
 	*public_protocol_common.DItemInstance, data.Result,
 ) {
 	return nil, cd.CreateRpcResultOk()

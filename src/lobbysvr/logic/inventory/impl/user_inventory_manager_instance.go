@@ -599,11 +599,11 @@ func (m *UserInventoryManager) CheckSubItem(ctx cd.RpcContext, itemOffset []*pub
 	return guard, cd.CreateRpcResultOk()
 }
 
-func (m *UserInventoryManager) GetTypeStatistics(typeId int32) *data.ItemTypeStatistics {
+func (m *UserInventoryManager) GetTypeStatistics(ctx cd.RpcContext, typeId int32) *data.ItemTypeStatistics {
 	// 虚拟道具分发
 	if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 		typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
-		standalone, itemStats := m.virtualItemManager.GetTypeStatistics(typeId)
+		standalone, itemStats := m.virtualItemManager.GetTypeStatistics(ctx, typeId)
 		if standalone {
 			return itemStats
 		}
@@ -629,7 +629,7 @@ func (m *UserInventoryManager) GetNotEnoughErrorCode(typeId int32) int32 {
 	return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_NOT_ENOUGH)
 }
 
-func (m *UserInventoryManager) GetItemFromBasic(itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
+func (m *UserInventoryManager) GetItemFromBasic(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic) (*public_protocol_common.DItemInstance, data.Result) {
 	if itemBasic == nil {
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemBasic is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 	}
@@ -639,7 +639,7 @@ func (m *UserInventoryManager) GetItemFromBasic(itemBasic *public_protocol_commo
 	// 虚拟道具分发
 	if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 		typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
-		standalone, ret, result := m.virtualItemManager.GetItemFromBasic(itemBasic)
+		standalone, ret, result := m.virtualItemManager.GetItemFromBasic(ctx, itemBasic)
 		if standalone {
 			return ret, result
 		}
@@ -712,7 +712,7 @@ func checkRuleHasItem(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 		maxCount = values[2]
 	}
 
-	itemStats := m.GetOwner().GetItemTypeStatistics(typeId)
+	itemStats := m.GetOwner().GetItemTypeStatistics(ctx, typeId)
 	if minCount > 0 && (itemStats == nil || itemStats.TotalCount < minCount) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(m.GetOwner().GetNotEnoughErrorCode(typeId)))
 	}

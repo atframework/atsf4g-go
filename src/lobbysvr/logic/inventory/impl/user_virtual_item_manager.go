@@ -187,7 +187,7 @@ func (m *UserVirtualItemManager) CheckSubItem(ctx cd.RpcContext, itemOffset *ppc
 	return cd.CreateRpcResultOk()
 }
 
-func (m *UserVirtualItemManager) GetTypeStatistics(typeId int32) (bool, *data.ItemTypeStatistics) {
+func (m *UserVirtualItemManager) GetTypeStatistics(ctx cd.RpcContext, typeId int32) (bool, *data.ItemTypeStatistics) {
 	switch typeId {
 	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
 		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
@@ -208,7 +208,7 @@ func (m *UserVirtualItemManager) GetNotEnoughErrorCode(typeId int32) int32 {
 	return m.owner.UserItemManagerBase.GetNotEnoughErrorCode(typeId)
 }
 
-func (m *UserVirtualItemManager) GetItemFromBasic(itemBasic *ppc.DItemBasic) (bool, *ppc.DItemInstance, data.Result) {
+func (m *UserVirtualItemManager) GetItemFromBasic(ctx cd.RpcContext, itemBasic *ppc.DItemBasic) (bool, *ppc.DItemInstance, data.Result) {
 	if itemBasic == nil {
 		return true, nil, cd.CreateRpcResultError(fmt.Errorf("itemBasic is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
