@@ -187,7 +187,12 @@ func (d *WebSocketMessageDispatcher) runServer() error {
 		err = d.webServerInstance.ListenAndServe()
 	}
 
-	return err
+	if err != nil {
+		d.GetApp().GetDefaultLogger().Error("Web server error", "error", err)
+		d.GetApp().Stop()
+	}
+
+	return nil
 }
 
 func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *http.Request) {
