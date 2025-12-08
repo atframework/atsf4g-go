@@ -2,6 +2,8 @@ package atframework_component_router
 
 import (
 	"container/list"
+	"fmt"
+	"log/slog"
 	"runtime"
 	"unsafe"
 
@@ -184,8 +186,15 @@ func CreateRouterObjectBase(ctx cd.RpcContext, key RouterObjectKey) (ret RouterO
 	runtime.SetFinalizer(&ret, func(obj *RouterObjectBase) {
 		obj.UnsetTimerRef()
 	})
-	ret.actorExecutor = cd.CreateActorExecutor(ret)
+	ret.actorExecutor = cd.CreateActorExecutor(&ret)
 	return
+}
+
+func (obj *RouterObjectBase) LogValue() slog.Value {
+	if obj == nil {
+		return slog.StringValue("nil")
+	}
+	return slog.StringValue(fmt.Sprintf("TypeID:%d,ZoneID:%d,ObjectID:%d", obj.key.TypeID, obj.key.ZoneID, obj.key.ObjectID))
 }
 
 func (obj *RouterObjectBase) InitRouterObjectImpl(impl RouterObjectImpl) {

@@ -2,6 +2,7 @@ package atframework_component_user_controller
 
 import (
 	"fmt"
+	"log/slog"
 	"runtime"
 	"time"
 
@@ -160,6 +161,13 @@ func (u *UserCache) Init() {
 		u.actorExecutor = cd.CreateActorExecutor(u)
 	}
 	u.sessionSequence = 99
+}
+
+func (obj *UserCache) LogValue() slog.Value {
+	if obj == nil {
+		return slog.StringValue("nil")
+	}
+	return slog.StringValue(fmt.Sprintf("ZoneID:%d,UserID:%d,OpenID:%s", obj.zoneId, obj.userId, obj.openId))
 }
 
 func (u *UserCache) GetOpenId() string {

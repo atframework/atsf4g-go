@@ -2,6 +2,7 @@ package atframework_component_dispatcher
 
 import (
 	"container/list"
+	"log/slog"
 	"sync"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
@@ -24,10 +25,10 @@ type ActorExecutor struct {
 	actionLock     sync.Mutex
 	pendingActions list.List
 
-	Instance interface{}
+	Instance slog.LogValuer
 }
 
-func CreateActorExecutor(actorInstance interface{}) *ActorExecutor {
+func CreateActorExecutor(actorInstance slog.LogValuer) *ActorExecutor {
 	return &ActorExecutor{
 		actionStatus:   ActorExecutorStatusFree,
 		pendingActions: list.List{},
@@ -107,4 +108,11 @@ func (actor *ActorExecutor) TryTakeCurrentRunningAction(action TaskActionImpl) b
 	actor.currentRunningAction.Store(action)
 	action.SetActorExecutor(actor)
 	return true
+}
+
+func (actor *ActorExecutor) LogValue() slog.Value {
+	if actor == nil || lu.IsNil(actor.Instance) {
+		return slog.StringValue("nil")
+	}
+	return actor.Instance.LogValue()
 }

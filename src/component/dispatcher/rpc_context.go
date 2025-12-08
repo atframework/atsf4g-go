@@ -133,6 +133,7 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 	if ctx != nil {
 		if ctx.taskAction != nil {
 			args = append(args, slog.Uint64("task_id", ctx.taskAction.GetTaskId()), slog.String("task_name", ctx.taskAction.Name()))
+			args = append(args, "actor", ctx.taskAction.GetActorExecutor())
 		} else if ctx.dispatcher != nil {
 			args = append(args, slog.String("dispatcher", ctx.dispatcher.Name()))
 		}
