@@ -13,8 +13,16 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
 
+var endLine = []byte("\u001e\n")
+
 type LogStdoutWriter struct {
-	io.Writer
+	writer io.Writer
+}
+
+func (w *LogStdoutWriter) Write(p []byte) (n int, err error) {
+	n, err = w.writer.Write(p)
+	w.writer.Write(endLine)
+	return
 }
 
 func (w *LogStdoutWriter) Close() {
@@ -29,7 +37,13 @@ func NewlogStdoutWriter() *LogStdoutWriter {
 }
 
 type LogStderrWriter struct {
-	io.Writer
+	writer io.Writer
+}
+
+func (w *LogStderrWriter) Write(p []byte) (n int, err error) {
+	n, err = w.writer.Write(p)
+	w.writer.Write(endLine)
+	return
 }
 
 func (w *LogStderrWriter) Close() {
@@ -312,7 +326,8 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	// 模拟智能指针手动释放
 
 	n, err := f.fd.Write(p)
-	w.currentSize.Add(uint64(n))
+	en, _ := f.fd.Write(endLine)
+	w.currentSize.Add(uint64(n + en))
 
 	now := w.GetSysNow()
 	if now.After(w.nextFlushTime) {

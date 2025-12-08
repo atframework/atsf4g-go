@@ -26,4 +26,4 @@ COPY . /service
 
 WORKDIR /service/lobbysvr/bin
 
-CMD ["/service/lobbysvr/bin/lobbysvrd", "-config", "../cfg/lobbysvr.yaml", "-pid", "./lobbysvr_1.1.11.1.pid", "start"]
+CMD ["/service/lobbysvr/bin/lobbysvrd", "-config", "../cfg/lobbysvr.yaml", "-pid", "./lobbysvr.pid", "-crash-output-file", "../log/lobbysvr.crash.log", "start"]

@@ -94,7 +94,6 @@ func (sm *SessionManager) CreateSession(ctx cd.RpcContext, key SessionKey, handl
 	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Create Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
 	if session.IsEnableActorLog() {
 		session.InsertPendingActorLog(outputLog)
-		session.InsertPendingActorLog("\n")
 	}
 	ctx.LogDebug(outputLog)
 

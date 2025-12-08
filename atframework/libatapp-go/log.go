@@ -232,8 +232,6 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 		sb.WriteString(a.Value.Resolve().String())
 		return true
 	})
-	sb.WriteByte('\n')
-
 	var stackTrace *logBuffer
 	for k := range h.innerWriters {
 		if !h.innerWriters[k].Enabled(r.Level) {
@@ -246,7 +244,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 				// 生成
 				stackTrace = newlogBuffer()
 				stackTrace.Write(sb.Bytes())
-				stackTrace.WriteString("Stacktrace:\n")
+				stackTrace.WriteString("\nStacktrace:\n")
 				stackTrace.WriteString(h.getStack(r.PC))
 				defer stackTrace.Free()
 			}
