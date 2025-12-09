@@ -1374,6 +1374,10 @@ func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Mes
 	return
 }
 
+func GetEnvUpperKey(key string) string {
+	return os.Getenv(strings.ToUpper(key))
+}
+
 func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
 	logger *slog.Logger,
 ) bool {
@@ -1381,7 +1385,7 @@ func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst *protorefle
 		return false
 	}
 
-	envVal := os.Getenv(envPrefix)
+	envVal := GetEnvUpperKey(envPrefix)
 	if envVal == "" {
 		return false
 	}
@@ -1436,13 +1440,12 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 		return false
 	}
 
-	// 将字段名转换为大写形式以匹配环境变量命名惯例
-	fieldNameUpper := strings.ToUpper(string(fd.Name()))
+	fieldName := string(fd.Name())
 	var envKeyPrefix string
 	if len(envPrefix) == 0 {
-		envKeyPrefix = fieldNameUpper
+		envKeyPrefix = fieldName
 	} else {
-		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fieldNameUpper)
+		envKeyPrefix = fmt.Sprintf("%s_%s", envPrefix, fieldName)
 	}
 
 	if fd.IsMap() {
@@ -1512,7 +1515,7 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 			listIndex := i
 			// 支持重排序
 			if loadOptions != nil && loadOptions.ReorderListIndexByField != "" && fd.Kind() == protoreflect.MessageKind {
-				listIndex = tryLoadListIndex(os.Getenv(fmt.Sprintf("%s_%d_%s", envKeyPrefix, i, loadOptions.ReorderListIndexByField)))
+				listIndex = tryLoadListIndex(GetEnvUpperKey(fmt.Sprintf("%s_%d_%s", envKeyPrefix, i, loadOptions.ReorderListIndexByField)))
 				if listIndex < 0 {
 					listIndex = i
 				}
@@ -1542,7 +1545,7 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 			listIndex := 0
 			// 支持重排序
 			if loadOptions != nil && loadOptions.ReorderListIndexByField != "" && fd.Kind() == protoreflect.MessageKind {
-				listIndex = tryLoadListIndex(os.Getenv(fmt.Sprintf("%s_%s", envKeyPrefix, loadOptions.ReorderListIndexByField)))
+				listIndex = tryLoadListIndex(GetEnvUpperKey(fmt.Sprintf("%s_%s", envKeyPrefix, loadOptions.ReorderListIndexByField)))
 				if listIndex < 0 {
 					listIndex = 0
 				}
@@ -1573,7 +1576,7 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 	if fd.Message() != nil {
 		if confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta); confMeta != nil {
 			if confMeta.FieldMatch != nil && confMeta.FieldMatch.FieldName != "" && confMeta.FieldMatch.FieldValue != "" {
-				checkFieldMatchValue := strings.TrimSpace(os.Getenv(fmt.Sprintf("%s_%s", envPrefix, strings.ToUpper(confMeta.FieldMatch.FieldName))))
+				checkFieldMatchValue := strings.TrimSpace(GetEnvUpperKey(fmt.Sprintf("%s_%s", envPrefix, confMeta.FieldMatch.FieldName)))
 				// 存在跳过规则
 				if checkFieldMatchValue == confMeta.FieldMatch.FieldValue {
 					fieldMatch = true
