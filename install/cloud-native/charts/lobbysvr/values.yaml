@@ -27,7 +27,7 @@ vector:
   opensearch:
     username: project-Y-log-writer
     password: 11bo1B{OE,gjzZ4D
-    endpoint: https://opensearch-cluster-master.opensearch.svc.cluster.local:9200/
+    endpoint: https://opensearch-cluster-master.devops.svc.cluster.local:9200/
 
 imagePullSecrets:
   - name: jijunliang-harbor-regcred
