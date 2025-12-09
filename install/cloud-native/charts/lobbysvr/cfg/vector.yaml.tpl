@@ -46,17 +46,17 @@ transforms:
       - lobbysvr_logs_actor
     source: |
       .file_path = string!(.file)
-      . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/](?P<index_date>\d{4}-\d{2}-\d{2})[\\/](?P<uid>\d+)\.new\.log$')
-      # Normalize index_date to YYYY.MM.DD for consistent indexing
-      .index_date = replace(.index_date, "-", ".")
+      . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/][^\\/]+[\\/](?P<uid>\d+)\.new\.log$')
+      # Extract log timestamp from message content and normalize to RFC3339 with nanoseconds
+      . |= parse_regex!(.message, r'(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})')
+      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
       del(.file)
       del(.file_path)
       del(.host)
-      del(.timestamp)
+      del(.log_ts)
       del(.source_type)
-
-      .@timestamp = now()
-      .log_type = "actor"
+      del(.timestamp)
 
   normal_enrich:
     type: remap
@@ -70,10 +70,22 @@ transforms:
       del(.file_path)
       del(.file_name)
       del(.host)
-      del(.timestamp)
       del(.source_type)
+      del(.timestamp)
+      # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
+      . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
+      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      del(.log_ts)
 
-      .@timestamp = now()
+      # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
+      # if kv_matches != null && length(kv_matches) > 0 {
+      #   for_each(kv_matches) -> |_index, value| {
+      #     key, err = "$" + value.key
+      #     . = set!(., [key], value.value)
+      #   }
+      # }
+
       .log_type = "normal"
 
   db_inner_enrich:
@@ -88,10 +100,22 @@ transforms:
       del(.file_path)
       del(.file_name)
       del(.host)
-      del(.timestamp)
       del(.source_type)
+      del(.timestamp)
+      # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
+      . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
+      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      del(.log_ts)
 
-      .@timestamp = now()
+      # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
+      # if kv_matches != null && length(kv_matches) > 0 {
+      #   for_each(kv_matches) -> |_index, value| {
+      #     key, err = "$" + value.key
+      #     . = set!(., [key], value.value)
+      #   }
+      # }
+
       .log_type = "db_inner"
 
   redis_enrich:
@@ -106,58 +130,44 @@ transforms:
       del(.file_path)
       del(.file_name)
       del(.host)
-      del(.timestamp)
       del(.source_type)
+      del(.timestamp)
+      # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
+      . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
+      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      del(.log_ts)
 
-      .@timestamp = now()
+      # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
+      # if kv_matches != null && length(kv_matches) > 0 {
+      #   for_each(kv_matches) -> |_index, value| {
+      #     key, err = "$" + value.key
+      #     . = set!(., [key], value.value)
+      #   }
+      # }
+
       .log_type = "redis"
 
 sinks:
+  # out:
+  #   type: console
+  #   inputs:
+  #     - actor_enrich
+  #     - normal_enrich
+  #     - db_inner_enrich
+  #     - redis_enrich
+  #   encoding:
+  #     codec: json
+
   # OpenSearch sinks (Elasticsearch-compatible) for indexing
   # Configure endpoint and credentials via environment variables:
   #   VECTOR_OPENSEARCH_ENDPOINT, VECTOR_OPENSEARCH_USERNAME, VECTOR_OPENSEARCH_PASSWORD
-  opensearch_normal:
+  opensearch_log:
     type: elasticsearch
     mode: data_stream
     inputs:
       - normal_enrich
-    endpoints:
-      - {{ .Values.vector.opensearch.endpoint }}
-    auth:
-      strategy: basic
-      user: {{ .Values.vector.opensearch.username }}
-      password: {{ .Values.vector.opensearch.password }}
-    tls:
-      verify_certificate: false
-      verify_hostname: false
-    data_stream:
-      type: project-y
-      dataset: "lobbysvr"
-      namespace: "normal"
-
-  opensearch_db_inner:
-    type: elasticsearch
-    mode: data_stream
-    inputs:
       - db_inner_enrich
-    endpoints:
-      - {{ .Values.vector.opensearch.endpoint }}
-    auth:
-      strategy: basic
-      user: {{ .Values.vector.opensearch.username }}
-      password: {{ .Values.vector.opensearch.password }}
-    tls:
-      verify_certificate: false
-      verify_hostname: false
-    data_stream:
-      type: project-y
-      dataset: "lobbysvr"
-      namespace: "db-inner"
-
-  opensearch_redis:
-    type: elasticsearch
-    mode: data_stream
-    inputs:
       - redis_enrich
     endpoints:
       - {{ .Values.vector.opensearch.endpoint }}
@@ -170,8 +180,8 @@ sinks:
       verify_hostname: false
     data_stream:
       type: project-y
-      dataset: "lobbysvr"
-      namespace: "redis"
+      dataset: log
+      namespace: running
 
   opensearch_actor:
     type: elasticsearch
@@ -189,5 +199,5 @@ sinks:
       verify_hostname: false
     data_stream:
       type: project-y
-      dataset: "lobbysvr"
-      namespace: "actor"
+      dataset: log
+      namespace: actor
