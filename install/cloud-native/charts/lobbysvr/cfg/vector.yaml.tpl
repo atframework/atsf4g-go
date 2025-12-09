@@ -57,6 +57,7 @@ transforms:
       del(.log_ts)
       del(.source_type)
       del(.timestamp)
+      .@timestamp = now()
 
   normal_enrich:
     type: remap
@@ -87,6 +88,7 @@ transforms:
       # }
 
       .log_type = "normal"
+      .@timestamp = now()
 
   db_inner_enrich:
     type: remap
@@ -117,6 +119,7 @@ transforms:
       # }
 
       .log_type = "db_inner"
+      .@timestamp = now()
 
   redis_enrich:
     type: remap
@@ -147,6 +150,7 @@ transforms:
       # }
 
       .log_type = "redis"
+      .@timestamp = now()
 
 sinks:
   # out:
