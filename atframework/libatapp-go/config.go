@@ -1721,13 +1721,22 @@ func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.Field
 		return
 	}
 
+	// 普通类型
+	if allowStringDefaultValue && confMeta != nil {
+		v, err := parseField(confMeta.DefaultValue, fd, logger)
+		if err == nil && v.IsValid() {
+			configPb.ProtoReflect().Set(fd, v)
+			return
+		}
+	}
+
 	if fd.Message() == nil {
 		return
 	}
 
 	// 普通Message默认值填充
-	subMsg := configPb.ProtoReflect().Get(fd).Message()
-	if subMsg == nil {
+	subMsg := configPb.ProtoReflect().Mutable(fd).Message()
+	if subMsg == nil || !subMsg.IsValid() {
 		return
 	}
 

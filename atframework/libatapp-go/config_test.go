@@ -169,6 +169,9 @@ func verifyBusConfig(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 	assert.Equal(uint64(8*1024*1024), bus.GetRecvBufferSize(), "bus.recv_buffer_size should match")
 	assert.Equal(uint64(2*1024*1024), bus.GetSendBufferSize(), "bus.send_buffer_size should match")
 	assert.Equal(uint64(0), bus.GetSendBufferNumber(), "bus.send_buffer_number should match")
+
+	// 默认值验证
+	assert.Equal(int32(1000), bus.GetLoopTimes(), "bus.loop_times should be 1000 by default")
 }
 
 // verifyTimerConfig 验证 timer 配置
