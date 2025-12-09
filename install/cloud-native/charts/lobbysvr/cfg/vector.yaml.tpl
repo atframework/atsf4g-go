@@ -50,7 +50,7 @@ transforms:
       # Extract log timestamp from message content and normalize to RFC3339 with nanoseconds
       . |= parse_regex!(.message, r'(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})')
       parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
       del(.file)
       del(.file_path)
       del(.host)
@@ -75,7 +75,7 @@ transforms:
       # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
       . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
       parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
       del(.log_ts)
 
       # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
@@ -105,7 +105,7 @@ transforms:
       # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
       . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
       parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
       del(.log_ts)
 
       # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
@@ -135,7 +135,7 @@ transforms:
       # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
       . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
       parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "UTC")
+      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
       del(.log_ts)
 
       # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
