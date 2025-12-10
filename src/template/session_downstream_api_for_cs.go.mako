@@ -53,9 +53,8 @@ func sendMessage(responseCode int32, session cd.TaskActionCSSession,
 
 	logWriter := session.GetActorLogWriter()
 	if !lu.IsNil(logWriter) {
-		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Sending: %s\n", now.Format("2006-01-02 15:04:05.000"), rpcUrl)
-		fmt.Fprintf(logWriter, "Head:{\n%s}\n", pu.MessageReadableText(msg.Head))
-		fmt.Fprintf(logWriter, "Body:{\n%s}\n\n", pu.MessageReadableText(body))
+		fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\nHead:{\n%s}\nBody:{\n%s}\n",
+			now.Format("2006-01-02 15:04:05.000"), session.GetSessionId(), rpcUrl, pu.MessageReadableText(msg.Head), pu.MessageReadableText(body))
 	}
 
 	return session.SendMessage(msg)
