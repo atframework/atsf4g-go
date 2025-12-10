@@ -1630,7 +1630,7 @@ func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *Log
 func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger *Logger,
 	loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) (bool, error) {
-	if logger == nil || configPb == nil {
+	if configPb == nil {
 		return false, fmt.Errorf("dumpEnvironemntIntoMessage logger or configPb is nil")
 	}
 
@@ -1640,7 +1640,7 @@ func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger 
 func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.FieldDescriptor, logger *Logger,
 	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) {
-	if logger == nil || configPb == nil || fd == nil {
+	if configPb == nil || fd == nil {
 		return
 	}
 
@@ -1809,7 +1809,7 @@ func dumpEnvironemntIntoLogCategory(envPrefix string, category *atframe_protocol
 func LoadLogCategoryConfigFromEnvironemnt(envPrefix string, logCategoryPb *atframe_protocol.AtappLogCategory, logger *Logger,
 	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
-	if logger == nil || logCategoryPb == nil {
+	if logCategoryPb == nil {
 		return false
 	}
 
