@@ -37,8 +37,7 @@ func (t *TaskActionLogin) AllowNoActor() bool {
 }
 
 func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
-	t.GetLogger().LogInfo("TaskActionLogin Run",
-		slog.Uint64("task_id", t.GetTaskId()),
+	t.GetRpcContext().LogInfo("TaskActionLogin Run",
 		slog.Uint64("session_id", t.GetSession().GetSessionId()),
 	)
 
@@ -49,7 +48,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		userIdFromOpenId, err := strconv.ParseUint(request_body.GetOpenId(), 10, 64)
 		if err != nil {
 			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
-			t.GetLogger().LogWarn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
+			t.GetRpcContext().LogWarn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
 			return nil
 		}
 		userId = userIdFromOpenId
@@ -60,13 +59,13 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	csSession := t.GetSession()
 	if csSession == nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().LogError("session is required", "zone_id", zoneId, "user_id", userId)
+		t.GetRpcContext().LogError("session is required", "zone_id", zoneId, "user_id", userId)
 		return nil
 	}
 	session := csSession.(*uc.Session)
 	if session == nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().LogError("session conversion failed", "zone_id", zoneId, "user_id", userId)
+		t.GetRpcContext().LogError("session conversion failed", "zone_id", zoneId, "user_id", userId)
 		return nil
 	}
 
@@ -86,7 +85,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 	if loginCode == "" || loginCode != request_body.GetLoginCode() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
-		t.GetLogger().LogWarn("invalid login code", "zone_id", zoneId, "user_id", userId, "code", loginCode, "req", request_body.GetLoginCode())
+		t.GetRpcContext().LogWarn("invalid login code", "zone_id", zoneId, "user_id", userId, "code", loginCode, "req", request_body.GetLoginCode())
 		return nil
 	}
 
@@ -213,14 +212,14 @@ func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
 
 	if !user.TryLockLoginTask(t.GetTaskId()) {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
-		t.GetLogger().LogWarn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
+		t.GetRpcContext().LogWarn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
 		return false
 	}
 	t.SetUser(user)
 
 	if user.IsWriteable() && user.GetSession() == t.GetSession() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_ALREADY_ONLINE)
-		t.GetLogger().LogWarn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
+		t.GetRpcContext().LogWarn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
 	}
 
@@ -230,13 +229,13 @@ func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
 func (t *TaskActionLogin) replaceSession(ctx cd.RpcContext, user *data.User, session *uc.Session) bool {
 	if user == nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().LogError("user is required")
+		t.GetRpcContext().LogError("user is required")
 		return false
 	}
 
 	if session == nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().LogError("session is required", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
+		t.GetRpcContext().LogError("session is required", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
 	}
 
@@ -355,7 +354,7 @@ func (t *TaskActionLogin) OnComplete() {
 
 	user, ok := userImpl.(*data.User)
 	if !ok || user == nil {
-		t.GetLogger().LogWarn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
+		t.GetRpcContext().LogWarn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
 		return
 	}
 

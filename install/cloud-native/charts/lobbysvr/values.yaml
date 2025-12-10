@@ -37,6 +37,7 @@ vector:
     - "user_id"
     - "task_name"
     - "zone_id"
+    - "response_code"
 
 imagePullSecrets:
   - name: jijunliang-harbor-regcred

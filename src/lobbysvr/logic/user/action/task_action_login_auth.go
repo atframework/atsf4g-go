@@ -33,7 +33,7 @@ func (t *TaskActionLoginAuth) AllowNoActor() bool {
 }
 
 func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherStartData) error {
-	t.GetDispatcher().GetLogger().LogInfo("TaskActionLoginAuth Run",
+	t.GetRpcContext().LogInfo("TaskActionLoginAuth Run",
 		slog.Uint64("task_id", t.GetTaskId()),
 		slog.Uint64("session_id", t.GetSession().GetSessionId()),
 	)
@@ -44,7 +44,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	userId, err := strconv.ParseUint(request_body.GetOpenId(), 10, 64)
 	if err != nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
-		t.GetLogger().LogWarn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
+		t.GetRpcContext().LogWarn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
 		return nil
 	}
 
@@ -69,14 +69,14 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	}
 	if accessSecret != "" && accessSecret != "*" && accessSecret != request_body.GetAccount().GetAccess() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
-		t.GetLogger().LogWarn("user already login", "zone_id", zoneId, "user_id", userId)
+		t.GetRpcContext().LogWarn("user already login", "zone_id", zoneId, "user_id", userId)
 		return nil
 	}
 
 	uuid, err := uuid.NewRandom()
 	if err != nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().LogWarn("generate login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
+		t.GetRpcContext().LogWarn("generate login code failed", "zone_id", zoneId, "user_id", userId, "error", err)
 		return nil
 	}
 	loginCode := strings.Replace(uuid.String(), "-", "", -1)
@@ -94,7 +94,7 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 	rpcErr := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetAwaitableContext(), &table)
 	if rpcErr.IsError() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetLogger().LogWarn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", rpcErr)
+		t.GetRpcContext().LogWarn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", rpcErr)
 		return nil
 	}
 
@@ -115,14 +115,14 @@ func (t *TaskActionLoginAuth) checkExistedUser(user *data.User) bool {
 
 	if !user.TryLockLoginTask(t.GetTaskId()) {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
-		t.GetLogger().LogWarn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
+		t.GetRpcContext().LogWarn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
 		return false
 	}
 	t.SetUser(user)
 
 	if user.IsWriteable() && user.GetSession() == t.GetSession() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_ALREADY_ONLINE)
-		t.GetLogger().LogWarn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
+		t.GetRpcContext().LogWarn("user already login", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return false
 	}
 
@@ -137,7 +137,7 @@ func (t *TaskActionLoginAuth) OnComplete() {
 
 	user, ok := userImpl.(*data.User)
 	if !ok || user == nil {
-		t.GetLogger().LogWarn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
+		t.GetRpcContext().LogWarn("Task user can not convert to data.User", "task_id", t.GetTaskId(), "task_name", t.Name())
 		return
 	}
 

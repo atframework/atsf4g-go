@@ -49,7 +49,7 @@ kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value
 if kv_matches != null && length(kv_matches) > 0 {
   for_each(kv_matches) -> |_index, value| {
     if includes(index, value.key) {
-      key, err = "$" + value.key
+      key, _ = "$" + value.key
       . = set!(., [key], value.value)
     }
   }

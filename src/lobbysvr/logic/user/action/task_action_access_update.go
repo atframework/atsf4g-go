@@ -33,7 +33,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 
 	if request_body.GetNewAccess() == "" {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
-		t.GetLogger().LogWarn("invalid new access secret")
+		t.GetRpcContext().LogWarn("invalid new access secret")
 		return nil
 	}
 
@@ -44,7 +44,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 	}
 	if accessSecret == "" || accessSecret != request_body.GetOldAccess() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE))
-		t.GetLogger().LogWarn("invalid old access secret")
+		t.GetRpcContext().LogWarn("invalid old access secret")
 		return nil
 	}
 
@@ -60,7 +60,7 @@ func (t *TaskActionAccessUpdate) Run(_startData *component_dispatcher.Dispatcher
 	err := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetAwaitableContext(), &table)
 	if err.IsError() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
-		t.GetLogger().LogWarn("save access secret failed", "error", err)
+		t.GetRpcContext().LogWarn("save access secret failed", "error", err)
 		return nil
 	}
 

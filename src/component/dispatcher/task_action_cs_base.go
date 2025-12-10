@@ -103,10 +103,6 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *libatapp.Logger {
-	return t.GetDispatcher().GetLogger()
-}
-
 func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
 	if lu.IsNil(user) {
 		t.user = nil
@@ -282,7 +278,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 
 	// 实际发送逻辑需要根据具体的网络层实现
 	if !lu.IsNil(t.GetDispatcher()) && !lu.IsNil(t.GetDispatcher().GetApp()) {
-		t.GetDispatcher().GetLogger().LogInfo("Sending CS response",
+		t.GetRpcContext().LogInfo("Sending CS response",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", t.GetResponseCode())
