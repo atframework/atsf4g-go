@@ -121,7 +121,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 
 			cb_actor.actionLock.Lock()
 			if err != nil {
-				app_action.App.GetDefaultLogger().Error("Actor task action run failed",
+				app_action.App.GetDefaultLogger().LogError("Actor task action run failed",
 					slog.String("task_name", actor_action.action.Name()), slog.Uint64("task_id", actor_action.action.GetTaskId()), slog.Any("error", err))
 			}
 		}
@@ -137,7 +137,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 		err := app_action.App.PushAction(popRunActorActions, nil, cb_actor)
 		if err != nil {
 			cb_actor.actionStatus = ActorExecutorStatusFree
-			app_action.App.GetDefaultLogger().Error("Push actor task action failed", slog.Any("error", err))
+			app_action.App.GetDefaultLogger().LogError("Push actor task action failed", slog.Any("error", err))
 			cb_actor.actionLock.Unlock()
 			return err
 		}
@@ -157,7 +157,7 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 		if pendingLen > int(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetActorMaxPendingCount()) {
 			action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_ACTOR_MAX_PENDING_COUNT))
 			action.SendResponse()
-			app.GetDefaultLogger().Error("Actor pending actions too many", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
+			app.GetDefaultLogger().LogError("Actor pending actions too many", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 			return fmt.Errorf("actor pending actions too many")
 		}
 
@@ -174,7 +174,7 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 		err := app.PushAction(popRunActorActions, nil, actor)
 		if err != nil {
 			actor.actionStatus = ActorExecutorStatusFree
-			app.GetDefaultLogger().Error("Push actor task action failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+			app.GetDefaultLogger().LogError("Push actor task action failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 			return err
 		}
 	}

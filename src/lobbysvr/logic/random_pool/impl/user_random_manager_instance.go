@@ -32,12 +32,12 @@ func init() {
 	}, func(ctx cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[logic_random_pool.UserRandomPoolManager](owner)
 		if mgr == nil {
-			ctx.LogError("can not find user RandomPool manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
+			ctx.LogError("can not find user RandomPool manager")
 			return nil
 		}
 		convert, ok := mgr.(data.UserItemManagerImpl)
 		if !ok || convert == nil {
-			ctx.LogError("user RandomPool manager does not implement UserItemManagerImpl", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
+			ctx.LogError("user RandomPool manager does not implement UserItemManagerImpl")
 			return nil
 		}
 		return convert
@@ -75,14 +75,13 @@ func (m *UserRandomPoolManager) UnpackItem(ctx cd.RpcContext, itemOffset *public
 
 	result, unpackItem := config.RandomWithPool(itemOffset.GetItemBasic().GetTypeId(), itemOffset.GetItemBasic().GetCount(), nil)
 	if result != 0 {
-		ctx.LogError("unpack random pool item failed", "user_id", m.owner.GetUserId(), "zone_id", m.owner.GetZoneId(), "type_id", itemOffset.GetItemBasic().GetTypeId(), "error_code", result)
+		ctx.LogError("unpack random pool item failed", "type_id", itemOffset.GetItemBasic().GetTypeId(), "error_code", result)
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(result))
 	}
 
 	itemInst, genResult := m.GetOwner().GenerateMultipleItemInstancesFromOffset(ctx, unpackItem, true)
 	if genResult.IsError() {
-		ctx.LogError("user cUnpackItem GenerateMultipleItemInstancesFromOffset failed", "error", genResult.Error,
-			"user_id", m.GetOwner().GetUserId(), "zone_id", m.GetOwner().GetZoneId())
+		ctx.LogError("user cUnpackItem GenerateMultipleItemInstancesFromOffset failed", "error", genResult.Error)
 		return nil, genResult
 	}
 	return itemInst, cd.CreateRpcResultOk()

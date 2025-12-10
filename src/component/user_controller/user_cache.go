@@ -146,6 +146,7 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 		csActorLogWriter: writer,
 	}
 	cache.actorExecutor = actorExecutor
+	cache.actorExecutor.Instance = &cache
 	cache.Impl = &cache
 	cache.Init()
 	return
@@ -163,11 +164,14 @@ func (u *UserCache) Init() {
 	u.sessionSequence = 99
 }
 
-func (obj *UserCache) LogValue() slog.Value {
+func (obj *UserCache) LogAttr() []slog.Attr {
 	if obj == nil {
-		return slog.StringValue("nil")
+		return nil
 	}
-	return slog.StringValue(fmt.Sprintf("ZoneID:%d,UserID:%d,OpenID:%s", obj.zoneId, obj.userId, obj.openId))
+	return []slog.Attr{
+		slog.Uint64("zone_id", uint64(obj.zoneId)),
+		slog.Uint64("user_id", obj.userId),
+	}
 }
 
 func (u *UserCache) GetOpenId() string {

@@ -25,3 +25,34 @@ This takes an array of two values:
 {{- $tpl := fromYaml (index . 1) | default (dict ) -}}
 {{- toYaml (merge $overrides $tpl) -}}
 {{- end -}}
+
+{{- define "libapp.vector.server_log_parse" -}}
+.file_path = string!(.file)
+.file_name = basename!(.file_path)
+. |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
+del(.file)
+del(.file_path)
+del(.file_name)
+del(.host)
+del(.source_type)
+del(.timestamp)
+. |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
+del(.log_ts)
+.@timestamp = now()
+.log_type = "{{ . }}"
+{{- end -}}
+
+{{- define "libapp.vector.server_log_index" -}}
+{{- with .Values.vector.index }}
+index = [{{range $index, $element := .}}{{if $index}}, {{end}}"{{$element}}"{{end}}]
+kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
+if kv_matches != null && length(kv_matches) > 0 {
+  for_each(kv_matches) -> |_index, value| {
+    if includes(index, value.key) {
+      key, err = "$" + value.key
+      . = set!(., [key], value.value)
+    }
+  }
+}
+{{- end }}
+{{- end -}}

@@ -9,7 +9,6 @@ import time
 package atframework_component_config_generate_config
 
 import (
-	"log/slog"
 	libatapp "github.com/atframework/libatapp-go"
 	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
@@ -18,7 +17,7 @@ import (
 
 type ConfigCallback interface {
 	LoadFile(string, string) ([]byte, error)
-	GetLogger() *slog.Logger
+	GetLogger() *libatapp.Logger
 	OnLoaded(*ConfigGroup) error
 }
 
@@ -50,32 +49,32 @@ func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Reado
 
 func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback ConfigCallback) (err error) {
 	if originConfigData != nil {
-		callback.GetLogger().Info("Load config from file", "file", originConfigData)
+		callback.GetLogger().LogInfo("Load config from file", "file", originConfigData)
 		serverConfig := &private_protocol_config.LogicSectionCfg{}
 		err = libatapp.LoadConfigFromOriginDataByPath(callback.GetLogger(),
 			originConfigData, serverConfig, "logic", "ATAPP_LOGIC", nil, nil, "")
 		if err != nil {
-			callback.GetLogger().Error("Load config failed", "error", err)
+			callback.GetLogger().LogError("Load config failed", "error", err)
 			return
 		}
 		configGroup.serverConfig = serverConfig.ToReadonly()
 	} else {
 		// 使用默认配置
-		callback.GetLogger().Info("Load config from default")
+		callback.GetLogger().LogInfo("Load config from default")
 		serverConfig := &private_protocol_config.LogicSectionCfg{}
 		err = libatapp.LoadDefaultConfigMessageFields(serverConfig, callback.GetLogger(), nil, "")
 		if err != nil {
-			callback.GetLogger().Error("Load config failed", "error", err)
+			callback.GetLogger().LogError("Load config failed", "error", err)
 			return
 		}
 		configGroup.serverConfig = serverConfig.ToReadonly()
 	}
 
 	if !configGroup.serverConfig.GetExcel().GetEnable() {
-		callback.GetLogger().Warn("Disable Excel")
+		callback.GetLogger().LogWarn("Disable Excel")
 		return
 	}
-	callback.GetLogger().Warn("Enable Excel")
+	callback.GetLogger().LogWarn("Enable Excel")
 	if configGroup.ExcelResourceDir == "" {
 		configGroup.ExcelResourceDir = configGroup.serverConfig.GetExcel().GetBindir()
 	}

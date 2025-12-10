@@ -149,12 +149,12 @@ type AppImpl interface {
 	GetAppContext() context.Context
 
 	// Logger
-	GetDefaultLogger() *slog.Logger
-	GetLogger(index int) *slog.Logger
+	GetDefaultLogger() *Logger
+	GetLogger(index int) *Logger
 }
 
 type AppLog struct {
-	loggers []*slog.Logger
+	loggers []*Logger
 	writers []LogWriter
 }
 
@@ -217,7 +217,7 @@ func CreateAppInstance() AppImpl {
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
 		logger: &AppLog{
-			loggers: make([]*slog.Logger, 0),
+			loggers: make([]*Logger, 0),
 		},
 	}
 
@@ -226,7 +226,7 @@ func CreateAppInstance() AppImpl {
 
 	handler := NewLogHandlerImpl(&ret.logFrameInfoCache)
 	handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
-	ret.logger.loggers = append(ret.logger.loggers, slog.New(handler))
+	ret.logger.loggers = append(ret.logger.loggers, NewLogger(handler, ret))
 
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
@@ -358,16 +358,16 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 		}
 
 		if len(appLog.loggers) <= int(index) {
-			appLog.loggers = append(appLog.loggers, make([]*slog.Logger, int(index)+1-len(appLog.loggers))...)
+			appLog.loggers = append(appLog.loggers, make([]*Logger, int(index)+1-len(appLog.loggers))...)
 		}
-		appLog.loggers[index] = slog.New(handler)
+		appLog.loggers[index] = NewLogger(handler, app)
 	}
 
 	for i := range appLog.loggers {
 		if appLog.loggers[i] == nil {
 			handler := NewLogHandlerImpl(&app.logFrameInfoCache)
 			handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
-			appLog.loggers[i] = slog.New(handler)
+			appLog.loggers[i] = NewLogger(handler, app)
 		}
 	}
 	return appLog, nil
@@ -464,7 +464,7 @@ func (app *AppInstance) Init(arguments []string) error {
 		return fmt.Errorf("setup startup log failed: %w", err)
 	}
 
-	app.GetDefaultLogger().Warn("======================== App Initializing(startup log) ========================")
+	app.GetDefaultLogger().LogWarn("======================== App Initializing(startup log) ========================")
 
 	// 设置信号处理
 	if app.mode != AppModeCustom && app.mode != AppModeStop && app.mode != AppModeReload {
@@ -503,7 +503,7 @@ func (app *AppInstance) Init(arguments []string) error {
 		return fmt.Errorf("setup log failed: %w", err)
 	}
 
-	app.GetDefaultLogger().Warn("======================== App Initializing(setup log) ========================")
+	app.GetDefaultLogger().LogWarn("======================== App Initializing(setup log) ========================")
 
 	// 设置定时器
 	if err := app.setupTickTimer(); err != nil {
@@ -518,7 +518,7 @@ func (app *AppInstance) Init(arguments []string) error {
 	app.workerPool, err = ants.NewPoolWithFunc(int(app.config.ConfigPb.GetWorkerPool().GetQueueSize()), func(args interface{}) {
 		sender, ok := args.(*AppActionSender)
 		if !ok {
-			app.GetDefaultLogger().Error("routine pool args type error, shouldn't happen!")
+			app.GetDefaultLogger().LogError("routine pool args type error, shouldn't happen!")
 			return
 		}
 		app.processAction(sender)
@@ -617,14 +617,14 @@ func (app *AppInstance) Init(arguments []string) error {
 			app.GetConfig().ConfigFile,
 			app.GetHashCode(),
 		)
-		app.GetDefaultLogger().Warn(readyMessage)
+		app.GetDefaultLogger().LogWarn(readyMessage)
 
 		// Ready phase
 		for _, m := range app.modules {
 			m.Ready()
 		}
 	} else {
-		app.GetDefaultLogger().Warn("======================== App Startup Failed ========================")
+		app.GetDefaultLogger().LogWarn("======================== App Startup Failed ========================")
 
 		// 失败处理
 		app.Stop()
@@ -657,12 +657,12 @@ func (app *AppInstance) internalRunOnce(tickTimer *time.Ticker) error {
 		break
 	case sig := <-app.signalChan:
 		if sig == syscall.SIGTERM || sig == syscall.SIGQUIT {
-			app.GetDefaultLogger().Info("Received signal, stopping...", slog.Any("signal", sig))
+			app.GetDefaultLogger().LogInfo("Received signal, stopping...", slog.Any("signal", sig))
 			app.Stop()
 		}
 	case <-tickTimer.C:
 		if err := app.tick(); err != nil {
-			app.GetDefaultLogger().Error("Tick error", slog.Any("err", err))
+			app.GetDefaultLogger().LogError("Tick error", slog.Any("err", err))
 		}
 	}
 
@@ -718,7 +718,7 @@ func (app *AppInstance) closeAllModules(forceTimeout bool) (bool, error) {
 
 		moduleClosed, err := m.Stop()
 		if err != nil {
-			app.GetDefaultLogger().Error("Module %s stop failed: %v", m.Name(), err)
+			app.GetDefaultLogger().LogError("Module %s stop failed: %v", m.Name(), err)
 			m.Unactive()
 		} else if !moduleClosed {
 			if forceTimeout {
@@ -751,7 +751,7 @@ func (app *AppInstance) close() (bool, error) {
 
 		moduleClosed, err := m.Stop()
 		if err != nil {
-			app.GetDefaultLogger().Error("Module %s stop failed: %v", m.Name(), err)
+			app.GetDefaultLogger().LogError("Module %s stop failed: %v", m.Name(), err)
 			m.Unactive()
 		} else if !moduleClosed {
 			allClosed = false
@@ -800,7 +800,7 @@ func (app *AppInstance) RunCommand(arguments []string) error {
 
 func (app *AppInstance) sendLastCommand() error {
 	if len(app.lastCommand) == 0 {
-		app.GetDefaultLogger().Error("No command to send")
+		app.GetDefaultLogger().LogError("No command to send")
 		return fmt.Errorf("no command to send")
 	}
 	// TODO: 发送远程指令
@@ -811,7 +811,7 @@ func (app *AppInstance) Stop() error {
 	if app.IsClosing() {
 		return nil
 	}
-	app.GetDefaultLogger().Warn("======================== App Stopping ========================")
+	app.GetDefaultLogger().LogWarn("======================== App Stopping ========================")
 
 	app.stopTimeout = app.GetSysNow().Add(app.config.ConfigPb.GetTimer().GetStopInterval().AsDuration())
 	app.SetFlag(AppFlagStopping, true)
@@ -820,7 +820,7 @@ func (app *AppInstance) Stop() error {
 }
 
 func (app *AppInstance) Reload() error {
-	app.GetDefaultLogger().Warn("======================== App Reloading ========================")
+	app.GetDefaultLogger().LogWarn("======================== App Reloading ========================")
 	// 重新加载配置
 	if err := app.LoadConfig(app.config.ConfigFile, "atapp", "ATAPP", nil); err != nil {
 		return fmt.Errorf("reload config failed: %w", err)
@@ -859,11 +859,11 @@ func (app *AppInstance) LoadOriginConfigData(configFile string) (err error) {
 		return
 	}
 
-	app.GetDefaultLogger().Info("Loading config from", "configFile", configFile)
+	app.GetDefaultLogger().LogInfo("Loading config from", "configFile", configFile)
 	var yamlData map[string]interface{}
 	yamlData, err = LoadConfigOriginYaml(configFile)
 	if err != nil {
-		app.GetDefaultLogger().Error("Load config failed", "error", err)
+		app.GetDefaultLogger().LogError("Load config failed", "error", err)
 		return
 	}
 
@@ -876,7 +876,7 @@ func (app *AppInstance) LoadOriginConfigData(configFile string) (err error) {
 }
 
 // 配置管理
-func LoadConfigFromOriginDataByPath(logger *slog.Logger,
+func LoadConfigFromOriginDataByPath(logger *Logger,
 	originData interface{}, target proto.Message,
 	configurePrefixPath string, loadEnvironemntPrefix string,
 	loadOptions *LoadConfigOptions,
@@ -886,10 +886,6 @@ func LoadConfigFromOriginDataByPath(logger *slog.Logger,
 		return fmt.Errorf("target is nil")
 	}
 
-	if logger == nil {
-		logger = slog.Default()
-	}
-
 	if existedKeys == nil {
 		existedKeys = CreateConfigExistedIndex()
 	}
@@ -897,7 +893,7 @@ func LoadConfigFromOriginDataByPath(logger *slog.Logger,
 	if loadEnvironemntPrefix != "" {
 		if _, err := LoadConfigFromEnvironemnt(loadEnvironemntPrefix, target, logger,
 			loadOptions, existedKeys, existedSetPrefix); err != nil {
-			logger.Error("Load config from environment failed", "error", err,
+			logger.LogError("Load config from environment failed", "error", err,
 				"env prefix", loadEnvironemntPrefix, "message_type", target.ProtoReflect().Descriptor().FullName())
 		}
 	}
@@ -906,7 +902,7 @@ func LoadConfigFromOriginDataByPath(logger *slog.Logger,
 		err = LoadConfigFromOriginData(originData, configurePrefixPath, target, logger,
 			loadOptions, existedKeys, existedSetPrefix)
 		if err != nil {
-			logger.Error("Load config by path failed", "error", err, "path", configurePrefixPath,
+			logger.LogError("Load config by path failed", "error", err, "path", configurePrefixPath,
 				"message_type", target.ProtoReflect().Descriptor().FullName())
 			return err
 		}
@@ -989,7 +985,7 @@ func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string
 	configPb := &atframe_protocol.AtappConfigure{}
 	err = app.LoadConfigByPath(configPb, configurePrefixPath, loadEnvironemntPrefix, existedKeys, "")
 	if err != nil {
-		app.GetDefaultLogger().Error("Load config failed", "error", err)
+		app.GetDefaultLogger().LogError("Load config failed", "error", err)
 		return
 	}
 	app.config.ConfigPb = configPb
@@ -1008,7 +1004,7 @@ func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string
 	}
 	err = app.LoadLogConfigByPath(configLog, logConfigurePrefixPath, logLoadEnvironemntPrefix, existedKeys, "log.")
 	if err != nil {
-		app.GetDefaultLogger().Error("Load log config failed", "error", err)
+		app.GetDefaultLogger().LogError("Load log config failed", "error", err)
 	} else {
 		app.config.ConfigLog = configLog
 	}
@@ -1019,7 +1015,7 @@ func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string
 // 消息相关
 func (app *AppInstance) SendMessage(targetId uint64, msgType int32, data []byte) error {
 	// TODO: 实现消息发送逻辑
-	app.GetDefaultLogger().Debug("Sending message",
+	app.GetDefaultLogger().LogDebug("Sending message",
 		"targetId", targetId,
 		"type", msgType,
 		"size", len(data),
@@ -1029,7 +1025,7 @@ func (app *AppInstance) SendMessage(targetId uint64, msgType int32, data []byte)
 
 func (app *AppInstance) SendMessageByName(targetName string, msgType int32, data []byte) error {
 	// TODO: 实现按名称发送消息逻辑
-	app.GetDefaultLogger().Debug("Sending message",
+	app.GetDefaultLogger().LogDebug("Sending message",
 		"targetName", targetName,
 		"type", msgType,
 		"size", len(data),
@@ -1059,11 +1055,11 @@ func (app *AppInstance) GetAppContext() context.Context {
 	return app.appContext
 }
 
-func (app *AppInstance) GetDefaultLogger() *slog.Logger {
+func (app *AppInstance) GetDefaultLogger() *Logger {
 	return app.logger.loggers[0]
 }
 
-func (app *AppInstance) GetLogger(index int) *slog.Logger {
+func (app *AppInstance) GetLogger(index int) *Logger {
 	log := app.logger
 	if len(log.loggers) > index {
 		return log.loggers[index]
@@ -1084,10 +1080,10 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	}
 
 	if app.flagSet.Lookup("config").Value.String() != "" {
-		app.GetDefaultLogger().Info("Found Config")
+		app.GetDefaultLogger().LogInfo("Found Config")
 		app.config.ConfigFile = app.flagSet.Lookup("config").Value.String()
 	} else {
-		app.GetDefaultLogger().Info("Not Found Config")
+		app.GetDefaultLogger().LogInfo("Not Found Config")
 	}
 
 	if app.flagSet.Lookup("version").Value.String() == "true" {
@@ -1154,7 +1150,7 @@ func (app *AppInstance) setupSignal() error {
 
 func (app *AppInstance) setupStartupLog() error {
 	if len(app.config.StartupLog) > 0 {
-		app.GetDefaultLogger().Info("Setting up startup log", "config", app.config.StartupLog)
+		app.GetDefaultLogger().LogInfo("Setting up startup log", "config", app.config.StartupLog)
 		app.logger.loggers = nil
 
 		handler := NewLogHandlerImpl(&app.logFrameInfoCache)
@@ -1182,7 +1178,7 @@ func (app *AppInstance) setupStartupLog() error {
 				}
 			}
 		}
-		app.logger.loggers = append(app.logger.loggers, slog.New(handler))
+		app.logger.loggers = append(app.logger.loggers, NewLogger(handler, app))
 	}
 
 	if app.config.CrashOutputFile != "" {
@@ -1190,20 +1186,20 @@ func (app *AppInstance) setupStartupLog() error {
 		dir := filepath.Dir(app.config.CrashOutputFile)
 		err := os.MkdirAll(dir, 0o755)
 		if err != nil {
-			app.GetDefaultLogger().Error("Create crash output dir failed", "file", app.config.CrashOutputFile, "error", err)
+			app.GetDefaultLogger().LogError("Create crash output dir failed", "file", app.config.CrashOutputFile, "error", err)
 			return err
 		}
 
 		f, err := os.Create(app.config.CrashOutputFile)
 		if err != nil {
-			app.GetDefaultLogger().Error("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			app.GetDefaultLogger().LogError("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
 			return err
 		}
 
-		app.GetDefaultLogger().Info("Setting up crash output file", "file", app.config.CrashOutputFile)
+		app.GetDefaultLogger().LogInfo("Setting up crash output file", "file", app.config.CrashOutputFile)
 		err = debug.SetCrashOutput(f, debug.CrashOptions{})
 		if err != nil {
-			app.GetDefaultLogger().Error("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			app.GetDefaultLogger().LogError("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
 			return err
 		}
 	}
@@ -1231,14 +1227,14 @@ func (app *AppInstance) setupLog() error {
 	if app.config.CrashOutputFile != "" {
 		f, err := os.Create(app.config.CrashOutputFile)
 		if err != nil {
-			app.GetDefaultLogger().Error("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			app.GetDefaultLogger().LogError("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
 			return err
 		}
 
-		app.GetDefaultLogger().Info("Setting up crash output file", "file", app.config.CrashOutputFile)
+		app.GetDefaultLogger().LogInfo("Setting up crash output file", "file", app.config.CrashOutputFile)
 		err = debug.SetCrashOutput(f, debug.CrashOptions{})
 		if err != nil {
-			app.GetDefaultLogger().Error("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
+			app.GetDefaultLogger().LogError("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
 			return err
 		}
 	}
@@ -1353,7 +1349,7 @@ func (cm *CommandManager) ExecuteCommand(app *AppInstance, command string, args 
 		if exists {
 			return handler(app, command, args)
 		} else {
-			app.GetDefaultLogger().Error("Error command executed: %s %v", command, args)
+			app.GetDefaultLogger().LogError("LogError command executed: %s %v", command, args)
 			return nil
 		}
 	}
@@ -1389,7 +1385,7 @@ func (app *AppInstance) setupCommandManager() {
 		return app.handleReloadCommand(args)
 	})
 	cm.RegisterCommand("@OnError", func(app *AppInstance, command string, args []string) error {
-		app.GetDefaultLogger().Error("Error command executed: %s %v", command, args)
+		app.GetDefaultLogger().LogError("LogError command executed: %s %v", command, args)
 		return nil
 	})
 
@@ -1398,26 +1394,26 @@ func (app *AppInstance) setupCommandManager() {
 
 // 默认命令处理器
 func (app *AppInstance) handleStartCommand(_args []string) error {
-	app.GetDefaultLogger().Info("======================== App start ========================")
+	app.GetDefaultLogger().LogInfo("======================== App start ========================")
 	return nil
 }
 
 func (app *AppInstance) handleStopCommand(_args []string) error {
-	app.GetDefaultLogger().Info("======================== App received stop command ========================")
+	app.GetDefaultLogger().LogInfo("======================== App received stop command ========================")
 	return app.Stop()
 }
 
 func (app *AppInstance) handleReloadCommand(_args []string) error {
-	app.GetDefaultLogger().Info("======================== App received reload command ========================")
+	app.GetDefaultLogger().LogInfo("======================== App received reload command ========================")
 	err := app.Reload()
 	if err != nil {
-		app.GetDefaultLogger().Error("App reload failed", slog.Any("error", err))
+		app.GetDefaultLogger().LogError("App reload failed", slog.Any("error", err))
 		return err
 	}
 
 	err = app.setupLog()
 	if err != nil {
-		app.GetDefaultLogger().Error("App reload and log setup failed", slog.Any("error", err))
+		app.GetDefaultLogger().LogError("App reload and log setup failed", slog.Any("error", err))
 		return err
 	}
 
@@ -1437,7 +1433,7 @@ func (app *AppInstance) MakeAction(callback func(action *AppActionData) error, m
 func (app *AppInstance) PushAction(callback func(action *AppActionData) error, message_data []byte, private_data interface{}) error {
 	sender := app.MakeAction(callback, message_data, private_data)
 	if err := app.workerPool.Invoke(sender); err != nil {
-		app.GetDefaultLogger().Error("failed to invoke action", "err", err)
+		app.GetDefaultLogger().LogError("failed to invoke action", "err", err)
 		return err
 	}
 
@@ -1447,7 +1443,7 @@ func (app *AppInstance) PushAction(callback func(action *AppActionData) error, m
 func (app *AppInstance) processAction(sender *AppActionSender) {
 	err := sender.callback(&sender.data)
 	if err != nil {
-		app.GetDefaultLogger().Error("Action callback error", slog.Any("err", err))
+		app.GetDefaultLogger().LogError("Action callback error", slog.Any("err", err))
 	}
 
 	sender.reset()

@@ -2,7 +2,6 @@ package libatapp
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"reflect"
 	"strconv"
@@ -333,7 +332,7 @@ func splitStringToArray(start string) (result []string) {
 	return
 }
 
-func parseStringToYamlData(stringValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *slog.Logger) (interface{}, error) {
+func parseStringToYamlData(stringValue string, fd protoreflect.FieldDescriptor, sizeMode bool, logger *Logger) (interface{}, error) {
 	if sizeMode {
 		return stringValue, nil
 	}
@@ -562,7 +561,7 @@ func checkMinMax(yamlData interface{}, minData interface{}, maxData interface{})
 	return returnNative, nil
 }
 
-func convertField(inputData interface{}, minData interface{}, maxData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
+func convertField(inputData interface{}, minData interface{}, maxData interface{}, fd protoreflect.FieldDescriptor, logger *Logger) (protoreflect.Value, error) {
 	if inputData == nil && minData == nil && maxData == nil {
 		return protoreflect.Value{}, nil
 	}
@@ -680,7 +679,7 @@ func pickSizeMode(value interface{}) (uint64, error) {
 }
 
 // 从一个Field内读出数据 非Message 且为最底层 嵌套终点
-func parseField(inputData interface{}, fd protoreflect.FieldDescriptor, logger *slog.Logger) (protoreflect.Value, error) {
+func parseField(inputData interface{}, fd protoreflect.FieldDescriptor, logger *Logger) (protoreflect.Value, error) {
 	// 获取最大最小值
 	var minValue interface{}
 	var maxValue interface{}
@@ -862,7 +861,7 @@ func makeExistedMapKeyIndexKey(existedSetPrefix string, fd protoreflect.FieldDes
 	return fmt.Sprintf("%s%s.%s", existedSetPrefix, fd.FullName(), mk.String())
 }
 
-func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logger *slog.Logger) error {
+func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logger *Logger) error {
 	len := msg.ProtoReflect().Descriptor().Fields().Len()
 	for i := 0; i < len; i++ {
 		fd := msg.ProtoReflect().Descriptor().Fields().Get(i)
@@ -1003,7 +1002,7 @@ func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logge
 								return err
 							}
 						} else {
-							logger.Warn("ParseMessage message field not found, use default", "field", fieldName)
+							logger.LogWarn("ParseMessage message field not found, use default", "field", fieldName)
 							if err := ParsePlainMessage(nil, msg.ProtoReflect().Mutable(fd).Message().Interface(), logger); err != nil {
 								return err
 							}
@@ -1019,7 +1018,7 @@ func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logge
 			ok := false
 			fieldData, ok = yamlData[fieldName]
 			if !ok {
-				logger.Warn("ParseMessage field not found, use default", "field", fieldName)
+				logger.LogWarn("ParseMessage field not found, use default", "field", fieldName)
 			}
 		}
 		value, err := parseField(fieldData, fd, logger)
@@ -1037,7 +1036,7 @@ func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logge
 }
 
 func dumpYamlIntoMessageFieldValue(yamlData interface{}, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+	logger *Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil || yamlData == nil {
 		return false
@@ -1074,7 +1073,7 @@ func dumpYamlIntoMessageFieldValue(yamlData interface{}, dst *protoreflect.Value
 }
 
 func dumpYamlIntoMessageFieldItem(yamlData map[string]interface{}, dst proto.Message, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+	logger *Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil || len(yamlData) == 0 {
 		return false
@@ -1262,7 +1261,7 @@ func dumpYamlIntoMessageFieldItem(yamlData map[string]interface{}, dst proto.Mes
 	return hasValue
 }
 
-func dumpYamlIntoMessage(yamlData map[string]interface{}, dst proto.Message, logger *slog.Logger,
+func dumpYamlIntoMessage(yamlData map[string]interface{}, dst proto.Message, logger *Logger,
 	loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if dst == nil {
@@ -1286,7 +1285,7 @@ func dumpYamlIntoMessage(yamlData map[string]interface{}, dst proto.Message, log
 	return ret
 }
 
-func LoadConfigFromOriginData(originData interface{}, prefixPath string, configPb proto.Message, logger *slog.Logger,
+func LoadConfigFromOriginData(originData interface{}, prefixPath string, configPb proto.Message, logger *Logger,
 	loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) (err error) {
 	parent := originData
@@ -1331,11 +1330,11 @@ func LoadConfigFromOriginData(originData interface{}, prefixPath string, configP
 	}
 
 	if err != nil {
-		logger.Error("load prefixPath failed", "err", err)
+		logger.LogError("load prefixPath failed", "err", err)
 		// 使用初始值初始化
 		parseErr := LoadDefaultConfigMessageFields(configPb, logger, dumpExistedSet, existedSetPrefix)
 		if parseErr != nil {
-			logger.Error("LoadDefaultConfigMessageFields failed", "err", parseErr)
+			logger.LogError("LoadDefaultConfigMessageFields failed", "err", parseErr)
 		}
 		return
 	}
@@ -1362,7 +1361,7 @@ func LoadConfigOriginYaml(configPath string) (yamlData map[string]interface{}, e
 	return
 }
 
-func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Message, logger *slog.Logger,
+func LoadConfigFromYaml(configPath string, prefixPath string, configPb proto.Message, logger *Logger,
 	loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) (yamlData map[string]interface{}, err error) {
 	yamlData, err = LoadConfigOriginYaml(configPath)
@@ -1379,7 +1378,7 @@ func GetEnvUpperKey(key string) string {
 }
 
 func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger,
+	logger *Logger,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
@@ -1400,7 +1399,7 @@ func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst *protorefle
 }
 
 func dumpEnvironemntIntoMessageFieldValueMessage(envPrefix string, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+	logger *Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
@@ -1420,7 +1419,7 @@ func dumpEnvironemntIntoMessageFieldValueMessage(envPrefix string, dst *protoref
 }
 
 func dumpEnvironemntIntoMessageFieldValue(envPrefix string, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+	logger *Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
@@ -1434,7 +1433,7 @@ func dumpEnvironemntIntoMessageFieldValue(envPrefix string, dst *protoreflect.Va
 }
 
 func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
-	logger *slog.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+	logger *Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
@@ -1607,7 +1606,7 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 	return hasValue
 }
 
-func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *slog.Logger,
+func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *Logger,
 	loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if dst == nil {
@@ -1628,7 +1627,7 @@ func dumpEnvironemntIntoMessage(envPrefix string, dst proto.Message, logger *slo
 	return ret
 }
 
-func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger *slog.Logger,
+func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger *Logger,
 	loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) (bool, error) {
 	if logger == nil || configPb == nil {
@@ -1638,7 +1637,7 @@ func LoadConfigFromEnvironemnt(envPrefix string, configPb proto.Message, logger 
 	return dumpEnvironemntIntoMessage(envPrefix, configPb, logger, loadOptions, dumpExistedSet, existedSetPrefix), nil
 }
 
-func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.FieldDescriptor, logger *slog.Logger,
+func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.FieldDescriptor, logger *Logger,
 	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) {
 	if logger == nil || configPb == nil || fd == nil {
@@ -1747,7 +1746,7 @@ func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.Field
 		fmt.Sprintf("%s%s.", existedSetPrefix, fd.Name()))
 }
 
-func LoadDefaultConfigMessageFields(configPb proto.Message, logger *slog.Logger,
+func LoadDefaultConfigMessageFields(configPb proto.Message, logger *Logger,
 	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) error {
 	if logger == nil || configPb == nil {
@@ -1770,7 +1769,7 @@ func LoadDefaultConfigMessageFields(configPb proto.Message, logger *slog.Logger,
 
 // dumpEnvironemntIntoLogCategory 从环境变量加载 category 配置
 func dumpEnvironemntIntoLogCategory(envPrefix string, category *atframe_protocol.AtappLogCategory,
-	logger *slog.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+	logger *Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if category == nil {
 		return false
@@ -1807,7 +1806,7 @@ func dumpEnvironemntIntoLogCategory(envPrefix string, category *atframe_protocol
 
 // LoadLogCategoryConfigFromEnvironemnt 从环境变量加载日志配置
 // 支持特殊的 sink 配置格式: <前缀>_<CATEGORY_NAME>_<sink 下标>_<大写字段名>
-func LoadLogCategoryConfigFromEnvironemnt(envPrefix string, logCategoryPb *atframe_protocol.AtappLogCategory, logger *slog.Logger,
+func LoadLogCategoryConfigFromEnvironemnt(envPrefix string, logCategoryPb *atframe_protocol.AtappLogCategory, logger *Logger,
 	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
 	if logger == nil || logCategoryPb == nil {

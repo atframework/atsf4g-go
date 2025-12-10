@@ -1,7 +1,6 @@
 package atframework_component_config
 
 import (
-	"log/slog"
 	"time"
 
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
@@ -10,7 +9,7 @@ import (
 	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
 )
 
-func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *slog.Logger) error {
+func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *libatapp.Logger) error {
 	// 这边初始化自定义索引
 	source := make(map[string]interface{})
 	for _, v := range *group.GetExcelOriginConstConfigAllOfKey() {

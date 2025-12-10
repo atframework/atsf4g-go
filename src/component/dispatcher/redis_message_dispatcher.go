@@ -33,7 +33,7 @@ type RedisLog struct {
 }
 
 func (l *RedisLog) Printf(ctx context.Context, format string, v ...interface{}) {
-	libatapp.LogInner(l.app.GetSysNow(), l.app.GetLogger(1), libatapp.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
+	l.app.GetLogger(1).LogInner(l.app.GetSysNow(), libatapp.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
 }
 
 type RedisMessageDispatcher struct {
@@ -138,12 +138,12 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	redisCfg := &private_protocol_config.LogicRedisCfg{}
 	loadErr := d.GetApp().LoadConfigByPath(redisCfg, "lobbysvr.redis", "ATAPP_LOBBYSVR_REDIS", nil, "")
 	if loadErr != nil {
-		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
+		d.GetLogger().LogWarn("Failed to load websocket server config", "error", loadErr)
 	}
 	d.redisCfg = redisCfg.ToReadonly()
 
 	if d.redisCfg.GetAddr() == "" {
-		d.DispatcherBase.GetLogger().Error("redis config error empty")
+		d.DispatcherBase.GetLogger().LogError("redis config error empty")
 		return fmt.Errorf("redis config error empty")
 	}
 
@@ -153,7 +153,7 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		d.recordPrefix = GetStableHostID()
 	}
 
-	d.DispatcherBase.GetLogger().Info("Redis Prefix", "Prefix", d.recordPrefix)
+	d.DispatcherBase.GetLogger().LogInfo("Redis Prefix", "Prefix", d.recordPrefix)
 
 	redis.SetLogger(&d.log)
 	d.redisInstance = redis.NewClient(&redis.Options{
@@ -163,19 +163,19 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	})
 
 	if d.redisInstance == nil {
-		d.DispatcherBase.GetLogger().Error("Create Redis Cluster Client Failed")
+		d.DispatcherBase.GetLogger().LogError("Create Redis Cluster Client Failed")
 		return fmt.Errorf("create redis cluster client failed")
 	}
 
 	sha, err := d.redisInstance.ScriptLoad(initCtx, CASLuaScript).Result()
 	if err != nil {
-		d.GetLogger().Error("register CAS lua script failed", "err", err)
+		d.GetLogger().LogError("register CAS lua script failed", "err", err)
 		return err
 	}
 	d.casLuaSHA = sha
-	d.GetLogger().Info("CAS lua script registered", "sha", sha)
+	d.GetLogger().LogInfo("CAS lua script registered", "sha", sha)
 
-	d.DispatcherBase.GetLogger().Info("Init Redis success")
+	d.DispatcherBase.GetLogger().LogInfo("Init Redis success")
 	return nil
 }
 

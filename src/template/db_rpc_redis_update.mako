@@ -53,10 +53,10 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
 % if cas_enabled:
-			ctx.GetApp().GetLogger(2).Debug("EvalSha HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "currentCASVersion", OldCASVersion, "data", table)
+			ctx.GetApp().GetLogger(2).LogDebug("EvalSha HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "currentCASVersion", OldCASVersion, "data", table)
 			cmdResult, redisError := instance.EvalSha(ctx.GetContext(), dispatcher.GetCASLuaSHA(), []string{index}, redisData).Result()
 % else:
-			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "data", table)
+			ctx.GetApp().GetLogger(2).LogDebug("HSet ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index, "data", table)
 			redisError := instance.HSet(ctx.GetContext(), index, redisData).Err()
 % endif
 			resumeData := &cd.DispatcherResumeData{
@@ -81,9 +81,9 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 % endif
 			if redisError != nil {
 % if cas_enabled:
-				ctx.GetApp().GetLogger(2).Error("EvalSha HSet ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "currentCASVersion", *currentCASVersion, "redisError", redisError)
+				ctx.GetApp().GetLogger(2).LogError("EvalSha HSet ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "currentCASVersion", *currentCASVersion, "redisError", redisError)
 % else:
-				ctx.GetApp().GetLogger(2).Error("HSet ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
+				ctx.GetApp().GetLogger(2).LogError("HSet ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
 % endif
 				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
@@ -96,11 +96,11 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 				return redisError
             }
 % if cas_enabled:
-			ctx.GetApp().GetLogger(2).Debug("EvalSha HSet ${message_name} Recv: \n", "Seq", awaitOption.Sequence, "realVersion", realVersion)
+			ctx.GetApp().GetLogger(2).LogDebug("EvalSha HSet ${message_name} Recv: \n", "Seq", awaitOption.Sequence, "realVersion", realVersion)
 			resumeData.PrivateData = &realVersion
 			resumeData.Result = cd.CreateRpcResultOk()
 % else:
-			ctx.GetApp().GetLogger(2).Debug("HSet ${message_name} Recv: \n", "Seq", awaitOption.Sequence)
+			ctx.GetApp().GetLogger(2).LogDebug("HSet ${message_name} Recv: \n", "Seq", awaitOption.Sequence)
 			resumeData.Result = cd.CreateRpcResultOk()
 % endif
 			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
@@ -135,7 +135,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 	}
 	*currentCASVersion = *realVersion
 	if OldCASVersion != 0 && OldCASVersion+1 != *currentCASVersion {
-		ctx.GetApp().GetLogger(2).Info("EvalSha HSet ${message_name} CAS Check Failed: \n", "Seq",
+		ctx.GetApp().GetLogger(2).LogInfo("EvalSha HSet ${message_name} CAS Check Failed: \n", "Seq",
 			awaitOption.Sequence, "currentCASVersion+1", OldCASVersion+1, "RealCASVersion", *currentCASVersion)
 		retResult = cd.CreateRpcResultError(fmt.Errorf("cas check failed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED)
 		return

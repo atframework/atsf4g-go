@@ -35,7 +35,7 @@ func ${message_name}DelWith${index_key_name}(
 
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).Debug("Del ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index)
+			ctx.GetApp().GetLogger(2).LogDebug("Del ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index)
 			_, redisError := instance.Del(ctx.GetContext(), index).Result()
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
@@ -45,7 +45,7 @@ func ${message_name}DelWith${index_key_name}(
 				PrivateData: nil,
 			}
 			if redisError != nil {
-				ctx.GetApp().GetLogger(2).Error("Del ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
+				ctx.GetApp().GetLogger(2).LogError("Del ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
 				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
@@ -56,7 +56,7 @@ func ${message_name}DelWith${index_key_name}(
 				}
 				return redisError
             }
-    		ctx.GetApp().GetLogger(2).Debug("Del ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence)
+    		ctx.GetApp().GetLogger(2).LogDebug("Del ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence)
 			resumeData.Result = cd.CreateRpcResultOk()
 			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 			if resumeError != nil {

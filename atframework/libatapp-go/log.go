@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
@@ -56,6 +57,11 @@ func (b *logBuffer) WriteString(s string) (int, error) {
 
 func (b *logBuffer) WriteByte(c byte) error {
 	*b = append(*b, c)
+	return nil
+}
+
+func (b *logBuffer) WriteRune(r rune) error {
+	*b = utf8.AppendRune(*b, r)
 	return nil
 }
 
@@ -221,6 +227,8 @@ func (h *logHandlerImpl) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.minLevel && level <= h.maxLevel
 }
 
+var indexSplit = '\u001F'
+
 // Handle不需要是线程安全
 func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	// 主信息
@@ -237,10 +245,15 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 
 	// 额外字段
 	r.Attrs(func(a slog.Attr) bool {
+		if a.Key == "" {
+			return true
+		}
 		sb.WriteByte(' ')
+		sb.WriteRune(indexSplit)
 		sb.WriteString(a.Key)
 		sb.WriteByte('=')
 		sb.WriteString(a.Value.Resolve().String())
+		sb.WriteRune(indexSplit)
 		return true
 	})
 	var stackTrace *logBuffer
@@ -304,9 +317,28 @@ func GetCaller(skip int) uintptr {
 	return pcs[0]
 }
 
+type Logger struct {
+	logger *slog.Logger
+	GetTime
+}
+
+type LogAttr interface {
+	LogAttr() []slog.Attr
+}
+
+func NewLogger(handler slog.Handler, getTime GetTime) *Logger {
+	return &Logger{
+		logger:  slog.New(handler),
+		GetTime: getTime,
+	}
+}
+
 func LogInner(sysnow time.Time, logger *slog.Logger, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
 	if lu.IsNil(ctx) {
 		ctx = context.Background()
+	}
+	if logger == nil {
+		logger = slog.Default()
 	}
 	if !logger.Enabled(ctx, level) {
 		return
@@ -314,4 +346,44 @@ func LogInner(sysnow time.Time, logger *slog.Logger, pc uintptr, ctx context.Con
 	r := slog.NewRecord(sysnow, level, msg, pc)
 	r.Add(args...)
 	_ = logger.Handler().Handle(ctx, r)
+}
+
+func (l *Logger) LogInner(sysnow time.Time, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
+	if l == nil {
+		LogInner(time.Now(), nil, pc, ctx, level, msg, args...)
+	} else {
+		LogInner(sysnow, l.logger, pc, ctx, level, msg, args...)
+	}
+}
+
+func (l *Logger) LogError(msg string, args ...any) {
+	if l == nil {
+		LogInner(time.Now(), slog.Default(), GetCaller(1), nil, slog.LevelError, msg, args...)
+	} else {
+		LogInner(l.GetSysNow(), l.logger, GetCaller(1), nil, slog.LevelError, msg, args...)
+	}
+}
+
+func (l *Logger) LogWarn(msg string, args ...any) {
+	if l == nil {
+		LogInner(time.Now(), slog.Default(), GetCaller(1), nil, slog.LevelWarn, msg, args...)
+	} else {
+		LogInner(l.GetSysNow(), l.logger, GetCaller(1), nil, slog.LevelWarn, msg, args...)
+	}
+}
+
+func (l *Logger) LogInfo(msg string, args ...any) {
+	if l == nil {
+		LogInner(time.Now(), slog.Default(), GetCaller(1), nil, slog.LevelInfo, msg, args...)
+	} else {
+		LogInner(l.GetSysNow(), l.logger, GetCaller(1), nil, slog.LevelInfo, msg, args...)
+	}
+}
+
+func (l *Logger) LogDebug(msg string, args ...any) {
+	if l == nil {
+		LogInner(time.Now(), slog.Default(), GetCaller(1), nil, slog.LevelDebug, msg, args...)
+	} else {
+		LogInner(l.GetSysNow(), l.logger, GetCaller(1), nil, slog.LevelDebug, msg, args...)
+	}
 }

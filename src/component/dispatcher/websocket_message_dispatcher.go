@@ -188,7 +188,7 @@ func (d *WebSocketMessageDispatcher) runServer() error {
 	}
 
 	if err != nil {
-		d.GetApp().GetDefaultLogger().Error("Web server error", "error", err)
+		d.GetApp().GetDefaultLogger().LogError("Web server error", "error", err)
 		d.GetApp().Stop()
 	}
 
@@ -215,7 +215,7 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 	conn, err := d.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
-		d.GetApp().GetDefaultLogger().Error("WebSocket upgrade failed", "error", err)
+		d.GetApp().GetDefaultLogger().LogError("WebSocket upgrade failed", "error", err)
 		return
 	}
 	conn.SetReadLimit(int64(d.wsConfig.GetMaxMessageSize()))
@@ -241,7 +241,7 @@ func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
 	if onNewSession != nil {
 		err := onNewSession.(WebSocketCallbackOnNewSession)(d.CreateRpcContext(), session)
 		if err != nil {
-			d.GetApp().GetDefaultLogger().Error("OnNewSession callback error", "error", err, "session_id", session.SessionId)
+			d.GetApp().GetDefaultLogger().LogError("OnNewSession callback error", "error", err, "session_id", session.SessionId)
 			d.AsyncClose(d.CreateRpcContext(), session, websocket.CloseServiceRestart, "Service shutdown")
 			return
 		}
@@ -249,7 +249,7 @@ func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
 
 	d.sessions[session.SessionId] = session
 
-	d.GetApp().GetDefaultLogger().Info("New WebSocket session added", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)
+	d.GetApp().GetDefaultLogger().LogInfo("New WebSocket session added", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)
 }
 
 func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
@@ -265,7 +265,7 @@ func (d *WebSocketMessageDispatcher) removeSession(session *WebSocketSession) {
 		onRemoveSession.(WebSocketCallbackOnRemoveSession)(ctx, session)
 	}
 
-	d.GetApp().GetDefaultLogger().Info("WebSocket session removed", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)
+	d.GetApp().GetDefaultLogger().LogInfo("WebSocket session removed", "client", session.Connection.RemoteAddr().String(), "session_id", session.SessionId)
 }
 
 func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession) {
@@ -276,18 +276,18 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 		if err != nil {
 			d.increaseErrorCounter(session)
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				d.GetApp().GetDefaultLogger().Error("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
+				d.GetApp().GetDefaultLogger().LogError("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
 			}
 			break
 		}
 
-		d.GetApp().GetDefaultLogger().Debug("Websocket session read message", "session_id", session.SessionId, "message_size", len(messageData))
+		d.GetApp().GetDefaultLogger().LogDebug("Websocket session read message", "session_id", session.SessionId, "message_size", len(messageData))
 
 		msg := &public_protocol_extension.CSMsg{}
 		err = proto.Unmarshal(messageData, msg)
 		if err != nil {
 			d.increaseErrorCounter(session)
-			d.GetApp().GetDefaultLogger().Error("Failed to unmarshal message", "error", err, "session_id", session.SessionId)
+			d.GetApp().GetDefaultLogger().LogError("Failed to unmarshal message", "error", err, "session_id", session.SessionId)
 			continue
 		}
 
@@ -297,10 +297,10 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 		if onNewMessage != nil {
 			err = onNewMessage.(WebSocketCallbackOnNewMessage)(session, msg)
 			if err != nil {
-				d.GetApp().GetDefaultLogger().Error("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
+				d.GetApp().GetDefaultLogger().LogError("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
 			}
 		} else {
-			d.GetApp().GetDefaultLogger().Debug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.Head)
+			d.GetApp().GetDefaultLogger().LogDebug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.Head)
 		}
 
 		if err == nil {
@@ -399,7 +399,7 @@ func (d *WebSocketMessageDispatcher) WriteMessage(session *WebSocketSession, mes
 
 	if session.sentCloseMessage.Load() {
 		// session is closing, do not send more messages
-		d.GetApp().GetDefaultLogger().Warn("Attempted to send message on closing session", "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().LogWarn("Attempted to send message on closing session", "session_id", session.SessionId)
 		return fmt.Errorf("session is closing")
 	}
 
@@ -408,7 +408,7 @@ func (d *WebSocketMessageDispatcher) WriteMessage(session *WebSocketSession, mes
 		return nil
 	default:
 		d.increaseErrorCounter(session)
-		d.GetApp().GetDefaultLogger().Error("Send queue full, dropping message", "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().LogError("Send queue full, dropping message", "session_id", session.SessionId)
 		return fmt.Errorf("send queue full")
 	}
 }
@@ -417,27 +417,27 @@ func (d *WebSocketMessageDispatcher) writeMessageToConnection(session *WebSocket
 	messageData, err := proto.Marshal(message)
 	if err != nil {
 		d.increaseErrorCounter(session)
-		d.GetApp().GetDefaultLogger().Error("Failed to marshal message", "error", err, "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().LogError("Failed to marshal message", "error", err, "session_id", session.SessionId)
 		return err
 	}
 
 	err = session.Connection.WriteMessage(websocket.BinaryMessage, messageData)
 	if err != nil {
 		d.increaseErrorCounter(session)
-		d.GetApp().GetDefaultLogger().Error("Failed to write message", "error", err, "session_id", session.SessionId)
+		d.GetApp().GetDefaultLogger().LogError("Failed to write message", "error", err, "session_id", session.SessionId)
 		return err
 	}
 
 	session.resetErrorCounter()
 
-	d.GetApp().GetDefaultLogger().Debug("Websocket session sent message", "session_id", session.SessionId, "message_size", len(messageData))
+	d.GetApp().GetDefaultLogger().LogDebug("Websocket session sent message", "session_id", session.SessionId, "message_size", len(messageData))
 	return nil
 }
 
 // 会由多个线程调用 需要线程安全
 func (d *WebSocketMessageDispatcher) AsyncClose(_ctx RpcContext, session *WebSocketSession, closeCode int, text string) {
 	if session.sentCloseMessage.CompareAndSwap(false, true) {
-		d.GetApp().GetDefaultLogger().Info("AsyncClose WebSocket session", "session_id", session.SessionId, "reason", text)
+		d.GetApp().GetDefaultLogger().LogInfo("AsyncClose WebSocket session", "session_id", session.SessionId, "reason", text)
 
 		// close(session.sendQueue) // 不能关闭channel,可能有并发写入,由channel通知关闭
 		session.sendQueueClose <- closeParam{
@@ -451,7 +451,7 @@ func (d *WebSocketMessageDispatcher) AsyncClose(_ctx RpcContext, session *WebSoc
 func (d *WebSocketMessageDispatcher) closeSession(_ctx RpcContext, session *WebSocketSession, closeCode int, text string) {
 	session.sentCloseMessage.Store(true)
 
-	d.GetApp().GetDefaultLogger().Info("Close WebSocket session", "session_id", session.SessionId, "reason", text)
+	d.GetApp().GetDefaultLogger().LogInfo("Close WebSocket session", "session_id", session.SessionId, "reason", text)
 	session.Connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCode, text))
 
 	if session.runningCancel != nil {
@@ -502,13 +502,13 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 	loadErr := d.GetApp().LoadConfigByPath(serverConfig, d.webServerConfigurePath,
 		strings.ToUpper(strings.ReplaceAll(d.webServerConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
-		d.GetLogger().Warn("Failed to load web server config", "error", loadErr)
+		d.GetLogger().LogWarn("Failed to load web server config", "error", loadErr)
 	}
 
 	loadErr = d.GetApp().LoadConfigByPath(wsConfig, d.webSocketServerConfigurePath,
 		strings.ToUpper(strings.ReplaceAll(d.webSocketServerConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
-		d.GetLogger().Warn("Failed to load websocket server config", "error", loadErr)
+		d.GetLogger().LogWarn("Failed to load websocket server config", "error", loadErr)
 	}
 
 	if serverConfig.GetPort() <= 0 || serverConfig.GetPort() > 65535 {

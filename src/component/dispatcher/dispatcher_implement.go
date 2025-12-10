@@ -37,7 +37,7 @@ type DispatcherImpl interface {
 	AllocSequence() uint64
 	GetNow() time.Time
 	GetSysNow() time.Time
-	GetLogger() *slog.Logger
+	GetLogger() *libatapp.Logger
 
 	OnSendMessageFailed(rpcContext RpcContext, msg *DispatcherRawMessage, sequence uint64, err error)
 	OnCreateTaskFailed(startData *DispatcherStartData, err error)
@@ -118,31 +118,31 @@ func (dispatcher *DispatcherBase) GetSysNow() time.Time {
 	return logical_time.GetSysNow()
 }
 
-func (dispatcher *DispatcherBase) GetLogger() *slog.Logger {
+func (dispatcher *DispatcherBase) GetLogger() *libatapp.Logger {
 	app := dispatcher.GetApp()
 	if lu.IsNil(app) {
-		return slog.Default()
+		return nil
 	}
 
 	return app.GetDefaultLogger()
 }
 
 func (dispatcher *DispatcherBase) OnSendMessageFailed(rpcContext RpcContext, msg *DispatcherRawMessage, sequence uint64, err error) {
-	dispatcher.impl.GetLogger().Error("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
+	dispatcher.impl.GetLogger().LogError("OnSendMessageFailed", "error", err, "sequence", sequence, "message_type", msg.Type)
 }
 
 func (dispatcher *DispatcherBase) OnCreateTaskFailed(startData *DispatcherStartData, err error) {
-	dispatcher.impl.GetLogger().Error("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", dispatcher.impl.PickMessageRpcName(startData.Message))
+	dispatcher.impl.GetLogger().LogError("OnCreateTaskFailed", "error", err, "message_type", startData.Message.Type, "rpc_name", dispatcher.impl.PickMessageRpcName(startData.Message))
 }
 
 func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context, msg *DispatcherRawMessage, privateData interface{}, sequence uint64) error {
 	if msg == nil || lu.IsNil(msg.Instance) {
-		dispatcher.GetLogger().Error("OnReceiveMessage message can not be nil", "sequence", sequence)
+		dispatcher.GetLogger().LogError("OnReceiveMessage message can not be nil", "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message can not be nil")
 	}
 
 	if msg.Type != dispatcher.impl.GetInstanceIdent() {
-		dispatcher.GetLogger().Error("OnReceiveMessage message type mismatch", "expect", dispatcher.impl.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
+		dispatcher.GetLogger().LogError("OnReceiveMessage message type mismatch", "expect", dispatcher.impl.GetInstanceIdent(), "got", msg.Type, "sequence", sequence)
 		return fmt.Errorf("OnReceiveMessage message type mismatch, expect %d, got %d", dispatcher.impl.GetInstanceIdent(), msg.Type)
 	}
 
@@ -176,7 +176,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 
 	action, err := dispatcher.impl.CreateTask(startData)
 	if err != nil {
-		dispatcher.GetLogger().Error("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg))
+		dispatcher.GetLogger().LogError("OnReceiveMessage CreateTask failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg))
 		dispatcher.OnCreateTaskFailed(startData, err)
 
 		if awaitableContext.GetCancelFn() != nil {
@@ -190,7 +190,7 @@ func (dispatcher *DispatcherBase) OnReceiveMessage(parentContext context.Context
 
 	err = libatapp.AtappGetModule[*TaskManager](dispatcher.impl.GetApp()).StartTaskAction(awaitableContext, action, startData)
 	if err != nil {
-		dispatcher.GetLogger().Error("OnReceiveMessage StartTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
+		dispatcher.GetLogger().LogError("OnReceiveMessage StartTaskAction failed", slog.String("error", err.Error()), "sequence", sequence, "rpc_name", dispatcher.impl.PickMessageRpcName(msg), "task_id", action.GetTaskId(), "task_name", action.GetTypeName())
 		if awaitableContext.GetCancelFn() != nil {
 			cancelFn := awaitableContext.GetCancelFn()
 			awaitableContext.SetCancelFn(nil)
@@ -231,7 +231,7 @@ func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.
 	rpcShortName := rpcFullName[strings.LastIndex(rpcFullName, ".")+1:]
 	methodDescriptor := serviceDescriptor.Methods().ByName(protoreflect.Name(rpcShortName))
 	if lu.IsNil(methodDescriptor) {
-		dispatcher.GetLogger().Error("RegisterAction method not found", "method", rpcShortName, "service", serviceFullName)
+		dispatcher.GetLogger().LogError("RegisterAction method not found", "method", rpcShortName, "service", serviceFullName)
 		return fmt.Errorf("RegisterAction method %s not found in service %s", rpcShortName, serviceFullName)
 	}
 

@@ -48,12 +48,12 @@ func init() {
 	}, func(ctx cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[logic_inventory.UserInventoryManager](owner)
 		if mgr == nil {
-			ctx.LogError("can not find user inventory manager", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
+			ctx.LogError("can not find user inventory manager")
 			return nil
 		}
 		convert, ok := mgr.(data.UserItemManagerImpl)
 		if !ok || convert == nil {
-			ctx.LogError("user inventory manager does not implement UserItemManagerImpl", "zone_id", owner.GetZoneId(), "user_id", owner.GetUserId())
+			ctx.LogError("user inventory manager does not implement UserItemManagerImpl")
 			return nil
 		}
 		return convert
@@ -391,7 +391,6 @@ func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []*data.Ite
 		group := m.mutableItemGroup(typeId)
 		if group == nil {
 			ctx.LogError("sub item not enough, should failed in CheckAddItem",
-				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
 				"item_id", typeId, "item_guid", groupGuid, "add_item_count", addCount,
 			)
 			continue
@@ -406,7 +405,6 @@ func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []*data.Ite
 		afterCount := group.statistics.TotalCount
 		if afterCount-beforeCount < addCount {
 			ctx.LogError("add item not overflow, should failed in CheckAddItem",
-				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
 				"item_id", typeId, "item_guid", groupGuid, "before_item_count", beforeCount, "after_item_count", afterCount, "add_item_count",
 				addCount,
 			)
@@ -439,7 +437,6 @@ func (m *UserInventoryManager) SubItem(ctx cd.RpcContext, itemOffset []*data.Ite
 		group := m.getItemGroup(typeId)
 		if group == nil {
 			ctx.LogError("sub item not enough, should failed in CheckSubItem",
-				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
 				"item_id", sub.Item.GetTypeId(), "item_guid", sub.Item.GetGuid(), "sub_item_count", sub.Item.GetCount(),
 			)
 			continue
@@ -448,7 +445,6 @@ func (m *UserInventoryManager) SubItem(ctx cd.RpcContext, itemOffset []*data.Ite
 		subSet := group.GetGroup(sub.Item.GetGuid())
 		if subSet.GetItemBasic().GetCount() < sub.Item.GetCount() {
 			ctx.LogError("sub item not enough, should failed in CheckSubItem",
-				"zone_id", m.UserModuleManagerBase.GetOwner().GetZoneId(), "user_id", m.UserModuleManagerBase.GetOwner().GetUserId(),
 				"item_id", sub.Item.GetTypeId(), "item_guid", sub.Item.GetGuid(), "has_item_count", subSet.GetItemBasic().GetCount(), "sub_item_count", sub.Item.GetCount(),
 			)
 		}

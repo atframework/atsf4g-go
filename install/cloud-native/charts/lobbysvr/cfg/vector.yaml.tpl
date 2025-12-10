@@ -2,8 +2,8 @@ sources:
   lobbysvr_logs_normal:
     type: file
     include:
-      - {{ .Values.volumeMounts.logMountPath }}/*.normal.all.log
-    data_dir: {{ .Values.volumeMounts.logMountPath }}
+      - {{ .Values.vector.log_path }}/*.normal.all.log
+    data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -12,8 +12,8 @@ sources:
   lobbysvr_logs_db_inner:
     type: file
     include:
-      - {{ .Values.volumeMounts.logMountPath }}/*.db_inner.all.log
-    data_dir: {{ .Values.volumeMounts.logMountPath }}
+      - {{ .Values.vector.log_path }}/*.db_inner.all.log
+    data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -22,8 +22,8 @@ sources:
   lobbysvr_logs_redis:
     type: file
     include:
-      - {{ .Values.volumeMounts.logMountPath }}/*.redis.all.log
-    data_dir: {{ .Values.volumeMounts.logMountPath }}
+      - {{ .Values.vector.log_path }}/*.redis.all.log
+    data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -32,8 +32,8 @@ sources:
   lobbysvr_logs_actor:
     type: file
     include:
-      - {{ .Values.volumeMounts.logMountPath }}/*/*.new.log
-    data_dir: {{ .Values.volumeMounts.logMountPath }}
+      - {{ .Values.vector.log_path }}/*/*.new.log
+    data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
     line_delimiter: "\u001e\n"
@@ -64,108 +64,37 @@ transforms:
     inputs:
       - lobbysvr_logs_normal
     source: |
-      .file_path = string!(.file)
-      .file_name = basename!(.file_path)
-      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
-      del(.file)
-      del(.file_path)
-      del(.file_name)
-      del(.host)
-      del(.source_type)
-      del(.timestamp)
-      # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
-      . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
-      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
-      del(.log_ts)
-
-      # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
-      # if kv_matches != null && length(kv_matches) > 0 {
-      #   for_each(kv_matches) -> |_index, value| {
-      #     key, err = "$" + value.key
-      #     . = set!(., [key], value.value)
-      #   }
-      # }
-
-      .log_type = "normal"
-      .@timestamp = now()
+{{ include "libapp.vector.server_log_parse" "normal" | indent 6 }}
+{{ include "libapp.vector.server_log_index" . | indent 6 }}
 
   db_inner_enrich:
     type: remap
     inputs:
       - lobbysvr_logs_db_inner
     source: |
-      .file_path = string!(.file)
-      .file_name = basename!(.file_path)
-      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
-      del(.file)
-      del(.file_path)
-      del(.file_name)
-      del(.host)
-      del(.source_type)
-      del(.timestamp)
-      # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
-      . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
-      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
-      del(.log_ts)
-
-      # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
-      # if kv_matches != null && length(kv_matches) > 0 {
-      #   for_each(kv_matches) -> |_index, value| {
-      #     key, err = "$" + value.key
-      #     . = set!(., [key], value.value)
-      #   }
-      # }
-
-      .log_type = "db_inner"
-      .@timestamp = now()
+{{ include "libapp.vector.server_log_parse" "db_inner" | indent 6 }}
 
   redis_enrich:
     type: remap
     inputs:
       - lobbysvr_logs_redis
     source: |
-      .file_path = string!(.file)
-      .file_name = basename!(.file_path)
-      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
-      del(.file)
-      del(.file_path)
-      del(.file_name)
-      del(.host)
-      del(.source_type)
-      del(.timestamp)
-      # Extract timestamp and log level from message prefix like "[2025-12-08 14:44:22.949][ INFO]..."
-      . |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
-      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
-      del(.log_ts)
-
-      # kv_matches = parse_regex_all!(.message, r'\u001F(?P<key>[^=\u001F\s]+)=(?P<value>[^\u001F]+)\u001F')
-      # if kv_matches != null && length(kv_matches) > 0 {
-      #   for_each(kv_matches) -> |_index, value| {
-      #     key, err = "$" + value.key
-      #     . = set!(., [key], value.value)
-      #   }
-      # }
-
-      .log_type = "redis"
-      .@timestamp = now()
+{{ include "libapp.vector.server_log_parse" "redis" | indent 6 }}
 
 sinks:
-  # out:
-  #   type: console
-  #   inputs:
-  #     - actor_enrich
-  #     - normal_enrich
-  #     - db_inner_enrich
-  #     - redis_enrich
-  #   encoding:
-  #     codec: json
+  {{- if .Values.vector.sliks.console.enable }}
+  out:
+    type: console
+    inputs:
+      - actor_enrich
+      - normal_enrich
+      - db_inner_enrich
+      - redis_enrich
+    encoding:
+      codec: json
+  {{- end}}
 
-  # OpenSearch sinks (Elasticsearch-compatible) for indexing
-  # Configure endpoint and credentials via environment variables:
-  #   VECTOR_OPENSEARCH_ENDPOINT, VECTOR_OPENSEARCH_USERNAME, VECTOR_OPENSEARCH_PASSWORD
+  {{- if .Values.vector.sliks.opensearch.enable }}
   opensearch_log:
     type: elasticsearch
     mode: data_stream
@@ -174,11 +103,11 @@ sinks:
       - db_inner_enrich
       - redis_enrich
     endpoints:
-      - {{ .Values.vector.opensearch.endpoint }}
+      - {{ .Values.vector.sliks.opensearch.endpoint }}
     auth:
       strategy: basic
-      user: {{ .Values.vector.opensearch.username }}
-      password: {{ .Values.vector.opensearch.password }}
+      user: {{ .Values.vector.sliks.opensearch.username }}
+      password: {{ .Values.vector.sliks.opensearch.password }}
     tls:
       verify_certificate: false
       verify_hostname: false
@@ -193,11 +122,11 @@ sinks:
     inputs:
       - actor_enrich
     endpoints:
-      - {{ .Values.vector.opensearch.endpoint }}
+      - {{ .Values.vector.sliks.opensearch.endpoint }}
     auth:
       strategy: basic
-      user: {{ .Values.vector.opensearch.username }}
-      password: {{ .Values.vector.opensearch.password }}
+      user: {{ .Values.vector.sliks.opensearch.username }}
+      password: {{ .Values.vector.sliks.opensearch.password }}
     tls:
       verify_certificate: false
       verify_hostname: false
@@ -205,3 +134,4 @@ sinks:
       type: project-y
       dataset: log
       namespace: actor
+  {{- end -}}

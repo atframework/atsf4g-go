@@ -58,12 +58,12 @@ type AwaitableContext interface {
 
 func (ctx *AwaitableContextImpl) Awaitable() {}
 
-func (ctx *RpcContextImpl) getInternalLogger() *slog.Logger {
+func (ctx *RpcContextImpl) getInternalLogger() *libatapp.Logger {
 	if ctx.app != nil {
 		return ctx.app.GetDefaultLogger()
 	}
 
-	return slog.Default()
+	return nil
 }
 
 func (ctx *RpcContextImpl) GetNow() time.Time {
@@ -118,7 +118,7 @@ func (ctx *RpcContextImpl) SetContextCancelFn(c context.Context, cancelFn contex
 // ====================== 通用日志接口 =========================
 
 func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.Context, level slog.Level, msg string, args ...any) {
-	var logger *slog.Logger = nil
+	var logger *libatapp.Logger = nil
 	if ctx != nil {
 		logger = ctx.getInternalLogger()
 
@@ -126,20 +126,20 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 			c = ctx.rpcContext
 		}
 	}
-	if logger == nil {
-		logger = slog.Default()
-	}
 
 	if ctx != nil {
 		if ctx.taskAction != nil {
 			args = append(args, slog.Uint64("task_id", ctx.taskAction.GetTaskId()), slog.String("task_name", ctx.taskAction.Name()))
-			args = append(args, "actor", ctx.taskAction.GetActorExecutor())
+			attr := ctx.taskAction.GetActorExecutor().LogAttr()
+			for _, a := range attr {
+				args = append(args, a)
+			}
 		} else if ctx.dispatcher != nil {
 			args = append(args, slog.String("dispatcher", ctx.dispatcher.Name()))
 		}
-		libatapp.LogInner(ctx.GetSysNow(), logger, pc, c, level, msg, args...)
+		logger.LogInner(ctx.GetSysNow(), pc, c, level, msg, args...)
 	} else {
-		libatapp.LogInner(logical_time.GetSysNow(), logger, pc, c, level, msg, args...)
+		logger.LogInner(logical_time.GetSysNow(), pc, c, level, msg, args...)
 	}
 }
 

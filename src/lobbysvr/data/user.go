@@ -254,7 +254,6 @@ func (u *User) createInitItemOneByOne(ctx cd.RpcContext,
 		addGuard, result := u.CheckAddItem(ctx, []*public_protocol_common.DItemInstance{itemInst})
 		if result.IsError() {
 			ctx.LogError("user create init generate item from offset failed", "error", result.Error,
-				"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
 				"item_type_id", itemInst.GetItemBasic().GetTypeId(), "item_count", itemInst.GetItemBasic().GetCount())
 			continue
 		}
@@ -295,7 +294,6 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 			itemInst, result := u.GenerateItemInstanceFromCfgOffset(ctx, initItem)
 			if result.IsError() {
 				ctx.LogError("user create init generate item from offset failed", "error", result.Error,
-					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
 					"item_type_id", itemInst.GetItemBasic().GetTypeId(), "item_count", itemInst.GetItemBasic().GetCount())
 				continue
 			}
@@ -305,7 +303,7 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 
 		initItemResult := u.createInitItemBatch(ctx, itemInsts)
 		if initItemResult.IsError() {
-			initItemResult.LogWarn(ctx, "user create init batch add item failed, we will try to add item one by one", "user_id", u.GetUserId(), "zone_id", u.GetZoneId())
+			initItemResult.LogWarn(ctx, "user create init batch add item failed, we will try to add item one by one")
 			u.createInitItemOneByOne(ctx, itemInsts)
 		}
 	}
@@ -418,7 +416,7 @@ func (u *User) SyncClientDirtyCache(ctx cd.RpcContext) {
 	if dumpData.dirtyChangeSync != nil && hasDirty {
 		err := lobbysvr_client_rpc.SendUserDirtyChgSync(session, dumpData.dirtyChangeSync, 0)
 		if err != nil {
-			ctx.LogError("send user dirty change sync failed", "error", err, "user_id", u.GetUserId(), "zone_id", u.GetZoneId())
+			ctx.LogError("send user dirty change sync failed", "error", err)
 		}
 	}
 }
@@ -535,7 +533,7 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []*ItemAddGuard, reason *It
 		typeId := offset.Item.GetItemBasic().GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
-			ctx.LogWarn("user add item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId, "type_id", typeId)
+			ctx.LogWarn("user add item failed, item manager not found", "type_id", typeId, "type_id", typeId)
 			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
 
@@ -555,7 +553,7 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []*ItemAddGuard, reason *It
 	for mgr, group := range splitByMgr {
 		subResult := mgr.AddItem(ctx, group.data, reason)
 		if subResult.IsError() {
-			subResult.LogError(ctx, "user add item failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+			subResult.LogError(ctx, "user add item failed")
 			result = subResult
 		}
 	}
@@ -571,7 +569,7 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *It
 		typeId := offset.Item.GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
-			ctx.LogWarn("user add item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId, "type_id", typeId)
+			ctx.LogWarn("user add item failed, item manager not found", "type_id", typeId, "type_id", typeId)
 			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
 
@@ -591,7 +589,7 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *It
 	for mgr, group := range splitByMgr {
 		subResult := mgr.SubItem(ctx, group.data, reason)
 		if subResult.IsError() {
-			subResult.LogError(ctx, "user sub item failed", "zone_id", u.GetZoneId(), "user_id", u.GetUserId())
+			subResult.LogError(ctx, "user sub item failed")
 			result = subResult
 		}
 	}
@@ -627,7 +625,7 @@ func (u *User) GenerateMultipleItemInstancesFromCfgOffset(ctx cd.RpcContext, ite
 			if ignoreError {
 				ctx.LogError("generate item instance from item offset failed",
 					"error", result.Error, "resoponse_code", result.ResponseCode,
-					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
+
 					"item_type_id", offset.GetTypeId(), "item_count", offset.GetCount(),
 				)
 				continue
@@ -648,7 +646,7 @@ func (u *User) GenerateMultipleItemInstancesFromOffset(ctx cd.RpcContext, itemOf
 			if ignoreError {
 				ctx.LogError("generate item instance from item offset failed",
 					"error", result.Error, "resoponse_code", result.ResponseCode,
-					"user_id", u.GetUserId(), "zone_id", u.GetZoneId(),
+
 					"item_type_id", offset.GetTypeId(), "item_count", offset.GetCount(),
 				)
 				continue
@@ -696,7 +694,7 @@ func (u *User) unpackMergeItemOffset(ctx cd.RpcContext, itemOffset []*public_pro
 		typeId := offset.GetItemBasic().GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
-			ctx.LogWarn("user add item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId, "type_id", typeId)
+			ctx.LogWarn("user add item failed, item manager not found", "type_id", typeId, "type_id", typeId)
 			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
 		items, result := mgr.UnpackItem(ctx, offset)
@@ -744,7 +742,7 @@ func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 		typeId := offset.GetItemBasic().GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
-			ctx.LogWarn("user add item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId, "type_id", typeId)
+			ctx.LogWarn("user add item failed, item manager not found", "type_id", typeId, "type_id", typeId)
 			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
 
@@ -779,7 +777,7 @@ func (u *User) CheckSubItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 		typeId := offset.GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
-			ctx.LogWarn("user sub item failed, item manager not found", "user_id", u.GetUserId(), "zone_id", u.GetZoneId(), "type_id", typeId)
+			ctx.LogWarn("user sub item failed, item manager not found", "type_id", typeId)
 			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
 		}
 

@@ -3,7 +3,6 @@ package atframework_component_config
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path"
 	"reflect"
@@ -32,7 +31,7 @@ type ConfigManager struct {
 
 	originConfigData     interface{}
 	overwriteResourceDir string
-	logger               *slog.Logger
+	logger               *libatapp.Logger
 }
 
 // 管理所有配置
@@ -46,9 +45,9 @@ func (configManagerInst *ConfigManager) SetResourceDir(path string) {
 	configManagerInst.overwriteResourceDir = path
 }
 
-func (configManagerInst *ConfigManager) GetLogger() *slog.Logger {
+func (configManagerInst *ConfigManager) GetLogger() *libatapp.Logger {
 	if configManagerInst.logger == nil {
-		return slog.Default()
+		return nil
 	}
 
 	return configManagerInst.logger
@@ -79,7 +78,7 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 		if resultChan != nil {
 			resultChan <- fmt.Errorf("Reload not Finish")
 		}
-		configManagerInst.GetLogger().Info("Reload not Finish")
+		configManagerInst.GetLogger().LogInfo("Reload not Finish")
 		return fmt.Errorf("Reload not Finish")
 	}
 
@@ -110,13 +109,13 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 
 func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_config.ConfigGroup) error {
 	// 加载配置逻辑
-	configManagerInst.GetLogger().Info("Excel Loading Begin")
+	configManagerInst.GetLogger().LogInfo("Excel Loading Begin")
 	var callback ExcelConfigCallback
 	err := loadConfigGroup.Init(configManagerInst.originConfigData, callback)
 	if err != nil {
 		return err
 	}
-	configManagerInst.GetLogger().Info("Excel Loading End")
+	configManagerInst.GetLogger().LogInfo("Excel Loading End")
 	return nil
 }
 
@@ -167,19 +166,19 @@ func (callback ExcelConfigCallback) LoadFile(prefixPath string, pbinName string)
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
-		callback.GetLogger().Error("File Not Found", "filePath", filePath)
+		callback.GetLogger().LogError("File Not Found", "filePath", filePath)
 		return nil, fmt.Errorf("file not found %s", filePath)
 	}
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		callback.GetLogger().Error("File Read Failed", "error", err)
+		callback.GetLogger().LogError("File Read Failed", "error", err)
 		return nil, err
 	}
 	return content, nil
 }
 
-func (callback ExcelConfigCallback) GetLogger() *slog.Logger {
+func (callback ExcelConfigCallback) GetLogger() *libatapp.Logger {
 	return GetConfigManager().GetLogger()
 }
 

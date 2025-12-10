@@ -25,10 +25,10 @@ type ActorExecutor struct {
 	actionLock     sync.Mutex
 	pendingActions list.List
 
-	Instance slog.LogValuer
+	Instance libatapp.LogAttr
 }
 
-func CreateActorExecutor(actorInstance slog.LogValuer) *ActorExecutor {
+func CreateActorExecutor(actorInstance libatapp.LogAttr) *ActorExecutor {
 	return &ActorExecutor{
 		actionStatus:   ActorExecutorStatusFree,
 		pendingActions: list.List{},
@@ -110,9 +110,9 @@ func (actor *ActorExecutor) TryTakeCurrentRunningAction(action TaskActionImpl) b
 	return true
 }
 
-func (actor *ActorExecutor) LogValue() slog.Value {
+func (actor *ActorExecutor) LogAttr() []slog.Attr {
 	if actor == nil || lu.IsNil(actor.Instance) {
-		return slog.StringValue("nil")
+		return nil
 	}
-	return actor.Instance.LogValue()
+	return actor.Instance.LogAttr()
 }

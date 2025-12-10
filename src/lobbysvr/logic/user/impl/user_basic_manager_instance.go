@@ -170,8 +170,7 @@ func (m *UserBasicManager) addLevelUpReward(ctx cd.RpcContext, cfg *public_proto
 		return
 	}
 
-	result.LogError(ctx, "batch check add item failed",
-		"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId())
+	result.LogError(ctx, "batch check add item failed")
 
 	for _, itemInst := range rewardInstances {
 		singleAddGuard, result := m.GetOwner().CheckAddItem(ctx, []*public_protocol_common.DItemInstance{itemInst})
@@ -183,7 +182,6 @@ func (m *UserBasicManager) addLevelUpReward(ctx cd.RpcContext, cfg *public_proto
 		}
 
 		result.LogError(ctx, "single check add item failed",
-			"zone_id", m.GetOwner().GetZoneId(), "user_id", m.GetOwner().GetUserId(),
 			"type_id", itemInst.GetItemBasic().GetTypeId(), "item_count", itemInst.GetItemBasic().GetCount())
 	}
 }

@@ -115,7 +115,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 			fastNext = set.timers.FastTimerList.list.Front().Value.(*RouterTimer).Timeout
 		}
 
-		set.GetApp().GetDefaultLogger().Warn(
+		set.GetApp().GetDefaultLogger().LogWarn(
 			fmt.Sprintf("[STATISTICS] router manager set => now: %d, default timer count: %d (next: %d), fast timer count: %d (next: %d)",
 				now, defaultCount, defaultNext, fastCount, fastNext),
 		)
@@ -123,7 +123,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		// 打印各管理器的缓存数量
 		for i := range set.mgrs {
 			if set.mgrs[i] != nil {
-				set.GetApp().GetDefaultLogger().Warn(fmt.Sprintf("\t%s has %d cache(s)", set.mgrs[i].Name(), set.mgrs[i].Size()))
+				set.GetApp().GetDefaultLogger().LogWarn(fmt.Sprintf("\t%s has %d cache(s)", set.mgrs[i].Name(), set.mgrs[i].Size()))
 			}
 		}
 	}
@@ -168,7 +168,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 
 		err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, autoSaveTask, &startData)
 		if err != nil {
-			set.GetApp().GetDefaultLogger().Error("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
+			set.GetApp().GetDefaultLogger().LogError("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
 		} else {
 			set.autoSaveActionTask.Store(autoSaveTask)
 		}
@@ -249,7 +249,7 @@ func (set *RouterManagerSet) Stop() (bool, error) {
 	} else {
 		err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, closingTask, &startData)
 		if err != nil {
-			set.GetApp().GetDefaultLogger().Error("TaskActionRouterCloseManagerSet StartTaskAction failed", "error", err)
+			set.GetApp().GetDefaultLogger().LogError("TaskActionRouterCloseManagerSet StartTaskAction failed", "error", err)
 		} else {
 			set.closingTask.Store(closingTask)
 		}

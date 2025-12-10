@@ -122,7 +122,7 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 				action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_UNKNOWN))
 			}
 
-			t.GetApp().GetDefaultLogger().Error("TaskAction run failed",
+			t.GetApp().GetDefaultLogger().LogError("TaskAction run failed",
 				slog.String("task_name", action.Name()),
 				slog.Uint64("task_id", action.GetTaskId()),
 				slog.Any("error", err), slog.Int("response_code", int(action.GetResponseCode())))
@@ -135,7 +135,7 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 
 		} else {
 			if action.GetResponseCode() < 0 {
-				t.GetApp().GetDefaultLogger().Warn("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
+				t.GetApp().GetDefaultLogger().LogWarn("TaskAction run failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))
 
 				// 超时错误码
 				if action.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT) {
@@ -143,7 +143,7 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 				}
 				action.OnFailed()
 			} else {
-				t.GetApp().GetDefaultLogger().Debug("TaskAction run success", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
+				t.GetApp().GetDefaultLogger().LogDebug("TaskAction run success", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
 
 				action.OnSuccess()
 			}
@@ -156,7 +156,7 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 		if !action.IsResponseDisabled() {
 			err = action.SendResponse()
 			if err != nil {
-				t.GetApp().GetDefaultLogger().Error("TaskAction send response failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+				t.GetApp().GetDefaultLogger().LogError("TaskAction send response failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 			}
 		}
 

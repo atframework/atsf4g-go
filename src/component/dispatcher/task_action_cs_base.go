@@ -2,7 +2,6 @@ package atframework_component_dispatcher
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -104,7 +103,7 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *slog.Logger {
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetLogger() *libatapp.Logger {
 	return t.GetDispatcher().GetLogger()
 }
 
@@ -241,7 +240,7 @@ func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uin
 	// 由于 ResponseType 是泛型，我们不能直接与 nil 比较
 	// 需要使用反射或者其他方式检查，这里先尝试序列化
 	if responseBodyBytes, err = proto.Marshal(body); err != nil {
-		rd.GetLogger().Error("Failed to marshal response body",
+		rd.GetLogger().LogError("Failed to marshal response body",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", responseCode,
@@ -283,7 +282,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 
 	// 实际发送逻辑需要根据具体的网络层实现
 	if !lu.IsNil(t.GetDispatcher()) && !lu.IsNil(t.GetDispatcher().GetApp()) {
-		t.GetDispatcher().GetLogger().Info("Sending CS response",
+		t.GetDispatcher().GetLogger().LogInfo("Sending CS response",
 			"session_id", responseMsg.Head.SessionId,
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", t.GetResponseCode())
@@ -303,7 +302,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 
 		err = t.session.SendMessage(responseMsg)
 		if err != nil {
-			t.GetDispatcher().GetLogger().Error("Failed to send CS response",
+			t.GetDispatcher().GetLogger().LogError("Failed to send CS response",
 				"session_id", responseMsg.Head.SessionId,
 				"client_sequence", responseMsg.Head.ClientSequence,
 				"response_code", t.GetResponseCode(),

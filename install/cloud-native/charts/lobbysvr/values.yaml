@@ -21,13 +21,22 @@ volumeMounts:
   logMountPath: /service/lobbysvr/log
 
 vector:
+  log_path: /service/lobbysvr/log
   image:
     repository: harbor.m-oa.com:6023/vector/vector:latest
     pullPolicy: Always
-  opensearch:
-    username: project-Y-log-writer
-    password: 11bo1B{OE,gjzZ4D
-    endpoint: https://opensearch-cluster-master.devops.svc.cluster.local:9200/
+  sliks:
+    console:
+      enable: false
+    opensearch:
+      enable: true
+      username: project-Y-log-writer
+      password: 11bo1B{OE,gjzZ4D
+      endpoint: https://opensearch-cluster-master.devops.svc.cluster.local:9200/
+  index:
+    - "user_id"
+    - "task_name"
+    - "zone_id"
 
 imagePullSecrets:
   - name: jijunliang-harbor-regcred

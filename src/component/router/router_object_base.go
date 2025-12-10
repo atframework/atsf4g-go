@@ -2,7 +2,6 @@ package atframework_component_router
 
 import (
 	"container/list"
-	"fmt"
 	"log/slog"
 	"runtime"
 	"unsafe"
@@ -190,11 +189,15 @@ func CreateRouterObjectBase(ctx cd.RpcContext, key RouterObjectKey) (ret RouterO
 	return
 }
 
-func (obj *RouterObjectBase) LogValue() slog.Value {
+func (obj *RouterObjectBase) LogAttr() []slog.Attr {
 	if obj == nil {
-		return slog.StringValue("nil")
+		return nil
 	}
-	return slog.StringValue(fmt.Sprintf("TypeID:%d,ZoneID:%d,ObjectID:%d", obj.key.TypeID, obj.key.ZoneID, obj.key.ObjectID))
+	return []slog.Attr{
+		slog.Uint64("type_id", uint64(obj.key.TypeID)),
+		slog.Uint64("zone_id", uint64(obj.key.ZoneID)),
+		slog.Uint64("object_id", obj.key.ObjectID),
+	}
 }
 
 func (obj *RouterObjectBase) InitRouterObjectImpl(impl RouterObjectImpl) {
