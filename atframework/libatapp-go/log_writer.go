@@ -243,6 +243,7 @@ func (w *LogBufferedRotatingWriter) openLogFile(truncate bool) (*RefFD, error) {
 	// 创建好文件
 	ref := &RefFD{}
 	ref.fd = f
+	w.currentFileName = newFile
 	w.currentFile.Store(ref.Copy())
 	w.currentSize.Store(uint64(info.Size()))
 	w.needTruncateOnOpen = false
@@ -299,6 +300,9 @@ func (w *LogBufferedRotatingWriter) mayRotateFile() {
 func (w *LogBufferedRotatingWriter) needRotateFile() bool {
 	if w.currentSize.Load() >= w.maxSize {
 		return true
+	}
+	if w.currentFileName == "" {
+		return false
 	}
 	if w.timeRotateCheckInterval != 0 {
 		now := w.GetSysNow()
