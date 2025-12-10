@@ -523,7 +523,11 @@ func (app *AppInstance) Init(arguments []string) error {
 		}
 		app.processAction(sender)
 	},
-	// , ants.WithNonblocking(true)
+		// , ants.WithNonblocking(true)
+		ants.WithPanicHandler(func(a any) {
+			app.GetDefaultLogger().LogError("Goroutine Panic:", "info", a)
+			panic(a)
+		}),
 	)
 	if err != nil {
 		if app.mode == AppModeStart {
