@@ -46,7 +46,7 @@ func ${message_name}LoadWith${index_key_name}(
 
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HGetAll ${message_name} Send: \n", "Seq", awaitOption.Sequence, "index", index)
+			ctx.GetApp().GetLogger(2).LogDebug("HGetAll ${message_name} Send", "Seq", awaitOption.Sequence, "index", index)
 			result, redisError := instance.HGetAll(ctx.GetContext(), index).Result()
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
@@ -56,7 +56,7 @@ func ${message_name}LoadWith${index_key_name}(
 				PrivateData: nil,
 			}
 			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HGetAll ${message_name} Recv Error: \n", "Seq", awaitOption.Sequence, "redisError", redisError)
+				ctx.GetApp().GetLogger(2).LogError("HGetAll ${message_name} Recv Error", "Seq", awaitOption.Sequence, "redisError", redisError)
 				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
@@ -68,7 +68,7 @@ func ${message_name}LoadWith${index_key_name}(
 				return redisError
             }
 			if len(result) == 0 {
-				ctx.GetApp().GetLogger(2).LogInfo("HGetAll ${message_name} Record Not Found: \n", "Seq", awaitOption.Sequence)
+				ctx.GetApp().GetLogger(2).LogInfo("HGetAll ${message_name} Record Not Found", "Seq", awaitOption.Sequence)
 				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
@@ -85,7 +85,7 @@ func ${message_name}LoadWith${index_key_name}(
 		    _, err := pu.RedisMapToPB(result, pbResult)
 % endif
     		if err != nil {
-				ctx.GetApp().GetLogger(2).LogError("HGetAll ${message_name} Parese Failed: \n", "Seq", awaitOption.Sequence, "Raw", result)
+				ctx.GetApp().GetLogger(2).LogError("HGetAll ${message_name} Parese Failed", "Seq", awaitOption.Sequence, "Raw", result)
 				resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
@@ -97,9 +97,9 @@ func ${message_name}LoadWith${index_key_name}(
 				return err
 			}
 % if cas_enabled:
-    		ctx.GetApp().GetLogger(2).LogDebug("HGetAll ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence, "CASVersion", casVersion, "Proto", pbResult)
+    		ctx.GetApp().GetLogger(2).LogDebug("HGetAll ${message_name} Parse Success", "Seq", awaitOption.Sequence, "CASVersion", casVersion, "Proto", pbResult)
 % else:
-    		ctx.GetApp().GetLogger(2).LogDebug("HGetAll ${message_name} Parse Success: \n", "Seq", awaitOption.Sequence, "Proto", pbResult)
+    		ctx.GetApp().GetLogger(2).LogDebug("HGetAll ${message_name} Parse Success", "Seq", awaitOption.Sequence, "Proto", pbResult)
 % endif
     		resumeData.PrivateData = &innerPrivateData{
 				Table: pbResult,
