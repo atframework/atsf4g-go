@@ -1749,8 +1749,8 @@ func dumpDefaultConfigMessageField(configPb proto.Message, fd protoreflect.Field
 func LoadDefaultConfigMessageFields(configPb proto.Message, logger *Logger,
 	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) error {
-	if logger == nil || configPb == nil {
-		return fmt.Errorf("LoadDefaultConfigFields logger or configPb is nil")
+	if configPb == nil {
+		return fmt.Errorf("LoadDefaultConfigFields configPb is nil")
 	}
 
 	if dumpExistedSet == nil {
