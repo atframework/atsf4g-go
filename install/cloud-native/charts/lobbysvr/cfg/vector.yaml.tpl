@@ -1,4 +1,14 @@
 sources:
+  lobbysvr_crash:
+    type: file
+    include:
+      - {{ .Values.vector.log_path }}/*.crash.log
+    data_dir: {{ .Values.vector.log_path }}
+    ignore_older_secs: 3600
+    read_from: beginning
+    line_delimiter: "\n"
+    glob_minimum_cooldown_ms: 1000
+
   lobbysvr_logs_normal:
     type: file
     include:
@@ -81,6 +91,22 @@ transforms:
     source: |
 {{ include "libapp.vector.server_log_parse" "redis" | indent 6 }}
 
+  crash_enrich:
+    type: remap
+    inputs:
+      - lobbysvr_crash
+    source: |
+      .file_path = string!(.file)
+      .file_name = basename!(.file_path)
+      . |= parse_regex!(.file_name, r'^(?P<svrname>[A-Za-z0-9_-]+)_(?P<inst_id>\d+.\d+.\d+.\d+)')
+      del(.file)
+      del(.file_path)
+      del(.file_name)
+      del(.host)
+      del(.source_type)
+      del(.timestamp)
+      .@timestamp = now()
+
 sinks:
   {{- if .Values.vector.sliks.console.enable }}
   out:
@@ -90,12 +116,32 @@ sinks:
       - normal_enrich
       - db_inner_enrich
       - redis_enrich
+      - lobbysvr_crash
     encoding:
       codec: json
   {{- end}}
 
   {{- if .Values.vector.sliks.opensearch.enable }}
-  opensearch_log:
+  opensearch_log_crash:
+    type: elasticsearch
+    mode: data_stream
+    inputs:
+      - crash_enrich
+    endpoints:
+      - {{ .Values.vector.sliks.opensearch.endpoint }}
+    auth:
+      strategy: basic
+      user: {{ .Values.vector.sliks.opensearch.username }}
+      password: {{ .Values.vector.sliks.opensearch.password }}
+    tls:
+      verify_certificate: false
+      verify_hostname: false
+    data_stream:
+      type: project-y
+      dataset: log
+      namespace: crash
+
+  opensearch_log_running:
     type: elasticsearch
     mode: data_stream
     inputs:
@@ -116,7 +162,7 @@ sinks:
       dataset: log
       namespace: running
 
-  opensearch_actor:
+  opensearch_log_actor:
     type: elasticsearch
     mode: data_stream
     inputs:

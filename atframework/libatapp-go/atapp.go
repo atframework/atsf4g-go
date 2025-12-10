@@ -1194,7 +1194,7 @@ func (app *AppInstance) setupStartupLog() error {
 			return err
 		}
 
-		f, err := os.Create(app.config.CrashOutputFile)
+		f, err := os.OpenFile(app.config.CrashOutputFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			app.GetDefaultLogger().LogError("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
 			return err
@@ -1225,22 +1225,6 @@ func (app *AppInstance) setupLog() error {
 	app.logger = appLog
 	for i := range oldLogger.writers {
 		oldLogger.writers[i].Close()
-	}
-
-	// 设置崩溃输出文件
-	if app.config.CrashOutputFile != "" {
-		f, err := os.Create(app.config.CrashOutputFile)
-		if err != nil {
-			app.GetDefaultLogger().LogError("Create crash output file failed", "file", app.config.CrashOutputFile, "error", err)
-			return err
-		}
-
-		app.GetDefaultLogger().LogInfo("Setting up crash output file", "file", app.config.CrashOutputFile)
-		err = debug.SetCrashOutput(f, debug.CrashOptions{})
-		if err != nil {
-			app.GetDefaultLogger().LogError("Setting up crash output file failed", "file", app.config.CrashOutputFile, "error", err)
-			return err
-		}
 	}
 
 	return nil
