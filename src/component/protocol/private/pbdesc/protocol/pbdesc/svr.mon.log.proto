@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+
+package proy;
+
+// 上报后不允许更改字段ID
+
+message MonitorLogCommonHeader {
+  uint32 log_type = 1;
+  uint64 timestamp = 2;
+}
+
+message MonitorLog {
+  MonitorLogCommonHeader basic = 1;
+  oneof detail {
+    MONServerOperationFlow server_operation_flow = 10;
+  }
+}
+
+message MONServerOperationFlow {
+  enum EnServerOperationType {
+    EN_SERVER_OPERATION_TYPE_INVALID = 0;
+    EN_SERVER_OPERATION_TYPE_START = 1;
+    EN_SERVER_OPERATION_TYPE_STOP = 2;
+    EN_SERVER_OPERATION_TYPE_RELOAD = 3;
+    EN_SERVER_OPERATION_TYPE_KEEP_ALIVE = 4;
+  }
+  EnServerOperationType operation_type = 1;
+  string start_timestamp = 2;
+  string server_version = 3;
+}

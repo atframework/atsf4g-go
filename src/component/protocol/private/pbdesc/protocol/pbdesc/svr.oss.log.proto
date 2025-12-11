@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+
+import "protocol/common/com.struct.item.common.proto";
+
+package proy;
+
+// 上报后不允许更改字段ID
+
+message OperationSupportSystemLogBasicInfo {
+  uint32 log_type = 1;
+  uint64 timestamp = 2;
+}
+
+message OperationSupportSystemLog {
+  OperationSupportSystemLogBasicInfo basic = 1;
+  oneof detail {
+    OSSItemFlow item_flow = 10;
+  }
+}
+
+message OSSItemFlow {
+  int32 item_id = 1;
+  enum EnOSSItemFlowOperationType {
+    EN_OSS_ITEM_FLOW_OPERATION_TYPE_INVALID = 0;
+    EN_OSS_ITEM_FLOW_OPERATION_TYPE_ADD = 1;
+    EN_OSS_ITEM_FLOW_OPERATION_TYPE_SUB = 2;
+    EN_OSS_ITEM_FLOW_OPERATION_TYPE_USE = 3;
+  }
+  EnOSSItemFlowOperationType operation_type = 2;
+  int64 operation_count = 3;
+  int64 after_count = 4;
+  int64 before_count = 5;
+
+  EnItemFlowReasonMajorType major_reason = 11;
+  EnItemFlowReasonMinorType minor_reason = 12;
+  int64 parameter = 13;
+}
