@@ -385,15 +385,28 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 			g.P("// ===== Mutable methods for ", msg.GoIdent.GoName, " ===== Oneof =====")
 			oneofName := field.Oneof.GoName
 			fullFieldName := fmt.Sprintf("%s_%s", msg.GoIdent.GoName, fieldName)
-			g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fullFieldName))
-			g.P(fmt.Sprintf(`  if x, ok := m.%s.(*%s); ok {`, oneofName, fullFieldName))
-			g.P(`    return x`)
-			g.P(`  }`)
-			g.P(fmt.Sprintf(`  x := new(%s)`, fullFieldName))
-			g.P(fmt.Sprintf(`  m.%s = x`, oneofName))
-			g.P(`  return x`)
-			g.P(`}`)
-			g.P()
+			if field.Oneof.Parent != nil && field.Message != nil {
+				fieldType := GoTypeString(g, field, true)
+				g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fieldType))
+				g.P(fmt.Sprintf(`  if x, ok := m.%s.(*%s); ok {`, oneofName, fullFieldName))
+				g.P(fmt.Sprintf(`    return x.Mutable%s()`, fieldName))
+				g.P(`  }`)
+				g.P(fmt.Sprintf(`  x := new(%s)`, fullFieldName))
+				g.P(fmt.Sprintf(`  m.%s = x`, oneofName))
+				g.P(fmt.Sprintf(`  return x.Mutable%s()`, fieldName))
+				g.P(`}`)
+				g.P()
+			} else {
+				g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, msg.GoIdent.GoName, fieldName, fullFieldName))
+				g.P(fmt.Sprintf(`  if x, ok := m.%s.(*%s); ok {`, oneofName, fullFieldName))
+				g.P(`    return x`)
+				g.P(`  }`)
+				g.P(fmt.Sprintf(`  x := new(%s)`, fullFieldName))
+				g.P(fmt.Sprintf(`  m.%s = x`, oneofName))
+				g.P(`  return x`)
+				g.P(`}`)
+				g.P()
+			}
 
 			g.P("// ===== Get reflect Type for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
 			g.P(fmt.Sprintf(`	var reflectType%s reflect.Type`, fullFieldName))
@@ -405,6 +418,18 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 			g.P(`}`)
 			g.P()
 			initGenerate = append(initGenerate, fmt.Sprintf(`	reflectType%s = reflect.TypeOf((*%s)(nil)).Elem()`, fullFieldName, fullFieldName))
+
+			if field.Oneof.Parent != nil && field.Message != nil {
+				g.P("// ===== Mutable Message method for ", msg.GoIdent.GoName, " Oneof ", fullFieldName, " ===== Oneof =====")
+				fieldType := GoTypeString(g, field, true)
+				g.P(fmt.Sprintf(`func (m *%s) Mutable%s() *%s {`, fullFieldName, fieldName, fieldType))
+				g.P(fmt.Sprintf(`  if m.%s == nil {`, fieldName))
+				g.P(fmt.Sprintf(`    m.%s = new(%s)`, fieldName, fieldType))
+				g.P(`  }`)
+				g.P(fmt.Sprintf(`  return m.%s`, fieldName))
+				g.P(`}`)
+				g.P()
+			}
 
 			g.P("// ===== Oneof Interface for ", msg.GoIdent.GoName, " Oneof ", fullFieldName, " ===== Oneof =====")
 			g.P(fmt.Sprintf(`func (m *%s) Get%s_%s() %s_En%sID {`, fullFieldName, msg.GoIdent.GoName, oneofName, msg.GoIdent.GoName, oneofName))
