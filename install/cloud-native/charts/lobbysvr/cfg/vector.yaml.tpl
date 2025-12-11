@@ -12,7 +12,7 @@ sources:
   lobbysvr_logs_normal:
     type: file
     include:
-      - {{ .Values.vector.log_path }}/*.normal.all.log
+      - {{ .Values.vector.log_path }}/*.normal.all.*.log
     data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
@@ -22,7 +22,7 @@ sources:
   lobbysvr_logs_db_inner:
     type: file
     include:
-      - {{ .Values.vector.log_path }}/*.db_inner.all.log
+      - {{ .Values.vector.log_path }}/*.db_inner.all.*.log
     data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
@@ -32,7 +32,7 @@ sources:
   lobbysvr_logs_redis:
     type: file
     include:
-      - {{ .Values.vector.log_path }}/*.redis.all.log
+      - {{ .Values.vector.log_path }}/*.redis.all.*.log
     data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
@@ -42,7 +42,7 @@ sources:
   lobbysvr_logs_actor:
     type: file
     include:
-      - {{ .Values.vector.log_path }}/*/*.new.log
+      - {{ .Values.vector.log_path }}/*/*.*.log
     data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
@@ -56,7 +56,7 @@ transforms:
       - lobbysvr_logs_actor
     source: |
       .file_path = string!(.file)
-      . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/][^\\/]+[\\/](?P<uid>\d+)\.new\.log$')
+      . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/][^\\/]+[\\/](?P<uid>\d+)')
       del(.timestamp)
       del(.log)
       del(.file)
@@ -107,7 +107,7 @@ transforms:
 
 sinks:
   {{- if .Values.vector.sliks.console.enable }}
-  out:
+  console:
     type: console
     inputs:
       - actor_enrich
@@ -118,7 +118,19 @@ sinks:
     encoding:
       codec: json
   {{- end}}
-
+  {{- if .Values.vector.sliks.test_file.enable }}
+  file:
+    type: file
+    inputs:
+      - actor_enrich
+      - normal_enrich
+      - db_inner_enrich
+      - redis_enrich
+      - lobbysvr_crash
+    path: {{ .Values.vector.log_path }}/vector_output.log
+    encoding:
+      codec: json
+  {{- end}}
   {{- if .Values.vector.sliks.opensearch.enable }}
   opensearch_log_crash:
     type: elasticsearch

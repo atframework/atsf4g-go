@@ -132,7 +132,7 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 	var writer *libatapp.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
 		writer, _ = libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), userId),
-			fmt.Sprintf("%s/%%F/%d.new.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), userId), config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
+			fmt.Sprintf("%s/%%F/%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), userId), config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
 			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration())
 		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {

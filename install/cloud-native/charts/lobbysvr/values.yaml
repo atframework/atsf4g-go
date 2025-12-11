@@ -28,6 +28,8 @@ vector:
   sliks:
     console:
       enable: false
+    test_file:
+      enable: false
     opensearch:
       enable: true
       username: project-Y-log-writer
