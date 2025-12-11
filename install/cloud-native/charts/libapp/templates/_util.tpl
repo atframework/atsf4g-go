@@ -36,10 +36,10 @@ del(.file_name)
 del(.host)
 del(.source_type)
 del(.timestamp)
-. |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
-del(.log_ts)
-.@timestamp = now()
 .log_type = "{{ . }}"
+. |= parse_regex!(.message, r'^\[(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\[\s*(?P<log_level>[A-Z]+)\s*\]\((?P<caller>[^():]+:\d+)\)')
+parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f", timezone: "Asia/Shanghai")
+.log_ts = format_timestamp!(parsed_ts, format: "%FT%T.%3fZ", timezone: "UTC")
 {{- end -}}
 
 {{- define "libapp.vector.server_log_index" -}}

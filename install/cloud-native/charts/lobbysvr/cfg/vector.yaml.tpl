@@ -57,17 +57,15 @@ transforms:
     source: |
       .file_path = string!(.file)
       . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/][^\\/]+[\\/](?P<uid>\d+)\.new\.log$')
-      # Extract log timestamp from message content and normalize to RFC3339 with nanoseconds
-      . |= parse_regex!(.message, r'(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})')
-      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f")
-      .@timestamp = format_timestamp!(parsed_ts, format: "%FT%T.%9fZ", timezone: "local")
+      del(.timestamp)
+      del(.log)
       del(.file)
       del(.file_path)
       del(.host)
-      del(.log_ts)
       del(.source_type)
-      del(.timestamp)
-      .@timestamp = now()
+      . |= parse_regex!(.message, r'(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})')
+      parsed_ts = parse_timestamp!(.log_ts, "%Y-%m-%d %H:%M:%S%.f", timezone: "Asia/Shanghai")
+      .log_ts = format_timestamp!(parsed_ts, format: "%FT%T.%3fZ", timezone: "UTC")
 
   normal_enrich:
     type: remap
@@ -105,7 +103,7 @@ transforms:
       del(.host)
       del(.source_type)
       del(.timestamp)
-      .@timestamp = now()
+      .log_ts = now()
 
 sinks:
   {{- if .Values.vector.sliks.console.enable }}
