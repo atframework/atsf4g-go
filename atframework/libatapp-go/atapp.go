@@ -224,7 +224,7 @@ func CreateAppInstance() AppImpl {
 	// 初始化编译信息
 	initBuildInfo()
 
-	handler := NewLogHandlerImpl(&ret.logFrameInfoCache)
+	handler := NewLogHandlerImpl(&ret.logFrameInfoCache, "[%P][%L](%k:%n): ")
 	handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
 	ret.logger.loggers = append(ret.logger.loggers, NewLogger(handler, ret))
 
@@ -317,7 +317,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 	for i := range config.Category {
 		index := config.Category[i].Index
 
-		handler := NewLogHandlerImpl(&app.logFrameInfoCache)
+		handler := NewLogHandlerImpl(&app.logFrameInfoCache, config.Category[i].Prefix)
 		for sinkIndex := range config.Category[i].Sink {
 			writer := createLogHandlerWriter(nil)
 			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max))
@@ -365,7 +365,7 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 
 	for i := range appLog.loggers {
 		if appLog.loggers[i] == nil {
-			handler := NewLogHandlerImpl(&app.logFrameInfoCache)
+			handler := NewLogHandlerImpl(&app.logFrameInfoCache, "[%P][%L](%k:%n): ")
 			handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
 			appLog.loggers[i] = NewLogger(handler, app)
 		}
@@ -1157,7 +1157,7 @@ func (app *AppInstance) setupStartupLog() error {
 		app.GetDefaultLogger().LogInfo("Setting up startup log", "config", app.config.StartupLog)
 		app.logger.loggers = nil
 
-		handler := NewLogHandlerImpl(&app.logFrameInfoCache)
+		handler := NewLogHandlerImpl(&app.logFrameInfoCache, "[%P][%L](%k:%n): ")
 		for _, logFile := range app.config.StartupLog {
 			switch logFile {
 			case "stdout":

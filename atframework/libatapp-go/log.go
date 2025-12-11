@@ -123,17 +123,18 @@ type logHandlerWriter struct {
 }
 
 type logHandlerImpl struct {
-	innerWriters []logHandlerWriter
-	minLevel     slog.Level
-	maxLevel     slog.Level
-
+	innerWriters   []logHandlerWriter
+	minLevel       slog.Level
+	maxLevel       slog.Level
+	prefix         string
 	frameInfoCache *sync.Map // pc -> runtime.Frame
 }
 
-func NewLogHandlerImpl(cache *sync.Map) *logHandlerImpl {
+func NewLogHandlerImpl(cache *sync.Map, prefix string) *logHandlerImpl {
 	return &logHandlerImpl{
 		minLevel:       slog.Level(^uint(0) >> 1),
 		maxLevel:       slog.Level(-(int(^uint(0) >> 1)) - 1),
+		prefix:         prefix,
 		frameInfoCache: cache,
 	}
 }
@@ -169,6 +170,9 @@ type frameInfo struct {
 }
 
 func (h *logHandlerImpl) getFrameInfo(pc uintptr) *frameInfo {
+	if pc == 0 {
+		return nil
+	}
 	if f, ok := h.frameInfoCache.Load(pc); ok {
 		return f.(*frameInfo)
 	}
@@ -235,10 +239,8 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 	sb := newlogBuffer()
 	defer sb.Free()
 	// Format Prefix Begin
-	if r.PC != 0 {
-		LogFormat("[%P][%L](%k:%n): ", sb, CallerInfo{Now: r.Time, LogLevel: r.Level, Frame: h.getFrameInfo(r.PC)}, appendTimestamp)
-	} else {
-		LogFormat("[%P][%L](unknow:0): ", sb, CallerInfo{Now: r.Time, LogLevel: r.Level}, appendTimestamp)
+	if h.prefix != "" {
+		LogFormat(h.prefix, sb, CallerInfo{Now: r.Time, LogLevel: r.Level, Frame: h.getFrameInfo(r.PC)}, appendTimestamp)
 	}
 	// Format Prefix End
 	sb.WriteString(r.Message)

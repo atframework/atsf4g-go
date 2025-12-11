@@ -86,18 +86,26 @@ func LogFormat(format string, sb LogFormatBufferWriter, caller CallerInfo, custo
 		case 's': // 文件路径，项目目录用~代替
 			if caller.Frame != nil {
 				appendFilePath(sb, caller.Frame.file)
+			} else {
+				sb.WriteString("unknow_path")
 			}
 		case 'k': // 仅文件名
 			if caller.Frame != nil {
 				appendFileName(sb, caller.Frame.file)
+			} else {
+				sb.WriteString("unknow_file")
 			}
 		case 'n': // 行号
 			if caller.Frame != nil {
 				sb.WriteString(strconv.FormatUint(uint64(caller.Frame.line), 10))
+			} else {
+				sb.WriteString("0")
 			}
 		case 'C': // 函数名
 			if caller.Frame != nil && caller.Frame.function != "" {
 				sb.WriteString(caller.Frame.function)
+			} else {
+				sb.WriteString("unknow_function")
 			}
 		case 'N': // 日志文件轮转索引
 			sb.WriteString(strconv.FormatUint(uint64(caller.RotateIndex), 10))

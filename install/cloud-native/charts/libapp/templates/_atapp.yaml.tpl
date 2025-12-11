@@ -42,7 +42,7 @@ atapp:
     category:
       - name: "default"
         index: 0
-        prefix: "[Log %L][%F %T.%f][%s:%n(%C)]: "
+        prefix: "[%P][%L](%k:%n): "
 {{- if or (eq .Values.log_stacktrace_level "disable") (eq .Values.log_stacktrace_level "disabled") }}
         stacktrace:
           min: disable
@@ -78,7 +78,7 @@ atapp:
             flush_interval: 1s    # flush log interval
       - name: redis
         index: 1
-        prefix: "[%F %T.%f]: "
+        prefix: "[%P][%L](%k:%n): "
         stacktrace:
           min: disable
           max: disable
@@ -107,7 +107,7 @@ atapp:
             flush_interval: 1s        # flush log interval
       - name: db_inner
         index: 2
-        prefix: "[%F %T.%f]: "
+        prefix: "[%P][%L](%k:%n): "
         stacktrace:
           min: disable
           max: disable
