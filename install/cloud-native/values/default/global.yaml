@@ -38,6 +38,9 @@ log_level: INFO
 enable_session_actor_log: true
 log_stacktrace_level: disable
 
+enable_oss_log: true
+enable_mon_log: true
+
 login_code_protect: 0s
 login_code_valid_sec: 720s
 

@@ -247,6 +247,19 @@ message logic_excel_cfg {
   string bindir = 2 [(atapp.protocol.CONFIGURE) = { default_value: "../../resource/excel" }];
 }
 
+message logic_operation_support_system_log_cfg {
+  bool enable = 1 [(atapp.protocol.CONFIGURE) = { default_value: "true" }];
+  string file = 2;
+  string writing_alias = 3;
+  atapp.protocol.atapp_log_sink_file_rotate rotate = 4;
+  google.protobuf.Duration flush_interval = 5;
+}
+
+message logic_operation_support_system_cfg {
+  logic_operation_support_system_log_cfg oss_cfg = 1;
+  logic_operation_support_system_log_cfg mon_cfg = 2;
+}
+
 message logic_section_cfg {
   // 通用配置
   uint32 world_id = 1;
@@ -264,6 +277,7 @@ message logic_section_cfg {
   logic_router_cfg router = 107;
   logic_excel_cfg excel = 110;
   logic_transaction_cfg transaction = 111;
+  logic_operation_support_system_cfg operation_support_system = 112;
 }
 
 message lobby_server_cfg {

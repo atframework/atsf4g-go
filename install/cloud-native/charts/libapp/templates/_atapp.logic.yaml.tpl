@@ -11,4 +11,21 @@ logic:
     bindir: "../../resource/excel"
   user:
     enable_session_actor_log: {{ .Values.enable_session_actor_log }}
+  operation_support_system:
+    oss_cfg:
+      enable: {{ .Values.enable_oss_log }}
+      file: {{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ include "libapp.busAddr" . }}.oss.%N.log
+      writing_alias: {{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ include "libapp.busAddr" . }}.oss.log
+      rotate:
+        number: 10
+        size: 20MB
+      flush_interval: 1s
+    mon_cfg:
+      enable: {{ .Values.enable_mon_log }}
+      file: {{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ include "libapp.busAddr" . }}.mon.%N.log
+      writing_alias: {{ .Values.server_log_dir }}/{{ include "libapp.name" . }}_{{ include "libapp.busAddr" . }}.mon.log
+      rotate:
+        number: 3
+        size: 20MB
+      flush_interval: 1s
 {{- end }}

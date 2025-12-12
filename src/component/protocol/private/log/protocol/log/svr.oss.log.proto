@@ -6,7 +6,7 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log";
 
 import "protocol/common/com.struct.item.common.proto";
 
@@ -17,6 +17,9 @@ package proy;
 message OperationSupportSystemLogBasicInfo {
   uint32 log_type = 1;
   uint64 timestamp = 2;
+  string app_id = 3;
+  string user_id = 4;
+  string zone_id = 5;
 }
 
 message OperationSupportSystemLog {

@@ -5,6 +5,7 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
 	router "github.com/atframework/atsf4g-go/component-router"
 )
 
@@ -16,5 +17,6 @@ func CreateServiceApplication() libatapp.AppImpl {
 	libatapp.AtappAddModule(app, cd.CreateNoMessageDispatcher(app))
 	libatapp.AtappAddModule(app, cd.CreateTaskManager(app))
 	libatapp.AtappAddModule(app, router.CreateRouterManagerSet(app))
+	libatapp.AtappAddModule(app, operation_support_system.CreateOperationSupportSystem(app))
 	return app
 }

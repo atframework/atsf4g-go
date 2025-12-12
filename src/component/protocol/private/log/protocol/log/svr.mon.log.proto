@@ -6,7 +6,7 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log";
 
 package proy;
 
@@ -15,6 +15,7 @@ package proy;
 message MonitorLogCommonHeader {
   uint32 log_type = 1;
   uint64 timestamp = 2;
+  string app_id = 3;
 }
 
 message MonitorLog {
@@ -33,6 +34,6 @@ message MONServerOperationFlow {
     EN_SERVER_OPERATION_TYPE_KEEP_ALIVE = 4;
   }
   EnServerOperationType operation_type = 1;
-  string start_timestamp = 2;
+  uint64 start_timestamp = 2;
   string server_version = 3;
 }
