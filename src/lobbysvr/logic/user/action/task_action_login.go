@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strconv"
 
+	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
@@ -55,6 +57,15 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 
 	zoneId := config.GetConfigManager().GetLogicId()
+
+	{
+		// 开始尝试登录
+		log := private_protocol_log.OperationSupportSystemLog{}
+		log.MutableBasic().UserId = userId
+		log.MutableBasic().ZoneId = zoneId
+		log.MutableLoginClientBeginFlow()
+		operation_support_system.SendOssLog(t.GetRpcContext().GetApp(), &log)
+	}
 
 	csSession := t.GetSession()
 	if csSession == nil {
@@ -110,6 +121,15 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	if user != nil && user.IsWriteable() {
 		t.replaceSession(t.GetRpcContext(), user, session)
 		return nil
+	}
+
+	{
+		// 开始尝试登录
+		log := private_protocol_log.OperationSupportSystemLog{}
+		log.MutableBasic().UserId = userId
+		log.MutableBasic().ZoneId = zoneId
+		log.MutableLoginServerBeginFlow()
+		operation_support_system.SendOssLog(t.GetRpcContext().GetApp(), &log)
 	}
 
 	// 如果有缓存要强制失效，因为可能其他地方登入了，这时候也不能复用缓存

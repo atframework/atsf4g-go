@@ -9,6 +9,8 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
 
+	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -59,6 +61,8 @@ type UserImpl interface {
 	SetUserCASVersion(CASVersion uint64)
 	GetLoginLockCASVersion() uint64
 	SetLoginLockCASVersion(CASVersion uint64)
+
+	SendUserOssLog(ctx cd.RpcContext, ossLog *private_protocol_log.OperationSupportSystemLog)
 }
 
 func init() {
@@ -597,4 +601,13 @@ func (u *UserCache) IsNewUser() bool {
 		return false
 	}
 	return u.loginData.Get().GetBusinessRegisterTime() <= 0
+}
+
+func (u *UserCache) SendUserOssLog(ctx cd.RpcContext, ossLog *private_protocol_log.OperationSupportSystemLog) {
+	if u == nil {
+		return
+	}
+	ossLog.MutableBasic().UserId = u.GetUserId()
+	ossLog.MutableBasic().ZoneId = u.GetZoneId()
+	operation_support_system.SendOssLog(ctx.GetApp(), ossLog)
 }

@@ -9,6 +9,7 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
+	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
@@ -327,6 +328,12 @@ func (u *User) OnLogin(ctx cd.RpcContext) {
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnLogin(ctx)
 	}
+
+	{
+		log := private_protocol_log.OperationSupportSystemLog{}
+		log.MutableLoginFlow()
+		u.SendUserOssLog(ctx, &log)
+	}
 }
 
 func (u *User) OnLogout(ctx cd.RpcContext) {
@@ -334,6 +341,12 @@ func (u *User) OnLogout(ctx cd.RpcContext) {
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnLogout(ctx)
+	}
+
+	{
+		log := private_protocol_log.OperationSupportSystemLog{}
+		log.MutableLogoutFlow()
+		u.SendUserOssLog(ctx, &log)
 	}
 }
 
@@ -550,11 +563,28 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []*ItemAddGuard, reason *It
 	}
 
 	result := cd.CreateRpcResultOk()
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
 	for mgr, group := range splitByMgr {
 		subResult := mgr.AddItem(ctx, group.data, reason)
 		if subResult.IsError() {
 			subResult.LogError(ctx, "user add item failed")
 			result = subResult
+		}
+		for _, itemGuard := range group.data {
+			for _, addedItem := range itemGuard.GetAddedItems() {
+				ossLog.Detail = nil
+				data := ossLog.MutableItemFlow()
+				data.OperationType = private_protocol_log.OSSItemFlow_EN_OSS_ITEM_FLOW_OPERATION_TYPE_ADD
+				data.OperationCount = addedItem.GetItemBasic().GetCount()
+				data.ItemId = addedItem.GetItemBasic().GetTypeId()
+				data.AfterCount = mgr.GetTypeStatistics(ctx, addedItem.GetItemBasic().GetTypeId()).GetTotalCount()
+				data.MajorReason = public_protocol_common.EnItemFlowReasonMajorType(reason.GetMajorReason())
+				data.MinorReason = public_protocol_common.EnItemFlowReasonMinorType(reason.GetMinorReason())
+				data.Parameter = reason.GetParameter()
+				data.Result = subResult.GetResponseCode()
+				u.SendUserOssLog(ctx, ossLog)
+			}
 		}
 	}
 
@@ -586,11 +616,26 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *It
 	}
 
 	result := cd.CreateRpcResultOk()
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
 	for mgr, group := range splitByMgr {
 		subResult := mgr.SubItem(ctx, group.data, reason)
 		if subResult.IsError() {
 			subResult.LogError(ctx, "user sub item failed")
 			result = subResult
+		}
+		for _, itemGuard := range group.data {
+			ossLog.Detail = nil
+			data := ossLog.MutableItemFlow()
+			data.OperationType = private_protocol_log.OSSItemFlow_EN_OSS_ITEM_FLOW_OPERATION_TYPE_SUB
+			data.OperationCount = itemGuard.Item.GetCount()
+			data.ItemId = itemGuard.Item.GetTypeId()
+			data.AfterCount = mgr.GetTypeStatistics(ctx, itemGuard.Item.GetTypeId()).GetTotalCount()
+			data.MajorReason = public_protocol_common.EnItemFlowReasonMajorType(reason.GetMajorReason())
+			data.MinorReason = public_protocol_common.EnItemFlowReasonMinorType(reason.GetMinorReason())
+			data.Parameter = reason.GetParameter()
+			data.Result = subResult.GetResponseCode()
+			u.SendUserOssLog(ctx, ossLog)
 		}
 	}
 

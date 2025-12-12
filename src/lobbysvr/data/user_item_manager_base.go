@@ -28,6 +28,13 @@ type ItemTypeStatistics struct {
 	TotalCount int64
 }
 
+func (d *ItemTypeStatistics) GetTotalCount() int64 {
+	if d == nil {
+		return 0
+	}
+	return d.TotalCount
+}
+
 type ItemAddGuard struct {
 	Configure *ppcfg.Readonly_ExcelItem
 	Item      *ppc.DItemInstance

@@ -117,7 +117,7 @@ func (m *OperationSupportSystem) initLogWritter() error {
 }
 
 func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.OperationSupportSystemLog) {
-	if m == nil || m.ossLogWriter == nil {
+	if m == nil || m.ossLogWriter == nil || ossLog.GetDetailOneofCase() == 0 {
 		return
 	}
 	// 处理头
@@ -130,7 +130,7 @@ func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.Operati
 }
 
 func (m *OperationSupportSystem) sendMonLog(monLog *private_protocol_log.MonitorLog) {
-	if m == nil || m.monLogWriter == nil {
+	if m == nil || m.monLogWriter == nil || monLog.GetDetailOneofCase() == 0 {
 		return
 	}
 	// 处理头

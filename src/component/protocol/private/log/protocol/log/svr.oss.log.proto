@@ -18,14 +18,18 @@ message OperationSupportSystemLogBasicInfo {
   uint32 log_type = 1;
   uint64 timestamp = 2;
   string app_id = 3;
-  string user_id = 4;
-  string zone_id = 5;
+  uint64 user_id = 4;
+  uint32 zone_id = 5;
 }
 
 message OperationSupportSystemLog {
   OperationSupportSystemLogBasicInfo basic = 1;
   oneof detail {
     OSSItemFlow item_flow = 10;
+    OSSLoginClientBeginFlow login_client_begin_flow = 11;
+    OSSLoginServerBeginFlow login_server_begin_flow = 12;
+    OSSLoginFlow login_flow = 13;
+    OSSLogoutFlow logout_flow = 14;
   }
 }
 
@@ -40,9 +44,25 @@ message OSSItemFlow {
   EnOSSItemFlowOperationType operation_type = 2;
   int64 operation_count = 3;
   int64 after_count = 4;
-  int64 before_count = 5;
+  int32 result = 5;
 
   EnItemFlowReasonMajorType major_reason = 11;
   EnItemFlowReasonMinorType minor_reason = 12;
   int64 parameter = 13;
+}
+
+message OSSLoginClientBeginFlow {
+  // 客户端尝试开始登录
+}
+
+message OSSLoginServerBeginFlow {
+  // 服务器尝试开始登录
+}
+
+message OSSLoginFlow {
+  // 登录成功
+}
+
+message OSSLogoutFlow {
+  // 登出
 }

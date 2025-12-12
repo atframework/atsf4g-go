@@ -26,11 +26,14 @@ replace github.com/atframework/atsf4g-go/component-logical_time => ../logical_ti
 
 replace github.com/atframework/atsf4g-go/component-router => ../router
 
+replace github.com/atframework/atsf4g-go/component-operation-support-system => ../operation_support_system
+
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-db v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-operation-support-system v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-router v0.0.0-00010101000000-000000000000
