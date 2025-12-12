@@ -75,6 +75,14 @@ message DItemInstance {
   int64 expire_timepoint = 11;  // 超时时间（如果有）
 }
 
+enum EnItemFlowReasonMajorType {
+  EN_ITEM_FLOW_REASON_MAJOR_INVALID = 0;
+}
+
+enum EnItemFlowReasonMinorType {
+  EN_ITEM_FLOW_REASON_MINOR_INVALID = 0;
+}
+
 // 道具数据(增量,用于奖励等)
 message DItemOffset {
   int32 type_id = 1 [(org.xresloader.validator) = "ExcelItem_ADDABLE_item_id"];

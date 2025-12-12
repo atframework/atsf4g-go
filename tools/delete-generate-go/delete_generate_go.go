@@ -36,6 +36,7 @@ func main() {
 		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "config"))
 		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "extension"))
 		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "pbdesc"))
+		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "private", "log"))
 
 		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "common"))
 		deleteGoFiles(filepath.Join(project_settings.GetProjectSourceDir(), "component", "protocol", "public", "config"))
