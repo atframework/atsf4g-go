@@ -17,11 +17,11 @@ image:
   tag: latest
 
 volumeMounts:
-  configMountPath: /service/lobbysvr/cfg
-  logMountPath: /service/lobbysvr/log
+  configMountPath: /data/projecty/lobbysvr/cfg
+  logMountPath: /data/projecty/lobbysvr/log
 
 vector:
-  log_path: /service/lobbysvr/log
+  log_path: /data/projecty/lobbysvr/log
   image:
     repository: harbor.m-oa.com:6023/vector/vector:latest
     pullPolicy: Always

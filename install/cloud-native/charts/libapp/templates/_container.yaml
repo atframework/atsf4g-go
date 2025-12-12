@@ -4,12 +4,45 @@ securityContext:
   {{- toYaml .Values.securityContext | nindent 2 }}
 image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
 imagePullPolicy: {{ .Values.image.pullPolicy }}
+args:
+  - "start"
+livenessProbe:
+  exec:
+    command:
+      - /bin/sh
+      - "-c"
+      - |
+        set -x
+        /entrypoint.sh health_check
+  periodSeconds: 3
+startupProbe:
+  exec:
+    command:
+      - /bin/sh
+      - "-c"
+      - |
+        set -ex
+        /entrypoint.sh health_check
+  failureThreshold: 18
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - "-c"
+        - |
+          set -x
+          {{- if .Values.terminationGracePeriodSeconds }}
+          /entrypoint.sh stop --timeout {{ .Values.terminationGracePeriodSeconds }}
+          {{- else }}
+          /entrypoint.sh stop
+          {{- end }}
 volumeMounts:
 - name: config
-  mountPath: "{{ .Values.volumeMounts.configMountPath }}"
+  mountPath: /etc/projecty/{{ include "libapp.name" . }}/cfg
   readOnly: true
 - name: log
-  mountPath: {{ default "/service/lobbysvr/log" .Values.volumeMounts.logMountPath | quote }}
+  mountPath: {{ default "/data/projecty/lobbysvr/log" .Values.volumeMounts.logMountPath | quote }}
 env:
 - name: ATAPP_NAME
   valueFrom:

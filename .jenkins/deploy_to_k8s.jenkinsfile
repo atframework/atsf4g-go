@@ -1,0 +1,203 @@
+pipeline {
+    agent {
+        node {
+            label 'linux'
+        }
+    }
+    environment {
+  
+        PATH = "$PATH:/opt/tools/bin"
+
+        HARBOR_CREDS = '0769cb67-6730-41be-9660-e79ea52a2f27'
+
+        PROJECT_NAME = 'project-y-server'
+        INSTALL_NAMESPACE = 'project-y'
+
+        HARBOR_URL = 'harbor.m-oa.com:6023'
+        HARBOR_HELM_PATH = 'project-y/lobbysvr'
+        WORLD_ID = '1'
+        // HTLM_VERSION = "latest"
+    }
+
+    stages {
+
+        stage('Clean Workspace') {
+            steps {
+                /* 使用 deleteDir() 清理当前工作目录 */
+                deleteDir()
+                echo '工作空间已清理完毕。'
+            }
+        }
+
+        stage('拉去helm 安装包') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${HARBOR_CREDS}", passwordVariable: 'HARBOR_PASSWORD', usernameVariable: 'HARBOR_USERNAME')]) {
+                            // Use triple-single-quotes so Groovy does NOT interpolate ${...}; shell will handle $VAR
+                            sh '''
+                                    set -euo pipefail
+
+                                    # 构造部署名与版本（PACKAGE_VERSION 需在环境中提供，或替换为固定值）
+                                    project_deploy_name="${PROJECT_NAME}-${WORLD_ID}-${ZONE_ID}"
+                                    version="$(printf '%s' "${PACKAGE_VERSION-}" | awk -F '_' '{print $2}')"
+                                    # 如果 version 为空（或 PACKAGE_VERSION 未设置导致解析为空），回退为 latest
+                                    if [ -z "$version" ]; then
+                                        echo "部署名称: ${project_deploy_name}, 版本: lastest"
+                                        helm pull "oci://${HARBOR_URL}/${HARBOR_HELM_PATH}" \
+                                            --username="$HARBOR_USERNAME" \
+                                            --password="$HARBOR_PASSWORD" \
+                                            --kube-insecure-skip-tls-verify
+                                    else 
+                                        echo "部署名称: ${project_deploy_name}, 版本: ${version}"
+                                        helm pull "oci://${HARBOR_URL}/${HARBOR_HELM_PATH}:${version}" \
+                                            --username="$HARBOR_USERNAME" \
+                                            --password="$HARBOR_PASSWORD" \
+                                            --kube-insecure-skip-tls-verify
+                                    fi
+
+
+
+                                    # 找到第一个匹配的 chart 目录并安装
+                                    chart_dir="$(find . -maxdepth 1 -name '*lobby*' -print -quit)"
+                                    if [ -z "$chart_dir" ]; then
+                                        echo "chart not found"
+                                        exit 1
+                                    fi
+                                    
+                                    # 将 chart_dir 写入文件，以便 Groovy 读取
+                                    echo "$chart_dir" > chart_dir.txt
+
+                                    # 从远程 zone_list.yaml 获取 path_value（根据 zoneid 匹配 name）
+                                    ZONE_LIST_URL="https://download.m-oa.com/temporary/ProjectY/Zone/zone_list.yaml"
+                                    echo "下载 zone 列表: $ZONE_LIST_URL"
+                                    if ! curl -fsSL "$ZONE_LIST_URL" -o zone_list.yaml; then
+                                        echo "下载 zone_list.yaml 失败"; exit 1; fi
+
+                                    # 解析结构：每个条目以 "- key:" 行开始，内部包含 name: 与 zone_id:
+                                    # 示例：
+                                    #   - d-1:
+                                    #     name: d-1
+                                    #     zone_id: 1
+                                    # 逻辑：
+                                    #   遇到新的 "- <key>:" 重置 name/id
+                                    #   采集 name 与 zone_id；若 zone_id 匹配立即输出 name
+                                    # 单次 awk 完成匹配与清洗，避免多层单引号造成解析错误
+                                    path_value=$(awk -v zid="${ZONE_ID}" '
+                                        /^[[:space:]]*-[[:space:]]*[^:]+:/ { name=""; id=""; next }
+                                        /^[[:space:]]*name:[[:space:]]*/ {
+                                            sub(/^[[:space:]]*name:[[:space:]]*/, "", $0);
+                                            gsub(/\r/, "", $0);              # 去除回车
+                                            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0); # 去除首尾空白
+                                            name=$0; next }
+                                        /^[[:space:]]*zone_id:[[:space:]]*/ {
+                                            sub(/^[[:space:]]*zone_id:[[:space:]]*/, "", $0);
+                                            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0);
+                                            id=$0;
+                                            if (id==zid) {
+                                                gsub(/^[[:space:]]+|[[:space:]]+$/, "", name);
+                                                gsub(/\r/, "", name);
+                                                print name; exit }
+                                        }
+                                    ' zone_list.yaml)
+
+                                    if [ -z "$path_value" ]; then
+                                        echo "未在 zone_list.yaml 中找到匹配的 zoneid=${ZONE_ID} 的 name 字段"; exit 1; fi
+                                    echo "path对应的值(清洗后): $path_value"
+                                    
+                                    # 将 path_value 写入文件，以便 Groovy 读取
+                                    echo "$path_value" > path_value.txt
+
+                                    # 检查 release 是否已存在，并打印将要执行的操作（will upgrade / will install）
+                                    if [ -n "$(helm ls -n \"${INSTALL_NAMESPACE}\" -q \"${project_deploy_name}\" 2>/dev/null)" ]; then
+                                        echo "will upgrade ${project_deploy_name} in namespace ${INSTALL_NAMESPACE}"
+                                    else
+                                        echo "will install ${project_deploy_name} in namespace ${INSTALL_NAMESPACE}"
+                                    fi
+
+
+                                    # 使用 helm upgrade --install: 如果 release 已存在则执行升级，否则执行安装
+                                    helm upgrade --install "$project_deploy_name" "$chart_dir" \
+                                        --namespace="${INSTALL_NAMESPACE}" --kube-insecure-skip-tls-verify \
+                                        --set world_id="${WORLD_ID}" \
+                                        --set zone_id="${ZONE_ID}" \
+                                        --set image.tag="${version}" \
+                                        --set websocket.path="${path_value}" \
+                                        --set httproute.parentRefsName=project-y-tls-gateway \
+                                        --set log_enable_stdout=enable \
+                                        --wait --atomic
+                            '''
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo '执行完成'
+            script {
+                // 从文件读取 path_value 和 chart_dir 并设置为环境变量
+                def pathValue = readFile('path_value.txt').trim()
+                env.PATH_VALUE = pathValue
+                echo "PATH_VALUE 已设置: ${env.PATH_VALUE}"
+                
+                def chartDir = readFile('chart_dir.txt').trim()
+                // 从 ./lobbysvr-1.0.178.tgz 中提取 lobbysvr-1.0.178
+                def chartVersion = chartDir.replaceAll(/^\.\//, '').replaceAll(/\.tgz$/, '')
+                env.CHART_DIR = chartVersion
+                echo "CHART_DIR 已设置: ${env.CHART_DIR}"
+            }
+        }
+        success {
+            echo '✅ 流水线执行成功！'
+            script {
+                writeFile file: 'payload.json', text: """
+                {
+                  "msg_type": "post",
+                  "content": {
+                    "post": {
+                      "zh_cn": {
+                        "title": "ProjectY Server 部署成功",
+                        "content": [
+                          [
+                            {
+                              "tag": "text",
+                              "text": "版本: ${env.CHART_DIR}\\n区服: ${env.PATH_VALUE}"
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                }
+                """
+                sh "curl -X POST -H \"Content-Type: application/json\" -d \"@payload.json\" ${env.FEISHU_PROJECT_Y_URL}"
+            }
+        }
+        failure {
+            echo '❌ 流水线执行失败！'
+            script {
+                writeFile file: 'payload.json', text: """
+                {
+                  "msg_type": "post",
+                  "content": {
+                    "post": {
+                      "zh_cn": {
+                        "title": "ProjectY Server 部署失败",
+                        "content": [
+                          [
+                            {
+                              "tag": "text",
+                              "text": "版本: ${env.CHART_DIR}\\n区服: ${env.PATH_VALUE}"
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                }
+                """
+                sh "curl -X POST -H \"Content-Type: application/json\" -d \"@payload.json\" ${env.FEISHU_PROJECT_Y_URL}"
+            }
+        }
+    }
+}
