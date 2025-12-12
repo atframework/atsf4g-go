@@ -41,7 +41,7 @@ func (m *UserVirtualItemManager) mutableVirtualItemInstance(typeID int32) *ppc.D
 
 	ret, ok := m.cachedVirtualItemInstance[typeID]
 	if !ok || ret == nil {
-		ret := &ppc.DItemInstance{
+		ret = &ppc.DItemInstance{
 			ItemBasic: &ppc.DItemBasic{
 				TypeId: typeID,
 				Count:  0,
@@ -63,7 +63,7 @@ func (m *UserVirtualItemManager) mutableVirtualItemStatistics(typeID int32) *dat
 
 	ret, ok := m.cachedVirtualItemStatistics[typeID]
 	if !ok || ret == nil {
-		ret := &data.ItemTypeStatistics{
+		ret = &data.ItemTypeStatistics{
 			TotalCount: 0,
 		}
 		m.cachedVirtualItemStatistics[typeID] = ret
