@@ -42,7 +42,7 @@ sources:
   lobbysvr_logs_actor:
     type: file
     include:
-      - {{ .Values.vector.log_path }}/*/*.*.log
+      - {{ .Values.vector.log_path }}/*/*-*.*.log
     data_dir: {{ .Values.vector.log_path }}
     ignore_older_secs: 600
     read_from: beginning
@@ -56,7 +56,7 @@ transforms:
       - lobbysvr_logs_actor
     source: |
       .file_path = string!(.file)
-      . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/][^\\/]+[\\/](?P<uid>\d+)')
+      . |= parse_regex!(.file_path, r'(?:^|[\\/])lobbysvr[\\/]log[\\/][^\\/]+[\\/](?P<zone_id>\d+)-(?P<user_id>\d+)')
       del(.timestamp)
       del(.log)
       del(.file)
