@@ -28,4 +28,15 @@ logic:
         number: 3
         size: 20MB
       flush_interval: 1s
+{{- if and .Values.redis .Values.redis.enable }}
+  redis:
+    addrs:
+{{- range $_, $addr := .Values.redis.addrs }}
+      - {{ $addr }}
+{{- end }} {{- /* end range redis.addrs */}}
+    password: {{ .Values.redis.password }}
+    pool_size: {{ .Values.redis.pool_size }}
+    record_prefix: {{ .Values.redis.record_prefix }}
+    random_prefix: {{ .Values.redis.random_prefix }}
+{{- end -}} {{- /* end if */}}
 {{- end }}

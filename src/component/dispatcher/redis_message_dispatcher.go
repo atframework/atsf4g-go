@@ -41,7 +41,7 @@ type RedisMessageDispatcher struct {
 	log RedisLog
 
 	redisCfg      *private_protocol_config.Readonly_LogicRedisCfg
-	redisInstance *redis.Client
+	redisInstance *redis.ClusterClient
 	sequence      atomic.Uint64
 	recordPrefix  string
 	casLuaSHA     string
@@ -136,13 +136,13 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	}
 
 	redisCfg := &private_protocol_config.LogicRedisCfg{}
-	loadErr := d.GetApp().LoadConfigByPath(redisCfg, "lobbysvr.redis", "ATAPP_LOBBYSVR_REDIS", nil, "")
+	loadErr := d.GetApp().LoadConfigByPath(redisCfg, "logic.redis", "ATAPP_LOGIC_REDIS", nil, "")
 	if loadErr != nil {
 		d.GetLogger().LogWarn("Failed to load websocket server config", "error", loadErr)
 	}
 	d.redisCfg = redisCfg.ToReadonly()
 
-	if d.redisCfg.GetAddr() == "" {
+	if len(d.redisCfg.GetAddrs()) == 0 {
 		d.DispatcherBase.GetLogger().LogError("redis config error empty")
 		return fmt.Errorf("redis config error empty")
 	}
@@ -156,8 +156,8 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	d.DispatcherBase.GetLogger().LogInfo("Redis Prefix", "Prefix", d.recordPrefix)
 
 	redis.SetLogger(&d.log)
-	d.redisInstance = redis.NewClient(&redis.Options{
-		Addr:     d.redisCfg.GetAddr(),
+	d.redisInstance = redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:    d.redisCfg.GetAddrs(),
 		Password: d.redisCfg.GetPassword(),
 		PoolSize: int(d.redisCfg.GetPoolSize()),
 	})
@@ -186,7 +186,7 @@ func (d *RedisMessageDispatcher) Cleanup() {
 	d.redisInstance = nil
 }
 
-func (d *RedisMessageDispatcher) GetRedisInstance() *redis.Client {
+func (d *RedisMessageDispatcher) GetRedisInstance() *redis.ClusterClient {
 	if d == nil {
 		return nil
 	}
