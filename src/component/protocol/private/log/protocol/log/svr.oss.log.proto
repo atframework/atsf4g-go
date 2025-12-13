@@ -12,18 +12,17 @@ import "protocol/common/com.struct.item.common.proto";
 
 package proy;
 
-// 上报后不允许更改字段ID
+// 上报后不允许更改字段名字
 
 message OperationSupportSystemLogBasicInfo {
-  uint32 log_type = 1;
-  uint64 timestamp = 2;
-  string app_id = 3;
-  uint64 user_id = 4;
-  uint32 zone_id = 5;
+  string app_id = 1;
+  uint64 user_id = 2;
+  uint32 zone_id = 3;
 }
 
 message OperationSupportSystemLog {
-  OperationSupportSystemLogBasicInfo basic = 1;
+  string log_type = 1;
+  OperationSupportSystemLogBasicInfo basic = 2;
   oneof detail {
     OSSItemFlow item_flow = 10;
     OSSLoginClientBeginFlow login_client_begin_flow = 11;

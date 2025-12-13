@@ -10,16 +10,15 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-private
 
 package proy;
 
-// 上报后不允许更改字段ID
+// 上报后不允许更改字段名字
 
 message MonitorLogCommonHeader {
-  uint32 log_type = 1;
-  uint64 timestamp = 2;
-  string app_id = 3;
+  string app_id = 1;
 }
 
 message MonitorLog {
-  MonitorLogCommonHeader basic = 1;
+  string log_type = 1;
+  MonitorLogCommonHeader basic = 2;
   oneof detail {
     MONServerOperationFlow server_operation_flow = 10;
   }

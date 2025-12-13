@@ -4,6 +4,8 @@ import (
 	"context"
 	"reflect"
 	"runtime"
+	"sync/atomic"
+	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -116,28 +118,61 @@ func (m *OperationSupportSystem) initLogWritter() error {
 	return nil
 }
 
+type timestampCacheEntry struct {
+	second int64
+	prefix string
+}
+
+var appendTimestampCache atomic.Value
+
+func init() {
+	appendTimestampCache.Store(timestampCacheEntry{second: -1})
+}
+
 func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.OperationSupportSystemLog) {
-	if m == nil || m.ossLogWriter == nil || ossLog.GetDetailOneofCase() == 0 {
+	if m == nil || m.ossLogWriter == nil || ossLog.GetDetailOneofName() == "" {
 		return
 	}
+
+	entry := appendTimestampCache.Load().(timestampCacheEntry)
+	now := logical_time.GetSysNow()
+	second := now.Unix()
+	if entry.second != second {
+		prefix := now.Format(time.DateTime)
+		entry = timestampCacheEntry{second: second, prefix: prefix}
+		appendTimestampCache.Store(entry)
+	}
+
 	// 处理头
-	ossLog.MutableBasic().Timestamp = uint64(logical_time.GetSysNow().Unix())
-	ossLog.MutableBasic().LogType = uint32(ossLog.GetDetailOneofCase())
+	ossLog.LogType = ossLog.GetDetailOneofName()
 	ossLog.MutableBasic().AppId = m.GetApp().GetConfig().ConfigPb.GetName()
 	// 写入
-	m.ossLogWriter.Write(lu.StringtoBytes(protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true}.Format(ossLog)))
+	b, _ := protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true, UseProtoNames: true}.MarshalAppend(
+		lu.StringtoBytes(entry.prefix), ossLog)
+	m.ossLogWriter.Write(b)
 	m.ossLogWriter.Flush()
 }
 
 func (m *OperationSupportSystem) sendMonLog(monLog *private_protocol_log.MonitorLog) {
-	if m == nil || m.monLogWriter == nil || monLog.GetDetailOneofCase() == 0 {
+	if m == nil || m.monLogWriter == nil || monLog.GetDetailOneofName() == "" {
 		return
 	}
+
+	entry := appendTimestampCache.Load().(timestampCacheEntry)
+	now := logical_time.GetSysNow()
+	second := now.Unix()
+	if entry.second != second {
+		prefix := now.Format(time.DateTime)
+		entry = timestampCacheEntry{second: second, prefix: prefix}
+		appendTimestampCache.Store(entry)
+	}
+
 	// 处理头
-	monLog.MutableBasic().Timestamp = uint64(logical_time.GetSysNow().Unix())
-	monLog.MutableBasic().LogType = uint32(monLog.GetDetailOneofCase())
+	monLog.LogType = monLog.GetDetailOneofName()
 	monLog.MutableBasic().AppId = m.GetApp().GetConfig().ConfigPb.GetName()
 	// 写入
-	m.monLogWriter.Write(lu.StringtoBytes(protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true}.Format(monLog)))
+	b, _ := protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true, UseProtoNames: true}.MarshalAppend(
+		lu.StringtoBytes(entry.prefix), monLog)
+	m.monLogWriter.Write(b)
 	m.monLogWriter.Flush()
 }

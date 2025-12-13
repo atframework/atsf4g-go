@@ -273,6 +273,7 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 		g.P(fmt.Sprintf(`type get%s interface {`, fullFieldName))
 		g.P(fmt.Sprintf(`	Get%s() %s_En%sID`, fullFieldName, msg.GoIdent.GoName, oneofName))
 		g.P(fmt.Sprintf(`	GetReflectType%s() reflect.Type`, fullFieldName))
+		g.P(fmt.Sprintf(`	GetFieldName%s() string`, fullFieldName))
 		g.P("}")
 		g.P()
 
@@ -287,6 +288,18 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 		g.P(`  }`)
 		g.P(fmt.Sprintf(`	return v.Get%s()`, fullFieldName))
 		g.P(`}`)
+		g.P()
+
+		g.P(fmt.Sprintf("func (m *%s) Get%sOneofName() string {", msg.GoIdent.GoName, oneof.GoName))
+		g.P(`  if m == nil {`)
+		g.P(`    return ""`)
+		g.P(`  }`)
+		g.P(fmt.Sprintf(`	v, ok := m.%s.(get%s)`, oneofName, fullFieldName))
+		g.P(`  if !ok {`)
+		g.P(`		return ""`)
+		g.P(`  }`)
+		g.P(fmt.Sprintf("  return v.GetFieldName%s()", fullFieldName))
+		g.P("}")
 		g.P()
 
 		g.P("// ===== GetOneofReflectType methods for ", msg.GoIdent.GoName, " Oneof ", oneofName, " ===== Oneof =====")
@@ -437,6 +450,9 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 			g.P(`}`)
 			g.P(fmt.Sprintf(`func (m *%s) GetReflectType%s_%s() reflect.Type {`, fullFieldName, msg.GoIdent.GoName, oneofName))
 			g.P(fmt.Sprintf(`  return reflectType%s`, fullFieldName))
+			g.P(`}`)
+			g.P(fmt.Sprintf(`func (m *%s) GetFieldName%s_%s() string {`, fullFieldName, msg.GoIdent.GoName, oneofName))
+			g.P(fmt.Sprintf(`  return "%s"`, field.Desc.TextName()))
 			g.P(`}`)
 			g.P()
 		case field.Message != nil:

@@ -49,6 +49,26 @@ sources:
     line_delimiter: "\u001e\n"
     glob_minimum_cooldown_ms: 1000
 
+  lobbysvr_logs_mon:
+    type: file
+    include:
+      - {{ .Values.vector.log_path }}/*.mon.*.log
+    data_dir: {{ .Values.vector.log_path }}
+    ignore_older_secs: 3600
+    read_from: beginning
+    line_delimiter: "\u001e\n"
+    glob_minimum_cooldown_ms: 1000
+
+  lobbysvr_logs_oss:
+    type: file
+    include:
+      - {{ .Values.vector.log_path }}/*.oss.*.log
+    data_dir: {{ .Values.vector.log_path }}
+    ignore_older_secs: 3600
+    read_from: beginning
+    line_delimiter: "\u001e\n"
+    glob_minimum_cooldown_ms: 1000
+
 transforms:
   actor_enrich:
     type: remap
@@ -105,6 +125,36 @@ transforms:
       del(.timestamp)
       .log_ts = now()
 
+  mon_enrich:
+    type: remap
+    inputs:
+      - lobbysvr_logs_mon
+    source: |
+      del(.host)
+      del(.source_type)
+      del(.timestamp)
+      del(.file)
+      parse_data = parse_regex!(.message, r'^(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?P<message>\{.*\})$')
+      parsed_ts = parse_timestamp!(parse_data.log_ts, "%Y-%m-%d %H:%M:%S", timezone: "Asia/Shanghai")
+      parse_data.log_ts = format_timestamp!(parsed_ts, format: "%FT%T.000Z", timezone: "UTC")
+      . = parse_json!(parse_data.message)
+      .log_ts = parse_data.log_ts
+
+  oss_enrich:
+    type: remap
+    inputs:
+      - lobbysvr_logs_oss
+    source: |
+      del(.host)
+      del(.source_type)
+      del(.timestamp)
+      del(.file)
+      parse_data = parse_regex!(.message, r'^(?P<log_ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?P<message>\{.*\})$')
+      parsed_ts = parse_timestamp!(parse_data.log_ts, "%Y-%m-%d %H:%M:%S", timezone: "Asia/Shanghai")
+      parse_data.log_ts = format_timestamp!(parsed_ts, format: "%FT%T.000Z", timezone: "UTC")
+      . = parse_json!(parse_data.message)
+      .log_ts = parse_data.log_ts
+
 sinks:
   {{- if .Values.vector.sliks.console.enable }}
   console:
@@ -115,6 +165,8 @@ sinks:
       - db_inner_enrich
       - redis_enrich
       - lobbysvr_crash
+      - mon_enrich
+      - oss_enrich
     encoding:
       codec: json
   {{- end}}
@@ -127,6 +179,8 @@ sinks:
       - db_inner_enrich
       - redis_enrich
       - lobbysvr_crash
+      - mon_enrich
+      - oss_enrich
     path: {{ .Values.vector.log_path }}/vector_output.log
     encoding:
       codec: json
@@ -190,4 +244,42 @@ sinks:
       type: project-y
       dataset: log
       namespace: actor
+
+  opensearch_log_oss:
+    type: elasticsearch
+    mode: data_stream
+    inputs:
+      - oss_enrich
+    endpoints:
+      - {{ .Values.vector.sliks.opensearch.endpoint }}
+    auth:
+      strategy: basic
+      user: {{ .Values.vector.sliks.opensearch.username }}
+      password: {{ .Values.vector.sliks.opensearch.password }}
+    tls:
+      verify_certificate: false
+      verify_hostname: false
+    data_stream:
+      type: project-y
+      dataset: oss
+      namespace: {{ "{{ log_type }}" }}
+
+  opensearch_log_mon:
+    type: elasticsearch
+    mode: data_stream
+    inputs:
+      - mon_enrich
+    endpoints:
+      - {{ .Values.vector.sliks.opensearch.endpoint }}
+    auth:
+      strategy: basic
+      user: {{ .Values.vector.sliks.opensearch.username }}
+      password: {{ .Values.vector.sliks.opensearch.password }}
+    tls:
+      verify_certificate: false
+      verify_hostname: false
+    data_stream:
+      type: project-y
+      dataset: mon
+      namespace: all
   {{- end -}}
