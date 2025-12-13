@@ -262,7 +262,7 @@ sinks:
     data_stream:
       type: project-y
       dataset: oss
-      namespace: {{ "{{ log_type }}" }}
+      namespace: type-{{ "{{ log_type }}" }}
 
   opensearch_log_mon:
     type: elasticsearch
