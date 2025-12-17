@@ -33,6 +33,8 @@ import sys
     prefix_fmt_key = "%s"
     prefix_fmt_value = "dispatcher.GetRecordPrefix()"
 
+    if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_NONE"].descriptor.number:
+        prefix_fmt_key += "-"
     if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD"].descriptor.number:
         prefix_fmt_key += "-%d-"
         prefix_fmt_value += ", config.GetConfigManager().GetWorldId()"
@@ -55,17 +57,38 @@ import sys
         + "\n    )"
     )
 
+    atomic_inc_fields = []
+    for inc_field in index.atomic_inc_fields:
+        if inc_field not in message.fields_by_name:
+            continue
+        field = message.fields_by_name[inc_field]
+        go_type = field.get_go_type()
+        if go_type not in ("int32", "int64", "uint32", "uint64"):
+            continue
+        atomic_inc_fields.append({
+            "raw_name": inc_field,
+            "ident": message.get_identify_name(inc_field, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL),
+            "go_type": go_type,
+        })
+
     index_meta = {
         "index_key_name": index_key_name,
         "load_index_key": load_index_key,
         "update_index_key": update_index_key,
         "key_fields": key_fields,
         "cas_enabled": index.enable_cas,
+        "atomic_inc_fields": atomic_inc_fields,
     }
 %>
 <%include file="db_rpc_redis_load.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta" />
 <%include file="db_rpc_redis_del.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta" />
 <%include file="db_rpc_redis_update.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta" />
+
+%   if len(atomic_inc_fields) > 0:
+%       for inc_field in atomic_inc_fields:
+<%include file="db_rpc_redis_atomic_inc.mako" args="message_name=message_name,message=message,index=index,index_meta=index_meta,inc_field=inc_field" />
+%       endfor
+%   endif
 
 %	for partly_get in index.partly_get:
 <%

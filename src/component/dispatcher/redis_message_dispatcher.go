@@ -151,6 +151,8 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		d.recordPrefix = d.redisCfg.GetRecordPrefix()
 	} else if d.redisCfg.GetRandomPrefix() {
 		d.recordPrefix = GetStableHostID()
+	} else {
+		d.recordPrefix = "default"
 	}
 
 	d.DispatcherBase.GetLogger().LogInfo("Redis Prefix", "Prefix", d.recordPrefix)
