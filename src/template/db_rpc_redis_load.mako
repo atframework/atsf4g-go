@@ -123,7 +123,7 @@ func ${message_name}LoadWith${index_key_name}(
 		return cd.CreateRpcResultOk()
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
 	if retResult.IsError() {
 		return
 	}

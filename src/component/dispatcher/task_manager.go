@@ -178,16 +178,24 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 	}, nil, nil)
 }
 
-func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction) (*DispatcherResumeData, RpcResult) {
+// beforeYield 是在确认让出任务之前调用的函数，允许在让出之前执行一些操作。
+// beforeYieldEnsureCall 是一个确保调用的函数，如果检查正常会在任beforeYield之后调用，如果不能进入Yield也会调用
+func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction, beforeYieldEnsureCall BeforeYieldEnsureCallAction) (*DispatcherResumeData, RpcResult) {
 	currentTask := ctx.GetAction()
 	if lu.IsNil(currentTask) {
 		ctx.LogError("should in task")
+		if beforeYieldEnsureCall != nil {
+			beforeYieldEnsureCall()
+		}
 		return nil, CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 
 	// 已经超时或者被Killed，不允许再切出
 	if currentTask.IsExiting() {
 		ctx.LogError("current task already Exiting")
+		if beforeYieldEnsureCall != nil {
+			beforeYieldEnsureCall()
+		}
 		return nil, CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
 	}
 
@@ -195,11 +203,17 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 	awaitChannel, err := action.TrySetupAwait(awaitOptions)
 	if err != nil || awaitChannel == nil {
 		ctx.LogError("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		if beforeYieldEnsureCall != nil {
+			beforeYieldEnsureCall()
+		}
 		return nil, CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	if beforeYield != nil {
 		result := beforeYield()
+		if beforeYieldEnsureCall != nil {
+			beforeYieldEnsureCall()
+		}
 		if result.IsError() {
 			// 释放等待逻辑 继续执行
 			err := action.TryFinishAwait(&DispatcherResumeData{
@@ -213,6 +227,8 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 			}
 			return nil, result
 		}
+	} else if beforeYieldEnsureCall != nil {
+		beforeYieldEnsureCall()
 	}
 
 	actor := action.GetActorExecutor()
@@ -335,11 +351,11 @@ func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
 	}
 
 	_, result := YieldTaskAction(ctx, currentTask, &DispatcherAwaitOptions{
-		Type:         0,
+		Type:         uint64(uintptr(unsafe.Pointer(&currentTask))),
 		Sequence:     currentTask.GetTaskId(),
 		Timeout:      waitTime,
 		TimeoutAllow: true,
-	}, nil)
+	}, nil, nil)
 	return result
 }
 
@@ -375,7 +391,7 @@ func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
 			}
 		})
 		return CreateRpcResultOk()
-	})
+	}, nil)
 	return result
 }
 

@@ -84,7 +84,7 @@ func ${message_name}AtomicInc${index_key_name}${inc_field["ident"]}(
         return cd.CreateRpcResultOk()
     }
     var resumeData *cd.DispatcherResumeData
-    resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
+    resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
     if retResult.IsError() {
         return
     }

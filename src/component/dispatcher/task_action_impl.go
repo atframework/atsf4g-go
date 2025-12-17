@@ -18,6 +18,7 @@ type TaskActionAwaitChannelData struct {
 }
 
 type BeforeYieldAction func() RpcResult
+type BeforeYieldEnsureCallAction func()
 
 type TaskActionStatus int32
 

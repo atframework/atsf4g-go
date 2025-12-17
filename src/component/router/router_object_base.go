@@ -352,13 +352,14 @@ func (obj *RouterObjectBase) AwaitIOTask(ctx cd.AwaitableContext) cd.RpcResult {
 	}
 
 	for obj.GetAwaitTaskId() != 0 && obj.GetAwaitTaskId() != ctx.GetAction().GetTaskId() {
-		// if
+		// 等待当前IO任务完成
+		// 这边保证了 awaitIOTaskList 不会并发,所以可以直接加入
 		e := obj.awaitIOTaskList.PushBack(ctx.GetAction())
 		_, _ = cd.YieldTaskAction(ctx, ctx.GetAction(), &cd.DispatcherAwaitOptions{
 			Type:     uint64(uintptr(unsafe.Pointer(obj))),
 			Sequence: ctx.GetAction().GetTaskId(),
 			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
-		}, nil)
+		}, nil, nil)
 		obj.awaitIOTaskList.Remove(e)
 	}
 

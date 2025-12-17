@@ -22,6 +22,8 @@ replace github.com/atframework/atsf4g-go/component-router => ../component/router
 
 replace github.com/atframework/atsf4g-go/component-operation-support-system => ../component/operation_support_system
 
+replace github.com/atframework/atsf4g-go/component-uuid => ../component/uuid
+
 require (
 	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
@@ -46,6 +48,7 @@ require (
 	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-operation-support-system v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-router v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-uuid v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.1.1
 )

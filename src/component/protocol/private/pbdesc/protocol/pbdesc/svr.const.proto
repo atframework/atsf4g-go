@@ -23,11 +23,23 @@ enum EnSystemLimit {
 }
 
 enum EnGlobalUUIDMajorType {
-  EN_GLOBAL_UUID_MAT_DEFAULT = 0;     // INVALID
-  EN_GLOBAL_UUID_MAT_MAIL = 1;        // 邮件GUID分配器
-  EN_GLOBAL_UUID_MAT_TRANSACTION = 2; // 事务GUID分配器
-  EN_GLOBAL_UUID_MAT_USER_ID = 3;     // User ID分配器
-  EN_GLOBAL_UUID_MAT_GUILD_ID = 4;    // Guild ID分配器
+  EN_GLOBAL_UUID_MAT_DEFAULT = 0;      // INVALID
+  EN_GLOBAL_UUID_MAT_MAIL = 1;         // 邮件GUID分配器
+  EN_GLOBAL_UUID_MAT_TRANSACTION = 2;  // 事务GUID分配器
+  EN_GLOBAL_UUID_MAT_ACCOUNT_ID = 3;   // Account ID分配器
+  EN_GLOBAL_UUID_MAT_GUILD_ID = 4;     // 公会 ID分配器
+  EN_GLOBAL_UUID_MAT_LIMIT = 5;        // 限制类资源分配器
+}
+
+enum EnGlobalUUIDMinorType {
+  EN_GLOBAL_UUID_MIT_DEFAULT = 0;       // INVALID
+  EN_GLOBAL_UUID_MIT_LIMIT_GLOBAL = 1;  // 限制类资源-全局
+  EN_GLOBAL_UUID_MIT_LIMIT_ZONE = 2;    // 限制类资源-大区
+}
+
+enum EnGlobalUUIDPatchType {
+  EN_GLOBAL_UUID_PT_DEFAULT = 0;                // INVALID
+  EN_GLOBAL_UUID_PT_LIMIT_PLAYER_REGISTER = 1;  // 限制类资源-玩家注册数
 }
 
 // player async job type

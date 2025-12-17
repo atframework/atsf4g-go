@@ -133,7 +133,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 		return cd.CreateRpcResultOk()
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
 	if retResult.IsError() {
 		return
 	}
