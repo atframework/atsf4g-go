@@ -78,3 +78,8 @@ validator:
     description: "Mall.xlsx|商城页签表|mall_sheet_id 值校验"
     rules:
       - InTableColumn("Mall.xlsx", "商城页签表", 3, 2, "mall_sheet_id")
+
+  - name: "ExcelMallProduct_product_id"
+    description: "Mall.xlsx|商城商品表|product_id 值校验"
+    rules:
+      - InTableColumn("Mall.xlsx", "商城商品表", 3, 2, "product_id")

@@ -16,4 +16,6 @@ type UserMallManager interface {
 		expectCostItems []*public_protocol_common.DItemBasic, rspBody *service_protocol.SCMallPurchaseRsp) int32
 	// GetInfo
 	FetchData() *public_protocol_pbdesc.DUserMallData
+
+	GetProductCounter(productId int32) *public_protocol_common.DConditionCounterStorage
 }

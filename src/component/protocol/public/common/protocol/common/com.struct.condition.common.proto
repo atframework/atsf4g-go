@@ -118,6 +118,12 @@ message DConditionRuleQuestStatus {
   EnQuestStatus status = 2;
 }
 
+message DConditionRuleMallProductPurchaseCount {
+  int32 product_id = 1 [(org.xresloader.validator) = "ExcelMallProduct_product_id"];
+  sint64 min_value = 2;
+  sint64 max_value = 3;
+}
+
 // 功能性条件
 message DConditionRule {
   option (org.xresloader.msg_separator) = "@";
@@ -133,6 +139,18 @@ message DConditionRule {
 
     DConditionRuleItemCount has_item = 301 [(org.xresloader.field_alias) = "拥有道具"];
     DConditionRuleQuestStatus quest_status = 901 [(org.xresloader.field_alias) = "任务状态"];
+
+    // 商城
+    DConditionRuleMallProductPurchaseCount mall_product_purchase_count_all = 1201
+        [(org.xresloader.field_alias) = "商城商品购买总数量"];
+    DConditionRuleMallProductPurchaseCount mall_product_purchase_count_daily = 1202
+        [(org.xresloader.field_alias) = "商城商品购买日数量"];
+    DConditionRuleMallProductPurchaseCount mall_product_purchase_count_weekly = 1203
+        [(org.xresloader.field_alias) = "商城商品购买周数量"];
+    DConditionRuleMallProductPurchaseCount mall_product_purchase_count_monthly = 1204
+        [(org.xresloader.field_alias) = "商城商品购买月数量"];
+    DConditionRuleMallProductPurchaseCount mall_product_purchase_count_custom = 1205
+        [(org.xresloader.field_alias) = "商城商品购买自定义周期次数"];
   }
 }
 
