@@ -260,7 +260,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 	}
 
 	// 构造响应消息
-	now := t.GetSysNow()
+	now := t.GetNow()
 	responseMsg, err := CreateCSMessage(t.GetResponseCode(), now, clientSequence, t.GetDispatcher(), t.session,
 		&public_protocol_extension.RpcResponseMeta{
 			// TODO: 配置模块加载
@@ -269,7 +269,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 			TypeUrl:         string(t.rpcDescriptor.Output().FullName()),
 			CallerNodeId:    t.GetDispatcher().GetApp().GetId(),
 			CallerNodeName:  t.GetDispatcher().GetApp().GetAppName(),
-			CallerTimestamp: timestamppb.New(now),
+			CallerTimestamp: timestamppb.New(t.GetSysNow()),
 		},
 		t.responseBody)
 	if err != nil {
