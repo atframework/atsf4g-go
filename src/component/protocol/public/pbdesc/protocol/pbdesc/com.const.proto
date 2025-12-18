@@ -331,6 +331,16 @@ enum EnErrorCode {
   EN_ERR_QUEST_STATUS_NOT_MATCH = -2005
                                   [(error_code.description) = "任务状态不匹配"];
 
+  // 商城错误码 2600-2699
+  EN_ERR_MALL_PRODUCT_NOT_FOUND = -2601
+                                 [(error_code.description) = "商城商品未找到"];
+  EN_ERR_MALL_PRODUCT_NOT_ON_SELL = -2602
+                                 [(error_code.description) = "商城商品未上架"];
+  EN_ERR_MALL_MALL_NOT_FOUND = -2603
+                                 [(error_code.description) = "商城未找到"];
+  EN_ERR_MALL_PRODUCT_INIT_FAILED = -2604
+                                 [(error_code.description) = "商城商品初始化失败"];
+
   // 客户端错误码，服务器不关心 800000-999999
   EN_ERR_CLIENT_INTERNAL_CODE_BEGIN = -800000;
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码

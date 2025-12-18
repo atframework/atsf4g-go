@@ -56,6 +56,7 @@ enum EnItemFlowReasonMajorType {
   EN_ITEM_FLOW_REASON_MAJOR_USER = 1;          // 玩家基础逻辑
   EN_ITEM_FLOW_REASON_MAJOR_GM = 2;            // GM 命令
   EN_ITEM_FLOW_REASON_MAJOR_QUEST = 3;         // 任务/剧情
+  EN_ITEM_FLOW_REASON_MAJOR_MALL = 4;         // 商城
 }
 
 enum EnItemFlowReasonMinorType {
@@ -71,6 +72,10 @@ enum EnItemFlowReasonMinorType {
 
   // Quest
   EN_ITEM_FLOW_REASON_MINOR_QUEST_REWARD = 3001;  // 任务奖励
+
+  // Mall
+  EN_ITEM_FLOW_REASON_MINOR_MALL_PURCHASE_COST = 12001;  // 商城购买消耗
+  EN_ITEM_FLOW_REASON_MINOR_MALL_PURCHASE_REWARD = 12002;  // 商城购买奖励
 }
 
 message DItemBasic {

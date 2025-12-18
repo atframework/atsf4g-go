@@ -31,6 +31,12 @@ func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup, logger *libat
 	if err != nil {
 		return
 	}
+
+	err = initExcelMallConfigIndex(group)
+	if err != nil {
+		return
+	}
+
 	return
 }
 

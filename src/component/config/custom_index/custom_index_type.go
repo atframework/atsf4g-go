@@ -11,6 +11,7 @@ type ExcelConfigCustomIndex struct {
 	RandomPoolIndex   map[int32]*ExcelConfigRandomPool
 	QuestSequence     []*public_protocol_config.Readonly_ExcelQuestList
 	UnlockIndex       map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID]interface{} // map[int32][]atframework_component_config.UnlockValueFunction
+	MallIndex         ExcelConfigMallIndex
 }
 
 type ExcelConfigCustomIndexLastBuildTime struct {
@@ -77,4 +78,20 @@ func (i *ExcelConfigCustomIndex) GetRandomPool(typeId int32) *ExcelConfigRandomP
 	}
 
 	return i.RandomPoolIndex[typeId]
+}
+
+type ExcelConfigMallIndex struct {
+	MallSheetMallIndex map[int32]*public_protocol_config.Readonly_ExcelMall // map[mallSheetId]mallId
+}
+
+func (i *ExcelConfigCustomIndex) GetMallByMallSheet(mallSheetId int32) *public_protocol_config.Readonly_ExcelMall {
+	if i == nil {
+		return nil
+	}
+
+	if i.MallIndex.MallSheetMallIndex == nil {
+		return nil
+	}
+
+	return i.MallIndex.MallSheetMallIndex[mallSheetId]
 }

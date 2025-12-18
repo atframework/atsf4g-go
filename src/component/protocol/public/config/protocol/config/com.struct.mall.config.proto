@@ -41,7 +41,7 @@ message ExcelMallSheet {
     tags: "server"
   };
 
-  EnMallType mall_sheet_id = 1 [(org.xresloader.field_unique_tag) = "mall_sheet_id"];
+  int32 mall_sheet_id = 1 [(org.xresloader.field_unique_tag) = "mall_sheet_id"];
   string name = 2;
 }
 
@@ -60,7 +60,7 @@ message ExcelMallProduct {
   int32 mall_sheet_id = 3 [(org.xresloader.validator) = "ExcelMallSheet_mall_sheet_id"];
   int32 display_order = 4;
   bool is_on_sale = 5;
-  DItemOffset product_item = 6;
+  repeated DItemOffset product_items = 6;
   DConditionBasicLimit purchase_condition = 7;
   repeated DItemOffset purchase_cost = 8;
   // 总次数限制

@@ -15,6 +15,7 @@ import (
 
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
+	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
 	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
@@ -98,6 +99,15 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 			return fmt.Errorf("user module unlock manager not found")
 		}
 		moduleUnlockManager.DumpModuleUnlockData(response_body.MutableUserModuleUnlock())
+	}
+
+	if request_body.GetNeedUserMall() {
+		mallMgr := data.UserGetModuleManager[logic_mall.UserMallManager](user)
+		if mallMgr == nil {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			return fmt.Errorf("user mall manager not found")
+		}
+		response_body.UserMall = mallMgr.FetchData()
 	}
 
 	return nil

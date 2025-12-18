@@ -24,4 +24,6 @@ message CSMallPurchaseReq {
   repeated DItemBasic expect_cost_items = 3;
 }
 
-message SCMallPurchaseRsp {}
+message SCMallPurchaseRsp {
+  repeated DItemInstance reward_items = 1;
+}

@@ -16,6 +16,8 @@ import "protocol/common/com.struct.quest.common.proto";
 import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/com.struct.quest.proto";
 import "protocol/pbdesc/com.struct.module.unlock.proto";
+import "protocol/pbdesc/com.struct.adventure.proto";
+import "protocol/pbdesc/com.struct.mall.proto";
 
 package proy;
 
@@ -161,4 +163,13 @@ message user_item_reset_data{
   int64 last_daily_reset_timepoint = 1;  // 上次每日重置时间点
   int64 last_weekly_reset_timepoint = 2; // 上次每周重置时间点
   int64 last_monthly_reset_timepoint = 3; // 上次每月重置时间点
+}
+
+message user_mall_product_data {
+  DMallProductData product_data = 1;
+  DConditionCounterStorage total_counter_storage_data = 11;
+}
+
+message user_mall_data{
+  repeated user_mall_product_data mall_data = 1;
 }

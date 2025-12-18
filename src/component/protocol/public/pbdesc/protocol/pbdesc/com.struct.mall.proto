@@ -17,5 +17,9 @@ message DMallProductData {
 }
 
 message DUserMallData {
-  DMallProductData product_data = 1;
+  repeated DMallProductData product_data = 1;
+}
+
+message DUserMallDirtyChg {
+  repeated DMallProductData product_data = 1;
 }

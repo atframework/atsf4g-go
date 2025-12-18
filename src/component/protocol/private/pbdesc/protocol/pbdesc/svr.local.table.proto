@@ -129,6 +129,7 @@ message database_table_user {
   user_condition_data condition_data = 203;
   user_unlock_data unlock_data = 204;
   user_module_unlock_data module_unlock_data = 205;
+  user_mall_data mall_data = 214;
 }
 
 message database_table_distribute_transaction {

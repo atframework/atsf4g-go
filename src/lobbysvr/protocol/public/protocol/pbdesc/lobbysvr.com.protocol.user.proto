@@ -137,6 +137,7 @@ message SCUserDirtyChgSync {
   DUserOptions user_options = 8;
   DUserQuestEventList dirty_quest_events = 15;
   DUserModuleUnlockDirtyChg dirty_module_unlock = 17;
+  DUserMallDirtyChg dirty_mall = 20;
 
   DConditionCounterDirtyChg dirty_condition_counter = 201;
 }

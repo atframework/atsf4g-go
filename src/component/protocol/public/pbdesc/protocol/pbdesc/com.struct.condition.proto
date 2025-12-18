@@ -12,7 +12,6 @@ import "protocol/common/com.struct.condition.common.proto";
 
 package proy;
 
-// Lottery类型的数据
 message DConditionCounterData {
   repeated DConditionCounterStorage counter_list = 1;
 }
