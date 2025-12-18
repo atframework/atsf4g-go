@@ -4,9 +4,6 @@
 
 proc_name: lobbysvrd
 
-redis:
-  enable: true
-  
 type_id: 65
 type_name: "lobbysvr"
 
@@ -42,7 +39,7 @@ vector:
     - "response_code"
 
 imagePullSecrets:
-  - name: jijunliang-harbor-regcred
+  - name: harbor-regcred
 
 persistence:
   cbs:
@@ -68,6 +65,10 @@ service:
   port: 7001
   targetPort: 7001
   protocol: TCP
+
+redis:
+  enable: true
+
 webserver:
   port: 7001
 

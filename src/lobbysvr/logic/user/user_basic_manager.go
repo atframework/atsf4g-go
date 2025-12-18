@@ -23,4 +23,11 @@ type UserBasicManager interface {
 	SubUserExp(ctx cd.RpcContext, v int64) data.Result
 	GetUserExp() int64
 	GetUserLevel() uint32
+
+	GmResetUserExp(ctx cd.RpcContext, v int64) data.Result
+
+	GetAttributesCacheVersion() int64
+
+	GetUserClientOptions() *public_protocol_pbdesc.DUserOptions
+	UpdateUserClientOptions(ctx cd.RpcContext, opts *public_protocol_pbdesc.DUserOptions) data.Result
 }

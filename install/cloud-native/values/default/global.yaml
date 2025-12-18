@@ -52,3 +52,4 @@ log_rotate_num: 10
 
 remove_all_delay_await_time_ms: 150
 remove_all_delay_timeout_second: 60
+log_enable_stdout: disable

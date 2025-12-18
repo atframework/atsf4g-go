@@ -11,11 +11,12 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/
 import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/extension/v3/xresloader.proto";
 
-import "protocol/common/com.struct.base.common.proto";
 import "protocol/common/com.struct.item.common.proto";
 
 import "protocol/common/com.struct.quest.common.proto";
 import "protocol/common/com.struct.condition.common.proto";
+import "protocol/common/com.struct.unlock.common.proto";
+import "protocol/common/com.struct.redirect.common.proto";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -27,50 +28,33 @@ message ExcelQuestList {
   option (xrescode.loader) = {
     file_path: "quest_list.bytes"
     indexes: { fields: "id" index_type: EN_INDEX_KV }
-    indexes: { fields: "activity_id" index_type: EN_INDEX_KL allow_not_found: true }
-    indexes: { fields: "random_pool_id" index_type: EN_INDEX_KL allow_not_found: true }
-    indexes: { fields: "client_submit_type" index_type: EN_INDEX_KL allow_not_found: true }
-    indexes: { fields: "season_id" index_type: EN_INDEX_KL allow_not_found: true }
-    indexes: {
-      fields: "activity_id"
-      fields: "display_position"
-      fields: "display_group"
-      index_type: EN_INDEX_KL
-      allow_not_found: true
-    }
+    indexes: { fields: "type" index_type: EN_INDEX_KL allow_not_found: true }
+
     tags: "client"
     tags: "server"
   };
 
-  int32 id = 1 [(org.xresloader.field_unique_tag) = "id", (org.xresloader.validator) = "1600000-1699999"];
-  int32 activity_id = 2;
-  bool on = 3;                                                                            // 是否上架
-  int32 random_pool_id = 4 [(org.xresloader.validator) = "16500-16999|1710000-1719999"];  // option
-  int32 random_pool_weight = 5;                                                           // option
-  EnQuestType type = 6;                                                                   // 业务逻辑
+  int32 id = 1
+      [(org.xresloader.field_unique_tag) = "id", (org.xresloader.validator) = "ExcelItemIdRange_Quest"];  // 8e6-9e6
+  bool on = 3;                                                                                            // 是否上架
+  EnQuestType type = 6;                                                                                   // 业务逻辑
   EnQuestDisplayType display_type = 7;
-  bool received_reset = 8;  // 是否领取完奖励就重置
-  int32 adventure_id = 9;
-  repeated int32 delete_after_unlock = 10 [(org.xresloader.field_separator) = ","];
-  string name = 11;
-  int32 display_position = 12;  // 客户端展示位置
-  string base_pic = 13;         // 任务底图
-  int32 display_order = 14;
-  int32 display_group = 15 [(org.xresloader.validator) = "1720000-1729999"];  // 同一个 display_position 下的分组
+  int32 display_order = 8;  // 显示顺序
+  string name = 11 [(org.xresloader.field_tag) = "client_only"];
+  string icon = 12 [(org.xresloader.field_tag) = "client_only"];
+  string desc = 13 [(org.xresloader.field_tag) = "client_only"];
 
-  DQuestAvailablePeriodType available_period = 21;                                                     // 生命周期
-  repeated DQuestUnlockConditionItem unlock_conditions = 22 [(org.xresloader.field_separator) = ";"];  // 解锁条件 and
+  DQuestAvailablePeriodType available_period = 21;                                                    // 生命周期
+  repeated DFunctionUnlockCondition unlock_conditions = 22 [(org.xresloader.field_separator) = ";"];  // 解锁条件 and
   DConditionBasicLimit common_condition = 23;
   DQuestProgressResetInfo progress_reset_period = 24;
   repeated DQuestConditionProgress progress = 25;  // or
   DQuestReward rewards = 26;
   // int32 add_progress = 27;  // 完成任务后对其他任务的加成值
-  int32 season_id = 28;  // 赛季id，目前和第一个任务进度的赛季id相同
+  DConditionBasicLimit received_condition = 28;
 
-  int32 client_submit_type = 50;      // 客户端用的字段
-  string redirect_addr = 51;          // 用来跳转到某些界面或者网页啥的
-  string steam_achievement_api = 52;  // steam成就api
-  string steam_statistic_api = 53;    // steam统计api
+  DRedirect redirect = 51;            // 任务重定向
+  int32 complete_plot_group_id = 52;  // 任务完成后触发的剧情组ID
 }
 
 message DQuestSpecificAvailableTimePeriod {
@@ -86,12 +70,10 @@ message DQuestSpecificAvailableSeasonPeriod {
 message DQuestAvailablePeriodType {
   int32 type = 101;
   oneof value {
-    DQuestSpecificAvailableTimePeriod specific_period = 1;           // 指定有效的时间短
-    int64 timedesc = 2;                                              // 接任务后开始倒计时
-    DQuestSpecificAvailableSeasonPeriod specific_season_before = 3;  // 指定赛季之前
-    string package_version = 4;                                      // 客户端app版本号
-    string resource_version = 5;                                     // 客户端资源版本号
-  }  // 不填是解锁后永久有效
+    DQuestSpecificAvailableTimePeriod specific_period = 1
+        [(org.xresloader.field_alias) = "指定时间段"];                                    // 指定有效的时间段
+    google.protobuf.Duration timedesc = 2 [(org.xresloader.field_alias) = "解锁后计时"];  // 接任务后开始倒计时
+  }
 }
 
 message DQuestProgressResetInfo {
@@ -99,27 +81,19 @@ message DQuestProgressResetInfo {
   google.protobuf.Timestamp start_day_reset_timepoint = 2;
 }
 
-/*
-|用魔剑士|在每天晚上8点到10点|大乱斗模式|累计|击杀了|5只 |哥布林
-|在大乱斗模式                       |单场战斗|打开了 |5个|传奇宝箱
-|                                         |到达了 |1次|地牢的|x位置
-|用长剑|在城堡地图|pve模式|                   |破坏了|5个 |破木头箱子
-|谓词                              |动词修饰词| 动词 |数量|实体信息
-
-动词是进度op
-谓词配置在进度op_condition或者通用condition里面
-数量配置在value里面
-实体信息配置在 entity_args
-*/
-
 message DQuestConditionProgress {
-  EnQuestProgressType type_id = 1;
   repeated int64 condition_ids = 2 [(org.xresloader.validator) = "ExcelConditionPool_condition_id"];  // and
   int64 value = 3;
-  EnQuestProgressCountType count_type = 4;
-  repeated int32 entity_args = 5 [(org.xresloader.field_separator) = ","];
-  repeated int32 ignore_entity_args = 6 [(org.xresloader.field_separator) = ","];  // 需要忽略的entity
-  int32 season_id = 7;
+  int32 unique_id = 10;  // 任务内唯一ID
+  repeated int32 params = 11;
+
+  oneof progress_param {
+    // bool auto_complete = 101;                           // 直接完成
+    // bool online_time = 102;                             // 在线时长
+    bool player_level_reach = 103 [(org.xresloader.field_alias) = "达到店铺等级"];
+    int32 item_has = 105
+        [(org.xresloader.field_alias) = "拥有道具", (org.xresloader.validator) = "ExcelItem_ALL_item_id"];
+  }
 }
 
 message DQuestReward {
@@ -142,8 +116,10 @@ message DQuestDynamicRewardItem {
 }
 
 enum EnQuestRewardGiveOutType {
-  EN_QUEST_REWARD_GIVE_OUT_TYPE_MANUAL = 0;          // 手动领取
-  EN_QUEST_REWARD_GIVE_OUT_TYPE_AUTO_INVENTORY = 1;  // 自动领取
+  EN_QUEST_REWARD_GIVE_OUT_TYPE_MANUAL = 0 [(org.xresloader.enum_alias) = "手动领取"];
+  ;  // 手动领取
+  EN_QUEST_REWARD_GIVE_OUT_TYPE_AUTO_INVENTORY = 1 [(org.xresloader.enum_alias) = "自动领取"];
+  ;  // 自动领取
 }
 
 message ExcelQuestProgressType {
@@ -168,9 +144,7 @@ message ExcelQuestTriggerEventType {
     tags: "server"
   };
 
-  EnQuestTriggerType id = 1 [(org.xresloader.field_unique_tag) = "id"];
+  int32 id = 1 [(org.xresloader.field_unique_tag) = "id"];
 
-  repeated int32 unlock_condition_types = 10
-      [(org.xresloader.validator) = "proy.DQuestUnlockConditionItem.unlock_type"];
-  repeated EnQuestProgressType progress_types = 11 [(org.xresloader.validator) = "proy.EnQuestProgressType"];
+  repeated int32 progress_types = 11;
 }

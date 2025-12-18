@@ -6,12 +6,16 @@ import (
 )
 
 type ExcelConfigCustomIndex struct {
-	ConstIndex                 ExcelConfigConstIndex
-	UserLevelExpIndex          ExcelConfigUserLevelExpIndex
-	RandomPoolIndex            map[int32]*ExcelConfigRandomPool
-	QuestUnlockConditionMap    map[public_protocol_common.DQuestUnlockConditionItem_EnUnlockTypeID][]QuestUnlockConditionPair
-	QuestSequence              []*public_protocol_config.Readonly_ExcelQuestList
-	QuestTriggerArgsPredealMap map[int32]map[int32]bool
+	ConstIndex        ExcelConfigConstIndex
+	UserLevelExpIndex ExcelConfigUserLevelExpIndex
+	RandomPoolIndex   map[int32]*ExcelConfigRandomPool
+	QuestSequence     []*public_protocol_config.Readonly_ExcelQuestList
+	UnlockIndex       map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID]interface{} // map[int32][]atframework_component_config.UnlockValueFunction
+}
+
+type ExcelConfigCustomIndexLastBuildTime struct {
+	QuestCustomIndexLastBuildTime  int64
+	UnlockCustomIndexLastBuildTime int64
 }
 
 type ExcelConfigRandomPool struct {
@@ -32,9 +36,24 @@ type QuestUnlockConditionPair struct {
 	QuestId int32
 }
 
-// 此处定义自定义索引的类型
+// 此处定义自定义索引的类型.
 type ExcelConfigConstIndex struct {
 	ExcelConstConfig public_protocol_config.Readonly_ExcelConstConfig
+}
+
+type UnlockValueFunction struct {
+	Value     int64
+	Functions []FunctionUnlockID
+}
+
+type FunctionUnlockID struct {
+	FunctionID public_protocol_common.EnUnlockFunctionID
+	UnlockIDs  []*FunctionUnlockUnit
+}
+
+type FunctionUnlockUnit struct {
+	ID               int32
+	UnlockConditions []*public_protocol_common.Readonly_DFunctionUnlockCondition
 }
 
 func (i *ExcelConfigCustomIndex) GetConstIndex() *public_protocol_config.Readonly_ExcelConstConfig {

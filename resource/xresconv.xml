@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- <?xml-stylesheet type="text/xsl" href="helper/view.xsl"?> -->
 <root>
+<!--
+# @see 转表工具文档: https://xresloader.atframe.work/
+# @see 验证器文档: https://github.com/owent/xresloader?tab=readme-ov-file#%E9%AA%8C%E8%AF%81%E5%99%A8
+-->
   <global>
     <java_option desc="java选项-最大内存限制2GB">-Xmx2048m</java_option>
     <java_option desc="java选项-客户端模式">-client</java_option>
-    <java_option desc="java选项-默认时区">-Duser.timezone=UTC</java_option>
+    <java_option desc="java选项-默认时区">-Duser.timezone=Asia/Shanghai</java_option>
 
     <default_scheme name="KeyRow" desc="默认scheme模式参数-Key行号">2</default_scheme>
     <!--<default_scheme name="UeCg-CsvObjectWrapper" desc="Ue-Csv输出的包裹字符">{|}</default_scheme>-->
@@ -21,6 +25,9 @@
     <tree id="misc" name="杂项"></tree>
     <tree id="item" name="道具"></tree>
     <tree id="user" name="玩家/用户"></tree>
+    <tree id="quest" name="任务"></tree>
+    <tree id="unlock" name="模块解锁"></tree>
+    <tree id="mall" name="商城"></tree>
   </category>
 
   <list>
@@ -34,23 +41,14 @@
     </item>
     <item name="道具描述总表" cat="item" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Item.xlsx|道具描述总表|3,1</scheme>
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Item.xlsx|辅助道具(不可获得)|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelItem</scheme>
       <scheme name="OutputFile" desc="输出文件名">item.bytes</scheme>
     </item>
-    <item name="角色表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Role.xlsx|角色表|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelRole</scheme>
-      <scheme name="OutputFile" desc="输出文件名">role.bytes</scheme>
-    </item>
-    <item name="升级经验表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Role.xlsx|升级经验表|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelRoleExpUpgrade</scheme>
-      <scheme name="OutputFile" desc="输出文件名">role_exp_upgrade.bytes</scheme>
-    </item>
-    <item name="技能表" cat="" class="client server">
-      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Skill.xlsx|技能|3,1</scheme>
-      <scheme name="ProtoName" desc="协议名">proy.config.ExcelSkill</scheme>
-      <scheme name="OutputFile" desc="输出文件名">skill.bytes</scheme>
+    <item name="道具周期重置道具" cat="item" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Item.xlsx|周期重置道具|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelItemReset</scheme>
+      <scheme name="OutputFile" desc="输出文件名">item_reset.bytes</scheme>
     </item>
     <item name="通用条件表" cat="misc" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Condition.xlsx|限制条件|3,1</scheme>
@@ -62,7 +60,7 @@
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelUserLevel</scheme>
       <scheme name="OutputFile" desc="输出文件名">user_level.bytes</scheme>
     </item>
-    <item name="新用户初始道具表" cat="user" class="client server">
+    <item name="新用户初始道具表" cat="user" class="server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">User.xlsx|新用户初始道具表|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelUserInitializeItems</scheme>
       <scheme name="OutputFile" desc="输出文件名">user_initialize_items.bytes</scheme>
@@ -88,6 +86,31 @@
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Quest.xlsx|QuestTriggerEventType|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelQuestTriggerEventType</scheme>
       <scheme name="OutputFile" desc="输出文件名">quest_trigger_event_type.bytes</scheme>
+    </item>
+    <item name="模块解锁表" cat="unlock" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">ModuleUnlock.xlsx|模块解锁表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelModuleUnlockType</scheme>
+      <scheme name="OutputFile" desc="输出文件名">module_unlock_type.bytes</scheme>
+    </item>
+    <item name="激活上报解锁表" cat="misc" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Activate.xlsx|激活上报解锁表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelActivate</scheme>
+      <scheme name="OutputFile" desc="输出文件名">user_activate.bytes</scheme>
+    </item>
+    <item name="商城表" cat="mall" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Mall.xlsx|商城表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMall</scheme>
+      <scheme name="OutputFile" desc="输出文件名">mall.bytes</scheme>
+    </item>
+    <item name="商城页签表" cat="mall" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Mall.xlsx|商城页签表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMallSheet</scheme>
+      <scheme name="OutputFile" desc="输出文件名">mall_sheet.bytes</scheme>
+    </item>
+    <item name="商城商品表" cat="mall" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Mall.xlsx|商城商品表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMallProduct</scheme>
+      <scheme name="OutputFile" desc="输出文件名">mall_product.bytes</scheme>
     </item>
   </list>
 </root>

@@ -11,6 +11,21 @@ func IsDeduplicate[T comparable](elem []T) bool {
 	return false
 }
 
+func IsDeduplicateWithOut[T comparable](elem []T, witchOut T) bool {
+	seen := make(map[T]struct{})
+	for _, v := range elem {
+		if v == witchOut {
+			continue
+		}
+
+		if _, ok := seen[v]; ok {
+			return true
+		}
+		seen[v] = struct{}{}
+	}
+	return false
+}
+
 func IsExist[T comparable](elem []T, target T) bool {
 	for _, v := range elem {
 		if v == target {

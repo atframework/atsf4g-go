@@ -25,10 +25,18 @@ func QuestReceiveRewardsRpc(action *user_data.TaskActionUser, questIDs []int32) 
 	return user_data.SendQuestReceiveReward(action, csBody, true)
 }
 
+func QuestActivateRpc(action *user_data.TaskActionUser, activateID int32) (int32, *lobysvr_protocol_pbdesc.SCUserActivateRsp, error) {
+	csBody := &lobysvr_protocol_pbdesc.CSUserActivateReq{
+		ActivateId: activateID,
+	}
+	return user_data.SendUserActivate(action, csBody, true)
+}
+
 // ========================= 注册指令 =========================
 func init() {
 	utils.RegisterCommand([]string{"quest", "receive"}, QuestReceiveRewardCmd, "<quest_id>", "领取任务奖励", nil)
 	utils.RegisterCommand([]string{"quest", "receiveMulti"}, QuestReceiveRewardsCmd, "<quest_id1> [quest_id2] ...", "批量领取任务奖励", nil)
+	utils.RegisterCommand([]string{"quest", "activate"}, QuestActivateCmd, "<activate_id>", "激活任务", nil)
 }
 
 func QuestReceiveRewardCmd(action base.TaskActionImpl, cmd []string) string {
@@ -71,6 +79,29 @@ func QuestReceiveRewardsCmd(action base.TaskActionImpl, cmd []string) string {
 	var err error
 	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
 		_, _, rpcErr := QuestReceiveRewardsRpc(task, questIDs)
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
+	}))
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func QuestActivateCmd(action base.TaskActionImpl, cmd []string) string {
+	if len(cmd) < 1 {
+		return "Args Error"
+	}
+
+	questID, err := strconv.ParseInt(cmd[0], 10, 32)
+	if err != nil {
+		return err.Error()
+	}
+
+	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		_, _, rpcErr := QuestActivateRpc(task, int32(questID))
 		if rpcErr != nil {
 			err = rpcErr
 			return

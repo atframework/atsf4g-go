@@ -17,6 +17,11 @@ message DVector2 {
   int32 y = 2;
 }
 
+message DVector2F {
+  float x = 1;
+  float y = 2;
+}
+
 enum EnRarityType {
   EN_RARITY_TYPE_INVALID = 0;
   EN_RARITY_TYPE_GREEN = 10 [(org.xresloader.enum_alias) = "green"];
@@ -33,7 +38,6 @@ enum EnFactionType {
   EN_FACTION_TYPE_ELF = 3 [(org.xresloader.enum_alias) = "elf"];
   EN_FACTION_TYPE_VAMPIRE = 4 [(org.xresloader.enum_alias) = "vampire"];
   EN_FACTION_TYPE_TIEFLING = 5 [(org.xresloader.enum_alias) = "tiefling"];
-  EN_FACTION_TYPE_DWARF = 6 [(org.xresloader.enum_alias) = "dwarf"];
 }
 
 enum EnElementType {
@@ -51,4 +55,10 @@ enum EnVersionType {
 
   EN_VERSION_INNER = 10000;  // inner
   EN_VERSION_GM = 10001;     // gm
+}
+
+enum EnSexType {
+  EN_SEX_TYPE_INVALID = 0;
+  EN_SEX_TYPE_MALE = 1 [(org.xresloader.enum_alias) = "male"];
+  EN_SEX_TYPE_FEMALE = 2 [(org.xresloader.enum_alias) = "female"];
 }

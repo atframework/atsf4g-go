@@ -8,10 +8,4 @@ option cc_enable_arenas = true;
 
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
 
-import "protocol/common/com.struct.item.common.proto";
-
 package proy;
-
-message DUserInventoryData {
-  repeated DItemInstance item = 1;
-}

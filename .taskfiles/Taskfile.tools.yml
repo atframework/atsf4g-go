@@ -2,6 +2,7 @@ version: "3"
 
 set: [errexit, pipefail]
 
+shopt: [globstar]
 
 vars:
   BUILD_VERSION:
@@ -45,7 +46,6 @@ vars:
             -X github.com/atframework/libatapp-go.ConfigVer={{.CONFIG_VERSION}} \
             -X github.com/atframework/libatapp-go.BuildMode={{.BUILD_MODE}}"
 
-shopt: [globstar]
 tasks:
   tidy-dir:
     desc: 递归查找所有含 go.mod 的目录并执行 go mod tidy

@@ -1,38 +1,84 @@
 # Copilot Instructions for atsf4g-go
 
+A Go-based game server framework for lobby and robot services using libatapp-go and libatbus-go, with code generation for RPC handlers, database schemas, and Excel configs.
+
 ## Architecture
 
-- Entry points live under `src/lobbysvr` and `src/robot`; each constructs a service via `component-service_shared_collection` and mounts modules from `component-user_controller` and `logic/*`.
-- Game logic is split into `service-lobbysvr/logic/<domain>` modules; each module exposes interfaces (e.g. `logic/character.UserCharacter`) plus `data` layer helpers in `service-lobbysvr/data` for shared state.
-- The game player's data layer sits in `src/lobbysvr/data`; it defines user-centric managers and the inventory-style abstractions used to manipulate resources and items.
-- Generated protobufs sit in `src/component/protocol/{public,private}`; runtime code references these via the `pbdesc` and `common` packages—always use the generated accessors/mutators instead of hand-editing nested structs.
-- Excel-driven configuration is loaded through `config.GetConfigManager().GetCurrentConfigGroup()`; each group exposes typed accessors such as `GetExcelSkillBySkillId`.
-- Generated configs may return nil—always guard against nil pointers when dereferencing results and prefer the provided getters over direct field access.
+**Service Entry Points**: `src/lobbysvr` and `src/robot` create applications via `component-service_shared_collection`, wire CS/Redis dispatchers, and register logic modules from `logic/<domain>`.
 
-## Configuration & Data Flow
+**Domain Modules**: `src/lobbysvr/logic/{character,inventory,user,building,customer,menu}/` expose public interfaces (e.g., `UserCharacter`, `UserCharacterManager`) with internal implementations under `impl/`. Domain-specific RPC actions live in `action/` subdirs.
 
-- Character/skill updates must resolve config via getters (never cache struct pointers): fetch skill configs with `GetExcelSkillBySkillId`, upgrade sequences with `GetExcelSkillUpgradeById`, character levels with `ExcelCharacterExpUpgrade`, and star upgrades with `ExcelCharacterStarUpgrade`.
-- Conditions are validated through `logic_condition.UserConditionManager`; build runtimes with `logic_condition.CreateRuleCheckerRuntime` plus `logic_condition.CreateRuntimePair` for the active character instance and short-circuit on non-OK `cd.RpcResult` values.
-- Shared managers are fetched via the generic helper `data.UserGetModuleManager`; request the concrete manager type you need, check for nil, and log failures through the provided `ctx.LogError` helpers.
-- Update character state through `itemData.MutableCharacter()` and mirror changes into caches (`needRefreshAttributes`, `needRefreshItemInstanceData`) so subsequent reads trigger refresh.
-- Player resource grant/check/deduct flows always go through the itemized interfaces in `service-lobbysvr/data`; when a deduction references Excel configs, call `CheckCostItem` with the expected costs before performing `Sub`, and use `MergeCostItem` to consolidate multiple config sources when needed.
+**Data Layer**: `src/lobbysvr/data/` provides base classes (`UserModuleManagerImpl`, `UserItemManagerImpl`) and manager discovery via `data.UserGetModuleManager[T](user)`. Player data is persisted through `DumpToDB()` / `InitFromDB()`.
 
-## Workflows
+**Proto & Config**: Generated protobufs in `src/component/protocol/{public,private}/pbdesc/` with mutable helper methods. Excel configs load via `config.GetConfigManager().GetCurrentConfigGroup()` getters (never cache config pointers—reread on each access).
 
-- Build via `task build`; lint with `task lint` (requires `golangci-lint` v2.6.0 installed as noted in the root README).
-- Regenerate configs/protos with the `tools/generate` suite. VS Code tasks map to `go run` wrappers such as **Generate-Protocol:Public** and **Build-lobbysvr**; prefer invoking these tasks over ad-hoc commands.
-- Configuration assets under `build/install` are refreshed by `update_dependency.{bat,sh}` and `generate_config.{bat,sh}`—run both after pulling upstream schema changes.
-- When adding Proto or Excel definitions, update `build/_gen/*.yaml` and rerun the associated generator tasks to keep `pbdesc` packages in sync.
+## Data Flow & Patterns
 
-## Conventions
+**Manager Access**: Always fetch module managers via `data.UserGetModuleManager[T](user)` with nil-check before use. Error handling example:
+```go
+characterMgr := data.UserGetModuleManager[logic_character.UserCharacterManager](user)
+if characterMgr == nil {
+  return cd.CreateRpcResultError(fmt.Errorf("..."), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+}
+```
 
-- Use `public_protocol_pbdesc.EnErrorCode_*` when returning RPC errors; `cd.CreateRpcResultError(nil, code)` reserves the first argument for internal errors (keep `nil` unless you have an internal failure) and the second for the client-facing code.
-- Resource deductions must follow the `Check` then `Sub` pattern on the player's inventory abstraction; skip direct mutations on protobuf structs to avoid desync with caches.
-- Many generated structs embed pointer fields—check for nil before dereferencing and rely on methods like `GetFoo()` rather than touching members directly to stay compatible with hot-reloadable config data.
-- Successful paths should return `cd.CreateRpcResultOk()`; only populate error codes when business validation fails.
+**Character State Updates**: Modify state via `itemData.MutableCharacter()` (e.g., `.Level`, `.Star`), then set dirty flags (`needRefreshItemInstanceData = true`) so subsequent reads refresh caches. State changes via `character.SetState()` mark `needRefreshItemInstanceData = true` automatically.
 
-## Reference Paths
+**Config Resolution**: Config getters return nil—always guard with nil checks. Use typed accessors: `config.GetConfigManager().GetCurrentConfigGroup().GetExcelCharacterByCharacterId(typeId)`, `GetExcelSkillBySkillId()`, `GetExcelSkillUpgradeById()`. Never cache config struct pointers across RPC calls.
 
-- Character lifecycle examples: `service-lobbysvr/logic/character/impl/user_charater_instance.go` (skills initialization, level/star upgrades).
-- Dispatcher/task abstractions: `component-dispatcher` package and `service-lobbysvr/app` wiring.
-- Resource generation templates live under `src/template` and `tools/generate-for-pb`; follow these when extending config-driven features.
+**Item/Resource Deductions**: Use `CheckCostItem` → `Sub` pattern on inventory managers (in `service-lobbysvr/data`); skip direct protobuf mutations to maintain cache sync. Consolidate multiple cost sources with `MergeCostItem`.
+
+**Condition Checking**: Validate rules via `logic_condition.UserConditionManager` with `logic_condition.AddRuleChecker` registrations (see `character/impl` for examples). Build runtimes with `logic_condition.CreateRuleCheckerRuntime` and pass character instance as runtime parameter.
+
+## Build & Generation Workflows
+
+**Build Tasks** (run via VS Code task panel or `task` CLI):
+- `task build` — builds all binaries via `tools/build`
+- `task lint` — runs `golangci-lint` v2.6.0 (must be pre-installed)
+- `Generate-Protocol:{Public,Private}` — regenerate proto descriptors
+- `Generate-Excel and configure` — sync Excel configs from `resource/ExcelTables`
+- `Build-{lobbysvr,robot}` — compile individual services
+
+**Code Generation**: RPC handlers auto-generate from `src/template/{handle_cs_rpc,task_action_cs_rpc}.mako` rules in `build/_gen/generate-for-pb.yaml`. Add new RPC via proto definition + template rule, then run **Generate-RPC and task codes** task.
+
+**Config Refresh**: After pulling upstream schema changes, run `build/install/update_dependency.{bat,sh}` then `generate_config.{bat,sh}` to refresh `build/install/resource/pbdesc/`.
+
+**Database Schema**: DB interface templates generate from `src/template/db_interface.go.mako` driven by proto `svr.local.table.proto`; DumpToDB/InitFromDB patterns in managers handle persistence.
+
+## RPC Handler Pattern
+
+Auto-generated RPC task actions inherit from a generated base and must:
+1. Extract user via context: `user := <session logic>` with nil-check
+2. Fetch domain manager via `data.UserGetModuleManager[T](user)` with nil-check
+3. Validate request params; return error codes on invalid input
+4. Call business logic method (e.g., `character.UpgradeLevel()`); capture `cd.RpcResult`
+5. On error: `t.SetResponseCode(result.GetResponseCode()); return result.GetStandardError()`
+6. On success: populate response body if needed, return `nil`
+
+Example from `task_action_character_upgrade_level.go`:
+- Get manager → validate params → call `character.UpgradeLevel()` → check `result.IsError()` → set response code or return nil.
+
+RPC methods return `cd.RpcResult` (with `IsError()`, `GetResponseCode()`, `GetStandardError()` helpers). Success paths return `cd.CreateRpcResultOk()`; errors use `cd.CreateRpcResultError(nil, errorCode)` for client-facing codes.
+
+## Key Implementation Details
+
+**Dirty Tracking**: Domain managers use dirty flag maps (e.g., `dirtyCharacterIds map[int32]struct{}`) to batch updates. Mark dirty via manager's `markItemDirty()` hook; dirty flush callbacks serialize to proto messages via `DumpDirtyItemData()` and relay via session API.
+
+**Character Cache Mechanics**: 
+- `itemInstanceCache` holds the serialized proto snapshot for client delivery
+- `needRefreshItemInstanceData` flag forces a refresh on next read, triggering `refreshItemInstanceDataCache()` → `itemInstanceCache.MutableItemData().MarshalFrom(&itemData)`
+- Skill instances stored separately: `skillInstance map[int32]*UserSkill` + `skillInterface map[int32]UserSkill` (interface wrapper for injection)
+
+**Session API**: RPC responses sent via auto-generated `session_downstream_api.go` with `SendDownstreamRpcResponse(rpcType, body)` — determines route based on RPC meta type, wraps in proto envelope, and sends to session.
+
+**Protobuf Mutability**: Generated structs use immutable getters (`Get*()`) and mutable accessors (`Mutable*()`). Prefer getters for reads; use mutators when modifying (avoids direct field assignment, staying compatible with code generation and mutable plugins).
+
+## Go Testing Requirements
+
+When writing tests, follow the standards in `.github/instructions/gotest.instructions.md`:
+- Use Arrange-Act-Assert pattern
+- Test file naming: xxx_test.go
+- Test function naming: Test[Function][Scenario]
+- Use testify/assert for assertions
+- Mock external dependencies
+- Cover all branches and boundary cases

@@ -10,6 +10,8 @@ option cc_generic_services = true;
 
 option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
 
+import "protocol/pbdesc/com.struct.quest.proto";
+
 package proy;
 
 // 领取任务奖励请求
@@ -18,4 +20,12 @@ message CSQuestReceiveRewardReq {
 }
 
 // 领取任务奖励响应
-message SCQuestReceiveRewardRsp {}
+message SCQuestReceiveRewardRsp {
+  repeated DuserQuestRewardData rewards = 1;
+}
+
+// 客户群请求更新任务状态
+message CSQuestUpdateStatusReq {}
+
+// 客户群请求更新任务状态
+message SCQuestUpdateStatusRsp {}

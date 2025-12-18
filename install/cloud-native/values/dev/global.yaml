@@ -1,2 +1,3 @@
 log_level: DEBUG
 log_stacktrace_level: ERROR
+log_enable_stdout: disable

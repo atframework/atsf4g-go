@@ -32,6 +32,7 @@ type ConfigManager struct {
 	originConfigData     interface{}
 	overwriteResourceDir string
 	logger               *libatapp.Logger
+	app                  libatapp.AppImpl
 }
 
 // 管理所有配置
@@ -120,6 +121,7 @@ func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_confi
 }
 
 func (configManagerInst *ConfigManager) Tick(parent context.Context) bool {
+	ExcelConfigCallbackRebuild(configManagerInst.GetCurrentConfigGroup(), configManagerInst.GetLogger())
 	configManagerInst.checkReloadFinish()
 	return true
 }
@@ -153,6 +155,10 @@ func (configManagerInst *ConfigManager) GetWorldId() uint32 {
 
 func (configManagerInst *ConfigManager) GetLogicId() uint32 {
 	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetLogicId()
+}
+
+func (configManagerInst *ConfigManager) GetApp() libatapp.AppImpl {
+	return configManagerInst.app
 }
 
 func GetConfigManager() *ConfigManager {
@@ -202,6 +208,7 @@ func CreateConfigManagerModule(app libatapp.AppImpl) *ConfigManagerModule {
 func (m *ConfigManagerModule) Init(parent context.Context) error {
 	GetConfigManager().SetConfigOriginData(m.GetApp().GetConfig().ConfigOriginData)
 	m.SharedConfigManager.logger = m.GetApp().GetDefaultLogger()
+	m.SharedConfigManager.app = m.GetApp()
 	return m.SharedConfigManager.Init(parent)
 }
 

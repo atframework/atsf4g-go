@@ -38,10 +38,57 @@ func (d *ItemTypeStatistics) GetTotalCount() int64 {
 type ItemAddGuard struct {
 	Configure *ppcfg.Readonly_ExcelItem
 	Item      *ppc.DItemInstance
+
+	// 如果出现了自动转换，则记录转换后的物品列表
+	ExchangeItems []*ppc.DItemInstance
+}
+
+func (g *ItemAddGuard) GetExchangeItems() []*ppc.DItemInstance {
+	if g == nil {
+		return nil
+	}
+
+	return g.ExchangeItems
+}
+
+func (g *ItemAddGuard) GetAddedItems() []*ppc.DItemInstance {
+	if g == nil {
+		return nil
+	}
+
+	if len(g.ExchangeItems) > 0 {
+		return g.ExchangeItems
+	}
+
+	return []*ppc.DItemInstance{g.Item}
 }
 
 type ItemSubGuard struct {
 	Item *ppc.DItemBasic
+}
+
+func (i *ItemFlowReason) GetMajorReason() int32 {
+	if i == nil {
+		return 0
+	}
+
+	return i.MajorReason
+}
+
+func (i *ItemFlowReason) GetMinorReason() int32 {
+	if i == nil {
+		return 0
+	}
+
+	return i.MinorReason
+}
+
+func (i *ItemFlowReason) GetParameter() int64 {
+	if i == nil {
+		return 0
+	}
+
+	return i.Parameter
 }
 
 func CreateItemTypeStatistics() ItemTypeStatistics {
@@ -151,6 +198,7 @@ func (umb *UserItemManagerBase) GetNotEnoughErrorCode(_typeId int32) int32 {
 }
 
 func (umb *UserItemManagerBase) CheckTypeIdValid(typeId int32) bool {
+	// 默认接茬规则只检查id在不在注册范围内
 	_, found := slices.BinarySearchFunc(umb.descriptor.typeIdRanges, typeId, func(a UserItemTypeIdRange, b int32) int {
 		if a.beginTypeId > b {
 			return 1

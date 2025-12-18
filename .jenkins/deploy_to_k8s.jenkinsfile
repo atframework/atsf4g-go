@@ -124,6 +124,7 @@ pipeline {
                                         --set websocket.path="${path_value}" \
                                         --set httproute.parentRefsName=project-y-tls-gateway \
                                         --set log_enable_stdout=enable \
+                                        --set redis.record_prefix=production \
                                         --wait --atomic
                             '''
                     }

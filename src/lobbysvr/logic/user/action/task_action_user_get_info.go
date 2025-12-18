@@ -15,6 +15,7 @@ import (
 
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
+	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
@@ -68,7 +69,7 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 				return true
 			}
 
-			response_body.MutableUserInventory().AppendItem(item)
+			response_body.MutableNormalizeItem().AppendItem(item)
 			return true
 		})
 	}
@@ -88,6 +89,15 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 			return fmt.Errorf("user condition manager not found")
 		}
 		conditionManager.DumpConditionCounterData(response_body.MutableUserConditionCounter())
+	}
+
+	if request_body.GetNeedUserModuleUnlock() {
+		moduleUnlockManager := data.UserGetModuleManager[logic_module_unlock.UserModuleUnlockManager](user)
+		if moduleUnlockManager == nil {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			return fmt.Errorf("user module unlock manager not found")
+		}
+		moduleUnlockManager.DumpModuleUnlockData(response_body.MutableUserModuleUnlock())
 	}
 
 	return nil

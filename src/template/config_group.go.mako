@@ -31,6 +31,7 @@ type ConfigGroup struct {
 	% endfor
 % endfor
 	customIndex custom_index_type.ExcelConfigCustomIndex
+	customIndexLastBuildTime custom_index_type.ExcelConfigCustomIndexLastBuildTime
 }
 
 func (configGroup *ConfigGroup) GetCustomIndex() *custom_index_type.ExcelConfigCustomIndex {
@@ -39,6 +40,14 @@ func (configGroup *ConfigGroup) GetCustomIndex() *custom_index_type.ExcelConfigC
 	}
 	return &configGroup.customIndex
 }
+
+func (configGroup *ConfigGroup) GetCustomIndexLastBuildTime() *custom_index_type.ExcelConfigCustomIndexLastBuildTime {
+	if configGroup == nil {
+		return nil
+	}
+	return &configGroup.customIndexLastBuildTime
+}
+
 
 func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Readonly_LogicSectionCfg {
 	if configGroup == nil {

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
+
+import "protocol/extension/v3/xresloader.proto";
+// import "protocol/common/com.struct.item.common.proto";
+// import "protocol/common/com.const.common.proto";
+
+package proy;
+
+enum EnUnlockModuleID {
+  EN_UNLOCK_MODULE_ID_NULL = 0;
+  EN_UNLOCK_MODULE_ID_LOGIN = 1200000 [(org.xresloader.enum_alias) = "登录"];
+  EN_UNLOCK_MODULE_ID_CHAT = 1200001 [(org.xresloader.enum_alias) = "聊天"];
+  EN_UNLOCK_MODULE_ID_CHAT_SILENCE = 1200002 [(org.xresloader.enum_alias) = "静默发言"];
+  EN_UNLOCK_MODULE_ID_FRIEND = 1200003 [(org.xresloader.enum_alias) = "好友"];
+}
+
+enum EnBanModuleID {
+  EN_BAN_MODULE_ALL = 0;
+  EN_BAN_MODULE_LOGIN = 1 [(org.xresloader.enum_alias) = "登录"];
+  EN_BAN_MODULE_CHAT = 2 [(org.xresloader.enum_alias) = "禁言"];
+  EN_BAN_MODULE_CHAT_SILENCE = 3 [(org.xresloader.enum_alias) = "静默发言"];
+  EN_BAN_MODULE_CHAT_VOICE = 4 [(org.xresloader.enum_alias) = "语音聊天"];
+}

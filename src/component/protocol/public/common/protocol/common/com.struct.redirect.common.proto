@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
+
+import "google/protobuf/empty.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+package proy;
+
+message DRedirectDummy {}
+
+message DRedirectWebUrlArg {
+  string url = 1;
+}
+
+message DRedirectUIFormCommonTab {
+  option (org.xresloader.msg_separator) = "|";
+  int32 main_tab = 1 [(org.xresloader.field_allow_missing_in_plain_mode) = true];
+  int32 sub_tab = 2 [(org.xresloader.field_allow_missing_in_plain_mode) = true];
+}
+
+message DRedirect {
+  option (org.xresloader.msg_separator) = "@";
+
+  oneof arg {
+    option (org.xresloader.oneof_separator) = "#";
+
+    DRedirectWebUrlArg weburl = 1;
+  }
+}

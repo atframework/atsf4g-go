@@ -22,15 +22,14 @@ func (t *TaskActionQuestReceiveReward) Name() string {
 }
 
 func (t *TaskActionQuestReceiveReward) Run(_ *component_dispatcher.DispatcherStartData) error {
-	// TODO: implement your logic here, remove this comment after you have done
 	user, ok := t.GetUser().(*data.User)
 	if !ok || user == nil {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND))
 		return fmt.Errorf("user not found")
 	}
 
-	requesBody := t.GetRequestBody() // TODO
-	// response_body := t.MutableResponseBody() // TODO
+	requesBody := t.GetRequestBody()
+	response_body := t.MutableResponseBody()
 
 	manager := data.UserGetModuleManager[logic_quest.UserQuestManager](user)
 	if manager == nil {
@@ -38,7 +37,6 @@ func (t *TaskActionQuestReceiveReward) Run(_ *component_dispatcher.DispatcherSta
 		return fmt.Errorf("user quest manager not found")
 	}
 
-	// request_body := t.GetRequestBody()
 	if requesBody == nil {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 		return fmt.Errorf("request body is nil")
@@ -50,11 +48,13 @@ func (t *TaskActionQuestReceiveReward) Run(_ *component_dispatcher.DispatcherSta
 		return fmt.Errorf("quest ids is empty")
 	}
 
-	rpcResult := manager.ReceivedQuestsReward(t.GetRpcContext(), questIDs, false)
+	rewards, rpcResult := manager.ReceivedQuestsReward(t.GetRpcContext(), questIDs)
 	if rpcResult.IsError() {
 		t.SetResponseCode(rpcResult.ResponseCode)
 		return fmt.Errorf("failed to receive quest reward: %w", rpcResult.Error)
 	}
+
+	response_body.Rewards = rewards
 
 	t.SetResponseCode(rpcResult.ResponseCode)
 	return nil

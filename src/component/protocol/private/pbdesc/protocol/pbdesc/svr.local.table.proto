@@ -11,9 +11,9 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-private
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
+import "protocol/pbdesc/svr.struct.proto";
 import "protocol/extension/svr.database.extension.proto";
 
-import "protocol/pbdesc/svr.struct.proto";
 package proy;
 
 message database_table_access {
@@ -121,10 +121,14 @@ message database_table_user {
   // 异步任务缓存
   database_table_user_async_jobs_cache_blob_data async_job_blob_data = 101;
   bool create_init = 103;      // 是否已经执行过创建初始化
+
+  // 业务逻辑数据
   user_options_data options_data = 200;  // 玩家选项
   user_inventory_data inventory_data = 201;
-  user_quest_data quest_data = 207;
-  user_condition_data condition_data = 208;
+  user_quest_data quest_data = 202;
+  user_condition_data condition_data = 203;
+  user_unlock_data unlock_data = 204;
+  user_module_unlock_data module_unlock_data = 205;
 }
 
 message database_table_distribute_transaction {

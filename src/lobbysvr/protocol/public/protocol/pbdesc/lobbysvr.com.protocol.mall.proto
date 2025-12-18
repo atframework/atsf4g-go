@@ -1,0 +1,27 @@
+syntax = "proto3";
+// 前后台通信协议定义
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+option cc_generic_services = true;
+
+option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
+
+import "protocol/common/com.struct.item.common.proto";
+
+package proy;
+
+/////////////////////////////////////////////////////
+// 到loginsvr的CS协议
+/////////////////////////////////////////////////////
+
+message CSMallPurchaseReq {
+  int32 product_id = 1;
+  int32 sort_id = 2;
+  repeated DItemBasic expect_cost_items = 3;
+}
+
+message SCMallPurchaseRsp {}

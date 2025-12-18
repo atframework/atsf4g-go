@@ -1,4 +1,42 @@
+# @see 转表工具文档: https://xresloader.atframe.work/
+# @see 验证器文档: https://github.com/owent/xresloader?tab=readme-ov-file#%E9%AA%8C%E8%AF%81%E5%99%A8
 validator:
+  - name: "ExcelItemIdRange_VirtualWritable"
+    description: "道具ID范围-可发放虚拟道具"
+    rules:
+      - 1000-7999
+
+  - name: "ExcelItemIdRange_VirtualReadonly"
+    description: "道具ID范围-只读虚拟道具"
+    rules:
+      - 8000-9999
+
+  - name: "ExcelItemIdRange_RandomPool"
+    description: "道具ID范围-随机池/礼包"
+    rules:
+      - 350000-359999
+
+  - name: "ExcelItemIdRange_Prop"
+    description: "道具ID范围-碎片"
+    rules:
+      - 600000-699999
+
+
+  - name: "ExcelItemIdRange_Quest"
+    description: "道具ID范围-角色卡牌"
+    rules:
+      - 8000000-8999999
+
+  - name: "ExcelItemIdRange_ALL"
+    description: "可用道具ID范围"
+    mode: "or"
+    rules:
+      - ExcelItemIdRange_VirtualWritable
+      - ExcelItemIdRange_VirtualReadonly
+      - ExcelItemIdRange_RandomPool
+      - ExcelItemIdRange_Prop
+      - ExcelItemIdRange_Quest
+
   - name: "ExcelItem_ALL_item_id"
     description: "Item.xlsx|道具描述总表|item_id 值校验"
     rules:
@@ -7,19 +45,36 @@ validator:
 
   - name: "ExcelItem_ADDABLE_item_id"
     description: "Item.xlsx|道具描述总表|item_id 值校验"
+    mode: "and"
     rules:
       - InTableColumn("Item.xlsx", "道具描述总表", 3, 2, "item_id")
+      - Not(InValues(0))
+      - Not(ExcelItemIdRange_VirtualReadonly)
 
-  - name: "ExcelSkill_skill_id"
-    description: "Skill.xlsx|技能|skill_id 值校验"
-    rules:
-      - InTableColumn("Skill.xlsx", "技能", 3, 2, "skill_id")
 
-  - name: "ExcelRoleExpUpgrade_exp_upgrade_id"
-    description: "Role.xlsx|升级经验表|exp_upgrade_id 值校验"
+  - name: "ExcelRandomPool_element_type_id"
+    description: "随机池元素道具ID"
     rules:
-      - InTableColumn("Role.xlsx", "升级经验表", 3, 2, "exp_upgrade_id")
+      - 8003
+      - ExcelItem_ADDABLE_item_id
+
+  - name: "ExcelRandomPool_pool_id"
+    description: "RandomPool.xlsx|RandomPool|pool_id 值校验"
+    rules:
+      - InTableColumn("RandomPool.xlsx", "RandomPool", 3, 2, "pool_id")
+      - InTableColumn("RandomPool.xlsx", "RandomPoolMerge", 3, 2, "pool_id")
+
   - name: "ExcelConditionPool_condition_id"
     description: "Condition.xlsx|限制条件|condition_id 值校验"
     rules:
       - InTableColumn("Condition.xlsx", "限制条件", 3, 2, "condition_id")
+
+  - name: "ExcelQuest_id"
+    description: "Quest.xlsx|任务|id 值校验"
+    rules:
+      - InTableColumn("Quest.xlsx", "Quest", 4, 3, "id")
+
+  - name: "ExcelMallSheet_mall_sheet_id"
+    description: "Mall.xlsx|商城页签表|mall_sheet_id 值校验"
+    rules:
+      - InTableColumn("Mall.xlsx", "商城页签表", 3, 2, "mall_sheet_id")

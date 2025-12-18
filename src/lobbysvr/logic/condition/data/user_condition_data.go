@@ -58,7 +58,7 @@ func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRu
 	return ret
 }
 
-func GetRuleParameter[T interface{}](r *RuleCheckerRuntime) T {
+func GetRuleRuntimeParameter[T interface{}](r *RuleCheckerRuntime) T {
 	if r == nil {
 		var empty T
 		return empty
@@ -99,7 +99,7 @@ func MakeCurrentRuntime[T interface{}](r *RuleCheckerRuntime) *RuleCheckerRuntim
 		return nil
 	}
 
-	current := GetRuleParameter[T](r)
+	current := GetRuleRuntimeParameter[T](r)
 	return &RuleCheckerRuntime{
 		ruleParameter:        r.ruleParameter,
 		currentRuleParameter: current,

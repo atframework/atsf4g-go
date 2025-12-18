@@ -27,12 +27,12 @@ atapp:
     ping_interval: 8s                  # ping interval(second)
     retry_interval: 3s                 # retry interval when error happen(second)
     fault_tolerant: 2                  # how many errors at most to ignore, or it will kill the connection
-    msg_size: 256KB                    # max message size(256KB)
+    message_size: 256KB                    # max message size(256KB)
     recv_buffer_size: {{ default "2MB" .Values.atapp.bus_recv_buff_size }} # recv channel size(2MB), will be used to initialize (shared) memory channel size
     send_buffer_size: {{ default "1MB" .Values.atapp.bus_send_buff_size }} # send buffer size, will be used to initialize io_stream channel write queue
     send_buffer_number: 0              # send message number limit, will be used to initialize io_stream channel write queue, 0 for dynamic buffer
     gateways:
-      address: tbuspp://{{ include "libapp.name" . }}_{{ $bus_addr }}
+      address: ws://{{ include "libapp.name" . }}_{{ $bus_addr }}
   worker_pool:
     {{- toYaml .Values.atapp.worker_pool | trim | nindent 4  }}
   # =========== upper configures can not be reload ===========

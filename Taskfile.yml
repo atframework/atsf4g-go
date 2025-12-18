@@ -67,30 +67,6 @@ tasks:
       - tools:clean-generate-pb
     silent: true
 
-  clean-dir:
-    internal: true
-    desc: "Remove all files in a directory"
-    vars:
-      TARGET_DIR: '{{.TARGET_DIR | default ""}}'
-    cmds:
-      - |
-        if [ -z "{{.TARGET_DIR}}" ]; then
-          echo "❌ Error: TARGET_DIR is required"
-          exit 1
-        fi
-      - cmd: |
-          if [ -d "{{.TARGET_DIR}}" ]; then
-            echo "🗑️  Cleaning directory {{.TARGET_DIR}}..."
-            rm -rf "{{.TARGET_DIR}}"/*
-            echo "✅ Directory cleaned"
-          else
-            echo "⚠️  Directory {{.TARGET_DIR}} does not exist"
-          fi
-        platforms: [linux, darwin]
-      - cmd: powershell -NoProfile -Command "if (Test-Path '{{.TARGET_DIR}}') { Write-Host '🗑️  Cleaning directory {{.TARGET_DIR}}...'; Remove-Item -Path '{{.TARGET_DIR}}\*' -Recurse -Force; Write-Host '✅ Directory cleaned' } else { Write-Host '⚠️  Directory {{.TARGET_DIR}} does not exist' }"
-        platforms: [windows]
-    silent: true
-
   # _clean_build_settings_file:
   #   desc: "Clean build settings file"
   #   cmds:
@@ -402,7 +378,7 @@ tasks:
       - task: build-prepare:atframe-utils:install-other-tools
         vars:
           PROJECT_ROOT: "{{.ROOT_DIR}}"
-      - cd ./atframework/atframe-utils-go && go install ./protoc-gen-mutable  
+      - cd ./atframework/atframe-utils-go && go install ./protoc-gen-mutable
     silent: true
 # # 测试使用
 # prepare-xreloader:

@@ -11,10 +11,11 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-private
 
 import "protocol/common/com.struct.item.common.proto";
 import "protocol/common/com.struct.condition.common.proto";
+import "protocol/common/com.struct.quest.common.proto";
 
 import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/com.struct.quest.proto";
-import "protocol/common/com.struct.quest.common.proto";
+import "protocol/pbdesc/com.struct.module.unlock.proto";
 
 package proy;
 
@@ -52,7 +53,7 @@ message login_data {
   int64 business_login_time = 32;     // 业务层登入时间
   int64 business_logout_time = 33;    // 业务层登出时间
 
-  login_record last_login_record = 42;    // 上次登入的信息
+  login_record last_login_record = 42;  // 上次登入的信息
 
   // 统计数据
   uint32 stat_login_total_times = 51;    // 总登入次数
@@ -77,6 +78,11 @@ message user_async_jobs_data {
 
 message user_inventory_data {
   repeated DItemInstance item = 1;
+  user_item_reset_data item_reset_data = 214; // 玩家道具重置数据
+}
+
+message user_condition_data {
+  int64 storage_id_allocator = 1;
 }
 message user_quest_progress_value {
   map<int64, int64> value = 1;
@@ -106,33 +112,53 @@ message user_quest_specific_end_timepoint_data {
   bool is_changed = 2;
 }
 
-message user_condition_data {
-  int64 storage_id_allocator = 1;
-}
-
 message quest_delete_progress_cache {
   int32 progress_type = 1;
   DUserQuestData data = 2;
 }
 
 message quest_delete_cache {
-  int32 quest_id = 1;
-  EnQuestStatus status = 2;
-  // int64 end_timepoint = 4;
-  // int64 reset_timepoint = 5;
-  repeated quest_delete_progress_cache old_quest_data = 6;
-  int64 quest_last_status_change_time = 7;
-
-  int64 delete_timepoint = 10;
+  DQuestData delete_cache = 1;
+  int64 delete_timepoint = 2;
 }
 
-message user_quest_data {
-  DUserQuestsData user_quest_list = 1;
+message user_quest_list_data {
+  repeated DQuestData progressing_quests = 1;
+  repeated DQuestData completed_quests = 2;
+  repeated DQuestData received_quests = 3;
 
-  user_quest_progress_reset_data progress_reset_data = 11;
-  user_quest_specific_end_timepoint_data specific_end_timepoint_data = 12;
-  map<int32, user_quest_season_progress_value> unlock_progress_value_by_type = 13;
+  repeated int32 expired_quests = 4;
+
+  repeated quest_delete_cache delete_cache = 5;  // 任务删除缓存
+}
+
+// 用于manager存放数据，以及db存放数据
+message user_quest_data {
+  user_quest_list_data user_quest_list = 1;  // 玩家活动数据（客户端需要处理的数据）
+
+  // user_quest_progress_reset_data progress_reset_data = 11;
+  // user_quest_specific_end_timepoint_data specific_end_timepoint_data = 12;          //
+  // 已经解锁的有明确有效期的任务记录 map<int32, user_quest_season_progress_value> unlock_progress_value_by_type = 13;
+  // // 解锁条件类型->类型的值
+
   map<int32, EnQuestStatus> exist_quest_ids = 21;
 
-  map<int32, quest_delete_cache> delete_cache = 22;  // 任务删除缓存
+  // map<int32, quest_delete_cache> delete_cache = 22;  // 任务删除缓存
+}
+
+message user_unlock_data {
+  int64 last_check_unlock_timepoint = 1;  // 上次解锁时间点
+}
+
+message user_module_unlock_data {
+  repeated DModuleUnlocked unlock_modules = 1;  // 已经解锁的模块列表
+  uint64 unlock_resource_version = 2;           // excel的版本号
+
+  uint64 module_circular_version = 15;  // 模块轮替
+}
+
+message user_item_reset_data{
+  int64 last_daily_reset_timepoint = 1;  // 上次每日重置时间点
+  int64 last_weekly_reset_timepoint = 2; // 上次每周重置时间点
+  int64 last_monthly_reset_timepoint = 3; // 上次每月重置时间点
 }

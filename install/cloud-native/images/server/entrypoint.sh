@@ -213,7 +213,7 @@ if [[ "${COMMAND}" == "start" ]]; then
   END_TIME=$(($BEGIN_TIME+$TIMEOUT))
 
   # start server
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml -crash-output-file "../log/${SERVER_TYPE_NAME}.crash.log" start &
+  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml -crash-output-file "../log/${SERVER_TYPE_NAME}_${ATAPP_INSTANCE_ID}.crash.log" start &
   if [[ $? -ne 0 ]]; then
     echo "$(date "+%Y/%m/%d %H:%M:%S") [ERROR] server start failed!!!"
     exit 1

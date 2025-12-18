@@ -165,7 +165,7 @@ func verifyBusConfig(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 		assert.Equal(3*time.Second, bus.GetRetryInterval().AsDuration(), "bus.retry_interval should match")
 	}
 	assert.Equal(uint64(3), bus.GetFaultTolerant(), "bus.fault_tolerant should match")
-	assert.Equal(uint64(256*1024), bus.GetMsgSize(), "bus.msg_size should match")
+	assert.Equal(uint64(256*1024), bus.GetMessageSize(), "bus.message_size should match")
 	assert.Equal(uint64(8*1024*1024), bus.GetRecvBufferSize(), "bus.recv_buffer_size should match")
 	assert.Equal(uint64(2*1024*1024), bus.GetSendBufferSize(), "bus.send_buffer_size should match")
 	assert.Equal(uint64(0), bus.GetSendBufferNumber(), "bus.send_buffer_number should match")

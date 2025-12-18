@@ -25,6 +25,7 @@ enum EnConstLimits {
   EN_CL_MAX_PROTOCOL_LENGTH = 262144;  // message length limit: 256K
   EN_CL_MAX_OPEN_ID_LENGTH = 64;       // openid length limit
   EN_CL_MAX_AUTH_TOKEN_LENGHT = 128;   // token length limit
+  EN_CL_STANDARD_RATE = 10000;         // 所有标准比例都配置成万分比
 }
 
 enum EnMsgOpType {
@@ -46,6 +47,7 @@ enum EnPlatformChannelID {
   EN_PCI_APPLE_GAMECENTER = 1;  // 苹果GAMECENTER渠道
 }
 
+// system type
 enum EnSystemID {
   EN_OS_UNKNOWN = 0;
   EN_OS_WINDOWS = 1;
@@ -185,7 +187,7 @@ enum EnErrorCode {
   EN_ERR_ACTOR_MAX_PENDING_COUNT = -123
                                    [(error_code.description) = "Actor达到最大长度"];
   EN_ERR_ALREADY_LOGIN = -124
-                                   [(error_code.description) = "在线中"];
+                         [(error_code.description) = "在线中"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];
@@ -202,7 +204,7 @@ enum EnErrorCode {
   EN_ERR_ROUTER_OBJECT_NOT_WRITEABLE = -157
                                        [(error_code.description) = "路由对象不可写"];
   EN_ERR_ROUTER_NOT_EXPIRED = -158
-                                       [(error_code.description) = "路由未过期"];
+                              [(error_code.description) = "路由未过期"];
   // openapi
   EN_ERR_OPENAPI_LIMIT = -201
                          [(error_code.description) = "openapi调用频率限制"];
@@ -292,6 +294,10 @@ enum EnErrorCode {
                                 [(error_code.description) = "用户等级过低"];
   EN_ERR_USER_MAX_LEVEL_LIMIT = -702
                                 [(error_code.description) = "用户等级过高"];
+  EN_ERR_USER_CLIENT_OPTIONS_SIZE_LIMIT = -703
+                                          [(error_code.description) = "客户端设置存储达到最大上限"];
+  EN_ERR_USER_LEVEL_CONFIG_NOT_FOUND = -704
+                                       [(error_code.description) = "用户等级配置未找到"];
 
   // 通用条件错误码
   EN_ERR_CONDITION_DATETIME_NOT_START = -801
@@ -322,5 +328,10 @@ enum EnErrorCode {
                                           [(error_code.description) = "任务完成数据未找到"];
   EN_ERR_QUEST_ALREADY_ACCEPTED = -2004
                                   [(error_code.description) = "任务已经接取"];
+  EN_ERR_QUEST_STATUS_NOT_MATCH = -2005
+                                  [(error_code.description) = "任务状态不匹配"];
+
+  // 客户端错误码，服务器不关心 800000-999999
+  EN_ERR_CLIENT_INTERNAL_CODE_BEGIN = -800000;
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码
 }

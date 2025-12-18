@@ -174,8 +174,8 @@ func (m *UserConditionManager) insertCounterDirty(storage *public_protocol_commo
 func (m *UserConditionManager) CheckStaticRuleId(ctx cd.RpcContext, ruleId int32, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	ruleCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelConditionPoolByConditionId(ruleId)
 	if ruleCfg == nil {
-		// TODO: 错误码: 条件规则不存在
-		return cd.CreateRpcResultError(fmt.Errorf("rule config not found for rule id %d", ruleId), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+		// 错误码: 条件规则不存在
+		return cd.CreateRpcResultError(fmt.Errorf("rule config not found for rule id %d", ruleId), public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_RULE_ID_NOT_FOUND)
 	}
 
 	if len(ruleCfg.GetBasicLimit().GetRule()) > 0 {
@@ -188,8 +188,8 @@ func (m *UserConditionManager) CheckStaticRuleId(ctx cd.RpcContext, ruleId int32
 func (m *UserConditionManager) CheckDynamicRuleId(ctx cd.RpcContext, ruleId int32, runtime *logic_condition.RuleCheckerRuntime) cd.RpcResult {
 	ruleCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelConditionPoolByConditionId(ruleId)
 	if ruleCfg == nil {
-		// TODO: 错误码: 条件规则不存在
-		return cd.CreateRpcResultError(fmt.Errorf("rule config not found for rule id %d", ruleId), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+		// 错误码: 条件规则不存在
+		return cd.CreateRpcResultError(fmt.Errorf("rule config not found for rule id %d", ruleId), public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_RULE_ID_NOT_FOUND)
 	}
 
 	if len(ruleCfg.GetBasicLimit().GetRule()) > 0 {
@@ -285,8 +285,8 @@ func (m *UserConditionManager) CheckDateTimeStaticLimit(ctx cd.RpcContext, rules
 		return cd.CreateRpcResultOk()
 	}
 
-	// TODO: 错误码: 所有可用时段都已结束
-	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	// 错误码: 所有可用时段都已结束
+	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DATETIME_ALREADY_END)
 }
 
 func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult {
@@ -313,8 +313,8 @@ func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rule
 		return cd.CreateRpcResultOk()
 	}
 
-	// TODO: 错误码: 未开始
-	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	// 错误码: 未开始
+	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DATETIME_NOT_START)
 }
 
 func (m *UserConditionManager) CheckDateTimeLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult {
@@ -383,7 +383,7 @@ func (m *UserConditionManager) RefreshCounter(_ctx cd.RpcContext, now time.Time,
 	limit *public_protocol_common.Readonly_DConditionCounterLimit,
 	storage *public_protocol_common.DConditionCounterStorage,
 ) {
-	if m == nil || storage == nil || limit == nil {
+	if m == nil || storage == nil {
 		return
 	}
 
@@ -397,7 +397,7 @@ func (m *UserConditionManager) RefreshCounter(_ctx cd.RpcContext, now time.Time,
 
 	isDirty := false
 	dayStartOffset := time.Duration(limit.GetDayStartOffset()) * time.Second
-	if limit.GetCounterVersion() != storage.GetCurrentVersion() {
+	if limit.GetCounterVersion() != 0 && limit.GetCounterVersion() != storage.GetCurrentVersion() {
 		storage.CurrentVersion = limit.GetCounterVersion()
 
 		versionedCounter.DailyCounter = 0
@@ -559,7 +559,11 @@ func (m *UserConditionManager) CheckCounterStaticLimit(ctx cd.RpcContext, now ti
 
 	m.RefreshCounter(ctx, now, limit, storage)
 
-	if limit == nil || storage == nil {
+	if limit == nil {
+		return cd.CreateRpcResultOk()
+	}
+
+	if storage == nil {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
@@ -582,7 +586,11 @@ func (m *UserConditionManager) CheckCounterDynamicLimit(ctx cd.RpcContext, now t
 
 	m.RefreshCounter(ctx, now, limit, storage)
 
-	if limit == nil || storage == nil {
+	if limit == nil {
+		return cd.CreateRpcResultOk()
+	}
+
+	if storage == nil {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
@@ -634,7 +642,7 @@ func (m *UserConditionManager) AddCounter(ctx cd.RpcContext, now time.Time, offs
 	limit *public_protocol_common.Readonly_DConditionCounterLimit,
 	storage *public_protocol_common.DConditionCounterStorage,
 ) cd.RpcResult {
-	if limit == nil || storage == nil || offset <= 0 {
+	if storage == nil || offset <= 0 {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 

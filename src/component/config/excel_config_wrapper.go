@@ -22,7 +22,25 @@ func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup, logger *libat
 		return
 	}
 
+	err = initExcelUnlockConfigIndex(group)
+	if err != nil {
+		return
+	}
+
 	err = InitExcelQuestConfigIndex(group)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func ExcelConfigCallbackRebuild(group *generate_config.ConfigGroup, logger *libatapp.Logger) (err error) {
+	err = RebuildExcelQuestConfigIndex(group)
+	if err != nil {
+		return
+	}
+
+	err = RebuildExcelUnlockConfigIndex(group)
 	if err != nil {
 		return
 	}

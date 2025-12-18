@@ -1,0 +1,126 @@
+#!/bin/sh
+# Git pre-commit hook for Go code formatting
+# Auto-format Go files before commit
+# Logs output to: script/hooks/pre-commit.log
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOG_FILE="$SCRIPT_DIR/pre-commit.log"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+if [ -f "$REPO_ROOT/.golangci.yaml" ]; then
+    CI_CONFIG_FILE="$REPO_ROOT/.golangci.yaml"
+else
+    CI_CONFIG_FILE=""
+fi
+
+# Function to log output
+log_output() {
+    echo "$1" | tee -a "$LOG_FILE"
+}
+
+# Clear/create log file
+: > "$LOG_FILE"
+
+echo "🔧 Running Go code formatter..." | tee "$LOG_FILE"
+
+# Get staged Go files
+GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$')
+
+if [ -z "$GO_FILES" ]; then
+    log_output "✅ No Go files to format"
+    exit 0
+fi
+
+# Check if goimports is installed
+if ! command -v goimports >/dev/null 2>&1; then
+    log_output "⚠️  goimports not found. Installing..."
+    go install golang.org/x/tools/cmd/goimports@latest
+    if [ $? -ne 0 ]; then
+        log_output "❌ Failed to install goimports"
+        exit 1
+    fi
+fi
+
+# Format files with goimports
+log_output "📝 Formatting Go files:"
+for file in $GO_FILES; do
+    if [ -f "$file" ]; then
+        log_output "  - $file"
+        goimports -w "$file"
+        git add "$file"
+    fi
+done
+
+# Optional: Check golangci-lint on staged files only
+if command -v golangci-lint >/dev/null 2>&1; then
+    log_output "🔍 Running golangci-lint on staged files..."
+    
+    # Log config file if available
+    if [ -n "$CI_CONFIG_FILE" ]; then
+        log_output "    Using config: $CI_CONFIG_FILE"
+    fi
+    
+    # Find the module root for each staged file and run golangci-lint from there
+    failed_check=0
+    for file in $GO_FILES; do
+        # Find module root by looking for go.mod
+        dir=$(dirname "$file")
+        module_root="$dir"
+        while [ -n "$module_root" ] && [ ! -f "$module_root/go.mod" ]; do
+            module_root=$(dirname "$module_root")
+        done
+        
+        if [ -z "$module_root" ] || [ ! -f "$module_root/go.mod" ]; then
+            log_output "⚠️  No go.mod found for $file, skipping lint check"
+            continue
+        fi
+        
+        # Get relative path from module root
+        # Convert to absolute paths first
+        full_file_path=$(cd "$REPO_ROOT" && realpath "$file" 2>/dev/null)
+        full_module_root=$(realpath "$module_root" 2>/dev/null)
+        
+        # Calculate relative path
+        relative_file=$(echo "$full_file_path" | sed "s|^$full_module_root/||")
+        
+        log_output "    Linting: $relative_file (module: $(basename $module_root))"
+        
+        # Run golangci-lint from module root
+        (
+            cd "$module_root" || exit 1
+            
+            if [ -n "$CI_CONFIG_FILE" ]; then
+                output=$(golangci-lint run --config="$CI_CONFIG_FILE" "$relative_file" 2>&1)
+            else
+                output=$(golangci-lint run "$relative_file" 2>&1)
+            fi
+            exitCode=$?
+            
+            # Save complete golangci-lint output to log
+            log_output "$output"
+            
+            # Check if there are actual issues
+            if [ $exitCode -ne 0 ]; then
+                exit 1
+            fi
+        )
+        if [ $? -ne 0 ]; then
+            failed_check=1
+        fi
+    done
+    
+    if [ $failed_check -eq 1 ]; then
+        log_output "❌ golangci-lint found issues. Commit blocked!"
+        log_output "Please fix the issues and try again."
+        log_output "Or skip with: git commit --no-verify"
+        log_output "Log saved to: $LOG_FILE"
+        exit 1
+    fi
+    
+    log_output "✅ golangci-lint passed"
+fi
+
+log_output "✅ Code formatting complete"
+log_output "📝 Full log saved to: $LOG_FILE"
+exit 0

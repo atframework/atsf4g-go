@@ -9,7 +9,6 @@ option cc_enable_arenas = true;
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
 
 import "protocol/extension/xrescode_extensions_v3.proto";
-import "protocol/extension/v3/xresloader.proto";
 
 import "protocol/common/com.struct.condition.common.proto";
 
@@ -18,10 +17,10 @@ package proy.config;
 // 通用条件配置
 message ExcelConditionPool {
   option (xrescode.loader) = {
-    file_path : "condition_pool.bytes"
-    indexes : {fields : "condition_id" index_type : EN_INDEX_KV}
+    file_path: "condition_pool.bytes"
+    indexes: { fields: "condition_id" index_type: EN_INDEX_KV }
 
-    tags : "server"
+    tags: "server"
   };
 
   int32 condition_id = 1;

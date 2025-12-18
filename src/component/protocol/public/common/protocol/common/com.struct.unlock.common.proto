@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
+
+import "protocol/extension/v3/xresloader.proto";
+import "google/protobuf/timestamp.proto";
+
+package proy;
+
+message DFunctionUnlockConditionPairInt {
+  option (org.xresloader.msg_separator) = ",";
+  int32 k = 1;
+  int32 v = 2;
+}
+
+message DFunctionUnlockConditionInt {
+  option (org.xresloader.msg_separator) = "#";
+  int32 value = 1;
+}
+
+message DFunctionUnlockCondTimepoint {
+  option (org.xresloader.msg_separator) = "#";
+  google.protobuf.Timestamp start_timepoint = 1;  // 时间解锁
+}
+
+message DFunctionUnlockCondition {
+  option (org.xresloader.msg_separator) = "@";
+  oneof condition_type {
+    option (org.xresloader.oneof_separator) = "|";
+    DFunctionUnlockCondTimepoint unlock_timepoint = 1 [(org.xresloader.field_alias) = "时间解锁"];
+    int64 player_level = 2 [(org.xresloader.field_alias) = "玩家等级"];
+    bool unlock_by_other_system = 3 [(org.xresloader.field_alias) = "外部系统解锁"];
+    int64 quest_finish = 4 [(org.xresloader.field_alias) = "任务完成", (org.xresloader.validator) = "ExcelQuest_id"];
+    int64 quest_received = 5 [(org.xresloader.field_alias) = "任务领取", (org.xresloader.validator) = "ExcelQuest_id"];
+    bool activate = 6 [(org.xresloader.field_alias) = "主动激活"];
+  }
+}
+
+enum EnUnlockFunctionID {
+  EN_UNLOCK_FUNCTION_ID_NULL = 0;
+  EN_UNLOCK_FUNCTION_ID_MODULE = 1;
+  EN_UNLOCK_FUNCTION_ID_QUEST = 2;
+}

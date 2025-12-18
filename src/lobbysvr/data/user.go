@@ -2,10 +2,12 @@ package lobbysvr_data
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 	"sync"
 	"time"
+	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
@@ -49,6 +51,27 @@ type userDirtyHandles struct {
 	clearCache func(cd.RpcContext)
 }
 
+type UserLazyEvalationPriority int32
+
+const (
+	// 缓式评估优先级
+	// 默认优先级约定为不依赖其他模块
+	UserLazyEvalationPriority_Default UserLazyEvalationPriority = 1
+
+	// 统计类的优先级较低
+	UserLazyEvalationPriority_Statistic UserLazyEvalationPriority = 299999
+
+	// 任务的放最后，因为可能很多模块的数值计算会触发任务变化
+	UserLazyEvalationPriority_Quest UserLazyEvalationPriority = 999999
+)
+
+type UserLazyEvalationHandle func(cd.RpcContext, *User)
+
+type UserLazyEvalationData struct {
+	Handle UserLazyEvalationHandle
+	Name   string
+}
+
 type User struct {
 	uc.UserCache
 
@@ -61,7 +84,11 @@ type User struct {
 	moduleManagerMap map[reflect.Type]UserModuleManagerImpl
 	itemManagerList  []userItemManagerWrapper
 
-	dirtyHandles map[interface{}]userDirtyHandles
+	dirtyHandles                   map[unsafe.Pointer]userDirtyHandles
+	lazyEvalationHandles           map[UserLazyEvalationPriority]map[string]UserLazyEvalationData
+	lazyEvalationRunningPriority   int32
+	lazyEvalationRunningName       string
+	lazyEvalationRunningReverseReg map[string]map[string]int64
 }
 
 func init() {
@@ -86,9 +113,13 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, 
 		moduleManagerMap: make(map[reflect.Type]UserModuleManagerImpl),
 		itemManagerList:  make([]userItemManagerWrapper, 0),
 
-		dirtyHandles: make(map[interface{}]userDirtyHandles),
+		dirtyHandles:                   make(map[unsafe.Pointer]userDirtyHandles),
+		lazyEvalationHandles:           make(map[UserLazyEvalationPriority]map[string]UserLazyEvalationData),
+		lazyEvalationRunningPriority:   math.MinInt32,
+		lazyEvalationRunningName:       "",
+		lazyEvalationRunningReverseReg: make(map[string]map[string]int64),
 	}
-	ret.UserCache.Impl = ret
+	ret.Impl = ret
 
 	for _, creator := range userModuleManagerCreators {
 		mgr := creator.fn(ctx, ret)
@@ -121,7 +152,7 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, 
 	for i := 1; i < len(ret.itemManagerList); i++ {
 		prev := ret.itemManagerList[i-1]
 		curr := ret.itemManagerList[i]
-		if prev.idRange.endTypeId >= curr.idRange.beginTypeId {
+		if prev.idRange.endTypeId > curr.idRange.beginTypeId {
 			ctx.LogError("user item manager type id range conflict",
 				"prev_manager", prev.manager.GetReflectType().String(),
 				"curr_manager", curr.manager.GetReflectType().String(),
@@ -238,7 +269,9 @@ func (u *User) createInitItemBatch(ctx cd.RpcContext,
 	}
 
 	u.AddItem(ctx, addGuard, &ItemFlowReason{
-		// TODO: 道具流水原因
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_USER),
+		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_USER_INIT_ITEM),
+		Parameter:   int64(u.GetUserId()),
 	})
 
 	return cd.CreateRpcResultOk()
@@ -260,7 +293,9 @@ func (u *User) createInitItemOneByOne(ctx cd.RpcContext,
 		}
 
 		u.AddItem(ctx, addGuard, &ItemFlowReason{
-			// TODO: 道具流水原因
+			MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_USER),
+			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_USER_INIT_ITEM),
+			Parameter:   int64(u.GetUserId()),
 		})
 	}
 
@@ -370,6 +405,122 @@ func (u *User) OnUpdateSession(ctx cd.RpcContext, from *uc.Session, to *uc.Sessi
 	}
 }
 
+func (u *User) SetLazyEvalationHandle(ctx cd.RpcContext, priority UserLazyEvalationPriority, key string, fn UserLazyEvalationHandle) {
+	if fn == nil || u == nil || key == "" {
+		return
+	}
+
+	if u.lazyEvalationHandles == nil {
+		u.lazyEvalationHandles = make(map[UserLazyEvalationPriority]map[string]UserLazyEvalationData)
+	}
+
+	handles, exists := u.lazyEvalationHandles[priority]
+	if !exists || handles == nil {
+		handles = make(map[string]UserLazyEvalationData)
+		u.lazyEvalationHandles[priority] = handles
+	}
+
+	handles[key] = UserLazyEvalationData{
+		Handle: fn,
+		Name:   key,
+	}
+	if int32(priority) <= u.lazyEvalationRunningPriority {
+		to, exists := u.lazyEvalationRunningReverseReg[u.lazyEvalationRunningName]
+		if !exists || to == nil {
+			to = make(map[string]int64)
+			u.lazyEvalationRunningReverseReg[u.lazyEvalationRunningName] = to
+		}
+		counter, exists := to[key]
+		if !exists {
+			to[key] = 1
+		} else {
+			to[key] = counter + 1
+		}
+	}
+}
+
+func (u *User) selectFirstLazyEvalationPriority(previous int32) (UserLazyEvalationPriority, bool) {
+	if u == nil || len(u.lazyEvalationHandles) == 0 {
+		return 0, false
+	}
+
+	found := false
+	for priority := range u.lazyEvalationHandles {
+		if !found && int32(priority) <= previous {
+			continue
+		}
+		if !found || int32(priority) < previous {
+			previous = int32(priority)
+			found = true
+		}
+	}
+
+	return UserLazyEvalationPriority(previous), found
+}
+
+func (u *User) runLazyEvalationHandle(ctx cd.RpcContext) {
+	if u == nil {
+		return
+	}
+	if len(u.lazyEvalationHandles) == 0 {
+		return
+	}
+
+	defer func() {
+		u.lazyEvalationRunningPriority = math.MinInt32
+		u.lazyEvalationRunningName = ""
+		clear(u.lazyEvalationRunningReverseReg)
+	}()
+
+	// 最多尝试16轮
+	maxLazyEvalationRounds := 16
+	lazyEvalationRounds := 0
+	for ; lazyEvalationRounds < maxLazyEvalationRounds; lazyEvalationRounds++ {
+		if len(u.lazyEvalationHandles) == 0 {
+			break
+		}
+
+		nextPriority := int32(math.MinInt32)
+
+		for priority, exists := u.selectFirstLazyEvalationPriority(nextPriority); exists; priority, exists = u.selectFirstLazyEvalationPriority(nextPriority) {
+			nextPriority = int32(priority)
+			u.lazyEvalationRunningPriority = nextPriority
+
+			priorityHandles := u.lazyEvalationHandles[priority]
+			delete(u.lazyEvalationHandles, priority)
+			if len(priorityHandles) == 0 {
+				continue
+			}
+			for _, handle := range priorityHandles {
+				if handle.Handle == nil {
+					continue
+				}
+				u.lazyEvalationRunningName = handle.Name
+				handle.Handle(ctx, u)
+				u.lazyEvalationRunningName = ""
+			}
+		}
+	}
+
+	// 如果反向注册轮数过多，可能是配置出了事件触发死循环，打印错误日志
+	if lazyEvalationRounds >= maxLazyEvalationRounds {
+		ctx.LogError("lazy evaluation handle reverse registion too many rounds possibly cause infinite loop",
+			"rounds", lazyEvalationRounds,
+		)
+		for runningName, to := range u.lazyEvalationRunningReverseReg {
+			for key, counter := range to {
+				if counter > 1 {
+					ctx.LogWarn("lazy evaluation handle reverse registion possibly cause infinite loop",
+						"source_name", runningName,
+						"target_name", key,
+						"counter", counter,
+					)
+				}
+			}
+		}
+	}
+}
+
 func (u *User) InsertDirtyHandleIfNotExists(key interface{},
 	dumpDataHandle func(cd.RpcContext, *UserDirtyData) bool,
 	clearCacheHandle func(cd.RpcContext),
@@ -390,17 +541,22 @@ func (u *User) InsertDirtyHandleIfNotExists(key interface{},
 		return
 	}
 
-	if _, exists := u.dirtyHandles[key]; exists {
+	mapKey := lu.GetDataPointerOfInterface(key)
+	if _, exists := u.dirtyHandles[mapKey]; exists {
 		return
 	}
 
-	u.dirtyHandles[key] = userDirtyHandles{
+	u.dirtyHandles[mapKey] = userDirtyHandles{
 		dumpDirty:  dumpDataHandle,
 		clearCache: clearCacheHandle,
 	}
 }
 
 func (u *User) SyncClientDirtyCache(ctx cd.RpcContext) {
+	// 先执行缓式评估的Handles，期间可能产生结算数据
+	u.runLazyEvalationHandle(ctx)
+
+	// 然后才执行真正的数据下发
 	u.UserCache.SyncClientDirtyCache()
 
 	if len(u.dirtyHandles) == 0 {
@@ -422,7 +578,9 @@ func (u *User) SyncClientDirtyCache(ctx cd.RpcContext) {
 			continue
 		}
 
-		hasDirty = handles.dumpDirty(ctx, &dumpData) || hasDirty
+		if handles.dumpDirty(ctx, &dumpData) {
+			hasDirty = true
+		}
 	}
 
 	// 脏数据推送
@@ -487,6 +645,20 @@ func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {
 	return mgr
 }
 
+func (u *User) GetModuleManagerByName(name string) UserModuleManagerImpl {
+	if u.moduleManagerMap == nil {
+		return nil
+	}
+
+	for typeInst, mgr := range u.moduleManagerMap {
+		if typeInst.Name() == name {
+			return mgr
+		}
+	}
+
+	return nil
+}
+
 func UserGetModuleManager[ManagerType UserModuleManagerImpl](u *User) ManagerType {
 	if u == nil {
 		var zero ManagerType
@@ -543,6 +715,9 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []*ItemAddGuard, reason *It
 		data []*ItemAddGuard
 	})
 	for _, offset := range itemOffset {
+		if offset == nil {
+			continue
+		}
 		typeId := offset.Item.GetItemBasic().GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
@@ -596,6 +771,9 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *It
 		data []*ItemSubGuard
 	})
 	for _, offset := range itemOffset {
+		if offset == nil {
+			continue
+		}
 		typeId := offset.Item.GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
@@ -714,11 +892,16 @@ func (u *User) GenerateItemInstanceFromBasic(ctx cd.RpcContext, itemBasic *publi
 	return mgr.GenerateItemInstanceFromBasic(ctx, itemBasic)
 }
 
-func (u *User) GenerateMultipleItemInstancesFromBasic(ctx cd.RpcContext, itemBasic []*public_protocol_common.DItemBasic) ([]*public_protocol_common.DItemInstance, Result) {
+func (u *User) GenerateMultipleItemInstancesFromBasic(ctx cd.RpcContext, itemBasic []*public_protocol_common.DItemBasic, ignoreError bool) ([]*public_protocol_common.DItemInstance, Result) {
 	ret := make([]*public_protocol_common.DItemInstance, 0, len(itemBasic))
 	for _, basic := range itemBasic {
 		itemInst, result := u.GenerateItemInstanceFromBasic(ctx, basic)
 		if result.IsError() {
+			ctx.LogError("generate item instance from item basic failed",
+				"error", result.Error, "resoponse_code", result.ResponseCode,
+
+				"item_type_id", basic.GetTypeId(), "item_count", basic.GetCount(),
+			)
 			return nil, result
 		}
 		ret = append(ret, itemInst)
@@ -944,7 +1127,7 @@ func (u *User) CheckCostItem(ctx cd.RpcContext,
 		expectCount := expect.GetCount()
 		actualCount, exists := countByTypeId[typeId]
 		if !exists || actualCount < expectCount {
-			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(typeId))
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(u.GetNotEnoughErrorCode(typeId)))
 		}
 	}
 

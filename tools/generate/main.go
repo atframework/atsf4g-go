@@ -73,11 +73,8 @@ func generateAtfwGo(scanDirs []string) {
 
 			baseName := filepath.Base(path)
 			if strings.HasSuffix(baseName, ".go") && strings.HasPrefix(baseName, "generate.atfw.") {
-				for {
-					if strings.HasPrefix(baseName, "generate.atfw.windows.") && runtime.GOOS != "windows" {
-						// windows 只有linux跑
-						break
-					}
+				for !strings.HasPrefix(baseName, "generate.atfw.windows.") || runtime.GOOS == "windows" {
+
 					if strings.HasPrefix(baseName, "generate.atfw.linux.") && runtime.GOOS == "windows" {
 						// linux 只有Windows不跑
 						break
@@ -207,6 +204,11 @@ func installScript() {
 }
 
 func main() {
+	// 什么都不传 执行这个oldBuild
+	oldBuild()
+}
+
+func oldBuild() {
 	err := project_settings.PathSetup()
 	if err != nil {
 		os.Exit(1)

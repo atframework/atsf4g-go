@@ -231,7 +231,6 @@ func CreateAppInstance() AppImpl {
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
 	ret.flagSet.Bool("version", false, "print version and exit")
-	ret.flagSet.Bool("info", false, "print build information and exit")
 	ret.flagSet.Bool("help", false, "print help and exit")
 	ret.flagSet.String("config", "", "config file path")
 	ret.flagSet.String("pid", "", "pid file path")
@@ -1093,12 +1092,6 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	if app.flagSet.Lookup("version").Value.String() == "true" {
 		app.mode = AppModeInfo
 		println(app.GetBuildVersion())
-		return nil
-	}
-
-	// 检查 --info 标志
-	if app.flagSet.Lookup("info").Value.String() == "true" {
-		app.mode = AppModeInfo
 		PrintBuildInfo()
 		return nil
 	}

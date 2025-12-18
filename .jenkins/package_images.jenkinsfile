@@ -73,6 +73,11 @@ pipeline {
                                 dockerImage.tag("latest")
                                 dockerImage.push("latest")
                             }
+                            sh '''
+                                podman rmi ${HARBOR_URL}/${HARBOR_PROJECT}/${IMAGES_NAME}:${VERSION} || true
+                                podman rmi ${HARBOR_URL}/${HARBOR_PROJECT}/${IMAGES_NAME}:latest || true
+                                podman image prune -f || true
+                            '''
                         }
                     }
                 }

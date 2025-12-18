@@ -16,6 +16,8 @@ import "protocol/extension/atframework.proto";
 
 import "protocol/pbdesc/lobbysvr.com.protocol.user.proto";
 import "protocol/pbdesc/lobbysvr.com.protocol.quest.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.activate.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.mall.proto";
 
 package proy;
 
@@ -23,52 +25,58 @@ service LobbyClientService {
   /////////////////////////// user /////////////////////////////
   rpc login_auth(CSLoginAuthReq) returns (SCLoginAuthRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "Authorization"
+      module_name: "user"
+      api_name: "Authorization"
     };
   };
 
   rpc login(CSLoginReq) returns (SCLoginRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "Login"
+      module_name: "user"
+      api_name: "Login"
     };
   };
 
   rpc ping(CSPingReq) returns (SCPongRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "Ping/pong"
+      module_name: "user"
+      api_name: "Ping/pong"
     };
   };
 
   rpc access_update(CSAccessUpdateReq) returns (SCAccessUpdateRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "Update access token"
+      module_name: "user"
+      api_name: "Update access token"
     };
   };
 
   rpc user_get_info(CSUserGetInfoReq) returns (SCUserGetInfoRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "Get user data"
+      module_name: "user"
+      api_name: "Get user data"
     };
   };
 
   rpc user_send_gm_command(CSUserGMCommandReq) returns (SCUserGMCommandRsp) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "GM command"
+      module_name: "user"
+      api_name: "GM command"
+    };
+  };
+
+  rpc user_update_client_option(CSUserUpdateClientOptionReq) returns (SCUserUpdateClientOptionRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "user"
+      api_name: "Update user options"
     };
   };
 
   // Use stream request to disable waiting for response
-  rpc user_dirty_chg_sync(google.protobuf.Empty)
-      returns (stream SCUserDirtyChgSync) {
+  rpc user_dirty_chg_sync(google.protobuf.Empty) returns (stream SCUserDirtyChgSync) {
     option (atframework.rpc_options) = {
-      module_name : "user"
-      api_name : "Push dirty data"
+      module_name: "user"
+      api_name: "Push dirty data"
     };
   };
   /////////////////////////// user /////////////////////////////
@@ -80,6 +88,29 @@ service LobbyClientService {
       api_name: "领取任务奖励"
     };
   };
+
+  rpc quest_update_status(CSQuestUpdateStatusReq) returns (SCQuestUpdateStatusRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "quest"
+      api_name: "客户群请求更新任务状态"
+    };
+  };
   /////////////////////////// quest /////////////////////////////
 
+  /////////////////////////// activate /////////////////////////////
+  rpc user_activate(CSUserActivateReq) returns (SCUserActivateRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "activate"
+      api_name: "用户激活"
+    };
+  };
+  /////////////////////////// activate /////////////////////////////
+  /////////////////////////// mall /////////////////////////////
+  rpc mall_purchase(CSMallPurchaseReq) returns (SCMallPurchaseRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mall"
+      api_name: "购买商品"
+    };
+  };
+  /////////////////////////// mall /////////////////////////////
 }

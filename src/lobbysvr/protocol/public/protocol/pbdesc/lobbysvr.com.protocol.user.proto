@@ -10,15 +10,17 @@ option cc_generic_services = true;
 
 option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
 
+import "google/protobuf/timestamp.proto";
+
 import "protocol/common/com.struct.item.common.proto";
 
 import "protocol/pbdesc/com.const.proto";
 import "protocol/pbdesc/com.struct.proto";
 
-import "protocol/pbdesc/com.struct.inventory.proto";
-import "protocol/pbdesc/com.struct.condition.proto";
-
 import "protocol/pbdesc/com.struct.quest.proto";
+import "protocol/pbdesc/com.struct.condition.proto";
+import "protocol/pbdesc/com.struct.module.unlock.proto";
+import "protocol/pbdesc/com.struct.mall.proto";
 
 // import "protocol/pbdesc/lobbysvr.com.protocol.character.proto";
 
@@ -100,6 +102,9 @@ message SCLoginRsp {
   bool is_new_user = 3;          // 是否是新玩家
   uint32 version_type = 4;       // 版本类型 @EnVersionType
   uint32 zone_id = 5;            // 大区ID
+
+  // 时区计算的基准时间
+  google.protobuf.Timestamp timezone_base_timestamp = 11;
 }
 
 // 脏数据同步包
@@ -113,14 +118,25 @@ message SCUserDirtyChgSync {
     repeated RemoveItemKey item_keys = 1;
   }
 
-  DUserInventoryData dirty_inventory = 1;
+  message AutoRewardItemData {
+    repeated DItemAutoReward rewards = 1;
+  }
+
+  message DirtyItemData {
+    repeated DItemInstance item = 1;
+  }
+
+  DirtyItemData dirty_items = 1;
 
   RemoveItemData remove_item_keys = 2;
+
+  AutoRewardItemData auto_rewards = 3;
 
   DUserProfile user_profile = 6;
   DUserInfo user_info = 7;
   DUserOptions user_options = 8;
   DUserQuestEventList dirty_quest_events = 15;
+  DUserModuleUnlockDirtyChg dirty_module_unlock = 17;
 
   DConditionCounterDirtyChg dirty_condition_counter = 201;
 }
@@ -137,10 +153,12 @@ message SCPongRsp {
 
 // 请求用户数据
 message CSUserGetInfoReq {
-  bool need_user_info = 1;       // 标记为true 回包才有会有玩家基本数据
-  bool need_user_options = 2;    // 标记为true 回包才有会有玩家选项数据
-  bool need_user_inventory = 3;  // 标记为true 回包才有会有玩家选项数据
-  bool need_user_quest = 11;     // 标记为true 回包才有会有玩家任务数据
+  bool need_user_info = 1;            // 标记为true 回包才有会有玩家基本数据
+  bool need_user_options = 2;         // 标记为true 回包才有会有玩家选项数据
+  bool need_user_inventory = 3;       // 标记为true 回包才有会有玩家仓库数据
+  bool need_user_quest = 11;          // 标记为true 回包才有会有任务
+  bool need_user_module_unlock = 12;  // 标记为true 回包才有会有模块解锁数据
+  bool need_user_mall = 14;           // 标记为true 回包才有会有商城数据
 
   bool need_user_condition_counter = 201;  // 标记为true 回包才有会有条件计数器数据
 }
@@ -148,10 +166,17 @@ message CSUserGetInfoReq {
 // 用户数据返回
 message SCUserGetInfoRsp {
   DUserProfile user_profile = 1;
-  DUserInfo user_info = 2;                // 玩家数据
-  DUserOptions user_options = 3;          // 玩家自定义选项
-  DUserInventoryData user_inventory = 4;  // 玩家通用仓库道具数据
-  DUserQuestsData user_quest = 11;        // 玩家任务信息
+  DUserInfo user_info = 2;                            // 玩家数据
+  DUserOptions user_options = 3;                      // 玩家自定义选项
+  DUserQuestsData user_quest = 11;                    // 玩家任务信息
+  DUserModuleUnlockData user_module_unlock = 12;      // 玩家模块解锁数据
+  DUserMallData user_mall = 15;                       // 玩家商城数据
+
+  // 道具化通用下发
+  message NormalizeItemData {
+    repeated DItemInstance item = 1;
+  }
+  NormalizeItemData normalize_item = 101;
 
   DConditionCounterData user_condition_counter = 201;  // 玩家条件计数器数据
 }
@@ -165,3 +190,11 @@ message CSUserGMCommandReq {
 message SCUserGMCommandRsp {
   repeated string reply = 1;
 }
+
+// 用户更新设置请求
+message CSUserUpdateClientOptionReq {
+  DUserOptions options = 1;
+}
+
+// 用户更新设置请求
+message SCUserUpdateClientOptionRsp {}

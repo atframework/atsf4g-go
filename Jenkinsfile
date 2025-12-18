@@ -488,6 +488,25 @@ PYEOF
             }
         }
         
+
+
+        stage('生成配置') {
+            when {
+                expression { env.NODE_LABEL == 'windows' }
+            }
+            steps {
+                script {
+                    
+                    bat """
+                        cd /d "${env.WORKSPACE}\\build\\install"
+                        call update_dependency.bat
+                        call generate_config.bat
+                    """
+                    
+                }
+            }
+        }
+
         stage('打包构建产物') {
             steps {
                 script {
@@ -495,7 +514,7 @@ PYEOF
                     def sourceDir = "${env.WORKSPACE}/build/install"
                     def zipFile = "ProjectY_Server_${env.BUILD_NUMBER}.tar.gz"
                     if (params.NODE_LABEL != 'linux') {
-                        env.ARCHIVE_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/${params.NODE_LABEL}/${env.BUILD_TIME}"
+                        env.ARCHIVE_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/${params.NODE_LABEL}/${env.BUILD_TIME}_${env.BUILD_NUMBER}"
                     } else
                     {
                         env.ARCHIVE_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/${params.NODE_LABEL}"
@@ -515,6 +534,16 @@ PYEOF
                     """
                     // 传输包名给上游任务
                     echo "文件传输成功完成。"
+                    if (isUnix()) {
+                        sh """
+                            rm -f "${zipFile}"
+                        """
+                    } else {
+                        powershell """
+                            Remove-Item -Path "${zipFile}" -Force -ErrorAction SilentlyContinue
+                        """
+                    }
+
                     def meta = [package_name: "${zipFile}"]
                     // 设置显示名与描述（描述用 JSON）
                     currentBuild.displayName = "package_data"
@@ -526,10 +555,73 @@ PYEOF
     
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            script {
+                // 只有在NODE_LABEL=windows时才发送成功消息
+                if (params.NODE_LABEL != 'linux') {
+                    echo '✅ Pipeline completed successfully!'
+
+                    writeFile file: 'payload.json', text: """
+                    {
+                      "msg_type": "post",
+                      "content": {
+                        "post": {
+                          "zh_cn": {
+                            "title": "服务器${env.NODE_LABEL}包构建成功",
+                            "content": [
+                              [
+                                {
+                                  "tag": "text",
+                                  "text": "构建号:${env.BUILD_NUMBER}\\n"
+                                },
+                                {
+                                  "tag": "a",
+                                  "text": "下载连接",
+                                  "href": "https://nextcloud.m-oa.com:6023/apps/files/files?dir=/%E4%B8%B4%E6%97%B6%E5%85%B1%E4%BA%AB%28temporary%29/ProjectY/Server/${params.NODE_LABEL}/${env.BUILD_TIME}_${env.BUILD_NUMBER}"
+                                }
+                              ]
+                            ]
+                          }
+                        }
+                      }
+                    }
+                    """
+                    sh "curl -X POST -H \"Content-Type: application/json\" -d \"@payload.json\" ${env.FEISHU_PROJECT_Y_URL}"
+                } else {
+                    echo '✅ Pipeline completed successfully! (Skipping notification for non-windows build)'
+                }
+            }
         }
         failure {
             echo '❌ Pipeline failed!'
+            script {
+                // 失败时始终发送失败消息
+                writeFile file: 'payload.json', text: """
+                {
+                  "msg_type": "post",
+                  "content": {
+                    "post": {
+                      "zh_cn": {
+                        "title": "服务器${env.NODE_LABEL}构建失败",
+                        "content": [
+                          [
+                            {
+                              "tag": "text",
+                              "text": "构建号:${env.BUILD_NUMBER}\\n构建平台:${params.NODE_LABEL}"
+                            },
+                            {
+                              "tag": "a",
+                              "text": "构建连接",
+                              "href": "https://jenkins.m-oa.com:6023/job/ProjectY/job/Server/job/Server_Build/${env.BUILD_NUMBER}/console"
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  }
+                }
+                """
+                sh "curl -X POST -H \"Content-Type: application/json\" -d \"@payload.json\" ${env.FEISHU_PROJECT_Y_URL}"
+            }
         }
     }
 }

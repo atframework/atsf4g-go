@@ -102,6 +102,8 @@ env:
     resourceFieldRef:
       containerName: {{ include "libapp.name" . }}
       resource: requests.memory
+- name: ATAPP_INSTANCE_ID
+  value: {{ include "libapp.busAddr" . }}
 {{- end -}}
 
 {{- define "libapp.vector.container.tpl" -}}

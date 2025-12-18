@@ -10,18 +10,42 @@ option cc_enable_arenas = true;
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
 
 
+package proy;
+
 message quest_trigger_params{
-    quest_trigger_params_common_params common_params = 1;
+    // quest_trigger_params_common_params common_params = 1;
     oneof param {
-        quest_target_params_player_level player_level = 2;
+        quest_target_params_level player_level = 2;
+        quest_trigger_params_kv has_item = 3;
     }
+}
+
+
+
+message quest_trigger_params_value {
+    int32 key = 1;
+    int64 value = 2;
+}
+
+message quest_trigger_params_kv {
+    int32 key = 1;
+    int64 value = 2;
 }
 
 message quest_trigger_params_common_params {
 }
 
+message quest_trigger_params_range_int {
+    int32 l = 1;
+    int32 r = 2;
+}   
 
-message quest_target_params_player_level {
+message quest_trigger_params_item_get {
+    int32 item_id = 1;
+    int64 count = 2;
+}
+
+message quest_target_params_level {
     int64 pre_level = 1;
     int64 cur_level = 2;
 }

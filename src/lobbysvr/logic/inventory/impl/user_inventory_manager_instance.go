@@ -4,19 +4,23 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"time"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
+	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	lobbysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
+	logic_time "github.com/atframework/atsf4g-go/component-logical_time"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
+	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
@@ -39,12 +43,6 @@ func init() {
 		data.MakeUserItemTypeIdRange(
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_PROP_BEGIN),
 			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_PROP_END)),
-		data.MakeUserItemTypeIdRange(
-			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_MISC_BEGIN),
-			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_MISC_END)),
-		data.MakeUserItemTypeIdRange(
-			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_BEGIN),
-			int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_CHARACTER_PROP_END)),
 	}, func(ctx cd.RpcContext, owner *data.User) data.UserItemManagerImpl {
 		mgr := data.UserGetModuleManager[logic_inventory.UserInventoryManager](owner)
 		if mgr == nil {
@@ -177,6 +175,9 @@ type UserInventoryManager struct {
 	itemGroups map[int32]*UserInventoryItemGroup
 
 	dirtyItems map[int32]map[int64]struct{}
+
+	// 重置数据
+	resetData *private_protocol_pbdesc.UserItemResetData
 }
 
 func CreateUserInventoryManager(owner *data.User) *UserInventoryManager {
@@ -186,10 +187,10 @@ func CreateUserInventoryManager(owner *data.User) *UserInventoryManager {
 
 		itemGroups: make(map[int32]*UserInventoryItemGroup),
 		dirtyItems: make(map[int32]map[int64]struct{}),
+		resetData:  &private_protocol_pbdesc.UserItemResetData{},
 	}
 
 	ret.virtualItemManager = createVirtualItemManager(ret)
-
 	return ret
 }
 
@@ -288,6 +289,9 @@ func (m *UserInventoryManager) InitFromDB(_ctx cd.RpcContext, dbUser *private_pr
 	for _, group := range m.itemGroups {
 		group.recalcStatistics()
 	}
+
+	m.resetData = dbUser.GetInventoryData().GetItemResetData().Clone()
+
 	return cd.RpcResult{
 		Error:        nil,
 		ResponseCode: 0,
@@ -304,6 +308,7 @@ func (m *UserInventoryManager) DumpToDB(_ctx cd.RpcContext, dbUser *private_prot
 	}
 
 	dbUser.MutableInventoryData().Item = itemDbData
+	dbUser.MutableInventoryData().ItemResetData = m.resetData.Clone()
 
 	return cd.RpcResult{
 		Error:        nil,
@@ -314,7 +319,57 @@ func (m *UserInventoryManager) DumpToDB(_ctx cd.RpcContext, dbUser *private_prot
 func (m *UserInventoryManager) RefreshLimitSecond(ctx cd.RpcContext) {
 	m.virtualItemManager.RefreshLimitSecond(ctx)
 
+	m.refreshLimitDaily(ctx)
+	m.refreshLimitWeek(ctx)
 	// TODO: 限时道具移除
+}
+
+func (m *UserInventoryManager) refreshLimitDaily(ctx cd.RpcContext) {
+	if !logic_time.IsSameDay(time.Unix(m.resetData.LastDailyResetTimepoint, 0), ctx.GetNow(), nil) {
+		m.resetItemByResetType(public_protocol_common.DItemResetData_EnResetTypeID_LastDailyResetTimepoint)
+		m.resetData.LastDailyResetTimepoint = ctx.GetNow().Unix()
+	}
+}
+
+func (m *UserInventoryManager) refreshLimitWeek(ctx cd.RpcContext) {
+	if !logic_time.IsSameWeek(time.Unix(m.resetData.LastWeeklyResetTimepoint, 0), ctx.GetNow(), nil) {
+		m.resetItemByResetType(public_protocol_common.DItemResetData_EnResetTypeID_LastWeeklyResetTimepoint)
+		m.resetData.LastWeeklyResetTimepoint = ctx.GetNow().Unix()
+	}
+}
+
+func (m *UserInventoryManager) resetItemByResetType(typeId public_protocol_common.DItemResetData_EnResetTypeID) {
+	resetCfgs := config.GetConfigManager().GetCurrentConfigGroup().GetExcelItemResetAllOfItemId()
+	if resetCfgs == nil {
+		return
+	}
+	for _, resetCfg := range *resetCfgs {
+		if resetCfg == nil {
+			continue
+		}
+		if resetCfg.GetResetData().GetResetTypeOneofCase() != typeId {
+			continue
+		}
+		// 获取ItemID现在的数量 重置为0
+		m.resetItem(resetCfg.GetItemId())
+
+	}
+}
+
+func (m *UserInventoryManager) resetItem(itemType int32) {
+	group := m.getItemGroup(itemType)
+	if group == nil {
+		return
+	}
+	subSet := group.GetGroup(0) // 重置道具的group guid固定为0
+	if subSet.GetItemBasic().GetCount() == 0 {
+		return
+	}
+	group.subGroupCount(subSet.GetItemBasic(), subSet.GetItemBasic().GetCount())
+	if group.empty() {
+		delete(m.itemGroups, itemType)
+	}
+	m.markItemDirty(itemType, 0)
 }
 
 func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
@@ -355,7 +410,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 						continue
 					}
 
-					dirtyData.MutableDirtyInventory().AppendItem(itemInstance.Clone())
+					dirtyData.MutableDirtyItems().AppendItem(itemInstance.Clone())
 					ret = true
 				}
 			}
@@ -368,10 +423,27 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 }
 
 func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []*data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
+
+	questMgr := data.UserGetModuleManager[logic_quest.UserQuestManager](m.GetOwner())
+	if questMgr == nil {
+		ctx.LogError("can not find user quest manager")
+	}
 	for i := 0; i < len(itemOffset); i++ {
 		add := itemOffset[i]
 		if add == nil {
 			continue
+		}
+
+		if questMgr != nil {
+			questMgr.QuestTriggerEvent(ctx, private_protocol_pbdesc.QuestTriggerParams_EnParamID_HasItem,
+				&private_protocol_pbdesc.QuestTriggerParams{
+					Param: &private_protocol_pbdesc.QuestTriggerParams_HasItem{
+						HasItem: &private_protocol_pbdesc.QuestTriggerParamsKv{
+							Key:   add.Item.GetItemBasic().GetTypeId(),
+							Value: add.Item.GetItemBasic().GetCount(),
+						},
+					},
+				})
 		}
 
 		typeId := add.Item.GetItemBasic().GetTypeId()
@@ -536,7 +608,6 @@ func (m *UserInventoryManager) CheckAddItem(ctx cd.RpcContext, itemOffset []*pub
 		if item == nil {
 			continue
 		}
-
 		typeId := item.GetItemBasic().GetTypeId()
 		if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 			typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
@@ -560,6 +631,9 @@ func (m *UserInventoryManager) CheckSubItem(ctx cd.RpcContext, itemOffset []*pub
 	// 虚拟道具分发
 	for i := 0; i < len(itemOffset); i++ {
 		item := itemOffset[i]
+		if item == nil {
+			continue
+		}
 		typeId := item.GetTypeId()
 		if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 			typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
@@ -688,25 +762,13 @@ func registerCondition() {
 func checkRuleHasItem(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
-	if len(rule.GetHasItem().GetValues()) == 0 {
-		return cd.CreateRpcResultOk()
-	}
-
-	values := rule.GetHasItem().GetValues()
-	typeId := int32(values[0])
+	typeId := rule.GetHasItem().GetItemId()
 	if typeId == 0 {
 		return cd.CreateRpcResultOk()
 	}
 
-	minCount := int64(0)
-	maxCount := int64(0)
-
-	if len(values) >= 2 {
-		minCount = values[1]
-	}
-	if len(values) >= 3 {
-		maxCount = values[2]
-	}
+	minCount := rule.GetHasItem().GetMinCount()
+	maxCount := rule.GetHasItem().GetMaxCount()
 
 	itemStats := m.GetOwner().GetItemTypeStatistics(ctx, typeId)
 	if minCount > 0 && (itemStats == nil || itemStats.TotalCount < minCount) {

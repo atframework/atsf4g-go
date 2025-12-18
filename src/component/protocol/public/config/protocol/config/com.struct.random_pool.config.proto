@@ -11,9 +11,6 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/
 import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/extension/v3/xresloader.proto";
 
-import "protocol/common/com.struct.base.common.proto";
-import "protocol/common/com.struct.item.common.proto";
-
 package proy.config;
 
 enum EnRandomPoolType {
@@ -30,7 +27,7 @@ message DRandomPoolElementCount {
 }
 
 message DRandomPoolElement {
-  int32 type_id = 1 [(org.xresloader.validator) = "ExcelItem_ADDABLE_item_id"];
+  int32 type_id = 1 [(org.xresloader.validator) = "ExcelRandomPool_element_type_id"];
   DRandomPoolElementCount count = 2;
   int32 weight = 3 [(org.xresloader.validator) = ">0", (org.xresloader.field_tag) = "server_only"];
 }
@@ -46,7 +43,7 @@ message ExcelRandomPool {
     tags: "server"
   };
 
-  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelItem_ADDABLE_item_id"];
+  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelItemIdRange_RandomPool"];
   EnRandomPoolType random_type = 2;
   int32 times = 3 [(org.xresloader.validator) = ">0"];
   repeated DRandomPoolElement elements = 4;

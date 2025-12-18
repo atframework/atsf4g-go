@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.item.common.proto";
+import "protocol/common/com.struct.mall.common.proto";
+import "protocol/common/com.struct.condition.common.proto";
+
+package proy.config;
+
+message ExcelMall {
+  option (xrescode.loader) = {
+    file_path: "mall.bytes"
+    indexes: { fields: "mall_type" index_type: EN_INDEX_KV }
+
+    tags: "client"
+    tags: "server"
+  };
+
+  EnMallType mall_type = 1 [(org.xresloader.field_unique_tag) = "mall_type"];
+  string name = 2;
+  repeated int32 mall_sheet_ids = 3 [(org.xresloader.validator) = "ExcelMallSheet_mall_sheet_id"];
+  DConditionBasicLimit unlock_condition = 4;
+}
+
+message ExcelMallSheet {
+  option (xrescode.loader) = {
+    file_path: "mall_sheet.bytes"
+    indexes: { fields: "mall_sheet_id" index_type: EN_INDEX_KV }
+
+    tags: "client"
+    tags: "server"
+  };
+
+  EnMallType mall_sheet_id = 1 [(org.xresloader.field_unique_tag) = "mall_sheet_id"];
+  string name = 2;
+}
+
+message ExcelMallProduct {
+  option (xrescode.loader) = {
+    file_path: "mall_product.bytes"
+    indexes: { fields: "product_id" fields: "sort_id" index_type: EN_INDEX_KV }
+    indexes: { fields: "product_id" sort_by: "sort_id" index_type: EN_INDEX_KL }
+
+    tags: "client"
+    tags: "server"
+  };
+
+  int32 product_id = 1 [(org.xresloader.field_unique_tag) = "product_id_sort_id"];
+  int32 sort_id = 2 [(org.xresloader.field_unique_tag) = "product_id_sort_id"];
+  int32 mall_sheet_id = 3 [(org.xresloader.validator) = "ExcelMallSheet_mall_sheet_id"];
+  int32 display_order = 4;
+  bool is_on_sale = 5;
+  DItemOffset product_item = 6;
+  DConditionBasicLimit purchase_condition = 7;
+  repeated DItemOffset purchase_cost = 8;
+  // 总次数限制
+  DConditionCounterLimit total_counter_condition = 31;
+}

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
+
+package proy;
+
+message DMallProductData {
+  int32 product_id = 1;
+  // 总次数计数器
+  int64 total_counter_storage_id = 11;
+}
+
+message DUserMallData {
+  DMallProductData product_data = 1;
+}

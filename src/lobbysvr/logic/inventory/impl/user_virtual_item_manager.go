@@ -10,6 +10,7 @@ import (
 	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	pp_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
@@ -94,13 +95,24 @@ func (m *UserVirtualItemManager) AddItem(ctx cd.RpcContext, itemOffset *data.Ite
 		return true, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	switch itemOffset.Item.GetItemBasic().GetTypeId() {
+	itemTypeId := itemOffset.Item.GetItemBasic().GetTypeId()
+	if itemTypeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_READ_ONLY_BEGIN) {
+		return true, cd.CreateRpcResultError(fmt.Errorf("item %d is readonly", itemTypeId), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	questMgr := data.UserGetModuleManager[logic_quest.UserQuestManager](m.owner.GetOwner())
+	if questMgr == nil {
+		ctx.LogError("can not find user quest manager")
+	}
+
+	switch itemTypeId {
 	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
 		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
 		if redirMgr == nil {
 			return true, cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		}
 		return true, redirMgr.AddUserExp(ctx, itemOffset.Item.GetItemBasic().GetCount())
+	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
 	default:
 		break
 	}
@@ -113,7 +125,12 @@ func (m *UserVirtualItemManager) SubItem(ctx cd.RpcContext, itemOffset *data.Ite
 		return true, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	switch itemOffset.Item.GetTypeId() {
+	itemTypeId := itemOffset.Item.GetTypeId()
+	if itemTypeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_READ_ONLY_BEGIN) {
+		return true, cd.CreateRpcResultError(fmt.Errorf("item %d is readonly", itemTypeId), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
+	switch itemTypeId {
 	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
 		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
 		if redirMgr == nil {
@@ -140,7 +157,12 @@ func (m *UserVirtualItemManager) CheckAddItem(ctx cd.RpcContext, itemOffset *ppc
 		return cd.CreateRpcResultError(fmt.Errorf("virtual item can not have guid"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	switch itemOffset.GetItemBasic().GetTypeId() {
+	itemTypeId := itemOffset.GetItemBasic().GetTypeId()
+	if itemTypeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_READ_ONLY_BEGIN) {
+		return cd.CreateRpcResultError(fmt.Errorf("item %d is readonly", itemTypeId), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY)
+	}
+
+	switch itemTypeId {
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_CASH):
 		return cd.CreateRpcResultOk()
@@ -170,7 +192,12 @@ func (m *UserVirtualItemManager) CheckSubItem(ctx cd.RpcContext, itemOffset *ppc
 		return cd.CreateRpcResultError(fmt.Errorf("virtual item can not have guid"), pp_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	switch itemOffset.GetTypeId() {
+	itemTypeId := itemOffset.GetTypeId()
+	if itemTypeId >= int32(ppc.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_READ_ONLY_BEGIN) {
+		return cd.CreateRpcResultError(fmt.Errorf("item %d is readonly", itemTypeId), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM_ACCESS_DENY)
+	}
+
+	switch itemTypeId {
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
 	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_CASH):
 		return cd.CreateRpcResultOk()
@@ -198,6 +225,15 @@ func (m *UserVirtualItemManager) GetTypeStatistics(ctx cd.RpcContext, typeId int
 		ret := m.mutableVirtualItemStatistics(typeId)
 		ret.TotalCount = redirMgr.GetUserExp()
 		return true, ret
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_READONLY_USER_LEVEL):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return true, nil
+		}
+
+		ret := m.mutableVirtualItemStatistics(typeId)
+		ret.TotalCount = int64(redirMgr.GetUserLevel())
+		return true, ret
 	default:
 		break
 	}
@@ -205,6 +241,18 @@ func (m *UserVirtualItemManager) GetTypeStatistics(ctx cd.RpcContext, typeId int
 }
 
 func (m *UserVirtualItemManager) GetNotEnoughErrorCode(typeId int32) int32 {
+	switch typeId {
+	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_COIN):
+		return int32(pp_pbdesc.EnErrorCode_EN_ERR_MONEY_COIN_NOT_ENOUGH)
+	case int32(ppc.EnItemMoneyType_EN_ITEM_MONEY_TYPE_CASH):
+		return int32(pp_pbdesc.EnErrorCode_EN_ERR_MONEY_CASH_NOT_ENOUGH)
+	// case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_USER_EXP):
+	// 	return int32(pp_pbdesc.EnErrorCode_EN_ERR_USER_MIN_LEVEL_LIMIT)
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_READONLY_USER_LEVEL):
+		return int32(pp_pbdesc.EnErrorCode_EN_ERR_USER_MIN_LEVEL_LIMIT)
+	default:
+		break
+	}
 	return m.owner.UserItemManagerBase.GetNotEnoughErrorCode(typeId)
 }
 
@@ -222,6 +270,16 @@ func (m *UserVirtualItemManager) GetItemFromBasic(ctx cd.RpcContext, itemBasic *
 
 		ret := m.mutableVirtualItemInstance(itemBasic.GetTypeId())
 		ret.MutableItemBasic().Count = redirMgr.GetUserExp()
+		ret.MutableItemBasic().Guid = 0
+		return true, ret, cd.CreateRpcResultOk()
+	case int32(ppc.EnItemVirtualItemType_EN_ITEM_VIRTUAL_ITEM_TYPE_READONLY_USER_LEVEL):
+		redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](m.owner.GetOwner())
+		if redirMgr == nil {
+			return true, nil, cd.CreateRpcResultError(fmt.Errorf("UserBasicManager is nil"), pp_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		}
+
+		ret := m.mutableVirtualItemInstance(itemBasic.GetTypeId())
+		ret.MutableItemBasic().Count = int64(redirMgr.GetUserLevel())
 		ret.MutableItemBasic().Guid = 0
 		return true, ret, cd.CreateRpcResultOk()
 	default:

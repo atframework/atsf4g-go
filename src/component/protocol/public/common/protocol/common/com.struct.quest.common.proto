@@ -16,11 +16,12 @@ package proy;
 
 enum EnQuestStatus {
   EN_QUEST_STATUS_LOCK = 0;
-  EN_QUEST_STATUS_PROCESSING = 1;
-  EN_QUEST_STATUS_COMPLETE = 2;
-  EN_QUEST_STATUS_RECEIVE = 3;
-  EN_QUEST_STATUS_EXPIRED = 4;
-  EN_QUEST_STATUS_FORCE_DELETE = 5;
+  EN_QUEST_STATUS_AVAILABLE = 1;
+  EN_QUEST_STATUS_PROCESSING = 2;
+  EN_QUEST_STATUS_COMPLETE = 3;
+  EN_QUEST_STATUS_RECEIVE = 4;
+  EN_QUEST_STATUS_EXPIRED = 5;
+  // EN_QUEST_STATUS_FORCE_DELETE = 6;
 }
 
 enum EnQuestBizSystem {
@@ -28,41 +29,12 @@ enum EnQuestBizSystem {
   EN_QUEST_BIZSYS_AC_PASSPORT = 1;  // activity_center_passport
 }
 
-enum EnQuestUnlockConditionType {
-  EN_QUEST_UNLOCK_CONDITION_TYPE_INVALID = 0;
-  EN_QUEST_UNLOCK_CONDITION_TYPE_START_TIMEPOINT = 1;               // 开始时间   // 这个在生命周期里面配置
-  EN_QUEST_UNLOCK_CONDITION_TYPE_PLAYER_LEVEL = 2;                  // 玩家等级
-  EN_QUEST_UNLOCK_CONDITION_TYPE_PREVIOUS_QUEST = 3;                // 前置任务
-  EN_QUEST_UNLOCK_CONDITION_TYPE_ADDED_BY_OUT_BUSINESS_SYSTEM = 4;  // 被外部业务系统所添加
-  EN_QUEST_UNLOCK_CONDITION_TYPE_CHARACTER_HISTORY_MAX_LEVEL = 5;   // 角色历史最高等级
-  EN_QUEST_UNLOCK_CONDITION_TYPE_HAS_SPECIFY_CHARACTER = 6;         // 拥有指定角色
-}
-
-message DQuestUnlockConditionItem {
-  option (org.xresloader.msg_separator) = "@";
-  oneof unlock_type {
-    option (org.xresloader.oneof_separator) = "|";
-
-    int64 start_timepoint = 1;              // 开始时间   // 这个在生命周期里面配置
-    int64 player_level = 2;                 // 玩家等级
-    int64 previous_quest = 3;               // 前置任务
-    int64 add_by_out_business_system = 4;   // 被外部业务系统所添加
-    int64 character_history_max_level = 5;  // 角色历史最高等级
-    int64 has_specify_character = 6;        // 拥有指定角色
-  }  // 0 是直接解锁
-
-  int32 season_id = 1001;  // 条件对应的赛季ID
-}
-
 //
 enum EnQuestType {
   EN_QUEST_TYPE_UNDEFINE = 0;
-  EN_QUEST_TYPE_NEWBIE = 1 [(org.xresloader.enum_alias) = "新手"];
+  EN_QUEST_TYPE_MAIN = 1 [(org.xresloader.enum_alias) = "主线"];
   EN_QUEST_TYPE_DAILY = 2 [(org.xresloader.enum_alias) = "日常"];
-  EN_QUEST_TYPE_WEEKLY = 3 [(org.xresloader.enum_alias) = "周常"];
-  EN_QUEST_TYPE_OPERATIONAL_ACTIVITIES = 4 [(org.xresloader.enum_alias) = "运营活动"];  // Operational activities
-  EN_QUEST_TYPE_OPERATIONAL_ACTIVITIES_PASSPORT = 5
-      [(org.xresloader.enum_alias) = "运营活动-通行证"];  // Operational activities
+  EN_QUEST_TYPE_NEWBIE = 3 [(org.xresloader.enum_alias) = "新手"];
 }
 
 // 始终不展示、未解锁展示、领取不展示都放到这个枚举里面，可以使用二进制位描述
@@ -74,40 +46,10 @@ enum EnQuestDisplayType {
   EN_QUEST_DISPLAY_TYPE_ON_UNLOCK_AND_RECEIVE = 6 [(org.xresloader.enum_alias) = "未解锁也展示, 领取后需展示"];  // 110
 }
 
-enum EnQuestProgressType {
-  EN_QUEST_PROGRESS_TYPE_BATTLE_AUTO_COMPLETE = 0;    // 直接完成
-  EN_QUEST_PROGRESS_TYPE_ONLINE_TIME = 1;             // 在线时长
-  EN_QUEST_PROGRESS_TYPE_CUMULATIVE_LOGIN_DAYS = 2;   // 累计登录天数
-  EN_QUEST_PROGRESS_TYPE_CONSECUTIVE_LOGIN_DAYS = 3;  // 连续登陆天数
-  EN_QUEST_PROGRESS_TYPE_PLAYER_LEVEL = 4;            // 玩家等级
-  EN_QUEST_PROGRESS_TYPE_CHARACTER_ACQUIRE = 5;       // 获得角色
-  EN_QUEST_PROGRESS_TYPE_CHARACTER_LEVEL = 6;         // 角色等级
-  EN_QUEST_PROGRESS_TYPE_ITEM_ACQUIRE = 7;            // 物品获得数量达到, args: item_id
-  EN_QUEST_PROGRESS_TYPE_ITEM_CONSUME = 8;            // 物品消耗数量达到, args: item_id
-  EN_QUEST_PROGRESS_TYPE_CLIENT_UPDATE = 9;           // 客户端更新进度
-  EN_QUEST_PROGRESS_TYPE_QUEST_PROGRESS = 10;         // 任务进度
-}
-
 enum EnQuestProgressCountType {
   EN_QUEST_PROGRESS_COUNT_TYPE_UNDEFINE = 0;
   EN_QUEST_PROGRESS_COUNT_TYPE_SINGLE = 1 [(org.xresloader.enum_alias) = "单次"];
   EN_QUEST_PROGRESS_COUNT_TYPE_ADD_UP = 2 [(org.xresloader.enum_alias) = "累计"];
-}
-
-// 事件触发类型
-enum EnQuestTriggerType {
-  EN_QUEST_TRIGGER_TYPE_INVALID = 0;
-  EN_QUEST_TRIGGER_TYPE_PLAYER_LEVEL_PROMOTE = 1;           // 玩家等级提升 player_level， 角色历史最大等级提升
-  EN_QUEST_TRIGGER_TYPE_QUEST_COMPLETE = 2;                 // 任务完成   quest_id
-  EN_QUEST_TRIGGER_TYPE_QUEST_RECEIVE = 3;                  // 任务奖励领取 quest_id
-  EN_QUEST_TRIGGER_TYPE_LOGIN = 4;                          // 登录 login_timepoint
-  EN_QUEST_TRIGGER_TYPE_ONLINE = 5;                         // 在线 online_time
-  EN_QUEST_TRIGGER_TYPE_ITEM_ACQUIRE = 6;                   // 物品获得 item_id, count
-  EN_QUEST_TRIGGER_TYPE_ITEM_CONSUME = 7;                   // 物品消耗 item_id, count
-  EN_QUEST_TRIGGER_TYPE_TASK_TIME_TICK = 8;                 // 刷新时间 timepoint
-  EN_QUEST_TRIGGER_TYPE_ITEM_USE = 9;                       // 物品使用 item_id, count
-  EN_QUEST_TRIGGER_TYPE_SELL_ITEM = 10;                     // 物品出售 item_id, count
-  EN_QUEST_TRIGGER_TYPE_PLAYER_HIS_MAX_LEVEL_PROMOTE = 11;  // 玩家历史最大等级变更
 }
 
 enum EnQuestProgressResetPeriod {
@@ -126,4 +68,9 @@ enum EnQuestProgressValueCompareType {
   EN_QUEST_PROGRESS_VALUE_COMPARE_TYPE_GREATER_OR_EQUAL = 1;
   EN_QUEST_PROGRESS_VALUE_COMPARE_TYPE_LESS_OR_EQUAL = 2;
   EN_QUEST_PROGRESS_VALUE_COMPARE_TYPE_STRICTLY_EQUAL = 3;
+}
+
+enum EnQuestProgressStatusType {
+  EN_QUEST_PROGRESS_STATUS_PROGRESSING = 0;
+  EN_QUEST_PROGRESS_STATUS_COMPLETE = 1;
 }

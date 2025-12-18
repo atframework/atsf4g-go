@@ -26,7 +26,7 @@ message ExcelUserLevel {
 
   int32 level = 1 [(org.xresloader.field_unique_tag) = "level"];
   int64 exp = 2;
-  repeated DItemOffset level_up_reward = 3;
+  repeated DItemOffset level_up_reward = 11;
 }
 
 message ExcelUserInitializeItems {

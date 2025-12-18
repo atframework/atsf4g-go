@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
+
+package proy;
+
+message DPlayerBanMutlLanguages {
+  int32 languages = 1;
+  string reason = 2;
+}
+
+message DLoginBanExtreParam {
+  int64 device_ban_time = 101;  // 机器码封禁时长
+}
+
+message DSubModuleBan {
+  int32 ban_id = 1;
+  int64 ban_duration = 2;                       // 封禁时长
+  int64 ban_end_time = 3;                       // 封禁结束时间
+  string template_id = 4;                       // 是否使用模板
+  repeated DPlayerBanMutlLanguages reason = 5;  // 原因
+
+  oneof custom_data {
+    DLoginBanExtreParam login_data = 101;  // login
+  }
+}
+
+message DModuleUnlocked {
+  int32 module_id = 1;         // 模块id
+  int64 unlock_timepoint = 2;  // 解锁的时间戳, 该字段大于0表示已经解锁
+  bool global_forbid = 3;
+}
+
+message DUserModuleUnlockData {
+  repeated DModuleUnlocked unlock_modules = 1;  // 已经解锁的模块列表
+}
+
+message DUserModuleUnlockDirtyChg {
+  repeated DModuleUnlocked dirty_modules = 1;  // 已经解锁的模块列表
+}

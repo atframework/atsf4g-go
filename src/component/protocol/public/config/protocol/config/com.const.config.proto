@@ -12,7 +12,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 import "protocol/extension/xrescode_extensions_v3.proto";
-import "protocol/extension/v3/xresloader.proto";
+import "protocol/common/com.struct.base.common.proto";
 
 package proy.config;
 
@@ -27,6 +27,22 @@ enum GameConstConfig {
   EN_GCC_START_PLAYER_ID = 10000;         // start id for alloc player id
 }
 
+message TestConstSubStruct {
+  int32 test_int32 = 1;
+  string test_string = 2;
+}
+
+message TestConstStruct {
+  int32 test_int32 = 1;
+  string test_string = 2;
+  float test_float = 3;
+  google.protobuf.Duration test_duration = 4;
+  google.protobuf.Timestamp test_timestamp = 5;
+  TestConstSubStruct test_sub_struct = 10;
+  repeated int32 test_repeated_int32 = 11;
+  repeated TestConstSubStruct test_repeated_sub_struct = 12;
+}
+
 message ExcelConstConfig {
   option (xrescode.loader) = {
     file_path: "const_settings.bytes"
@@ -39,14 +55,18 @@ message ExcelConstConfig {
   // 虚拟的字段，用于生成读表代码。没有实际作用
   int32 fake_key = 9999;
 
-  google.protobuf.Duration test_duration = 1;
-  repeated google.protobuf.Timestamp test_timestamp = 2 [(org.xresloader.field_separator) = "\n"];
-  google.protobuf.Duration mail_default_expire = 3;
-  int32 mail_max_count_per_major_type = 4;
-  int32 global_mail_max_count_per_major_type = 5;
-  string i18n_system_admin = 6;
+  google.protobuf.Duration mail_default_expire = 1;
+  int32 mail_max_count_per_major_type = 2;
+  int32 global_mail_max_count_per_major_type = 3;
+  string i18n_system_admin = 4;
   google.protobuf.Duration delete_quest_cache_time = 8;
   google.protobuf.Timestamp timezone_base_timestamp = 9;
+  google.protobuf.Duration quest_index_refresh_interval = 10;
+  google.protobuf.Duration quest_index_max_cache_time = 11;  // 需要大于等于 refresh interval
+  int32 user_options_max_size = 13;  // DUserOptions 的最大允许size
+
+  google.protobuf.Duration unlock_index_refresh_interval = 23;
+  google.protobuf.Duration unlock_index_max_cache_time = 24;  // 需要大于等于 refresh interval
 }
 
 message ExcelOriginConstConfig {

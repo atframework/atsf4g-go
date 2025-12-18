@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config";
+
+import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
+
+import "protocol/common/com.struct.condition.common.proto";
+import "protocol/common/com.struct.unlock.common.proto";
+
+package proy.config;
+
+// 模块解锁类型
+message ExcelModuleUnlockType {
+  option (xrescode.loader) = {
+    file_path: "module_unlock_type.bytes"
+    indexes: { fields: "module_id" index_type: EN_INDEX_KV }
+
+    tags: "client"
+    tags: "server"
+  };
+  int32 module_id = 1 [(org.xresloader.field_unique_tag) = "module_id", (org.xresloader.validator) = "1200000-1300000"];
+  bool global_forbid = 2;
+  repeated DConditionRuleRangeTime daily_range_times = 3;
+  repeated DConditionRuleRangeDatetime date_range_times = 4;
+
+  repeated DFunctionUnlockCondition unlock_condition = 5;
+}
