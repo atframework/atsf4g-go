@@ -165,15 +165,29 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, sortI
 	}
 
 	// 商品解锁条件
-	if logic_condition.HasLimitData(productRow.GetPurchaseCondition()) {
-		conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
-		if conditionMgr == nil {
-			return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	{
+		if logic_condition.HasLimitData(productRow.GetDisplayCondition()) {
+			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
+			if conditionMgr == nil {
+				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			}
+
+			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetDisplayCondition(), logic_condition.CreateRuleCheckerRuntime())
+			if !rpcResult.IsOK() {
+				return rpcResult.GetResponseCode()
+			}
 		}
 
-		rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetPurchaseCondition(), logic_condition.CreateRuleCheckerRuntime())
-		if !rpcResult.IsOK() {
-			return rpcResult.GetResponseCode()
+		if logic_condition.HasLimitData(productRow.GetPurchaseCondition()) {
+			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
+			if conditionMgr == nil {
+				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			}
+
+			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetPurchaseCondition(), logic_condition.CreateRuleCheckerRuntime())
+			if !rpcResult.IsOK() {
+				return rpcResult.GetResponseCode()
+			}
 		}
 	}
 

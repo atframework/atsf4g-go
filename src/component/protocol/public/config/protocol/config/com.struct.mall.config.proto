@@ -61,8 +61,10 @@ message ExcelMallProduct {
   int32 display_order = 4;
   bool is_on_sale = 5;
   repeated DItemOffset product_items = 6;
-  DConditionBasicLimit purchase_condition = 7;
-  repeated DItemOffset purchase_cost = 8;
+  repeated DItemOffset purchase_cost = 7;
+
+  DConditionBasicLimit display_condition = 11;
+  DConditionBasicLimit purchase_condition = 12;
   // 总次数限制
   DConditionCounterLimit total_counter_condition = 31;
 }
