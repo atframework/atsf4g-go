@@ -36,7 +36,7 @@ func (t *TaskActionMallPurchase) Run(_startData *component_dispatcher.Dispatcher
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return fmt.Errorf("user mall manager not found")
 	}
-	t.SetResponseCode(manager.MallPurchase(t.GetRpcContext(), request_body.GetProductId(), request_body.GetSortId(), request_body.GetExpectCostItems(), response_body))
+	t.SetResponseCode(manager.MallPurchase(t.GetRpcContext(), request_body.GetProductId(), request_body.GetPurchasePriority(), request_body.GetExpectCostItems(), response_body))
 
 	return nil
 }

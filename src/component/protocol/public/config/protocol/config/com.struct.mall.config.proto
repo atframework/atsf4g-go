@@ -48,22 +48,22 @@ message ExcelMallSheet {
 message ExcelMallProduct {
   option (xrescode.loader) = {
     file_path: "mall_product.bytes"
-    indexes: { fields: "product_id" fields: "sort_id" index_type: EN_INDEX_KV }
-    indexes: { fields: "product_id" sort_by: "sort_id" index_type: EN_INDEX_KL }
+    indexes: { fields: "product_id" fields: "purchase_priority" index_type: EN_INDEX_KV }
+    indexes: { fields: "product_id" sort_by: "purchase_priority" index_type: EN_INDEX_KL }
 
     tags: "client"
     tags: "server"
   };
 
-  int32 product_id = 1 [(org.xresloader.field_unique_tag) = "product_id_sort_id"];
-  int32 sort_id = 2 [(org.xresloader.field_unique_tag) = "product_id_sort_id"];
+  int32 product_id = 1 [(org.xresloader.field_unique_tag) = "product_id_purchase_priority"];
+  int32 purchase_priority = 2 [(org.xresloader.field_unique_tag) = "product_id_purchase_priority"];
   int32 mall_sheet_id = 3 [(org.xresloader.validator) = "ExcelMallSheet_mall_sheet_id"];
   int32 display_order = 4;
   bool is_on_sale = 5;
   repeated DItemOffset product_items = 6;
   repeated DItemOffset purchase_cost = 7;
 
-  DConditionBasicLimit display_condition = 11;
+  DConditionBasicLimit unlock_condition = 11;
   DConditionBasicLimit purchase_condition = 12;
   // 总次数限制
   DConditionCounterLimit total_counter_condition = 31;

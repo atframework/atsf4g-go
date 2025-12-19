@@ -20,7 +20,7 @@ package proy;
 
 message CSMallPurchaseReq {
   int32 product_id = 1;
-  int32 sort_id = 2;
+  int32 purchase_priority = 2;
   repeated DItemBasic expect_cost_items = 3;
 }
 

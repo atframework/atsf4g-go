@@ -132,10 +132,10 @@ func (m *UserMallManager) ForeachConditionCounter(f func(storage *public_protoco
 
 /////////////////////////////////////////////////////////////////////////////////
 
-func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, sortId int32,
+func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purchasePriority int32,
 	expectCostItems []*public_protocol_common.DItemBasic, rspBody *service_protocol.SCMallPurchaseRsp) int32 {
 	// 先判断商城是否解锁
-	productRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallProductByProductIdSortId(productId, sortId)
+	productRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallProductByProductIdPurchasePriority(productId, purchasePriority)
 	if productRow == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PRODUCT_NOT_FOUND)
 	}
@@ -166,13 +166,13 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, sortI
 
 	// 商品解锁条件
 	{
-		if logic_condition.HasLimitData(productRow.GetDisplayCondition()) {
+		if logic_condition.HasLimitData(productRow.GetUnlockCondition()) {
 			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
 			if conditionMgr == nil {
 				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
 
-			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetDisplayCondition(), logic_condition.CreateRuleCheckerRuntime())
+			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetUnlockCondition(), logic_condition.CreateRuleCheckerRuntime())
 			if !rpcResult.IsOK() {
 				return rpcResult.GetResponseCode()
 			}
