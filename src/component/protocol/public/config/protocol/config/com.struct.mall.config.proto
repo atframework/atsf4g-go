@@ -55,7 +55,10 @@ message ExcelMallProduct {
     tags: "server"
   };
 
-  int32 product_id = 1 [(org.xresloader.field_unique_tag) = "product_id_purchase_priority"];
+  int32 product_id = 1 [
+    (org.xresloader.field_unique_tag) = "product_id_purchase_priority",
+    (org.xresloader.validator) = "ExcelItemIdRange_MallProduct"
+  ];
   int32 purchase_priority = 2 [(org.xresloader.field_unique_tag) = "product_id_purchase_priority"];
   int32 mall_sheet_id = 3 [(org.xresloader.validator) = "ExcelMallSheet_mall_sheet_id"];
   int32 display_order = 4;

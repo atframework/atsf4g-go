@@ -14,5 +14,4 @@ package proy;
 
 enum EnMallType {
   EN_MALL_TYPE_INVALID = 0;
-  EN_MALL_TYPE_BUILDING = 1;
 }

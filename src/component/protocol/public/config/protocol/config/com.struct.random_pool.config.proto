@@ -43,7 +43,7 @@ message ExcelRandomPool {
     tags: "server"
   };
 
-  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelItemIdRange_RandomPool"];
+  int32 pool_id = 1 [(org.xresloader.validator) = "ExcelRandomPool_random_pool_id_range"];
   EnRandomPoolType random_type = 2;
   int32 times = 3 [(org.xresloader.validator) = ">0"];
   repeated DRandomPoolElement elements = 4;

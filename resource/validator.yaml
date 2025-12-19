@@ -21,11 +21,15 @@ validator:
     rules:
       - 600000-699999
 
-
   - name: "ExcelItemIdRange_Quest"
-    description: "道具ID范围-角色卡牌"
+    description: "道具ID范围-任务"
     rules:
       - 8000000-8999999
+
+  - name: "ExcelItemIdRange_MallProduct"
+    description: "道具ID范围-商城商品"
+    rules:
+      - 9000000-9999999
 
   - name: "ExcelItemIdRange_ALL"
     description: "可用道具ID范围"
@@ -36,6 +40,7 @@ validator:
       - ExcelItemIdRange_RandomPool
       - ExcelItemIdRange_Prop
       - ExcelItemIdRange_Quest
+      - ExcelItemIdRange_MallProduct
 
   - name: "ExcelItem_ALL_item_id"
     description: "Item.xlsx|道具描述总表|item_id 值校验"
@@ -51,15 +56,23 @@ validator:
       - Not(InValues(0))
       - Not(ExcelItemIdRange_VirtualReadonly)
 
+  - name: "ExcelRandomPool_random_pool_id_range"
+    description: "RandomPool Item.xlsx ID 校验"
+    mode: "and"
+    rules:
+      - ExcelItem_ALL_item_id
+      - ExcelItemIdRange_RandomPool
 
   - name: "ExcelRandomPool_element_type_id"
-    description: "随机池元素道具ID"
+    description: "ExcelItem_ADDABLE_item_id or 8003 校验"
+    mode: "or"
     rules:
       - 8003
       - ExcelItem_ADDABLE_item_id
 
   - name: "ExcelRandomPool_pool_id"
     description: "RandomPool.xlsx|RandomPool|pool_id 值校验"
+    mode: "or"
     rules:
       - InTableColumn("RandomPool.xlsx", "RandomPool", 3, 2, "pool_id")
       - InTableColumn("RandomPool.xlsx", "RandomPoolMerge", 3, 2, "pool_id")

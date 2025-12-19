@@ -21,6 +21,7 @@ enum EnItemType {
   EN_ITEM_TYPE_MONEY = 61 [(org.xresloader.enum_alias) = "money"];
   EN_ITEM_TYPE_PROP = 101 [(org.xresloader.enum_alias) = "prop"];
   EN_ITEM_TYPE_RANDOM_POOL = 230 [(org.xresloader.enum_alias) = "random_pool"];
+  EN_ITEM_TYPE_MALL_PRODUCT = 261 [(org.xresloader.enum_alias) = "mall_product"];
 }
 
 enum EnItemTypeRange {
@@ -35,8 +36,10 @@ enum EnItemTypeRange {
   EN_ITEM_TYPE_RANGE_RANDOM_POOL_END = 600000;
   EN_ITEM_TYPE_RANGE_PROP_BEGIN = 600000;
   EN_ITEM_TYPE_RANGE_PROP_END = 700000;
-  EN_ITEM_TYPE_RANGE_QUEST_BEGIN = 8000000;  // 8e6
-  EN_ITEM_TYPE_RANGE_QUEST_END = 9000000;    // 9e6
+  EN_ITEM_TYPE_RANGE_QUEST_BEGIN = 8000000;
+  EN_ITEM_TYPE_RANGE_QUEST_END = 9000000;
+  EN_ITEM_TYPE_RANGE_MALL_PRODUCT_BEGIN = 9000000;
+  EN_ITEM_TYPE_RANGE_MALL_PRODUCT_END = 10000000;
 }
 
 enum EnItemMoneyType {
