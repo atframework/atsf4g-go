@@ -68,6 +68,7 @@ enum EnItemFlowReasonMinorType {
   // User
   EN_ITEM_FLOW_REASON_MINOR_USER_INIT_ITEM = 1001;        // 创建角色初始道具
   EN_ITEM_FLOW_REASON_MINOR_USER_LEVEL_UP_REWARD = 1002;  // 升级奖励
+  EN_ITEM_FLOW_REASON_MINOR_USER_USE_ITEM = 1003;  // 使用道具
 
   // GM command
   EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM = 2001;  // GM 加道具
@@ -114,8 +115,14 @@ message DItemScopeOffset {
 
 message DItemUseAction {
   oneof action_type {
-    int64 add_role_exp = 1 [(org.xresloader.field_unique_tag) = "item"];
+    option (org.xresloader.oneof_separator) = "#";
+    int32 random_pool = 1
+        [(org.xresloader.validator) = "ExcelRandomPool_pool_id", (org.xresloader.field_alias) = "随机池"];
   }
+}
+
+message DItemUseParam {
+  repeated int32 random_pool_index = 1;
 }
 
 message DItemAutoReward {

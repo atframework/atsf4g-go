@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	base "github.com/atframework/atsf4g-go/robot/base"
 	config "github.com/atframework/atsf4g-go/robot/config"
@@ -148,12 +149,21 @@ func GMRpc(action *user_data.TaskActionUser, args []string) (int32, *lobysvr_pro
 	return user_data.SendUserSendGmCommand(action, csBody, true)
 }
 
+func UsingItemRpc(action *user_data.TaskActionUser, item *public_protocol_common.DItemBasic, param *public_protocol_common.DItemUseParam) (int32, *lobysvr_protocol_pbdesc.SCUserUseItemRsp, error) {
+	csBody := &lobysvr_protocol_pbdesc.CSUserUseItemReq{
+		Item:     item,
+		UseParam: param,
+	}
+	return user_data.SendUserUseItem(action, csBody, true)
+}
+
 // ========================= 注册指令 =========================
 func init() {
 	utils.RegisterCommand([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议", nil)
 	utils.RegisterCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议", nil)
 	utils.RegisterCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
 	utils.RegisterCommand([]string{"user", "benchmark"}, BenchmarkCmd, "", "压测协议", nil)
+	utils.RegisterCommand([]string{"user", "useItem"}, UseItemCmd, "<itemId> <count> [use_param_index]", "使用道具协议", nil)
 	utils.RegisterCommand([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
 	utils.RegisterCommand([]string{"user", "show_all_login_user"}, func(action base.TaskActionImpl, cmd []string) string {
 		userMapLock.Lock()
@@ -359,6 +369,46 @@ func GetInfoCmd(action base.TaskActionImpl, cmd []string) string {
 			return
 		}
 		task.User.SetHasGetInfo(true)
+	}))
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func UseItemCmd(action base.TaskActionImpl, cmd []string) string {
+	if len(cmd) < 2 {
+		return "Args Error"
+	}
+
+	itemId, err := strconv.ParseInt(cmd[0], 10, 32)
+	if err != nil {
+		return err.Error()
+	}
+	count, err := strconv.ParseInt(cmd[1], 10, 64)
+	if err != nil {
+		return err.Error()
+	}
+
+	item := &public_protocol_common.DItemBasic{
+		TypeId: int32(itemId),
+		Count:  int64(count),
+	}
+	param := &public_protocol_common.DItemUseParam{}
+	for index := 2; index < len(cmd); index++ {
+		index, err := strconv.ParseInt(cmd[index], 10, 32)
+		if err != nil {
+			return err.Error()
+		}
+		param.RandomPoolIndex = append(param.RandomPoolIndex, int32(index))
+	}
+
+	action.AwaitTask(user_data.CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) {
+		_, _, rpcErr := UsingItemRpc(task, item, param)
+		if rpcErr != nil {
+			err = rpcErr
+			return
+		}
 	}))
 	if err != nil {
 		return err.Error()

@@ -236,6 +236,8 @@ enum EnErrorCode {
                                               [(error_code.description) = "自选个数错误"];
   EN_ERR_RANDOM_POOL_CUSTOM_INDEX_NOT_MATCH = -316
                                               [(error_code.description) = "自选位置错误"];
+  EN_ERR_RANDOM_POOL_CUSTOM_INDEX_REPEAT = -317
+                                              [(error_code.description) = "自选重复"];
 
   // 登录服务的返回错误码
   EN_ERR_LOGIN_BAN = -401
@@ -288,6 +290,8 @@ enum EnErrorCode {
                                  [(error_code.description) = "金币不足"];
   EN_ERR_MONEY_CASH_NOT_ENOUGH = -506
                                  [(error_code.description) = "点券不足"];
+  EN_ERR_ITEM_CANNOT_USE = -507
+                                [(error_code.description) = "道具不可使用"];
 
   // 玩家相关错误码
   EN_ERR_USER_MIN_LEVEL_LIMIT = -701

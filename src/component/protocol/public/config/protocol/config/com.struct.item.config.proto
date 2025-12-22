@@ -38,6 +38,7 @@ message ExcelItem {
   string icon = 8 [(org.xresloader.field_tag) = "client_only"];
   string desc = 9 [(org.xresloader.field_tag) = "client_only"];
   int32 not_enough_error_code = 10;
+  DItemUseAction use_action = 12;
 }
 
 message ExcelItemReset {

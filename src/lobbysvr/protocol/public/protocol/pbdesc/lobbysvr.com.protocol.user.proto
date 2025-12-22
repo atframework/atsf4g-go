@@ -199,3 +199,13 @@ message CSUserUpdateClientOptionReq {
 
 // 用户更新设置请求
 message SCUserUpdateClientOptionRsp {}
+
+// 用户使用道具
+message CSUserUseItemReq {
+  DItemBasic item = 1;
+  DItemUseParam use_param = 2;
+}
+
+message SCUserUseItemRsp {
+  repeated DItemInstance gain_item = 1;
+}

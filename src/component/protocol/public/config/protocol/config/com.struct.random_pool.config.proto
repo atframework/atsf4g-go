@@ -30,6 +30,7 @@ message DRandomPoolElement {
   int32 type_id = 1 [(org.xresloader.validator) = "ExcelRandomPool_element_type_id"];
   DRandomPoolElementCount count = 2;
   int32 weight = 3 [(org.xresloader.validator) = ">0", (org.xresloader.field_tag) = "server_only"];
+  int32 index = 4;
 }
 
 ///////////////// 以下接口不应该直接使用 //////////////////////

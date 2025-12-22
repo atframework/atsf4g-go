@@ -3,6 +3,7 @@ package atframework_component_config
 import (
 	"fmt"
 	"math/rand/v2"
+	"sort"
 
 	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
@@ -13,9 +14,9 @@ import (
 
 // ---------------- 接口 ----------------
 
-func RandomWithPool(poolID int32, count int64, customIndex []int32) (ret int32, result []*public_protocol_common.DItemOffset) {
+func RandomWithPool(poolID int32, count int64, customIndex []int32) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	if !IsRandomPool(poolID) {
-		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_RANDOM_POOL)
+		ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_RANDOM_POOL
 		return
 	}
 
@@ -80,13 +81,27 @@ func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 			}
 		}
 	}
+	// 处理自选数据
+	for _, v := range group.GetCustomIndex().RandomPoolIndex {
+		if v.RandomType != public_protocol_config.EnRandomPoolType_EN_RANDOM_POOL_TYPE_CUSTOM {
+			continue
+		}
+		sort.SliceStable(v.Elements, func(i, j int) bool {
+			return v.Elements[i].GetIndex() < v.Elements[j].GetIndex()
+		})
+		for index, element := range v.Elements {
+			if element.GetIndex() != int32(index) {
+				return fmt.Errorf("random pool id: %d element index error %d != %d", v.PoolId, element.GetIndex(), index)
+			}
+		}
+	}
 	// 处理内容物数据
 	for _, randomPool := range group.GetCustomIndex().RandomPoolIndex {
 		if randomPool.ObtainedElements != nil {
 			continue
 		}
 		used := make(map[int32]struct{})
-		err := initObtainedElements(group.GetCustomIndex().RandomPoolIndex, randomPool, used)
+		err := initObtainedElements(group.GetCustomIndex().RandomPoolIndex, randomPool, used, true)
 		if err != nil {
 			return fmt.Errorf("random pool id: %d init error %v", randomPool.PoolId, err)
 		}
@@ -95,9 +110,13 @@ func initExcelRandomPoolConfigIndex(group *generate_config.ConfigGroup) error {
 	return nil
 }
 
-func initObtainedElements(config map[int32]*atframework_component_config_custom_index_type.ExcelConfigRandomPool, randomPool *atframework_component_config_custom_index_type.ExcelConfigRandomPool, used map[int32]struct{}) error {
+func initObtainedElements(config map[int32]*atframework_component_config_custom_index_type.ExcelConfigRandomPool, randomPool *atframework_component_config_custom_index_type.ExcelConfigRandomPool, used map[int32]struct{}, firstLevel bool) error {
 	if _, exists := used[randomPool.PoolId]; exists {
 		return fmt.Errorf("RandomPool RECURSIVE")
+	}
+	if !firstLevel && randomPool.RandomType == public_protocol_config.EnRandomPoolType_EN_RANDOM_POOL_TYPE_CUSTOM {
+		// 自选不允许在第二层
+		return fmt.Errorf("RandomPool Custom not in first level")
 	}
 	used[randomPool.PoolId] = struct{}{}
 
@@ -111,7 +130,7 @@ func initObtainedElements(config map[int32]*atframework_component_config_custom_
 			if !ok {
 				return fmt.Errorf("RandomPool NOT FOUND")
 			}
-			err := initObtainedElements(config, subPool, used)
+			err := initObtainedElements(config, subPool, used, false)
 			if err != nil {
 				return err
 			}
@@ -132,10 +151,10 @@ func IsRandomPool(id int32) bool {
 
 func randomWithPoolInternal(poolID int32, used map[int32]struct{},
 	customIndex []int32,
-) (ret int32, result []*public_protocol_common.DItemOffset) {
+) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	row := GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetRandomPool(poolID)
 	if row == nil {
-		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_FOUND)
+		ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_FOUND
 		return
 	}
 
@@ -144,7 +163,7 @@ func randomWithPoolInternal(poolID int32, used map[int32]struct{},
 	}
 
 	if _, exists := used[poolID]; exists {
-		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_RECURSIVE)
+		ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_RECURSIVE
 		return
 	}
 
@@ -160,7 +179,7 @@ func randomWithPoolInternal(poolID int32, used map[int32]struct{},
 	case public_protocol_config.EnRandomPoolType_EN_RANDOM_POOL_TYPE_CUSTOM:
 		ret, result = handleCustom(row.Elements, row.Times, used, customIndex)
 	default:
-		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_TYPE_NOT_SUPPORT)
+		ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_TYPE_NOT_SUPPORT
 		return
 	}
 	delete(used, poolID)
@@ -168,7 +187,7 @@ func randomWithPoolInternal(poolID int32, used map[int32]struct{},
 }
 
 // N选1, 执行M次
-func handleIndependent(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func handleIndependent(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	var sumWeight int32
 
 	for _, e := range elements {
@@ -203,7 +222,7 @@ func handleIndependent(elements []*public_protocol_config.Readonly_DRandomPoolEl
 }
 
 // N选M 不重复
-func handleExclusive(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func handleExclusive(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	valid := make([]*public_protocol_config.Readonly_DRandomPoolElement, 0)
 	var sumWeight int32
 	for _, e := range elements {
@@ -261,16 +280,27 @@ func handleExclusive(elements []*public_protocol_config.Readonly_DRandomPoolElem
 // 自选池
 func handleCustom(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{},
 	customIndex []int32,
-) (ret int32, result []*public_protocol_common.DItemOffset) {
+) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	if len(customIndex) != int(times) {
-		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_CUSTOM_TIMES_NOT_MATCH)
+		ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_CUSTOM_TIMES_NOT_MATCH
 		return
+	}
+	var usedIndex map[int32]struct{}
+	if times > 1 {
+		usedIndex = make(map[int32]struct{})
 	}
 
 	for i := 0; i < int(times); i++ {
 		if int(customIndex[i]) >= len(elements) || customIndex[i] < 0 {
-			ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_CUSTOM_INDEX_NOT_MATCH)
+			ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_CUSTOM_INDEX_NOT_MATCH
 			return
+		}
+		if usedIndex != nil {
+			if _, exists := usedIndex[customIndex[i]]; exists {
+				ret = public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_CUSTOM_INDEX_REPEAT
+				return
+			}
+			usedIndex[customIndex[i]] = struct{}{}
 		}
 		if validElement(elements[customIndex[i]]) {
 			var currentResult []*public_protocol_common.DItemOffset
@@ -285,7 +315,7 @@ func handleCustom(elements []*public_protocol_config.Readonly_DRandomPoolElement
 }
 
 // 下发所有道具
-func handleAll(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func handleAll(elements []*public_protocol_config.Readonly_DRandomPoolElement, times int32, used map[int32]struct{}) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	for i := 0; i < int(times); i++ {
 		for _, e := range elements {
 			if validElement(e) {
@@ -303,7 +333,7 @@ func handleAll(elements []*public_protocol_config.Readonly_DRandomPoolElement, t
 
 // ---------------- 工具函数 ----------------
 
-func addRandomResult(item *public_protocol_config.Readonly_DRandomPoolElement, used map[int32]struct{}) (ret int32, result []*public_protocol_common.DItemOffset) {
+func addRandomResult(item *public_protocol_config.Readonly_DRandomPoolElement, used map[int32]struct{}) (ret public_protocol_pbdesc.EnErrorCode, result []*public_protocol_common.DItemOffset) {
 	minCount := item.GetCount().GetMinCount()
 	maxCount := item.GetCount().GetMaxCount()
 	if minCount > maxCount {

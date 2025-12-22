@@ -820,6 +820,79 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *It
 	return result
 }
 
+func (u *User) UseItem(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,
+	useParam *public_protocol_common.DItemUseParam, reason *ItemFlowReason) ([]*public_protocol_common.DItemInstance, Result) {
+	typeId := itemBasic.GetTypeId()
+	if itemBasic.GetCount() <= 0 {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+	row := config.GetConfigManager().GetCurrentConfigGroup().GetExcelItemByItemId(typeId)
+	if row == nil {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_INVALID_TYPE_ID)
+	}
+	if row.GetUseAction().GetActionTypeOneofCase() == 0 {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_CANNOT_USE)
+	}
+	result := u.checkUseItem(ctx, itemBasic, row.GetUseAction(), useParam)
+	if result.IsError() {
+		return nil, result
+	}
+
+	guard, result := u.CheckSubItem(ctx, []*public_protocol_common.DItemBasic{itemBasic})
+	if result.IsError() {
+		return nil, result
+	}
+
+	u.SubItem(ctx, guard, reason)
+
+	return u.useItemInner(ctx, itemBasic, row.GetUseAction(), useParam, reason)
+}
+
+func (u *User) checkUseItem(_ cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,
+	useAction *public_protocol_common.Readonly_DItemUseAction, useParam *public_protocol_common.DItemUseParam) Result {
+	switch useAction.GetActionTypeOneofCase() {
+	case public_protocol_common.DItemUseAction_EnActionTypeID_RandomPool:
+		ret, _ := config.RandomWithPool(useAction.GetRandomPool(), itemBasic.GetCount(), useParam.GetRandomPoolIndex())
+		if ret != 0 {
+			return cd.CreateRpcResultError(nil, ret)
+		}
+	}
+	return cd.CreateRpcResultOk()
+}
+
+func (u *User) useItemInner(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,
+	useAction *public_protocol_common.Readonly_DItemUseAction, useParam *public_protocol_common.DItemUseParam, reason *ItemFlowReason) ([]*public_protocol_common.DItemInstance, Result) {
+	switch useAction.GetActionTypeOneofCase() {
+	case public_protocol_common.DItemUseAction_EnActionTypeID_RandomPool:
+		poolId := useAction.GetRandomPool()
+		poolCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelRandomPoolByPoolId(poolId)
+		if poolCfg == nil {
+			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_FOUND)
+		}
+
+		ret, items := config.RandomWithPool(poolId, itemBasic.GetCount(), useParam.GetRandomPoolIndex())
+		if ret != 0 {
+			return nil, cd.CreateRpcResultError(nil, ret)
+		}
+
+		itemInsts, result := u.GenerateMultipleItemInstancesFromOffset(ctx, items, true)
+		if result.IsError() {
+			return nil, result
+		}
+		guard, result := u.CheckAddItem(ctx, itemInsts)
+		if result.IsError() {
+			return nil, result
+		}
+		u.AddItem(ctx, guard, reason)
+		gainItem := []*public_protocol_common.DItemInstance{}
+		for _, item := range guard {
+			gainItem = append(gainItem, item.GetAddedItems()...)
+		}
+		return gainItem, cd.CreateRpcResultOk()
+	}
+	return nil, cd.CreateRpcResultOk()
+}
+
 func (u *User) GenerateItemInstanceFromCfgOffset(ctx cd.RpcContext, itemOffset *public_protocol_common.Readonly_DItemOffset) (*public_protocol_common.DItemInstance, Result) {
 	typeId := itemOffset.GetTypeId()
 	mgr := u.GetItemManager(typeId)
@@ -940,7 +1013,7 @@ func (u *User) unpackMergeItemOffset(ctx cd.RpcContext, itemOffset []*public_pro
 			if exists {
 				existItem.GetItemBasic().Count += item.GetItemBasic().GetCount()
 			} else {
-				v[item.GetItemBasic().GetGuid()] = item
+				v[item.GetItemBasic().GetGuid()] = item.Clone()
 				itemOffsetSize++
 			}
 		}
@@ -958,7 +1031,7 @@ func (u *User) unpackMergeItemOffset(ctx cd.RpcContext, itemOffset []*public_pro
 }
 
 func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_common.DItemInstance) ([]*ItemAddGuard, Result) {
-	unpaclMergeItemOffset, result := u.unpackMergeItemOffset(ctx, itemOffset)
+	unpackMergeItemOffset, result := u.unpackMergeItemOffset(ctx, itemOffset)
 	if result.IsError() {
 		return nil, result
 	}
@@ -966,7 +1039,7 @@ func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 	splitByMgr := make(map[UserItemManagerImpl]*struct {
 		data []*public_protocol_common.DItemInstance
 	})
-	for _, offset := range unpaclMergeItemOffset {
+	for _, offset := range unpackMergeItemOffset {
 		typeId := offset.GetItemBasic().GetTypeId()
 		mgr := u.GetItemManager(typeId)
 		if mgr == nil {
@@ -986,7 +1059,7 @@ func (u *User) CheckAddItem(ctx cd.RpcContext, itemOffset []*public_protocol_com
 		group.data = append(group.data, offset)
 	}
 
-	ret := make([]*ItemAddGuard, 0, len(unpaclMergeItemOffset))
+	ret := make([]*ItemAddGuard, 0, len(unpackMergeItemOffset))
 	for mgr, group := range splitByMgr {
 		subRet, subResult := mgr.CheckAddItem(ctx, group.data)
 		if subResult.IsError() {
