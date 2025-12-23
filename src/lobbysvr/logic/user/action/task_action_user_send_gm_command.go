@@ -12,6 +12,7 @@ import (
 	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -114,6 +115,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "unlock-module", "<module_id>", "unlock special module", (*TaskActionUserSendGmCommand).runGMCmdUnlockModule)
 	registerGmCommandHandle(callbacks, "query-module-status", "<module_id>", "query special module", (*TaskActionUserSendGmCommand).runGMCmdQueryModuleStatus)
 	registerGmCommandHandle(callbacks, "del-account", "", "删除账号", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
+	registerGmCommandHandle(callbacks, "copy-account", "<new_account_id>", "拷贝账号", (*TaskActionUserSendGmCommand).runGMCmdCopyAccount)
 
 	return callbacks
 }
@@ -655,5 +657,38 @@ func (t *TaskActionUserSendGmCommand) runGMCmdDelAccount(ctx component_dispatche
 		db.DatabaseTableLoginLockDelWithUserId(childCtx, user.GetUserId())
 		db.DatabaseTableUserDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())
 	})
+	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdCopyAccount(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("invalid arguments for lottery-reset-pool <pool id> command")
+	}
+
+	newUserId, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid count: %w", err)
+	}
+
+	if newUserId == user.GetUserId() {
+		return nil, fmt.Errorf("new user id cannot be the same as the current user id")
+	}
+
+	dstUserTb := &private_protocol_pbdesc.DatabaseTableUser{}
+	result := user.DumpToDB(ctx, dstUserTb)
+	if result.IsError() {
+		// 走到这会丢数据
+		result.LogError(ctx, "dump user to db failed")
+		return nil, fmt.Errorf("dump user to db failed")
+	}
+
+	var version uint64
+	dstUserTb.UserId = newUserId
+	db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstUserTb, &version, true)
+	copy := user.GetLoginLockInfo().Clone()
+	copy.UserId = newUserId
+	copy.ExpectTableUserDbVersion = 0
+	db.DatabaseTableLoginLockUpdateUserId(ctx, copy, &version, true)
+
 	return []string{""}, nil
 }
