@@ -1,6 +1,8 @@
 package libatframe_utils_proto_utility
 
 import (
+	"strings"
+
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 
@@ -22,4 +24,25 @@ func MessageReadableText(msg proto.Message) string {
 		return ""
 	}
 	return lu.BytestoString(data)
+}
+
+func MessageReadableTextIndent(msg proto.Message) string {
+	if lu.IsNil(msg) {
+		return "<nil_proto_message>"
+	}
+	marshaler := prototext.MarshalOptions{
+		Multiline: true, // 多行显示
+		Indent:    "  ", // 缩进
+	}
+	data, err := marshaler.Marshal(msg)
+	if err != nil {
+		return ""
+	}
+
+	str := lu.BytestoString(data)
+	if str == "" {
+		return ""
+	}
+	str = strings.TrimRight(str, "\n")
+	return "  " + strings.ReplaceAll(str, "\n", "\n  ") + "\n"
 }

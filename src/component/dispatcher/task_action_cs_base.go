@@ -285,15 +285,15 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 		// 输出CSLOG
 		logWriter := t.GetCsActorLogWriter()
 		if logWriter != nil {
-			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\nHead:{\n%s}\nBody:{\n%s}\n",
+			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\nHead:{\n%s}\nBody:{\n%s}",
 				now.Format("2006-01-02 15:04:05.000"), t.session.GetSessionId(), t.rpcDescriptor.Output().FullName(),
-				pu.MessageReadableText(responseMsg.Head),
-				pu.MessageReadableText(t.responseBody))
+				pu.MessageReadableTextIndent(responseMsg.Head),
+				pu.MessageReadableTextIndent(t.responseBody))
 		} else if t.session.IsEnableActorLog() {
-			t.session.InsertPendingActorLog(fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\nHead:{\n%s}\nBody:{\n%s}\n",
+			t.session.InsertPendingActorLog(fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\nHead:{\n%s}\nBody:{\n%s}",
 				now.Format("2006-01-02 15:04:05.000"), t.session.GetSessionId(), t.rpcDescriptor.Output().FullName(),
-				pu.MessageReadableText(responseMsg.Head),
-				pu.MessageReadableText(t.responseBody)))
+				pu.MessageReadableTextIndent(responseMsg.Head),
+				pu.MessageReadableTextIndent(t.responseBody)))
 		}
 
 		err = t.session.SendMessage(responseMsg)
@@ -361,15 +361,15 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *Dispatc
 	// 输出CSLOG
 	logWriter := t.GetCsActorLogWriter()
 	if logWriter != nil {
-		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\nHead:{\n%s}\nBody:{\n%s}\n",
+		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\nHead:{\n%s}\nBody:{\n%s}",
 			t.GetSysNow().Format("2006-01-02 15:04:05.000"), t.session.GetSessionId(), t.requestHead.GetRpcRequest().GetTypeUrl(),
-			pu.MessageReadableText(t.requestHead),
-			pu.MessageReadableText(t.requestBody))
+			pu.MessageReadableTextIndent(t.requestHead),
+			pu.MessageReadableTextIndent(t.requestBody))
 	} else if t.session.IsEnableActorLog() {
-		t.session.InsertPendingActorLog(fmt.Sprintf("%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\nHead:{\n%s}\nBody:{\n%s}\n",
+		t.session.InsertPendingActorLog(fmt.Sprintf("%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\nHead:{\n%s}\nBody:{\n%s}",
 			t.GetSysNow().Format("2006-01-02 15:04:05.000"), t.session.GetSessionId(), t.requestHead.GetRpcRequest().GetTypeUrl(),
-			pu.MessageReadableText(t.requestHead),
-			pu.MessageReadableText(t.requestBody)))
+			pu.MessageReadableTextIndent(t.requestHead),
+			pu.MessageReadableTextIndent(t.requestBody)))
 	}
 
 	user := t.GetUser()
