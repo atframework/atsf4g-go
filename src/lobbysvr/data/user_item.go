@@ -170,47 +170,26 @@ func (u *User) UseItem(ctx cd.RpcContext, itemBasic *public_protocol_common.DIte
 	return u.useItemInner(ctx, itemBasic, row.GetUseAction(), useParam, reason)
 }
 
-func (u *User) checkUseItem(_ cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,
+func (u *User) checkUseItem(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,
 	useAction *public_protocol_common.Readonly_DItemUseAction, useParam *public_protocol_common.DItemUseParam) Result {
-	switch useAction.GetActionTypeOneofCase() {
-	case public_protocol_common.DItemUseAction_EnActionTypeID_RandomPool:
-		ret, _ := config.RandomWithPool(useAction.GetRandomPool(), itemBasic.GetCount(), useParam.GetRandomPoolIndex())
-		if ret != 0 {
-			return cd.CreateRpcResultError(nil, ret)
-		}
+	handlers, exists := useItemHandlerRegistry[useAction.GetActionTypeOneofCase()]
+	if !exists || handlers == nil {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_CANNOT_USE)
+	}
+	if handlers.CheckUseItemHandler != nil {
+		return handlers.CheckUseItemHandler(ctx, u, useAction, itemBasic, useParam)
 	}
 	return cd.CreateRpcResultOk()
 }
 
 func (u *User) useItemInner(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,
 	useAction *public_protocol_common.Readonly_DItemUseAction, useParam *public_protocol_common.DItemUseParam, reason *ItemFlowReason) ([]*public_protocol_common.DItemInstance, Result) {
-	switch useAction.GetActionTypeOneofCase() {
-	case public_protocol_common.DItemUseAction_EnActionTypeID_RandomPool:
-		poolId := useAction.GetRandomPool()
-		poolCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelRandomPoolByPoolId(poolId)
-		if poolCfg == nil {
-			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_FOUND)
-		}
-
-		ret, items := config.RandomWithPool(poolId, itemBasic.GetCount(), useParam.GetRandomPoolIndex())
-		if ret != 0 {
-			return nil, cd.CreateRpcResultError(nil, ret)
-		}
-
-		itemInsts, result := u.GenerateMultipleItemInstancesFromOffset(ctx, items, true)
-		if result.IsError() {
-			return nil, result
-		}
-		guard, result := u.CheckAddItem(ctx, itemInsts)
-		if result.IsError() {
-			return nil, result
-		}
-		u.AddItem(ctx, guard, reason)
-		gainItem := []*public_protocol_common.DItemInstance{}
-		for _, item := range guard {
-			gainItem = append(gainItem, item.GetAddedItems()...)
-		}
-		return gainItem, cd.CreateRpcResultOk()
+	handlers, exists := useItemHandlerRegistry[useAction.GetActionTypeOneofCase()]
+	if !exists || handlers == nil {
+		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_CANNOT_USE)
+	}
+	if handlers.UseItemHandler != nil {
+		return handlers.UseItemHandler(ctx, u, useAction, itemBasic, useParam, reason)
 	}
 	return nil, cd.CreateRpcResultOk()
 }
@@ -572,4 +551,75 @@ func (u *User) MergeCostItem(expectCost ...[]*public_protocol_common.Readonly_DI
 	}
 
 	return ret
+}
+
+type CheckUseItemHandle = func(ctx cd.RpcContext, user *User, useAction *public_protocol_common.Readonly_DItemUseAction, itemBasic *public_protocol_common.DItemBasic, useParam *public_protocol_common.DItemUseParam) Result
+type UseItemHandle = func(ctx cd.RpcContext, user *User, useAction *public_protocol_common.Readonly_DItemUseAction, itemBasic *public_protocol_common.DItemBasic, useParam *public_protocol_common.DItemUseParam, reason *ItemFlowReason) ([]*public_protocol_common.DItemInstance, Result)
+
+type UseItemHandlers struct {
+	CheckUseItemHandler CheckUseItemHandle
+	UseItemHandler      UseItemHandle
+}
+
+var useItemHandlerRegistry = make(map[public_protocol_common.DItemUseAction_EnActionTypeID]*UseItemHandlers)
+
+func RegisterUseItemHandler(useAction public_protocol_common.DItemUseAction_EnActionTypeID,
+	checkUseItemHandler CheckUseItemHandle,
+	useItemHandler UseItemHandle,
+) {
+	if useAction <= 0 {
+		return
+	}
+
+	if checkUseItemHandler == nil && useItemHandler == nil {
+		return
+	}
+
+	handlers := &UseItemHandlers{
+		CheckUseItemHandler: checkUseItemHandler,
+		UseItemHandler:      useItemHandler,
+	}
+
+	useItemHandlerRegistry[useAction] = handlers
+}
+
+func init() {
+	RegisterUseItemHandler(
+		public_protocol_common.DItemUseAction_EnActionTypeID_RandomPool,
+		func(ctx cd.RpcContext, user *User, useAction *public_protocol_common.Readonly_DItemUseAction,
+			itemBasic *public_protocol_common.DItemBasic, useParam *public_protocol_common.DItemUseParam) Result {
+			ret, _ := config.RandomWithPool(useAction.GetRandomPool(), itemBasic.GetCount(), useParam.GetRandomPoolIndex())
+			if ret != 0 {
+				return cd.CreateRpcResultError(nil, ret)
+			}
+			return cd.CreateRpcResultOk()
+		},
+		func(ctx cd.RpcContext, user *User, useAction *public_protocol_common.Readonly_DItemUseAction, itemBasic *public_protocol_common.DItemBasic,
+			useParam *public_protocol_common.DItemUseParam, reason *ItemFlowReason) ([]*public_protocol_common.DItemInstance, Result) {
+			poolId := useAction.GetRandomPool()
+			poolCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelRandomPoolByPoolId(poolId)
+			if poolCfg == nil {
+				return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RANDOM_POOL_NOT_FOUND)
+			}
+
+			ret, items := config.RandomWithPool(poolId, itemBasic.GetCount(), useParam.GetRandomPoolIndex())
+			if ret != 0 {
+				return nil, cd.CreateRpcResultError(nil, ret)
+			}
+
+			itemInsts, result := user.GenerateMultipleItemInstancesFromOffset(ctx, items, true)
+			if result.IsError() {
+				return nil, result
+			}
+			guard, result := user.CheckAddItem(ctx, itemInsts)
+			if result.IsError() {
+				return nil, result
+			}
+			user.AddItem(ctx, guard, reason)
+			gainItem := []*public_protocol_common.DItemInstance{}
+			for _, item := range guard {
+				gainItem = append(gainItem, item.GetAddedItems()...)
+			}
+			return gainItem, cd.CreateRpcResultOk()
+		})
 }
