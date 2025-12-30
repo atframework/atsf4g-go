@@ -138,6 +138,9 @@ func ${message_name}LoadWith${index_key_name}(
 		return
 	}
 	table = privateData.Table
+% for field in key_fields:
+	table.${field["ident"]} = ${field["ident"]}
+% endfor
 % if cas_enabled:
 	CASVersion = privateData.CASVersion
 % endif

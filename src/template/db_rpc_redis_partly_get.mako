@@ -148,6 +148,9 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 		return
 	}
 	table = privateData.Table
+% for field in key_fields:
+	table.${field["ident"]} = ${field["ident"]}
+% endfor
 % if cas_enabled:
 	CASVersion = privateData.CASVersion
 % endif
