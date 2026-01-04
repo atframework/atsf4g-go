@@ -1,10 +1,12 @@
 ## -*- coding: utf-8 -*-
 <%page args="message_name,message,index,index_meta,partly_get,partly_field_name" />
 <%
+    index_type_kv = index_meta["index_type_kv"]
     key_fields = index_meta["key_fields"]
     load_index_key = index_meta["load_index_key"]
     cas_enabled = index_meta["cas_enabled"]
 %>
+% if index_type_kv:
 func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_field_name}(
 	ctx cd.AwaitableContext,
 % for field in key_fields:
@@ -23,138 +25,33 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 		return
 	}
 	${load_index_key}
-	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
-	currentAction := ctx.GetAction()
-	if lu.IsNil(currentAction) {
-		ctx.LogError("not in context action")
-		retResult = cd.CreateRpcResultError(fmt.Errorf("action not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		return
-	}
-	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().GetContext()) {
-		ctx.LogError("not found context")
-		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		return
-	}
-
-	type innerPrivateData struct {
-		Table      *private_protocol_pbdesc.${message_name}
+	redisField := []string{
 % if cas_enabled:
-		CASVersion uint64
-% endif
-	}
-
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			redisField := []string{
-% if cas_enabled:
-				pu.CASKeyField,
+		pu.CASKeyField,
 % endif
 % for field in key_fields:
-				"${field["raw_name"]}",
+		"${field["raw_name"]}",
 % endfor
 % for field_name in partly_get.fields:
-				"${field_name}",
+		"${field_name}",
 % endfor
-			}
-			ctx.GetApp().GetLogger(2).LogDebug("HMGet ${message_name} Send", "Seq", awaitOption.Sequence, "index", index)
-			result, redisError := instance.HMGet(ctx.GetContext(), index, redisField...).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HMGet ${message_name} Recv Raw", "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load ${message_name} failed resume error",
-						"err", resumeError,
-					)
-					return resumeError
-				}
-				return redisError
-            }
-			if len(result) == 0 {
-				ctx.GetApp().GetLogger(2).LogInfo("HMGet ${message_name} Record Not Found", "Seq", awaitOption.Sequence)
-				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load ${message_name} failed resume error",
-						"err", resumeError,
-					)
-				}
-				return resumeError
-			}
-			pbResult := new(private_protocol_pbdesc.${message_name})
-% if cas_enabled:
-			casVersion, err := pu.RedisSliceMapToPB(redisField, result, pbResult)
-% else:
-			_, err := pu.RedisSliceMapToPB(redisField, result, pbResult)
-% endif
-			if err != nil {
-				ctx.GetApp().GetLogger(2).LogError("HMGet ${message_name} Parese Failed", "Seq", awaitOption.Sequence, "Raw", result)
-				resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load ${message_name} failed resume error",
-						"err", resumeError,
-					)
-					return resumeError
-				}
-				return err
-			}
-% if cas_enabled:
-			ctx.GetApp().GetLogger(2).LogDebug("HMGet ${message_name} Parse Success", "Seq", awaitOption.Sequence, "CASVersion", casVersion, "Proto", pbResult)
-% else:
-			ctx.GetApp().GetLogger(2).LogDebug("HMGet ${message_name} Parse Success", "Seq", awaitOption.Sequence, "Proto", pbResult)
-% endif
-			resumeData.PrivateData = &innerPrivateData{
-				Table: pbResult,
-% if cas_enabled:
-				CASVersion: casVersion,
-% endif
-			}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load ${message_name} failed resume error",
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
 	}
-	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	var message proto.Message
+% if cas_enabled:
+	message, CASVersion, retResult = HashTablePartlyGet(
+% else:
+	message, _, retResult = HashTablePartlyGet(
+% endif
+		ctx, index, "${message_name}", dispatcher, instance, func() proto.Message {
+			return new(private_protocol_pbdesc.${message_name})
+		}, redisField)
 	if retResult.IsError() {
 		return
 	}
-	if resumeData.Result.IsError() {
-		retResult = resumeData.Result
-		return
-	}
-    privateData, ok := resumeData.PrivateData.(*innerPrivateData)
-	if !ok {
-		ctx.LogError("load ${message_name} failed not ${message_name}")
-		retResult = cd.CreateRpcResultError(fmt.Errorf("private data not ${message_name}"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		return
-	}
-	table = privateData.Table
+	table = message.(*private_protocol_pbdesc.${message_name})
 % for field in key_fields:
 	table.${field["ident"]} = ${field["ident"]}
 % endfor
-% if cas_enabled:
-	CASVersion = privateData.CASVersion
-% endif
-
 	ctx.LogInfo("load ${message_name} table with key from db success",
 % if cas_enabled:
 		"CASVersion", CASVersion,
@@ -166,3 +63,4 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 	retResult = cd.CreateRpcResultOk()
 	return
 }
+% endif

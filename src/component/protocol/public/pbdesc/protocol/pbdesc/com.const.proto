@@ -188,6 +188,8 @@ enum EnErrorCode {
                                    [(error_code.description) = "Actor达到最大长度"];
   EN_ERR_ALREADY_LOGIN = -124
                          [(error_code.description) = "在线中"];
+  EN_ERR_DB_RECORD_EXIST = -125
+                               [(error_code.description) = "数据库记录已存在"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];

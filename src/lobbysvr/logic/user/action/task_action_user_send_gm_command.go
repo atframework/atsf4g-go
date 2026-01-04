@@ -684,11 +684,10 @@ func (t *TaskActionUserSendGmCommand) runGMCmdCopyAccount(ctx component_dispatch
 
 	var version uint64
 	dstUserTb.UserId = newUserId
-	db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstUserTb, &version, true)
+	db.DatabaseTableUserReplaceZoneIdUserId(ctx, dstUserTb, &version, true)
 	copy := user.GetLoginLockInfo().Clone()
 	copy.UserId = newUserId
 	copy.ExpectTableUserDbVersion = 0
-	db.DatabaseTableLoginLockUpdateUserId(ctx, copy, &version, true)
-
+	db.DatabaseTableLoginLockReplaceUserId(ctx, copy, &version, true)
 	return []string{""}, nil
 }

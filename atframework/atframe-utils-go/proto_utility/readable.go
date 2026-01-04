@@ -44,5 +44,5 @@ func MessageReadableTextIndent(msg proto.Message) string {
 		return ""
 	}
 	str = strings.TrimRight(str, "\n")
-	return "  " + strings.ReplaceAll(str, "\n", "\n  ") + "\n"
+	return "\n{\n  " + strings.ReplaceAll(str, "\n", "\n  ") + "\n}"
 }

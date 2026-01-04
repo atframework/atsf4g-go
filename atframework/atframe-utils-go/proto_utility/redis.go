@@ -12,7 +12,13 @@ import (
 
 var CASKeyField = "CAS_VERSION"
 
-func PBMapToRedis(msg proto.Message, CASVersion *uint64, forceUpdate bool) []string {
+const (
+	RedisListKeyPrefixLength = 2
+	RedisListVersionField    = "v_"
+	RedisListValueField      = "d_"
+)
+
+func PBMapToRedisKV(msg proto.Message, CASVersion *uint64, forceUpdate bool) []string {
 	m := msg.ProtoReflect().Descriptor()
 	var ret []string
 	if CASVersion != nil {
@@ -61,7 +67,27 @@ func PBMapToRedis(msg proto.Message, CASVersion *uint64, forceUpdate bool) []str
 	return ret
 }
 
-func RedisMapToPB(data map[string]string, msg proto.Message) (uint64, error) {
+func PBMapToRedisKL(msg proto.Message, CASVersion *uint64, forceUpdate bool, listIndex uint64) []string {
+	var ret []string
+	if CASVersion != nil {
+		ret = make([]string, 0, 4)
+		if forceUpdate {
+			ret = append(ret, fmt.Sprintf("%s%d", RedisListVersionField, listIndex), "-1")
+		} else {
+			ret = append(ret, fmt.Sprintf("%s%d", RedisListVersionField, listIndex), fmt.Sprintf("%d", *CASVersion))
+		}
+	} else {
+		ret = make([]string, 0, 2)
+	}
+	b, err := proto.MarshalOptions{}.MarshalAppend([]byte("&"), msg)
+	if err != nil {
+		return ret
+	}
+	ret = append(ret, fmt.Sprintf("%s%d", RedisListValueField, listIndex), lu.BytestoString(b))
+	return ret
+}
+
+func RedisKVMapToPB(data map[string]string, msg proto.Message) (uint64, error) {
 	m := msg.ProtoReflect()
 	var casVersion uint64 = 0
 
@@ -80,6 +106,9 @@ func RedisMapToPB(data map[string]string, msg proto.Message) (uint64, error) {
 		}
 		if val == "" || len(val) <= 1 {
 			continue
+		}
+		if val[0] != '&' {
+			return 0, fmt.Errorf("invalid value string for key:%s", key)
 		}
 		val = val[1:]
 
@@ -145,7 +174,73 @@ func RedisMapToPB(data map[string]string, msg proto.Message) (uint64, error) {
 	return casVersion, nil
 }
 
-func RedisSliceMapToPB(field []string, data []interface{}, msg proto.Message) (uint64, error) {
+type RedisListIndexMessage struct {
+	// Table 为 IsNil 则认为无数据
+	Table      proto.Message
+	ListIndex  uint64
+	CASVersion uint64
+}
+
+func RedisKLMapToPB(data map[string]string, messageCreate func() proto.Message) ([]RedisListIndexMessage, error) {
+	listIndexMap := make(map[uint64]RedisListIndexMessage)
+	for key, val := range data {
+		if len(key) <= RedisListKeyPrefixLength {
+			return nil, fmt.Errorf("invalid redis kl key:%s", key)
+		}
+		if key[:RedisListKeyPrefixLength] != RedisListVersionField && key[:RedisListKeyPrefixLength] != RedisListValueField {
+			return nil, fmt.Errorf("invalid redis kl key prefix:%s", key)
+		}
+
+		index := key[RedisListKeyPrefixLength:]
+		listIndex, err := strconv.ParseUint(index, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid redis kl key index:%s", key)
+		}
+
+		msg, ok := listIndexMap[listIndex]
+		if !ok {
+			msg = RedisListIndexMessage{
+				ListIndex: listIndex,
+			}
+			listIndexMap[listIndex] = msg
+		}
+
+		if key[:RedisListKeyPrefixLength] == RedisListVersionField {
+			// version key
+			version, err := strconv.ParseUint(val, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("parse cas version failed:%s", val)
+			}
+			msg.CASVersion = version
+			listIndexMap[listIndex] = msg
+			continue
+		}
+		if key[:RedisListKeyPrefixLength] == RedisListValueField {
+			// value key
+			if val == "" || len(val) <= 1 {
+				continue
+			}
+			if val[0] != '&' {
+				return nil, fmt.Errorf("invalid value string for list index %d", listIndex)
+			}
+			valueStr := val[1:]
+			msg.Table = messageCreate()
+			err := proto.Unmarshal(lu.StringtoBytes(valueStr), msg.Table)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal failed for list index %d", msg.ListIndex)
+			}
+			listIndexMap[listIndex] = msg
+			continue
+		}
+	}
+	ret := make([]RedisListIndexMessage, 0, len(listIndexMap))
+	for _, v := range listIndexMap {
+		ret = append(ret, v)
+	}
+	return ret, nil
+}
+
+func RedisSliceKVMapToPB(field []string, data []interface{}, msg proto.Message) (uint64, error) {
 	if len(field) != len(data) {
 		return 0, fmt.Errorf("redis req rsp len not match")
 	}
@@ -237,4 +332,61 @@ func RedisSliceMapToPB(field []string, data []interface{}, msg proto.Message) (u
 		}
 	}
 	return casVersion, nil
+}
+
+type RedisSliceKey struct {
+	Version bool
+	Index   uint64
+}
+
+func RedisSliceKLMapToPB(sliceKey []RedisSliceKey, data []interface{}, messageCreate func() proto.Message) ([]RedisListIndexMessage, error) {
+	if len(sliceKey) != len(data) {
+		return nil, fmt.Errorf("redis req rsp len not match")
+	}
+	listIndexMap := make(map[uint64]RedisListIndexMessage)
+
+	for i := range data {
+		key := sliceKey[i]
+		val, ok := data[i].(string)
+		if !ok {
+			return nil, fmt.Errorf("data not string %s", data[i])
+		}
+
+		msg, ok := listIndexMap[key.Index]
+		if !ok {
+			msg = RedisListIndexMessage{
+				ListIndex: key.Index,
+			}
+			listIndexMap[key.Index] = msg
+		}
+
+		if key.Version {
+			// version key
+			version, err := strconv.ParseUint(val, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("parse cas version failed:%s", val)
+			}
+			msg.CASVersion = version
+			listIndexMap[key.Index] = msg
+		} else {
+			if val == "" || len(val) <= 1 {
+				continue
+			}
+			if val[0] != '&' {
+				return nil, fmt.Errorf("invalid value string for list index %d", key.Index)
+			}
+			valueStr := val[1:]
+			msg.Table = messageCreate()
+			err := proto.Unmarshal(lu.StringtoBytes(valueStr), msg.Table)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal failed for list index %d", msg.ListIndex)
+			}
+			listIndexMap[key.Index] = msg
+		}
+	}
+	ret := make([]RedisListIndexMessage, 0, len(listIndexMap))
+	for _, v := range listIndexMap {
+		ret = append(ret, v)
+	}
+	return ret, nil
 }

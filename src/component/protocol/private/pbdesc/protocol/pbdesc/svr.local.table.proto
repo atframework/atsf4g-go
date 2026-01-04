@@ -61,29 +61,6 @@ message database_table_login_lock {
   google.protobuf.Timestamp expect_table_user_db_timeout = 22;
 }
 
-message database_table_user_async_jobs_blob_data {
-  // action的 唯一ID，用于容灾
-  string action_uuid = 1;
-  int64 timepoint_ms = 2;
-
-  // 如果失败了，内置的剩余重试次数
-  int32 left_retry_times = 3;
-
-  oneof action {
-    user_async_job_debug_message debug_message = 101;  // 调试消息
-  }
-}
-
-message database_table_user_async_jobs_cache_blob_data {
-  user_async_jobs_data async_jobs = 1;  // 异步任务缓存
-
-  message retry_job_data {
-    int32 job_type = 1;
-    database_table_user_async_jobs_blob_data job_data = 2;
-  };
-  repeated retry_job_data retry_jobs = 11;
-}
-
 message database_table_user {
   // clang-format off
   option (atframework.database_table) = {
@@ -119,8 +96,8 @@ message database_table_user {
 
   // 以下是服务器内部数据
   // 异步任务缓存
-  database_table_user_async_jobs_cache_blob_data async_job_blob_data = 101;
-  bool create_init = 103;      // 是否已经执行过创建初始化
+  user_async_jobs_cache_blob_data async_job_blob_data = 101;
+  bool create_init = 103;  // 是否已经执行过创建初始化
 
   // 业务逻辑数据
   user_options_data options_data = 200;  // 玩家选项
@@ -150,4 +127,24 @@ message database_table_distribute_transaction {
   bytes transaction_uuid = 2;
 
   google.protobuf.Any blob_data = 11;
+}
+
+message database_table_user_async_jobs {
+  // clang-format off
+  option (atframework.database_table) = {
+    index: {
+      name: "async_jobs"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KL
+      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
+      enable_cas: true
+      key_fields: "job_type"
+      key_fields: "user_id"
+      key_fields: "zone_id"
+    }
+  };
+  // clang-format on
+  int32 job_type = 1;  // 任务类型
+  uint64 user_id = 2;
+  uint32 zone_id = 3;
+  user_async_jobs_blob_data job_data = 11;
 }

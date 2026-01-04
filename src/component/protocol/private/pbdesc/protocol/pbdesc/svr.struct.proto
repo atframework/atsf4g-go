@@ -16,7 +16,6 @@ import "protocol/common/com.struct.quest.common.proto";
 import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/com.struct.quest.proto";
 import "protocol/pbdesc/com.struct.module.unlock.proto";
-import "protocol/pbdesc/com.struct.adventure.proto";
 import "protocol/pbdesc/com.struct.mall.proto";
 
 package proy;
@@ -172,4 +171,27 @@ message user_mall_product_data {
 
 message user_mall_data{
   repeated user_mall_product_data mall_data = 1;
+}
+
+message user_async_jobs_blob_data {
+  // action的 唯一ID，用于容灾
+  string action_uuid = 1;
+  int64 timepoint_ms = 2;
+
+  // 如果失败了，内置的剩余重试次数
+  int32 left_retry_times = 3;
+
+  oneof action {
+    user_async_job_debug_message debug_message = 101;  // 调试消息
+  }
+}
+
+message user_async_jobs_cache_blob_data {
+  user_async_jobs_data async_jobs = 1;  // 异步任务缓存
+
+  message retry_job_data {
+    int32 job_type = 1;
+    user_async_jobs_blob_data job_data = 2;
+  };
+  repeated retry_job_data retry_jobs = 11;
 }

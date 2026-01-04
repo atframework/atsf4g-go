@@ -241,7 +241,7 @@ func generateMutableForMessage(f *protogen.File, g *protogen.GeneratedFile, msg 
 
 	g.P("// ===== SlogValue methods for ", msg.GoIdent.GoName, " ===== Message ====")
 	g.P(fmt.Sprintf(`func (m *%s) LogValue() slog.Value {`, msg.GoIdent.GoName))
-	g.P(`  return slog.StringValue(pu.MessageReadableText(m))`)
+	g.P(`  return slog.StringValue(pu.MessageReadableTextIndent(m))`)
 	g.P(`}`)
 	g.P()
 

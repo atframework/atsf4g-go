@@ -16,6 +16,9 @@ import sys
     load_key_fmt_args = ""
     update_key_fmt_args = ""
     key_fields = []
+    index_type_kv = True
+    if index.type == index_type_enum.values_by_name["EN_ATFRAMEWORK_DB_INDEX_TYPE_KL"].descriptor.number:
+        index_type_kv = False
 
     for key in index.key_fields:
         field = message.fields_by_name[key]
@@ -72,6 +75,7 @@ import sys
         })
 
     index_meta = {
+        "index_type_kv": index_type_kv,
         "index_key_name": index_key_name,
         "load_index_key": load_index_key,
         "update_index_key": update_index_key,

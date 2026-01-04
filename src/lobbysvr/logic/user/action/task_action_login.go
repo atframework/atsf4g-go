@@ -142,8 +142,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 			loginTb = &private_protocol_pbdesc.DatabaseTableLoginLock{
 				UserId: userId,
 			}
-			loginCASVersion = 0
-			result = db.DatabaseTableLoginLockUpdateUserId(t.GetAwaitableContext(), loginTb, &loginCASVersion, false)
+			result, loginCASVersion = db.DatabaseTableLoginLockAddUserId(t.GetAwaitableContext(), loginTb)
 			if result.IsError() {
 				if result.GetResponseCode() < 0 {
 					t.SetResponseCode(result.GetResponseCode())

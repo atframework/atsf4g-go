@@ -139,7 +139,7 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 	p.obj.GetLoginLockInfo().RouterVersion = oldRouterServerVersion + 1
 
 	loginCASVersion := p.obj.GetLoginLockCASVersion()
-	loginTableResult := db.DatabaseTableLoginLockUpdateUserId(ctx, p.obj.GetLoginLockInfo(), &loginCASVersion, false)
+	loginTableResult := db.DatabaseTableLoginLockReplaceUserId(ctx, p.obj.GetLoginLockInfo(), &loginCASVersion, false)
 	if loginTableResult.IsError() {
 		// 回滚
 		p.obj.GetLoginLockInfo().RouterServerId = oldRouterServerId
@@ -206,7 +206,7 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 
 			// 登出时间由上层逻辑设置
 			loginLockVersin := p.obj.GetLoginLockCASVersion()
-			err = db.DatabaseTableLoginLockUpdateUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
+			err = db.DatabaseTableLoginLockReplaceUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
 			if err.IsError() {
 				p.obj.GetLoginLockInfo().RouterServerId = oldRouterServerId
 				p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion
@@ -234,7 +234,7 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 			}
 
 			loginLockVersin := p.obj.GetLoginLockCASVersion()
-			err = db.DatabaseTableLoginLockUpdateUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
+			err = db.DatabaseTableLoginLockReplaceUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
 			if err.IsError() {
 				p.obj.GetLoginLockInfo().RouterServerId = oldRouterServerId
 				p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion
@@ -272,11 +272,11 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 
 	userCASVersion := p.obj.GetUserCASVersion()
 	ctx.LogInfo("save user to db start", "cas_version", userCASVersion)
-	err = db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb, &userCASVersion, false)
+	err = db.DatabaseTableUserReplaceZoneIdUserId(ctx, dstTb, &userCASVersion, false)
 	p.obj.SetUserCASVersion(userCASVersion)
 	if err.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED) {
 		// 重试一次
-		err.LogError(ctx, "save user to db failed DatabaseTableUserUpdateZoneIdUserId try next time")
+		err.LogError(ctx, "save user to db failed DatabaseTableUserReplaceZoneIdUserId try next time")
 		dstTb = &private_protocol_pbdesc.DatabaseTableUser{}
 		result = p.obj.DumpToDB(ctx, dstTb)
 		if result.IsError() {
@@ -286,7 +286,7 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 		}
 		ctx.LogInfo("retry save user to db start ", "cas_version", userCASVersion)
 		userCASVersion = p.obj.GetUserCASVersion()
-		err = db.DatabaseTableUserUpdateZoneIdUserId(ctx, dstTb, &userCASVersion, false)
+		err = db.DatabaseTableUserReplaceZoneIdUserId(ctx, dstTb, &userCASVersion, false)
 		p.obj.SetUserCASVersion(userCASVersion)
 	}
 

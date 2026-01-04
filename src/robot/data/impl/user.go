@@ -206,7 +206,7 @@ func (user *User) ReceiveHandler() {
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
 		if err != nil {
 			utils.StdoutLog(fmt.Sprintf("Unsupport in TypeName: %s \n", typeName))
-			fmt.Fprintf(user.csLog, "%s %s\nHead:{\n%s}", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
+			fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
 				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unsupport Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
 			continue
 		}
@@ -215,12 +215,12 @@ func (user *User) ReceiveHandler() {
 		err = proto.Unmarshal(csMsg.BodyBin, csBody)
 		if err != nil {
 			utils.StdoutLog(fmt.Sprintf("Error in Unmarshal: %v", err))
-			fmt.Fprintf(user.csLog, "%s %s\nHead:{\n%s}", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
+			fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
 				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unmarshal Error Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
 			return
 		}
 
-		fmt.Fprintf(user.csLog, "%s %s\nHead:{\n%s}\nBody:{\n%s}", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
+		fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
 			fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
 		task, ok := user.rpcAwaitTask.Load(csMsg.Head.ClientSequence)
 		if ok {
@@ -262,7 +262,7 @@ func (user *User) SendReq(action *user_data.TaskActionUser, csMsg *public_protoc
 	csBin, _ = proto.Marshal(csMsg)
 	titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
 	utils.StdoutLog(fmt.Sprintf("%s\n", titleString))
-	fmt.Fprintf(user.csLog, "%s %s\nHead:{\n%s}\nBody:{\n%s}", time.Now().Format("2006-01-02 15:04:05.000"),
+	fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", time.Now().Format("2006-01-02 15:04:05.000"),
 		titleString, pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
 
 	// Send an echo packet every second
