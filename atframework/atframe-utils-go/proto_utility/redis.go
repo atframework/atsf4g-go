@@ -240,32 +240,35 @@ func RedisKLMapToPB(data map[string]string, messageCreate func() proto.Message) 
 	return ret, nil
 }
 
-func RedisSliceKVMapToPB(field []string, data []interface{}, msg proto.Message) (uint64, error) {
+func RedisSliceKVMapToPB(field []string, data []interface{}, msg proto.Message) (uint64, bool, error) {
 	if len(field) != len(data) {
-		return 0, fmt.Errorf("redis req rsp len not match")
+		return 0, false, fmt.Errorf("redis req rsp len not match")
 	}
 
 	m := msg.ProtoReflect()
 	var casVersion uint64 = 0
+	recordExist := false
 
 	for i := range data {
 		key := field[i]
 		val, ok := data[i].(string)
 		if !ok {
-			return 0, fmt.Errorf("data not string %s", data[i])
+			// 空值
+			continue
 		}
+		recordExist = true
 
 		fd := m.Descriptor().Fields().ByName(protoreflect.Name(key))
 		if fd == nil {
 			if key == CASKeyField {
 				version, err := strconv.ParseUint(val, 10, 64)
 				if err != nil {
-					return 0, fmt.Errorf("parse cas version failed:%s", val)
+					return 0, false, fmt.Errorf("parse cas version failed:%s", val)
 				}
 				casVersion = version
 				continue
 			}
-			return 0, fmt.Errorf("field not found:%s", key)
+			return 0, false, fmt.Errorf("field not found:%s", key)
 		}
 		if val == "" {
 			continue
@@ -279,43 +282,43 @@ func RedisSliceKVMapToPB(field []string, data []interface{}, msg proto.Message) 
 		case protoreflect.Int32Kind, protoreflect.Sint32Kind:
 			i, err := strconv.ParseInt(val, 10, 32)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfInt32(int32(i)))
 		case protoreflect.Uint32Kind:
 			i, err := strconv.ParseUint(val, 10, 32)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfUint32(uint32(i)))
 		case protoreflect.Int64Kind, protoreflect.Sint64Kind:
 			i, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfInt64(i))
 		case protoreflect.Uint64Kind:
 			i, err := strconv.ParseUint(val, 10, 64)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfUint64(uint64(i)))
 		case protoreflect.BoolKind:
 			b, err := strconv.ParseBool(val)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfBool(b))
 		case protoreflect.FloatKind:
 			f, err := strconv.ParseFloat(val, 32)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfFloat32(float32(f)))
 		case protoreflect.DoubleKind:
 			f, err := strconv.ParseFloat(val, 64)
 			if err != nil {
-				return 0, err
+				return 0, false, err
 			}
 			m.Set(fd, protoreflect.ValueOfFloat64(f))
 		case protoreflect.MessageKind:
@@ -324,14 +327,19 @@ func RedisSliceKVMapToPB(field []string, data []interface{}, msg proto.Message) 
 			sm := subMsg.Message()
 			err := proto.Unmarshal(lu.StringtoBytes(val), sm.Interface())
 			if err != nil {
-				return 0, fmt.Errorf("unmarshal failed")
+				return 0, false, fmt.Errorf("unmarshal failed")
 			}
 			m.Set(fd, subMsg)
 		default:
-			return 0, fmt.Errorf("not support type: %d", fd.Kind())
+			return 0, false, fmt.Errorf("not support type: %d", fd.Kind())
 		}
 	}
-	return casVersion, nil
+
+	if !recordExist {
+		return 0, false, nil
+	}
+
+	return casVersion, true, nil
 }
 
 type RedisSliceKey struct {
@@ -347,11 +355,6 @@ func RedisSliceKLMapToPB(sliceKey []RedisSliceKey, data []interface{}, messageCr
 
 	for i := range data {
 		key := sliceKey[i]
-		val, ok := data[i].(string)
-		if !ok {
-			return nil, fmt.Errorf("data not string %s", data[i])
-		}
-
 		msg, ok := listIndexMap[key.Index]
 		if !ok {
 			msg = RedisListIndexMessage{
@@ -360,6 +363,11 @@ func RedisSliceKLMapToPB(sliceKey []RedisSliceKey, data []interface{}, messageCr
 			listIndexMap[key.Index] = msg
 		}
 
+		val, ok := data[i].(string)
+		if !ok {
+			// 空值
+			continue
+		}
 		if key.Version {
 			// version key
 			version, err := strconv.ParseUint(val, 10, 64)

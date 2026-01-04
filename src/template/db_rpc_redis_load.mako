@@ -76,10 +76,12 @@ func ${message_name}LoadAllWith${index_key_name}(
 		return
 	}
 	for _, item := range indexMessage {
-		table := item.Table.(*private_protocol_pbdesc.${message_name})
+		table, ok := item.Table.(*private_protocol_pbdesc.${message_name})
+		if ok {
 % for field in key_fields:
-		table.${field["ident"]} = ${field["ident"]}
+			table.${field["ident"]} = ${field["ident"]}
 % endfor
+		}
 	}
 	ctx.LogInfo("load ${message_name} table with key from db success",
 		"index_message_len", len(indexMessage),
@@ -119,10 +121,12 @@ func ${message_name}LoadIndexWith${index_key_name}(
 		return
 	}
 	for _, item := range indexMessage {
-		table := item.Table.(*private_protocol_pbdesc.${message_name})
+		table, ok := item.Table.(*private_protocol_pbdesc.${message_name})
+		if ok {
 % for field in key_fields:
-		table.${field["ident"]} = ${field["ident"]}
+			table.${field["ident"]} = ${field["ident"]}
 % endfor
+		}
 	}
 	ctx.LogInfo("load ${message_name} table with key from db success",
 		"index_message_len", len(indexMessage),

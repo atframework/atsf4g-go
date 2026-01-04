@@ -409,7 +409,7 @@ func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
 				return resumeError
 			}
 			pbResult := messageCreate()
-			casVersion, err := pu.RedisSliceKVMapToPB(partlyGetField, result, pbResult)
+			casVersion, recordExist, err := pu.RedisSliceKVMapToPB(partlyGetField, result, pbResult)
 			if err != nil {
 				ctx.GetApp().GetLogger(2).LogError("HashTablePartlyGet HMGet Parese Failed", "TableName", tableName, "Seq", awaitOption.Sequence, "Raw", result)
 				resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
@@ -421,6 +421,16 @@ func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
 					return resumeError
 				}
 				return err
+			} else if !recordExist {
+				ctx.GetApp().GetLogger(2).LogInfo("HashTablePartlyGet HMGet Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
+				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
+				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+				if resumeError != nil {
+					ctx.LogError("load failed resume error", "TableName", tableName,
+						"err", resumeError,
+					)
+				}
+				return resumeError
 			}
 			ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Parse Success", "Seq", "TableName", tableName, awaitOption.Sequence, "Proto", pbResult)
 			resumeData.PrivateData = &innerPrivateData{
