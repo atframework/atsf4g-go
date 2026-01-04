@@ -17,15 +17,13 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-    config "github.com/atframework/atsf4g-go/component-config"
 
 	"github.com/atframework/libatapp-go"
 )
 <%
 file = database.get_file(generate_proto_file)
 index_type_enum = database.get_enum("atframework.database_index_type")
-split_type_enum = database.get_enum("atframework.database_table_split_type")
-if index_type_enum is None or split_type_enum is None:
+if index_type_enum is None:
     return
 %>
 %	for message_name, message_desc in file.descriptor.message_types_by_name.items():
@@ -40,5 +38,5 @@ if index_type_enum is None or split_type_enum is None:
         continue
     message_name = message.get_identify_name(message_name, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
-<%include file="db_rpc_redis.go.mako" args="message_name=message_name,extension=extension,message=message,index_type_enum=index_type_enum,split_type_enum=split_type_enum" />
+<%include file="db_rpc_redis.go.mako" args="message_name=message_name,extension=extension,message=message,index_type_enum=index_type_enum" />
 %   endfor

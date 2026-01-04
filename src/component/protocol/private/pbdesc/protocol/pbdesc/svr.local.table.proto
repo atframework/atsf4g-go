@@ -22,7 +22,6 @@ message database_table_access {
     index: {
       name: "access"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       key_fields: "zone_id"
       key_fields: "user_id"
     }
@@ -40,7 +39,6 @@ message database_table_login_lock {
     index: {
       name: "login_lock"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       enable_cas: true
       key_fields: "user_id"
     }
@@ -67,7 +65,6 @@ message database_table_user {
     index: {
       name: "user"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       enable_cas: true
       key_fields: "zone_id"
       key_fields: "user_id"
@@ -115,7 +112,6 @@ message database_table_distribute_transaction {
     index: {
       name: "distribute_transaction"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD
       enable_cas: true
       key_fields: "zone_id"
       key_fields: "transaction_uuid"
@@ -135,7 +131,6 @@ message database_table_user_async_jobs {
     index: {
       name: "async_jobs"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KL
-      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE
       enable_cas: true
       key_fields: "job_type"
       key_fields: "user_id"

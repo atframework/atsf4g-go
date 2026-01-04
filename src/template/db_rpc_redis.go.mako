@@ -2,7 +2,7 @@
 <%!
 import time
 import sys
-%><%page args="message_name,extension,message,index_type_enum,split_type_enum" />
+%><%page args="message_name,extension,message,index_type_enum" />
 %	for field in message.fields:
 %		if not field.is_db_vaild_type():
 // ${message_name} filed: {${field.get_name()}} not db vaild type
@@ -33,18 +33,8 @@ import sys
             "go_type": field.get_go_type(),
         })
 
-    prefix_fmt_key = "%s"
+    prefix_fmt_key = "%s-"
     prefix_fmt_value = "dispatcher.GetRecordPrefix()"
-
-    if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_NONE"].descriptor.number:
-        prefix_fmt_key += "-"
-    if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD"].descriptor.number:
-        prefix_fmt_key += "-%d-"
-        prefix_fmt_value += ", config.GetConfigManager().GetWorldId()"
-    if index.split_type == split_type_enum.values_by_name["EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_WORLD_ZONE"].descriptor.number:
-        prefix_fmt_key += "-%d-%d-"
-        prefix_fmt_value += ", config.GetConfigManager().GetWorldId(), config.GetConfigManager().GetZoneId()"
-
     load_index_key = (
         "index := fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "
         + prefix_fmt_value

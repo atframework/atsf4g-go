@@ -18,7 +18,6 @@ message database_table_uuid_allocator {
     index: {
       name: "uuid_allocator"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      split_type: EN_ATFRAMEWORK_DB_TABLE_SPLIT_TYPE_NONE // Global 里没有分区分服
       key_fields: "major_type"
       key_fields: "minor_type"
       key_fields: "path_type"
