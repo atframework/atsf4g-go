@@ -319,8 +319,8 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 		handler := NewLogHandlerImpl(&app.logFrameInfoCache, config.Category[i].Prefix)
 		for sinkIndex := range config.Category[i].Sink {
 			writer := createLogHandlerWriter(nil)
-			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max))
-			writer.maxLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min)
+			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min))
+			writer.maxLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max)
 
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
 				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)

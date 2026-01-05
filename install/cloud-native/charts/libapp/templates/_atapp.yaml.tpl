@@ -56,8 +56,8 @@ atapp:
           # default error log for file
           - type: file
             level:
-              min: fatal
-              max: warning
+              min: warning
+              max: fatal
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 20MB
@@ -67,8 +67,8 @@ atapp:
             flush_interval: 1s    # flush log interval
           - type: file
             level:
-              min: fatal
-              max: debug
+              min: debug
+              max: fatal
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 20MB
@@ -85,8 +85,8 @@ atapp:
         sink:
           - type: file
             level:
-              min: fatal
-              max: debug
+              min: debug
+              max: fatal
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
@@ -96,8 +96,8 @@ atapp:
             flush_interval: 1s        # flush log interval
           - type: file
             level:
-              min: fatal
-              max: warning
+              min: warning
+              max: fatal
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
@@ -114,8 +114,8 @@ atapp:
         sink:
           - type: file
             level:
-              min: fatal
-              max: debug
+              min: debug
+              max: fatal
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
@@ -125,8 +125,8 @@ atapp:
             flush_interval: 1s    # flush log interval
           - type: file
             level:
-              min: fatal
-              max: warning
+              min: warning
+              max: fatal
             rotate:
               number: {{ .Values.log_rotate_num }}
               size: 10MB
