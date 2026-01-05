@@ -26,6 +26,10 @@ enum ATBUS_ACCESS_DATA_ALGORITHM_TYPE {
   ATBUS_ACCESS_DATA_ALGORITHM_HMAC_SHA256 = 0;
 }
 
+enum ATBUS_CRYPTO_KDF_TYPE {
+  ATBUS_CRYPTO_KDF_HKDF_SHA256 = 0;
+}
+
 enum ATBUS_CRYPTO_ALGORITHM_TYPE {
   ATBUS_CRYPTO_ALGORITHM_NONE = 0;
   ATBUS_CRYPTO_ALGORITHM_XXTEA = 1;
@@ -43,18 +47,40 @@ enum ATBUS_CRYPTO_ALGORITHM_TYPE {
 
 enum ATBUS_CRYPTO_KEY_EXCHANGE_TYPE {
   ATBUS_CRYPTO_KEY_EXCHANGE_NONE = 0;
-  ATBUS_CRYPTO_KEY_EXCHANGE_X25519 = 1;     // x25519
+  // golang 标准库只支持ECDH
+  ATBUS_CRYPTO_KEY_EXCHANGE_X25519 = 1;     // x25519(TLS 1.3推荐)
   ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1 = 2;  // secp256r1, p-256
   ATBUS_CRYPTO_KEY_EXCHANGE_SECP384R1 = 3;  // secp384r1, p-384
   ATBUS_CRYPTO_KEY_EXCHANGE_SECP521R1 = 4;  // secp521r1, p-521
 }
 
+enum ATBUS_COMPRESSION_ALGORITHM_TYPE {
+  ATBUS_COMPRESSION_ALGORITHM_NONE = 0;
+
+  ATBUS_COMPRESSION_ALGORITHM_ZSTD = 100;
+  ATBUS_COMPRESSION_ALGORITHM_LZ4 = 200;
+  ATBUS_COMPRESSION_ALGORITHM_SNAPPY = 300;
+  ATBUS_COMPRESSION_ALGORITHM_ZLIB = 400;
+}
+
 message crypto_handshake_data {
   uint64 sequence = 1;  // used to prevent duplication
   ATBUS_CRYPTO_KEY_EXCHANGE_TYPE type = 2;
-  repeated ATBUS_CRYPTO_ALGORITHM_TYPE algorithms = 3;  // available cryptographic algorithms
-  bytes params = 4;
+  repeated ATBUS_CRYPTO_KDF_TYPE kdf_type = 3;
+  repeated ATBUS_CRYPTO_ALGORITHM_TYPE algorithms = 4;  // available cryptographic algorithms
+  // golang 标准库接口不支持生成 TLS 1.2 ECDHE ServerKeyExchange 结构
+  // 为了兼容性我们采用 ATBUS_CRYPTO_KEY_EXCHANGE_TYPE 字段标识密钥交换类型，两边配置一致
+  // 要求跨语言、跨加密库时需要保证算法都受到支持。
+  // 密钥生成算法:
+  //   - ATBUS_CRYPTO_KDF_HKDF_SHA256 -> HKDF(sha256(), shared_secret, nil, nil)
+  //   - 内容: [KEY][IV]
   bytes public_key = 5;
+
+  // 初始iv size for crypto, must be same as the selected algorithm requirement
+  uint32 iv_size = 11;
+
+  // tag length for AEAD
+  uint32 tag_size = 21;
 }
 
 message custom_command_argv {
@@ -87,10 +113,13 @@ message access_data {
   uint64 nonce1 = 3;  // random
   uint64 nonce2 = 4;  // random
 
-  // signature=HMAC.sha256("<timestamp>:<nonce1>-<nonce2>:<register_data.bus_id>:{register_data.crypto_handshake.type}:{sha256(register_data.crypto_handshake.params+register_data.crypto_handshake.public_key)}")
-  // signature=HMAC.sha256("<timestamp>:<nonce1>-<nonce2>:<register_data.bus_id>") without encryption
-  // signature=HMAC.sha256("<timestamp>:<nonce1>-<nonce2>:<custom_command_data.from>:{sha256(custom_command_data.commands.arg)}")
+  // access_token="<timestamp>:<nonce1>-<nonce2>:<register_data.bus_id>:{register_data.crypto_handshake.type}:{hex(sha256_lower_case(register_data.crypto_handshake.public_key))}"
+  // access_token="<timestamp>:<nonce1>-<nonce2>:<register_data.bus_id>" (without encryption)
+  // access_token="<timestamp>:<nonce1>-<nonce2>:<custom_command_data.from>:{hex(sha256_lower_case(custom_command_data.commands.arg))}"
   // abs(timestamp-current time)<=300
+  // access_token must be lower than 32KB
+  // signature=HMAC.sha256(access_token)
+  // 通过配置 access_token 并在节点注册和自定义命令中验证 access_data 来防止中间人攻击和重放攻击
   repeated bytes signature = 9;
 }
 
@@ -126,6 +155,8 @@ message register_data {
   int32 pid = 2;
   string hostname = 3;
   repeated channel_data channels = 4;
+  repeated string supported_channel_schema = 5;
+  repeated ATBUS_COMPRESSION_ALGORITHM_TYPE supported_compression_algorithm = 6;
   uint32 flags = 7;
   access_data access_key = 8;
   repeated subnet_range subnets = 9;
@@ -137,12 +168,32 @@ message connection_data {
   channel_data address = 1;
 }
 
+message message_head_crypto {
+  ATBUS_CRYPTO_ALGORITHM_TYPE algorithm = 1;
+
+  // IV/nonce for crypto, must be unique for each encryption
+  // If not set, just used the default rotation/nonce rule of the algorithm
+  bytes iv = 2;
+
+  // AAD for AEAD
+  bytes aad = 11;
+}
+
+message message_head_compression {
+  ATBUS_COMPRESSION_ALGORITHM_TYPE type = 1;
+  uint64 original_size = 2;
+}
+
 message message_head {
   int32 version = 1;
   int32 type = 2;
   sint32 result_code = 3;
   uint64 sequence = 4;
   uint64 source_bus_id = 5;
+  message_head_crypto crypto = 6;
+  // 加密算法：加密会带字典头部，如果数据很小，加密后反而会扩大尺寸。此时不如不加密。
+  // 所以我们每个包是动态决定是否加密的，通过此字段告诉对端如何解包。
+  message_head_compression compression = 7;
 
   // body size without padding
   uint64 body_size = 9;

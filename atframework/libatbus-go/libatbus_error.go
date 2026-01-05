@@ -55,6 +55,21 @@ const (
 
 	EN_ATBUS_ERR_NODE_TIMEOUT ErrorType = -211 // 操作超时
 
+	EN_ATBUS_ERR_CRYPTO_DECRYPT                          ErrorType = -231 // 解密失败
+	EN_ATBUS_ERR_CRYPTO_ENCRYPT                          ErrorType = -232 // 加密失败
+	EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_SUPPORT            ErrorType = -233 // 加密算法不支持
+	EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_MATCH              ErrorType = -234 // 加密算法不匹配
+	EN_ATBUS_ERR_CRYPTO_INVALID_IV                       ErrorType = -235 // 不合法的IV/nonce
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR          ErrorType = -236 // 加密握手生成密钥对失败
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_READ_PEER_KEY          ErrorType = -237 // 加密握手读取对方公钥失败
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET            ErrorType = -238 // 加密握手生成密钥失败
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_SEQUENCE_EXPIRED       ErrorType = -239 // 加密握手序列过期
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_NO_AVAILABLE_ALGORITHM ErrorType = -240 // 加密握手没有可用的加密算法
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_ERROR              ErrorType = -241 // 加密握手KDF错误
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_NOT_SUPPORT        ErrorType = -242 // 加密握手KDF不支持
+
+	EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT ErrorType = -251 // 压缩算法不支持
+
 	EN_ATBUS_ERR_SHM_GET_FAILED   ErrorType = -301 // 连接共享内存出错
 	EN_ATBUS_ERR_SHM_NOT_FOUND    ErrorType = -302 // 共享内存未找到
 	EN_ATBUS_ERR_SHM_CLOSE_FAILED ErrorType = -303 // 移除共享内存出错
@@ -155,6 +170,21 @@ var atbusKnownErrorStringByCode = map[ErrorType]string{
 	EN_ATBUS_ERR_NODE_BAD_BLOCK_WSEQ_ID:   libatbusBuildErrorString(EN_ATBUS_ERR_NODE_BAD_BLOCK_WSEQ_ID, "EN_ATBUS_ERR_NODE_BAD_BLOCK_WSEQ_ID", "corrupted node block - write sequence error"),
 	EN_ATBUS_ERR_NODE_BAD_BLOCK_CSEQ_ID:   libatbusBuildErrorString(EN_ATBUS_ERR_NODE_BAD_BLOCK_CSEQ_ID, "EN_ATBUS_ERR_NODE_BAD_BLOCK_CSEQ_ID", "corrupted node block - check sequence error"),
 	EN_ATBUS_ERR_NODE_TIMEOUT:             libatbusBuildErrorString(EN_ATBUS_ERR_NODE_TIMEOUT, "EN_ATBUS_ERR_NODE_TIMEOUT", "operation timeout"),
+
+	EN_ATBUS_ERR_CRYPTO_DECRYPT:                          libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_DECRYPT, "EN_ATBUS_ERR_CRYPTO_DECRYPT", "decryption failed"),
+	EN_ATBUS_ERR_CRYPTO_ENCRYPT:                          libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_ENCRYPT, "EN_ATBUS_ERR_CRYPTO_ENCRYPT", "encryption failed"),
+	EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_SUPPORT:            libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_SUPPORT, "EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_SUPPORT", "crypto algorithm not supported"),
+	EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_MATCH:              libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_MATCH, "EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_MATCH", "crypto algorithm not match"),
+	EN_ATBUS_ERR_CRYPTO_INVALID_IV:                       libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_INVALID_IV, "EN_ATBUS_ERR_CRYPTO_INVALID_IV", "invalid crypto iv/nonce"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR:          libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR", "crypto handshake make key pair failed"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_READ_PEER_KEY:          libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_READ_PEER_KEY, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_READ_PEER_KEY", "crypto handshake read peer key failed"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET:            libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET", "crypto handshake make secret failed"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_SEQUENCE_EXPIRED:       libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_SEQUENCE_EXPIRED, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_SEQUENCE_EXPIRED", "crypto handshake sequence expired"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_NO_AVAILABLE_ALGORITHM: libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_NO_AVAILABLE_ALGORITHM, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_NO_AVAILABLE_ALGORITHM", "crypto handshake no available algorithm"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_ERROR:              libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_ERROR, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_ERROR", "crypto handshake kdf error"),
+	EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_NOT_SUPPORT:        libatbusBuildErrorString(EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_NOT_SUPPORT, "EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_NOT_SUPPORT", "crypto handshake kdf not support"),
+
+	EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT: libatbusBuildErrorString(EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT, "EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT", "compression algorithm not supported"),
 
 	EN_ATBUS_ERR_SHM_GET_FAILED:   libatbusBuildErrorString(EN_ATBUS_ERR_SHM_GET_FAILED, "EN_ATBUS_ERR_SHM_GET_FAILED", "shared memory get failed"),
 	EN_ATBUS_ERR_SHM_NOT_FOUND:    libatbusBuildErrorString(EN_ATBUS_ERR_SHM_NOT_FOUND, "EN_ATBUS_ERR_SHM_NOT_FOUND", "shared memory not found"),

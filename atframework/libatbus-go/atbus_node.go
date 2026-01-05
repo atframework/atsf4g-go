@@ -1,3 +1,7 @@
 package libatbus
 
-type Node struct{}
+import (
+	types "github.com/atframework/libatbus-go/types"
+)
+
+type Node = types.Node
