@@ -131,7 +131,6 @@ func extractZip(zipPath, destDir string) ([]string, error) {
 
 // extractTarGz 解压 TAR.GZ 文件
 func extractTarGz(tarGzPath, destDir string) ([]string, error) {
-
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -332,7 +331,6 @@ func copyToolToInstallPath(srcPath, installPath, appName, appVersion string) (st
 
 // removeVersionFromFileName 从文件名中去掉版本信息
 func removeVersionFromFileName(fileName, appName, appVersion string) string {
-
 	re := regexp.MustCompile(regexp.QuoteMeta(appVersion))
 	result := re.ReplaceAllString(fileName, "")
 
@@ -368,7 +366,7 @@ func checkToolValid(cfg InstallToolConfig) (string, bool, error) {
 			// 尝试从 settings 中获取已安装的工具信息
 			if toolInfo, err := manager.GetTool(cfg.AppName); err == nil && toolInfo != nil {
 				// 先检查工具文件是否存在
-				if _, err := os.Stat(toolInfo.Path); err == nil {
+				if s, err := os.Stat(toolInfo.Path); err == nil && s.Size() > 0 {
 					// 文件存在，再检查版本是否匹配
 					if toolInfo.Version == cfg.AppVersion {
 						fmt.Printf("Tool '%s' version %s already installed at: %s (from settings)\n",
@@ -392,10 +390,12 @@ func checkToolValid(cfg InstallToolConfig) (string, bool, error) {
 // installTool 主要业务逻辑：完整的工具安装流程
 // 该函数可被 main 和测试用例调用
 func installTool(cfg InstallToolConfig) ([]string, error) {
-
 	// 步骤1: 下载文件
 	downloadedFile := filepath.Join(cfg.DownloadPath, filepath.Base(cfg.DownloadURL))
 	if err := downloadFile(cfg.DownloadURL, downloadedFile); err != nil {
+		if _, err := os.Stat(downloadedFile); err == nil {
+			os.Remove(downloadedFile)
+		}
 		return nil, fmt.Errorf("download failed: %w", err)
 	}
 
@@ -470,7 +470,6 @@ func extractAndGetTools(downloadedFile, downloadPath, appName string) ([]string,
 
 // updateBuildSettingsForTool 更新 build-settings（分离出来便于测试）
 func updateBuildSettingsForTool(cfg InstallToolConfig, toolPath string) error {
-
 	var manager libatframe_utils.BuildMananger
 	var err error
 

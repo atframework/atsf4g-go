@@ -56,7 +56,7 @@ tasks:
     desc: "Install other build tools like atdtool and xresloader"
     vars:
       ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.2"}}'
-      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.1"}}'
+      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.2"}}'
       PROJECT_ROOT: '{{.PROJECT_ROOT| default "." }}'
       ToolsDir: '{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR | default "tools/build"}}'
       BUILDSET_DOC_DIR: '{{.ENV_BUILD_TARGET_DIR| default "build" }}'
@@ -71,10 +71,10 @@ tasks:
       apps:
         - name: "atdtool"
           version: "{{.ADTOOLS_VERSION}}"
-          url: "https://download.m-oa.com/temporary/ProjectY/Tool/atdtool-{{OS}}-amd64.{{.ATDTOOL_EXT}}"
+          url: "https://github.com/atframework/atdtool/releases/download/v{{.ADTOOLS_VERSION}}/atdtool-{{OS}}-{{ARCH}}.{{.ATDTOOL_EXT}}"
           # 可添加其他字段（如系统区分、安装路径等）
         - name: "xresloader"
-          url: "https://download.m-oa.com/temporary/ProjectY/Tool/xresloader-{{.XRESLOADER_VERSION}}.jar"
+          url: "https://github.com/xresloader/xresloader/releases/download/v{{.XRESLOADER_VERSION}}/xresloader-{{.XRESLOADER_VERSION}}.jar"
           version: "{{.XRESLOADER_VERSION}}"
 
     dir: "{{.TASKFILE_DIR}}/cmd/install-build-tools"
