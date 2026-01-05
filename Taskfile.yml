@@ -373,7 +373,7 @@ tasks:
     dir: "{{.TASKFILE_DIR}}"
     vars:
       ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.2"}}'
-      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.0"}}'
+      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.1"}}'
     cmds:
       - task: build-prepare:atframe-utils:install-other-tools
         vars:

@@ -68,6 +68,8 @@ _generated/
 /tools/bin
 /build
 /src/component/config/generate_config
+/doc/site
+/doc/pyvenv
 
 /src/lobbysvr/app/*
 !/src/lobbysvr/app/register_modules.go

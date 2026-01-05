@@ -56,7 +56,7 @@ tasks:
     desc: "Install other build tools like atdtool and xresloader"
     vars:
       ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.2"}}'
-      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.0"}}'
+      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.1"}}'
       PROJECT_ROOT: '{{.PROJECT_ROOT| default "." }}'
       ToolsDir: '{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR | default "tools/build"}}'
       BUILDSET_DOC_DIR: '{{.ENV_BUILD_TARGET_DIR| default "build" }}'
