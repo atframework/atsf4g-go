@@ -229,8 +229,7 @@ func (d *WebSocketMessageDispatcher) handleConnection(w http.ResponseWriter, r *
 
 	session.runningContext, session.runningCancel = context.WithCancel(d.GetApp().GetAppContext())
 
-	go d.handleSessionRead(session)
-	go d.handleSessionWrite(session)
+	go d.handleSessionIO(session)
 }
 
 func (d *WebSocketMessageDispatcher) addSession(session *WebSocketSession) {
@@ -312,8 +311,11 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 	}
 }
 
-func (d *WebSocketMessageDispatcher) handleSessionWrite(session *WebSocketSession) {
+func (d *WebSocketMessageDispatcher) handleSessionIO(session *WebSocketSession) {
 	d.addSession(session)
+	// Read
+	go d.handleSessionRead(session)
+	// Write
 	defer d.removeSession(session)
 	defer session.Connection.Close()
 
