@@ -8,16 +8,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"time"
 
 	component_config "github.com/atframework/atsf4g-go/component-config"
 
 	config "github.com/atframework/atsf4g-go/robot/config"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 
-	user_data "github.com/atframework/atsf4g-go/robot/data"
-
+	_ "github.com/atframework/atsf4g-go/robot/case"
+	cmd "github.com/atframework/atsf4g-go/robot/cmd"
+	_ "github.com/atframework/atsf4g-go/robot/data/impl"
 	_ "github.com/atframework/atsf4g-go/robot/protocol"
+	_ "github.com/atframework/atsf4g-go/robot/task"
 )
 
 func guessResourceDir() string {
@@ -103,11 +104,7 @@ func main() {
 
 	utils.ReadLine()
 
-	utils.StdoutLog("Closing all pending connections\n")
-	currentUser := user_data.GetCurrentUser()
-	if currentUser != nil {
-		currentUser.Logout()
-		<-time.After(1 * time.Second)
-		utils.StdoutLog("Exiting....\n")
-	}
+	utils.StdoutLog("Closing all pending connections")
+	cmd.LogoutAllUsers()
+	utils.StdoutLog("Exiting....")
 }

@@ -7,7 +7,7 @@ import (
 type TaskActionUser struct {
 	base.TaskActionBase
 	User User
-	Fn   func(*TaskActionUser)
+	Fn   func(*TaskActionUser) error
 }
 
 func init() {
@@ -22,8 +22,12 @@ func (t *TaskActionUser) AfterYield() {
 	t.User.TakeActionGuard()
 }
 
-func (t *TaskActionUser) HookRun() {
+func (t *TaskActionUser) HookRun() error {
 	t.User.TakeActionGuard()
 	defer t.User.ReleaseActionGuard()
-	t.Fn(t)
+	return t.Fn(t)
+}
+
+func (t *TaskActionUser) Log(format string, a ...any) {
+	t.User.Log(format, a...)
 }

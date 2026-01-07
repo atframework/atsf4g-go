@@ -1,14 +1,10 @@
 package atsf4g_go_robot_user
 
 import (
-	"strconv"
-	"sync/atomic"
 	"time"
 
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	"google.golang.org/protobuf/proto"
-
-	utils "github.com/atframework/atsf4g-go/robot/utils"
 )
 
 type User interface {
@@ -20,8 +16,11 @@ type User interface {
 	SendReq(action *TaskActionUser, csMsg *public_protocol_extension.CSMsg, csBody proto.Message, needRsp bool) (int32, proto.Message, error)
 	TakeActionGuard()
 	ReleaseActionGuard()
-	RunTask(timeout time.Duration, f func(*TaskActionUser)) *TaskActionUser
-	RunTaskDefaultTimeout(f func(*TaskActionUser)) *TaskActionUser
+	RunTask(timeout time.Duration, f func(*TaskActionUser) error, name string) *TaskActionUser
+	RunTaskDefaultTimeout(f func(*TaskActionUser) error, name string) *TaskActionUser
+	AddOnClosedHandler(f func(User))
+	Log(format string, a ...any)
+	AwaitReceiveHandlerClose()
 
 	GetLoginCode() string
 	GetLogined() bool
@@ -37,43 +36,18 @@ type User interface {
 	SetHeartbeatInterval(time.Duration)
 	SetLastPingTime(time.Time)
 	SetHasGetInfo(bool)
+	RegisterMessageHandler(rpcName string, f func(*TaskActionUser, proto.Message, int32) error)
 }
 
-var currentUser atomic.Pointer[User]
+var createUserFn func(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User
 
-func GetCurrentUser() User {
-	ret := currentUser.Load()
-	if ret == nil {
+func RegisterCreateUser(f func(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User) {
+	createUserFn = f
+}
+
+func CreateUser(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User {
+	if createUserFn == nil {
 		return nil
 	}
-
-	return *ret
-}
-
-func SetCurrentUser(user User) {
-	if user == nil {
-		currentUser.Store(nil)
-	} else {
-		currentUser.Store(&user)
-	}
-
-	rlInst := utils.GetCurrentReadlineInstance()
-	if rlInst != nil {
-		if user != nil {
-			rlInst.SetPrompt("\033[32m" + strconv.FormatUint(user.GetUserId(), 10) + " »\033[0m ")
-			rlInst.Refresh()
-		} else {
-			rlInst.SetPrompt("\033[32m»\033[0m ")
-			rlInst.Refresh()
-		}
-	}
-}
-
-func CurrentUserRunTaskDefaultTimeout(f func(*TaskActionUser)) *TaskActionUser {
-	user := GetCurrentUser()
-	if user == nil {
-		utils.StdoutLog("GetCurrentUser: User nil")
-		return nil
-	}
-	return user.RunTaskDefaultTimeout(f)
+	return createUserFn(openId, socketUrl, logHandler, enableActorLog)
 }

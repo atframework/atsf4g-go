@@ -21,11 +21,13 @@ import (
 
 % for rpc in rpcs.values():
 <%
-if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
-  continue
-
 rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
+% if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
+func Get${rpc_name}ResponseRpcName() string {
+	return "${rpc.descriptor.full_name}"
+}
+% else:
 func Send${rpc_name}(task *TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rpc.get_request().get_name()}, needLogin bool) (
 	int32, *lobysvr_protocol_pbdesc.${rpc.get_response().get_name()}, error) {
 	if lu.IsNil(task.User) || reqBody == nil {
@@ -47,4 +49,5 @@ func Send${rpc_name}(task *TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rp
 	}
 	return code, body, err
 }
+% endif
 % endfor

@@ -2,6 +2,7 @@ package atsf4g_go_robot_user_impl
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 
 	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
+	protocol "github.com/atframework/atsf4g-go/robot/protocol"
 
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 )
@@ -40,12 +42,15 @@ type User struct {
 	connection         *websocket.Conn
 	rpcAwaitTask       sync.Map
 
-	csLog       *libatapp.LogBufferedRotatingWriter
-	heartbeatFn func(user user_data.User) error
+	csLog *libatapp.LogBufferedRotatingWriter
 
-	onClosed        []func(user user_data.User)
-	taskManager     *base.TaskActionManager
-	taskActionGuard sync.Mutex
+	onClosed                []func(user user_data.User)
+	taskManager             *base.TaskActionManager
+	taskActionGuard         sync.Mutex
+	logHandler              func(format string, a ...any)
+	receiveHandlerCloseChan chan struct{}
+
+	messageHandler map[string]func(*user_data.TaskActionUser, proto.Message, int32) error
 }
 
 type CmdAction struct {
@@ -53,23 +58,49 @@ type CmdAction struct {
 	allowedNotLogin bool
 }
 
-func CreateUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter,
-	heartbeatFn func(user user_data.User) error,
-) *User {
+func init() {
+	user_data.RegisterCreateUser(CreateUser)
+}
+
+func NewUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter, logHandler func(format string, a ...any)) *User {
 	var _ user_data.User = &User{}
 	ret := &User{
-		OpenId:             openId,
-		UserId:             0,
-		ZoneId:             1,
-		AccessToken:        fmt.Sprintf("access-token-for-%s", openId),
-		connectionSequence: 99,
-		connection:         conn,
-		csLog:              bufferWriter,
-		heartbeatFn:        heartbeatFn,
-		taskManager:        base.NewTaskActionManager(),
+		OpenId:                  openId,
+		UserId:                  0,
+		ZoneId:                  1,
+		AccessToken:             fmt.Sprintf("access-token-for-%s", openId),
+		connectionSequence:      99,
+		connection:              conn,
+		csLog:                   bufferWriter,
+		taskManager:             base.NewTaskActionManager(),
+		messageHandler:          make(map[string]func(*user_data.TaskActionUser, proto.Message, int32) error),
+		logHandler:              logHandler,
+		receiveHandlerCloseChan: make(chan struct{}, 1),
 	}
 
 	var _ user_data.User = ret
+	return ret
+}
+
+func CreateUser(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) user_data.User {
+	var bufferWriter *libatapp.LogBufferedRotatingWriter
+	if enableActorLog {
+		bufferWriter, _ = libatapp.NewLogBufferedRotatingWriter(nil,
+			fmt.Sprintf("../log/%s.%%N.log", openId), "", 20*1024*1024, 3, time.Second*3)
+		runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
+			writer.Close()
+		})
+	}
+	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
+	if err != nil {
+		logHandler("Error connecting to Websocket Server: %v", err)
+		return nil
+	}
+
+	ret := NewUser(openId, conn, bufferWriter, logHandler)
+	go ret.ReceiveHandler()
+
+	ret.Log("Create User: %s", openId)
 	return ret
 }
 
@@ -98,12 +129,10 @@ func (u *User) CheckPingTask() {
 		return
 	}
 	if u.LastPingTime.Add(u.HeartbeatInterval).Before(logical_time.GetSysNow()) {
-		if u.heartbeatFn != nil {
-			err := u.heartbeatFn(u)
-			if err != nil {
-				utils.StdoutLog("ping error stop check\n")
-				return
-			}
+		err := u.PingTask()
+		if err != nil {
+			u.Log("ping error stop check")
+			return
 		}
 	}
 	time.AfterFunc(5*time.Second, u.CheckPingTask)
@@ -139,13 +168,13 @@ func (user *User) MakeMessageHead(rpcName string, typeName string) *public_proto
 	}
 }
 
-func (user *User) RunTask(timeout time.Duration, f func(*user_data.TaskActionUser)) *user_data.TaskActionUser {
+func (user *User) RunTask(timeout time.Duration, f func(*user_data.TaskActionUser) error, name string) *user_data.TaskActionUser {
 	if user == nil {
-		utils.StdoutLog("User nil")
+		user.Log("User nil")
 		return nil
 	}
 	task := &user_data.TaskActionUser{
-		TaskActionBase: *base.NewTaskActionBase(timeout),
+		TaskActionBase: *base.NewTaskActionBase(timeout, name),
 		User:           user,
 		Fn:             f,
 	}
@@ -155,8 +184,8 @@ func (user *User) RunTask(timeout time.Duration, f func(*user_data.TaskActionUse
 	return task
 }
 
-func (user *User) RunTaskDefaultTimeout(f func(*user_data.TaskActionUser)) *user_data.TaskActionUser {
-	return user.RunTask(time.Duration(8)*time.Second, f)
+func (user *User) RunTaskDefaultTimeout(f func(*user_data.TaskActionUser) error, name string) *user_data.TaskActionUser {
+	return user.RunTask(time.Duration(8)*time.Second, f, name)
 }
 
 type rpcResumeData struct {
@@ -166,23 +195,28 @@ type rpcResumeData struct {
 
 func (user *User) ReceiveHandler() {
 	defer func() {
-		utils.StdoutLog(fmt.Sprintf("User %v:%v connection closed.\n", user.ZoneId, user.UserId))
-		user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) {
+		user.Log("User %v:%v connection closed.", user.ZoneId, user.UserId)
+		user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) error {
 			user.connection = nil
 			user.Close()
-		})
+			user.receiveHandlerCloseChan <- struct{}{}
+			action.InitOnFinish(func(error) {
+				user.taskManager.CloseAll()
+			})
+			return nil
+		}, "ReceiveHandler Close")
 	}()
 	for {
 		_, bytes, err := user.connection.ReadMessage()
 		if err != nil {
-			utils.StdoutLog(fmt.Sprintf("Error in receive: %v", err))
+			user.Log("Error in receive: %v", err)
 			return
 		}
 
 		csMsg := &public_protocol_extension.CSMsg{}
 		err = proto.Unmarshal(bytes, csMsg)
 		if err != nil {
-			utils.StdoutLog(fmt.Sprintf("Error in Unmarshal: %v", err))
+			user.Log("Error in Unmarshal: %v", err)
 			return
 		}
 
@@ -196,34 +230,40 @@ func (user *User) ReceiveHandler() {
 			rpcName = csMsg.Head.GetRpcStream().GetRpcName()
 			typeName = csMsg.Head.GetRpcStream().GetTypeUrl()
 		default:
-			utils.StdoutLog("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<\n")
-			utils.StdoutLog(fmt.Sprintf("%s\n", prototext.Format(csMsg.Head)))
+			user.Log("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<")
+			user.Log("%s", prototext.Format(csMsg.Head))
 			continue
 		}
 
-		utils.StdoutLog(fmt.Sprintf("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<\n", user.GetUserId(), csMsg.Head.ErrorCode, rpcName))
-
+		user.Log("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", user.GetUserId(), csMsg.Head.ErrorCode, rpcName)
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
 		if err != nil {
-			utils.StdoutLog(fmt.Sprintf("Unsupport in TypeName: %s \n", typeName))
-			fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
-				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unsupport Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
+			user.Log("Unsupport in TypeName: %s ", typeName)
+			if user.csLog != nil {
+				fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
+					fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unsupport Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
+			}
 			continue
 		}
 		csBody := messageType.New().Interface()
 
 		err = proto.Unmarshal(csMsg.BodyBin, csBody)
 		if err != nil {
-			utils.StdoutLog(fmt.Sprintf("Error in Unmarshal: %v", err))
-			fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
-				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unmarshal Error Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
+			user.Log("Error in Unmarshal: %v", err)
+			if user.csLog != nil {
+				fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
+					fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unmarshal Error Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
+			}
 			return
 		}
 
-		fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
-			fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
+		if user.csLog != nil {
+			fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
+				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
+		}
 		task, ok := user.rpcAwaitTask.Load(csMsg.Head.ClientSequence)
 		if ok {
+			// RPC response
 			user.rpcAwaitTask.Delete(csMsg.Head.ClientSequence)
 			task.(*user_data.TaskActionUser).Resume(&base.TaskActionAwaitData{
 				WaitingType: base.TaskActionAwaitTypeRPC,
@@ -235,8 +275,20 @@ func (user *User) ReceiveHandler() {
 					rspCode: csMsg.Head.ErrorCode,
 				},
 			})
+		} else {
+			// SYNC
+			f, ok := user.messageHandler[rpcName]
+			if ok && f != nil {
+				user.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
+					return f(tau, csMsg, csMsg.Head.ErrorCode)
+				}, rpcName)
+			}
 		}
 	}
+}
+
+func (user *User) AwaitReceiveHandlerClose() {
+	<-user.receiveHandlerCloseChan
 }
 
 type RpcTimeout struct {
@@ -261,14 +313,16 @@ func (user *User) SendReq(action *user_data.TaskActionUser, csMsg *public_protoc
 	var csBin []byte
 	csBin, _ = proto.Marshal(csMsg)
 	titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
-	utils.StdoutLog(fmt.Sprintf("%s\n", titleString))
-	fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", time.Now().Format("2006-01-02 15:04:05.000"),
-		titleString, pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
+	user.Log("%s", titleString)
+	if user.csLog != nil {
+		fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", time.Now().Format("2006-01-02 15:04:05.000"),
+			titleString, pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
+	}
 
 	// Send an echo packet every second
 	err := user.connection.WriteMessage(websocket.BinaryMessage, csBin)
 	if err != nil {
-		utils.StdoutLog(fmt.Sprintf("Error during writing to websocket: %v", err))
+		user.Log("Error during writing to websocket: %v", err)
 		return 0, nil, err
 	}
 
@@ -296,11 +350,30 @@ func (user *User) Close() {
 			// Close our websocket connection
 			err := user.connection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				utils.StdoutLog(fmt.Sprintf("Error during closing websocket: %v", err))
+				user.Log("Error during closing websocket: %v", err)
 				return
 			}
 		}
 	}
+}
+
+func (user *User) RegisterMessageHandler(rpcName string, f func(*user_data.TaskActionUser, proto.Message, int32) error) {
+	user.messageHandler[rpcName] = f
+}
+
+func (user *User) PingTask() error {
+	user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) error {
+		return protocol.PingRpc(action)
+	}, "PingTask")
+	return nil
+}
+
+func (user *User) Log(format string, a ...any) {
+	if user == nil || user.logHandler == nil {
+		utils.StdoutLog(fmt.Sprintf(format, a...))
+		return
+	}
+	user.logHandler(format, a...)
 }
 
 func (user *User) GetLoginCode() string {

@@ -19,8 +19,13 @@ type TaskActionCmd struct {
 	Fn func()
 }
 
-func (t *TaskActionCmd) HookRun() {
+func (t *TaskActionCmd) HookRun() error {
 	t.Fn()
+	return nil
+}
+
+func (t *TaskActionCmd) Log(format string, a ...any) {
+	StdoutLog(fmt.Sprintf(format, a...))
 }
 
 type CommandFunc func(base.TaskActionImpl, []string) string
@@ -33,12 +38,13 @@ type CommandNode struct {
 	ArgsInfo        string
 	Desc            string
 	DynamicComplete readline.DynamicCompleteFunc
+	Timeout         time.Duration
 }
 
 var stdoutLog *log.Logger
 
 func StdoutLog(log string) {
-	stdoutLog.Print(log)
+	stdoutLog.Println(log)
 	rd := GetCurrentReadlineInstance()
 	if rd != nil {
 		rd.Refresh()
@@ -124,7 +130,8 @@ func MutableCommandRoot() *CommandNode {
 	return root
 }
 
-func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string, dynamicComplete readline.DynamicCompleteFunc) {
+func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string,
+	dynamicComplete readline.DynamicCompleteFunc, timeout time.Duration) {
 	current := MutableCommandRoot()
 	for _, key := range path {
 		if current.Children[strings.ToLower(key)] == nil {
@@ -141,6 +148,28 @@ func RegisterCommand(path []string, fn CommandFunc, argsInfo string, desc string
 	current.ArgsInfo = argsInfo
 	current.Desc = desc
 	current.DynamicComplete = dynamicComplete
+	current.Timeout = timeout
+}
+
+func RegisterCommandDefaultTimeout(path []string, fn CommandFunc, argsInfo string, desc string,
+	dynamicComplete readline.DynamicCompleteFunc) {
+	current := MutableCommandRoot()
+	for _, key := range path {
+		if current.Children[strings.ToLower(key)] == nil {
+			current.Children[strings.ToLower(key)] = &CommandNode{
+				Children: make(map[string]*CommandNode),
+				Name:     key,
+				FullName: current.FullName + " " + key,
+			}
+			current.Children[strings.ToLower(key)].Name = key
+		}
+		current = current.Children[strings.ToLower(key)]
+	}
+	current.Func = fn
+	current.ArgsInfo = argsInfo
+	current.Desc = desc
+	current.DynamicComplete = dynamicComplete
+	current.Timeout = time.Duration(5) * time.Second
 }
 
 // FindCommand 根据路径查找命令节点
@@ -269,7 +298,7 @@ func ExecuteCommand(mgr *base.TaskActionManager, rl *readline.Instance, input st
 
 	if node.Func != nil {
 		taskAction := &TaskActionCmd{
-			TaskActionBase: *base.NewTaskActionBase(time.Duration(5) * time.Second),
+			TaskActionBase: *base.NewTaskActionBase(node.Timeout, node.FullName),
 		}
 		taskAction.Fn = func() {
 			result := node.Func(taskAction, args)
@@ -306,8 +335,8 @@ func GetCurrentReadlineInstance() *readline.Instance {
 
 func ReadLine() {
 	// 注册命令
-	RegisterCommand([]string{"quit"}, QuitCmd, "", "退出", nil)
-	RegisterCommand([]string{"history"}, HistoryCmd, "", "历史命令", nil)
+	RegisterCommandDefaultTimeout([]string{"quit"}, QuitCmd, "", "退出", nil)
+	RegisterCommandDefaultTimeout([]string{"history"}, HistoryCmd, "", "历史命令", nil)
 	_historyManager = NewHistoryManager(historyFilePath, false)
 
 	config := &readline.Config{

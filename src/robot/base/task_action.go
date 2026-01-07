@@ -12,26 +12,30 @@ import (
 
 type TaskActionImpl interface {
 	AwaitTask(TaskActionImpl) error
-	InitOnFinish(func())
+	InitOnFinish(func(error))
 	GetTaskId() uint64
 	BeforeYield()
 	AfterYield()
-	Finish()
+	Finish(error)
 	InitTaskId(uint64)
 	GetTimeoutDuration() time.Duration
 	InitTimeoutTimer(*time.Timer)
 	TimeoutKill()
-
-	HookRun()
+	Kill()
+	HookRun() error
+	Log(format string, a ...any)
 }
 
 func AwaitTask(other TaskActionImpl) error {
-	AwaitChannel := make(chan struct{}, 1)
-	other.InitOnFinish(func() {
-		AwaitChannel <- struct{}{}
+	AwaitChannel := make(chan TaskActionResumeData, 1)
+	other.InitOnFinish(func(err error) {
+		AwaitChannel <- TaskActionResumeData{
+			Err:  err,
+			Data: nil,
+		}
 	})
-	<-AwaitChannel
-	return nil
+	resumeData := <-AwaitChannel
+	return resumeData.Err
 }
 
 const (
@@ -52,6 +56,7 @@ type TaskActionResumeData struct {
 
 type TaskActionBase struct {
 	Impl   TaskActionImpl
+	Name   string
 	TaskId uint64
 
 	awaitData       TaskActionAwaitData
@@ -62,12 +67,14 @@ type TaskActionBase struct {
 	finishLock sync.Mutex
 	finished   bool
 	kill       atomic.Bool
-	onFinish   []func()
+	result     error
+	onFinish   []func(error)
 }
 
-func NewTaskActionBase(timeoutDuration time.Duration) *TaskActionBase {
+func NewTaskActionBase(timeoutDuration time.Duration, name string) *TaskActionBase {
 	t := &TaskActionBase{
 		timeoutDuration: timeoutDuration,
+		Name:            name,
 		AwaitChannel:    make(chan *TaskActionResumeData),
 	}
 	return t
@@ -95,7 +102,11 @@ func (t *TaskActionBase) Resume(awaitData *TaskActionAwaitData, resumeData *Task
 }
 
 func (t *TaskActionBase) TimeoutKill() {
+	if t.finished {
+		return
+	}
 	t.kill.Store(true)
+	t.Impl.Log("task timeout killed %s", t.Name)
 	if t.awaitData.WaitingId != 0 && t.awaitData.WaitingType != TaskActionAwaitTypeNone {
 		t.AwaitChannel <- &TaskActionResumeData{
 			Err: fmt.Errorf("sys timeout"),
@@ -103,21 +114,38 @@ func (t *TaskActionBase) TimeoutKill() {
 	}
 }
 
-func (t *TaskActionBase) Finish() {
-	t.Timeout.Stop()
-	t.finishLock.Lock()
-	defer t.finishLock.Unlock()
-	t.finished = true
-	for _, fn := range t.onFinish {
-		fn()
+func (t *TaskActionBase) Kill() {
+	if t.finished {
+		return
+	}
+	t.kill.Store(true)
+	t.Impl.Log("task killed %s", t.Name)
+	if t.awaitData.WaitingId != 0 && t.awaitData.WaitingType != TaskActionAwaitTypeNone {
+		t.AwaitChannel <- &TaskActionResumeData{
+			Err: fmt.Errorf("killed"),
+		}
 	}
 }
 
-func (t *TaskActionBase) InitOnFinish(fn func()) {
+func (t *TaskActionBase) Finish(result error) {
+	if t.Timeout != nil {
+		t.Timeout.Stop()
+	}
+	t.Impl.Log("Finish %s", t.Name)
+	t.finishLock.Lock()
+	defer t.finishLock.Unlock()
+	t.finished = true
+	t.result = result
+	for _, fn := range t.onFinish {
+		fn(t.result)
+	}
+}
+
+func (t *TaskActionBase) InitOnFinish(fn func(error)) {
 	t.finishLock.Lock()
 	defer t.finishLock.Unlock()
 	if t.finished {
-		fn()
+		fn(t.result)
 		return
 	}
 	t.onFinish = append(t.onFinish, fn)
@@ -131,20 +159,20 @@ func (t *TaskActionBase) AwaitTask(other TaskActionImpl) error {
 	if lu.IsNil(other) {
 		return fmt.Errorf("task nil")
 	}
-	other.InitOnFinish(func() {
+	other.InitOnFinish(func(err error) {
 		t.Resume(&TaskActionAwaitData{
 			WaitingType: TaskActionAwaitTypeNormal,
 			WaitingId:   other.GetTaskId(),
 		}, &TaskActionResumeData{
-			Err:  nil,
+			Err:  err,
 			Data: nil,
 		})
 	})
-	t.Yield(TaskActionAwaitData{
+	resumeData := t.Yield(TaskActionAwaitData{
 		WaitingType: TaskActionAwaitTypeNormal,
 		WaitingId:   other.GetTaskId(),
 	})
-	return nil
+	return resumeData.Err
 }
 
 func (t *TaskActionBase) BeforeYield() {
@@ -157,6 +185,9 @@ func (t *TaskActionBase) AfterYield() {
 
 func (t *TaskActionBase) InitTaskId(id uint64) {
 	t.TaskId = id
+	t.finished = false
+	t.result = nil
+	t.kill.Store(false)
 }
 
 func (t *TaskActionBase) GetTimeoutDuration() time.Duration {
@@ -184,6 +215,28 @@ func (m *TaskActionManager) allocTaskId() uint64 {
 	return id
 }
 
+func (m *TaskActionManager) WaitAll() {
+	AllTask := []TaskActionImpl{}
+	m.taskIdMap.Range(func(key, value any) bool {
+		AllTask = append(AllTask, value.(TaskActionImpl))
+		return true
+	})
+	for _, taskAction := range AllTask {
+		_ = AwaitTask(taskAction)
+	}
+}
+
+func (m *TaskActionManager) CloseAll() {
+	AllTask := []TaskActionImpl{}
+	m.taskIdMap.Range(func(key, value any) bool {
+		AllTask = append(AllTask, value.(TaskActionImpl))
+		return true
+	})
+	for _, taskAction := range AllTask {
+		taskAction.Kill()
+	}
+}
+
 func (m *TaskActionManager) RunTaskAction(taskAction TaskActionImpl) {
 	taskAction.InitTaskId(m.allocTaskId())
 	m.taskIdMap.Store(taskAction.GetTaskId(), taskAction)
@@ -195,8 +248,7 @@ func (m *TaskActionManager) RunTaskAction(taskAction TaskActionImpl) {
 		taskAction.InitTimeoutTimer(timeoutTimer)
 	}
 	go func() {
-		taskAction.HookRun()
-		taskAction.Finish()
+		taskAction.Finish(taskAction.HookRun())
 		m.taskIdMap.Delete(taskAction.GetTaskId())
 	}()
 }
