@@ -329,9 +329,8 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 	defer f.Relese()
 	// 模拟智能指针手动释放
 
-	n, err := f.fd.Write(p)
-	en, _ := f.fd.Write(endLine)
-	w.currentSize.Add(uint64(n + en))
+	n, err := f.fd.Write(append(p, endLine...))
+	w.currentSize.Add(uint64(n))
 
 	now := w.GetSysNow()
 	if now.After(w.nextFlushTime) {
