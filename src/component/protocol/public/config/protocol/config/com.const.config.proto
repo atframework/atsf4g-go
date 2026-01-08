@@ -68,16 +68,3 @@ message ExcelConstConfig {
   google.protobuf.Duration unlock_index_refresh_interval = 23;
   google.protobuf.Duration unlock_index_max_cache_time = 24;  // 需要大于等于 refresh interval
 }
-
-message ExcelOriginConstConfig {
-  option (xrescode.loader) = {
-    file_path: "const.bytes"
-    indexes: { fields: "key" index_type: EN_INDEX_KV }
-
-    tags: "client"
-    tags: "server"
-  };
-
-  string key = 1;
-  string value = 2;
-}
