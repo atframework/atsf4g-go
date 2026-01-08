@@ -274,7 +274,7 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 		_, messageData, err := session.Connection.ReadMessage()
 		if err != nil {
 			d.increaseErrorCounter(session)
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
 				d.GetApp().GetDefaultLogger().LogError("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
 			}
 			break
