@@ -696,6 +696,7 @@ func (app *AppInstance) RunOnce(tickTimer *time.Ticker) error {
 func (app *AppInstance) Run(arguments []string) error {
 	if !app.IsInited() {
 		if err := app.Init(arguments); err != nil {
+			app.GetDefaultLogger().LogError("App init failed", "err", err)
 			return err
 		}
 	}
