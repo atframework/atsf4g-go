@@ -24,8 +24,15 @@ import (
 rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
 % if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
-func Get${rpc_name}ResponseRpcName() string {
-	return "${rpc.descriptor.full_name}"
+func RegisterMessageHandler${rpc_name}(user User, f func(*TaskActionUser, *lobysvr_protocol_pbdesc.${rpc.get_response().get_name()}, int32) error) {
+	user.RegisterMessageHandler("${rpc.descriptor.full_name}", func(action *TaskActionUser, msg proto.Message, errCode int32) error {
+		body, ok := msg.(*lobysvr_protocol_pbdesc.${rpc.get_response().get_name()})
+		if !ok {
+			action.Log("type assertion to ${rpc.get_response().get_name()} failed")
+			return fmt.Errorf("type assertion to ${rpc.get_response().get_name()} failed")
+		}
+		return f(action, body, errCode)
+	})
 }
 % else:
 func Send${rpc_name}(task *TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rpc.get_request().get_name()}, needLogin bool) (

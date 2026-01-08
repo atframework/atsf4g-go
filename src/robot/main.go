@@ -14,7 +14,7 @@ import (
 	config "github.com/atframework/atsf4g-go/robot/config"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
 
-	_ "github.com/atframework/atsf4g-go/robot/case"
+	robot_case "github.com/atframework/atsf4g-go/robot/case"
 	cmd "github.com/atframework/atsf4g-go/robot/cmd"
 	_ "github.com/atframework/atsf4g-go/robot/data/impl"
 	_ "github.com/atframework/atsf4g-go/robot/protocol"
@@ -70,6 +70,7 @@ func main() {
 	flagSet.Bool("h", false, "show help")
 	flagSet.Bool("help", false, "show help")
 
+	flagSet.String("case_file", "", "case file path")
 	flagSet.String("resource", "", "resource directory")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
@@ -102,7 +103,16 @@ func main() {
 	config.SocketUrl = flagSet.Lookup("url").Value.String()
 	fmt.Println("URL:", config.SocketUrl)
 
-	utils.ReadLine()
+	caseFile := flagSet.Lookup("case_file").Value.String()
+	if caseFile != "" {
+		err := robot_case.RunCaseFile(caseFile)
+		if err != nil {
+			fmt.Println("Run case file error:", err)
+			os.Exit(1)
+		}
+	} else {
+		utils.ReadLine()
+	}
 
 	utils.StdoutLog("Closing all pending connections")
 	cmd.LogoutAllUsers()

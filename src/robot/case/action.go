@@ -1,7 +1,9 @@
 package atsf4g_go_robot_case
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -61,8 +63,8 @@ var (
 	ProgressBarTotalCount   int64
 	ProgressBarCurrentCount atomic.Int64
 
-	ProgressBarTotalUser   int64
-	ProgressBarCurrentUser atomic.Int64
+	FailedCount      atomic.Int64
+	TotalFailedCount atomic.Int64
 
 	RefreshCount int64
 	RefreshFunc  *time.Timer
@@ -70,7 +72,6 @@ var (
 
 func RefreshProgressBar(first bool) {
 	countProgressBar := ""
-	userProgressBar := ""
 	RefreshCount++
 	loadType := RefreshCount % 3
 	{
@@ -78,12 +79,6 @@ func RefreshProgressBar(first bool) {
 		progress := float64(ProgressBarCurrentCount.Load()) / float64(ProgressBarTotalCount)
 		completed := int(progress * float64(width))
 		countProgressBar = fmt.Sprintf("[%-*s] %d/%d", width, strings.Repeat("#", completed), ProgressBarCurrentCount.Load(), ProgressBarTotalCount)
-	}
-	{
-		width := 25
-		progress := float64(ProgressBarCurrentUser.Load()) / float64(ProgressBarTotalUser)
-		completed := int(progress * float64(width))
-		userProgressBar = fmt.Sprintf("[%-*s] %d/%d", width, strings.Repeat("#", completed), ProgressBarCurrentUser.Load(), ProgressBarTotalUser)
 	}
 	loadTypeString := ""
 	switch loadType {
@@ -95,24 +90,21 @@ func RefreshProgressBar(first bool) {
 		loadTypeString = "/"
 	}
 	if first {
-		fmt.Printf("%s Total:%s || User:%s             ", loadTypeString, countProgressBar, userProgressBar)
+		fmt.Printf("%s Total:%s || Failed:%d             ", loadTypeString, countProgressBar, FailedCount.Load())
 	} else {
-		fmt.Printf("\r%s Total:%s || User:%s             ", loadTypeString, countProgressBar, userProgressBar)
+		fmt.Printf("\r%s Total:%s || Failed:%d             ", loadTypeString, countProgressBar, FailedCount.Load())
 	}
 	if ProgressBarCurrentCount.Load() >= ProgressBarTotalCount {
-		fmt.Printf("\n")
-		utils.StdoutLog("Complete")
 		return
 	}
 	RefreshFunc = time.AfterFunc(time.Second, func() { RefreshProgressBar(false) })
 }
 
-func InitProgressBar(totalCount int64, totalUser int64) {
+func InitProgressBar(totalCount int64) {
 	ProgressBarTotalCount = totalCount
-	ProgressBarTotalUser = totalUser
 	RefreshCount = 0
 	ProgressBarCurrentCount.Store(0)
-	ProgressBarCurrentUser.Store(0)
+	FailedCount.Store(0)
 
 	RefreshProgressBar(true)
 }
@@ -121,11 +113,42 @@ func AddProgressBarCount() {
 	ProgressBarCurrentCount.Add(1)
 }
 
-func AddProgressBarUser() {
-	ProgressBarCurrentUser.Add(1)
+func RunCaseFile(caseFile string) error {
+	file, err := os.Open(caseFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if idx := strings.Index(line, "#"); idx >= 0 {
+			line = line[:idx]
+		}
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+
+		args := strings.Fields(line)
+		if len(args) == 0 {
+			continue
+		}
+
+		if errMsg := CmdRunCase(nil, args); len(errMsg) > 0 {
+			return fmt.Errorf("run case failed: %s, args: %v", errMsg, args)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func CmdRunCase(action base.TaskActionImpl, cmd []string) string {
+func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 	if len(cmd) < 5 {
 		return "Args Error"
 	}
@@ -175,7 +198,7 @@ func CmdRunCase(action base.TaskActionImpl, cmd []string) string {
 		openidChannel <- openId
 	}
 
-	InitProgressBar(totalCount.Load(), userCount)
+	InitProgressBar(totalCount.Load())
 
 	caseActionChannel := make(chan *TaskActionCase, batchCount) // 限制并发数
 
@@ -207,8 +230,10 @@ func CmdRunCase(action base.TaskActionImpl, cmd []string) string {
 			if currentCountInt-1 > 0 {
 				// 还有运行次数，继续放回OpenId
 				openidChannel <- openId
-			} else {
-				AddProgressBarUser()
+			}
+			if err != nil {
+				FailedCount.Add(1)
+				TotalFailedCount.Add(1)
 			}
 			caseActionChannel <- task
 		})
@@ -230,12 +255,18 @@ func CmdRunCase(action base.TaskActionImpl, cmd []string) string {
 				break
 			}
 		}
-		RefreshFunc.Stop()
-		RefreshProgressBar(false)
 		// 等待任务完成
 		mgr.WaitAll()
+		RefreshFunc.Stop()
+		RefreshProgressBar(false)
+		fmt.Printf("\n")
 		finishChannel <- struct{}{}
 	}()
 	<-finishChannel
+	if TotalFailedCount.Load() == 0 {
+		utils.StdoutLog(fmt.Sprintf("Complete All Success Args: %v", cmd))
+	} else {
+		return fmt.Sprintf("Complete With %d Failed", TotalFailedCount.Load())
+	}
 	return ""
 }

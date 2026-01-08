@@ -34,6 +34,16 @@ tasks:
           GEN_PB_DIR: "{{.PROJECT_ROOT}}/src/robot"
     silent: false
 
+  robot-case-install:
+    internal: true
+    desc: "Install robot case config to build/install directory"
+    cmds:
+      - cmd: cp -rf "{{.ROOT_DIR}}/src/robot/case_config" "{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}/robot/"
+        platforms: [linux, darwin]
+      - cmd: powershell -NoProfile -Command "Copy-Item -Path '{{.ROOT_DIR}}/src/robot/case_config' -Destination '{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}/robot/' -Recurse -Force"
+        platforms: [windows]
+    silent: true
+
   build:
     desc: "Build Robot Server"
     dir: "{{.TASKFILE_DIR}}"
@@ -50,4 +60,7 @@ tasks:
         vars:
           PROJECT_ROOT: "{{.PROJECT_ROOT}}"
           BUILD_TOOLS_INSTALL_DIR: "{{.BUILD_TOOLS_INSTALL_DIR}}"
+      - task: robot-case-install
+        vars:
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
     silent: true

@@ -257,7 +257,7 @@ func (u *UserCache) OnSendResponse(ctx cd.RpcContext) error {
 		ZoneID:   u.GetZoneId(),
 		ObjectID: u.GetUserId(),
 	})
-	if cache.obj == u.Impl {
+	if cache != nil && cache.obj == u.Impl {
 		if ctx.GetAction().GetActorExecutor() != nil && cache.CheckActorExecutor(ctx) {
 			cache.RefreshVisitTime(ctx)
 		}
