@@ -234,6 +234,7 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 			if err != nil {
 				FailedCount.Add(1)
 				TotalFailedCount.Add(1)
+				task.Log("Run Case[%s] Failed: %v", task.Name, err)
 			}
 			caseActionChannel <- task
 		})

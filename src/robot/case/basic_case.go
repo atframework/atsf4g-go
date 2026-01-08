@@ -58,13 +58,14 @@ func LoginCase(action *TaskActionCase, openId string) error {
 		return err
 	}
 
-	user_data.RegisterMessageHandlerUserDirtyChgSync(u,
-		func(action *user_data.TaskActionUser, msg *lobysvr_protocol_pbdesc.SCUserDirtyChgSync, errCode int32) error {
-			// 处理脏数据变更通知
-			return nil
-		})
+	err = action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
+		AddUser(tau.User)
+		return nil
+	}, "AddUser Task"))
+	if err != nil {
+		return err
+	}
 
-	AddUser(u)
 	return nil
 }
 
