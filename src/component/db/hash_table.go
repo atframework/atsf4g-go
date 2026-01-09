@@ -82,7 +82,7 @@ func HashTableLoad(ctx cd.AwaitableContext, index string, tableName string,
 				}
 				return err
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoad HGetAll Parse Success", "Seq", "TableName", tableName, awaitOption.Sequence, "Proto", pbResult)
+			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoad HGetAll Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Proto", pbResult)
 			resumeData.PrivateData = &innerPrivateData{
 				Table:      pbResult,
 				CASVersion: casVersion,
@@ -187,7 +187,7 @@ func HashTableLoadListAll(ctx cd.AwaitableContext, index string, tableName strin
 				}
 				return err
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoadListAll HGetAll Parse Success", "Seq", "TableName", tableName, awaitOption.Sequence, "Len", len(indexMessages))
+			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoadListAll HGetAll Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Len", len(indexMessages))
 			resumeData.PrivateData = &innerPrivateData{
 				IndexMessage: indexMessages,
 			}
@@ -315,7 +315,7 @@ func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName str
 				}
 				return err
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoadListIndex HMGet Parse Success", "Seq", "TableName", tableName, awaitOption.Sequence, "Len", len(indexMessages))
+			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoadListIndex HMGet Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Len", len(indexMessages))
 			resumeData.PrivateData = &innerPrivateData{
 				IndexMessage: indexMessages,
 			}
@@ -432,7 +432,7 @@ func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
 				}
 				return resumeError
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Parse Success", "Seq", "TableName", tableName, awaitOption.Sequence, "Proto", pbResult)
+			ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Proto", pbResult)
 			resumeData.PrivateData = &innerPrivateData{
 				Table:      pbResult,
 				CASVersion: casVersion,
