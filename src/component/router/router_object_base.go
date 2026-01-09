@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"log/slog"
 	"runtime"
-	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -163,7 +162,6 @@ func (g *IoTaskGuard) ResumeAwaitTask(ctx cd.RpcContext) {
 	if g.awaitTaskId == 0 {
 		return
 	}
-	g.awaitTaskId = 0
 
 	if lu.IsNil(g.owner) {
 		return
@@ -174,6 +172,7 @@ func (g *IoTaskGuard) ResumeAwaitTask(ctx cd.RpcContext) {
 		return
 	}
 
+	g.awaitTaskId = 0
 	g.owner.ResumeAwaitTask(ctx)
 }
 
@@ -356,7 +355,7 @@ func (obj *RouterObjectBase) AwaitIOTask(ctx cd.AwaitableContext) cd.RpcResult {
 		// 这边保证了 awaitIOTaskList 不会并发,所以可以直接加入
 		e := obj.awaitIOTaskList.PushBack(ctx.GetAction())
 		_, _ = cd.YieldTaskAction(ctx, ctx.GetAction(), &cd.DispatcherAwaitOptions{
-			Type:     uint64(uintptr(unsafe.Pointer(obj))),
+			Type:     obj.key.ObjectID,
 			Sequence: ctx.GetAction().GetTaskId(),
 			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
 		}, nil, nil)
@@ -380,7 +379,7 @@ func (obj *RouterObjectBase) ResumeAwaitTask(ctx cd.RpcContext) {
 		if !taskAction.IsExiting() && failedTask != taskAction {
 			err := cd.ResumeTaskAction(ctx, taskAction, &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
-					Type: uint64(uintptr(unsafe.Pointer(obj))),
+					Type: obj.key.ObjectID,
 				},
 				Sequence: taskAction.GetTaskId(),
 			})
