@@ -134,6 +134,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	// 如果有缓存要强制失效，因为可能其他地方登入了，这时候也不能复用缓存
 	libatapp.AtappGetModule[*uc.UserManager](t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), zoneId, userId, nil, true)
+	t.GetRpcContext().LogDebug("Try Remove User Success", "zoneId", zoneId, "userId", userId)
 
 	loginTb, loginCASVersion, result := t.kickoffOtherSession(t.GetAwaitableContext(), zoneId, userId)
 	if result.IsError() {

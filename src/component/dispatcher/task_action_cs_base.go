@@ -32,6 +32,7 @@ type TaskActionCSSession interface {
 
 	IsEnableActorLog() bool
 	InsertPendingActorLog(string)
+	FlushPendingActorLog(libatapp.LogWriter)
 }
 
 type TaskActionCSUser interface {
@@ -110,6 +111,10 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSU
 	}
 
 	t.user = user
+	// 设置User 如果这时Session存在,那就将Session的日志写入User
+	if !lu.IsNil(t.session) && user.GetCsActorLogWriter() != nil {
+		t.session.FlushPendingActorLog(user.GetCsActorLogWriter())
+	}
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() TaskActionCSUser {

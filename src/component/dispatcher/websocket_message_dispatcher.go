@@ -280,8 +280,6 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 			break
 		}
 
-		d.GetApp().GetDefaultLogger().LogDebug("Websocket session read message", "session_id", session.SessionId, "message_size", len(messageData))
-
 		msg := &public_protocol_extension.CSMsg{}
 		err = proto.Unmarshal(messageData, msg)
 		if err != nil {
@@ -298,9 +296,9 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 			if err != nil {
 				d.GetApp().GetDefaultLogger().LogError("OnNewMessage callback error", "error", err, "session_id", session.SessionId)
 			}
-		} else {
-			d.GetApp().GetDefaultLogger().LogDebug("OnNewMessage without callback and will be dropped", "session_id", session.SessionId, "message", msg.Head)
 		}
+
+		d.GetApp().GetDefaultLogger().LogDebug("handleSessionRead", "session_id", session.SessionId, "err", err, "message", msg.Head)
 
 		if err == nil {
 			d.OnReceiveMessage(session.runningContext, &DispatcherRawMessage{
@@ -431,8 +429,6 @@ func (d *WebSocketMessageDispatcher) writeMessageToConnection(session *WebSocket
 	}
 
 	session.resetErrorCounter()
-
-	d.GetApp().GetDefaultLogger().LogDebug("Websocket session sent message", "session_id", session.SessionId, "message_size", len(messageData))
 	return nil
 }
 

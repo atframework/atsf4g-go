@@ -81,6 +81,18 @@ func (s *Session) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
 	if !lu.IsNil(s.user) {
 		s.user.UnbindSession(ctx, s)
 	}
+
+	// 处理日志
+	if len(s.pendingCsLog) > 0 {
+		writer, _ := libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), s.key.SessionId),
+			"", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
+			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
+			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
+		if writer != nil {
+			s.FlushPendingActorLog(writer)
+		}
+		writer.Close()
+	}
 }
 
 func (s *Session) GetSessionId() uint64 {
@@ -194,4 +206,11 @@ func (s *Session) IsEnableActorLog() bool {
 
 func (s *Session) InsertPendingActorLog(content string) {
 	s.pendingCsLog = append(s.pendingCsLog, content)
+}
+
+func (s *Session) FlushPendingActorLog(logWriter libatapp.LogWriter) {
+	for _, log := range s.pendingCsLog {
+		fmt.Fprint(logWriter, log)
+	}
+	s.pendingCsLog = nil
 }

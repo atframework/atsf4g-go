@@ -284,10 +284,7 @@ func (u *UserCache) BindSession(ctx cd.RpcContext, session *Session) {
 	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
 	logWriter := u.GetCsActorLogWriter()
 	if logWriter != nil {
-		for _, log := range session.pendingCsLog {
-			fmt.Fprint(logWriter, log)
-		}
-		session.pendingCsLog = nil
+		session.FlushPendingActorLog(logWriter)
 		fmt.Fprint(logWriter, outputLog)
 	}
 	ctx.LogDebug(outputLog)
