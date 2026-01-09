@@ -287,7 +287,7 @@ func (m *UserMallManager) FetchData() *public_protocol_pbdesc.DUserMallData {
 	for _, data := range m.productData {
 		ret.ProductData = append(ret.ProductData, data.GetProductData())
 	}
-	return nil
+	return ret
 }
 
 func (m *UserMallManager) insertDirtyHandle() {
