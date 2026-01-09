@@ -280,7 +280,7 @@ func (user *User) ReceiveHandler() {
 			f, ok := user.messageHandler[rpcName]
 			if ok && f != nil {
 				user.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
-					return f(tau, csMsg, csMsg.Head.ErrorCode)
+					return f(tau, csBody, csMsg.Head.ErrorCode)
 				}, rpcName)
 			}
 		}
