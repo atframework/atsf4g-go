@@ -3,7 +3,6 @@ package atframework_component_user_controller
 import (
 	"fmt"
 	"log/slog"
-	"runtime"
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
@@ -139,9 +138,6 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), zoneId, userId), config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
 			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
-		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
-			writer.Close()
-		})
 	}
 	cache = UserCache{
 		zoneId:           zoneId,
@@ -433,6 +429,7 @@ func (u *UserCache) OnLogout(ctx cd.RpcContext) {
 
 	// 设置登出时间
 	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = ctx.GetSysNow().Unix()
+	u.csActorLogWriter.Flush()
 }
 
 func (u *UserCache) OnSaved(_ctx cd.RpcContext, routerVersion uint64) {

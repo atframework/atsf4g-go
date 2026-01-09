@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/atframework/libatapp-go"
 	atapp "github.com/atframework/libatapp-go"
 
 	ssc "github.com/atframework/atsf4g-go/component-service_shared_collection"
@@ -44,4 +45,5 @@ func main() {
 	if err != nil {
 		println("%s", err.Error())
 	}
+	libatapp.CloseAllLogWriters()
 }

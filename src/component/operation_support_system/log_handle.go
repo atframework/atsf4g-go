@@ -3,7 +3,6 @@ package atframework_component_operation_support_system
 import (
 	"context"
 	"reflect"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -86,6 +85,8 @@ func (m *OperationSupportSystem) Stop() (bool, error) {
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
 	m.sendMonLog(&log)
+	m.monLogWriter.Flush()
+	m.ossLogWriter.Flush()
 	return true, nil
 }
 
@@ -99,9 +100,6 @@ func (m *OperationSupportSystem) initLogWritter() error {
 		if err != nil {
 			return err
 		}
-		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
-			writer.Close()
-		})
 		m.ossLogWriter = writer
 	}
 	if cfg.GetMonCfg().GetEnable() {
@@ -110,9 +108,6 @@ func (m *OperationSupportSystem) initLogWritter() error {
 		if err != nil {
 			return err
 		}
-		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
-			writer.Close()
-		})
 		m.monLogWriter = writer
 	}
 	return nil

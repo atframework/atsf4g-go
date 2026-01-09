@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -206,19 +205,18 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 
 	bufferWriter, _ := libatapp.NewLogBufferedRotatingWriter(nil,
 		fmt.Sprintf("../log/%s.%s.%%N.log", caseName, beginTime.Format("15.04.05")), "", 50*1024*1024, 5, time.Second*3, 0)
-	runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
-		writer.Close()
-	})
+	logHandler := func(openId string, format string, a ...any) {
+		logString := fmt.Sprintf("[%s][%s]: %s", time.Now().Format("2006-01-02 15:04:05.000"), openId, fmt.Sprintf(format, a...))
+		bufferWriter.Write(lu.StringtoBytes(logString))
+	}
+	defer bufferWriter.Close()
 
 	for i := int64(0); i < batchCount; i++ {
 		// 创建TaskActionCase
 		task := &TaskActionCase{
 			TaskActionBase: *base.NewTaskActionBase(caseAction.timeout, "Case Runner"),
 			Fn:             caseAction.fun,
-			logHandler: func(openId string, format string, a ...any) {
-				logString := fmt.Sprintf("[%s][%s]: %s", time.Now().Format("2006-01-02 15:04:05.000"), openId, fmt.Sprintf(format, a...))
-				bufferWriter.Write(lu.StringtoBytes(logString))
-			},
+			logHandler:     logHandler,
 		}
 		task.TaskActionBase.Impl = task
 		caseActionChannel <- task
@@ -264,6 +262,7 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 		finishChannel <- struct{}{}
 	}()
 	<-finishChannel
+	logHandler("System", "Case[%s] All Completed, Total Time: %s", caseName, time.Since(beginTime).String())
 	if TotalFailedCount.Load() == 0 {
 		utils.StdoutLog(fmt.Sprintf("Complete All Success Args: %v", cmd))
 	} else {

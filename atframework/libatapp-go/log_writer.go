@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -193,6 +194,7 @@ func (d *DefaultGetTime) GetSysNow() time.Time {
 }
 
 type LogBufferedRotatingWriter struct {
+	id uint64
 	GetTime
 	fileNameFormat  string
 	fileAliasFormat string
@@ -229,6 +231,22 @@ const (
 	secondsPerMinute = int64(time.Minute / time.Second)
 	secondsPerHour   = int64(time.Hour / time.Second)
 )
+
+var writerHandlerMap sync.Map
+var globalLogWriterID atomic.Uint64
+
+func CloseAllLogWriters() {
+	writerHandlerMap.Range(func(key, value any) bool {
+		writer := value.(*LogBufferedRotatingWriter)
+		writer.Close()
+		return true
+	})
+}
+
+func addLogWriterHandler(handler *LogBufferedRotatingWriter) {
+	handler.id = globalLogWriterID.Add(1)
+	writerHandlerMap.Store(handler.id, handler)
+}
 
 // NewLogBufferedRotatingWriter 创建新的日志 writer
 func NewLogBufferedRotatingWriter(getTime GetTime, fileName string, fileAlias string, maxSize uint64, retain uint32,
@@ -280,6 +298,10 @@ func NewLogBufferedRotatingWriter(getTime GetTime, fileName string, fileAlias st
 	// 启动后台刷新 goroutine
 	w.startFlushRoutine()
 
+	addLogWriterHandler(w)
+	runtime.SetFinalizer(w, func(writer *LogBufferedRotatingWriter) {
+		writer.Close()
+	})
 	return w, nil
 }
 
@@ -513,6 +535,9 @@ func (w *LogBufferedRotatingWriter) Write(p []byte) (int, error) {
 
 // Flush 手动触发刷新缓冲区（非阻塞）
 func (w *LogBufferedRotatingWriter) Flush() error {
+	if w == nil {
+		return nil
+	}
 	if !w.started.Load() {
 		return nil
 	}
@@ -522,8 +547,13 @@ func (w *LogBufferedRotatingWriter) Flush() error {
 
 // Close 关闭打开的文件
 func (w *LogBufferedRotatingWriter) Close() {
-	// 停止后台刷新协程
-	if w.started.Load() {
-		close(w.stopCh)
+	if w == nil {
+		return
 	}
+	// 停止后台刷新协程
+	if w.started.CompareAndSwap(true, false) {
+		close(w.stopCh)
+		<-w.stoppedC
+	}
+	writerHandlerMap.Delete(w.id)
 }

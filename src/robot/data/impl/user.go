@@ -2,7 +2,6 @@ package atsf4g_go_robot_user_impl
 
 import (
 	"fmt"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -87,9 +86,6 @@ func CreateUser(openId string, socketUrl string, logHandler func(format string, 
 	if enableActorLog {
 		bufferWriter, _ = libatapp.NewLogBufferedRotatingWriter(nil,
 			fmt.Sprintf("../log/%s.%%N.log", openId), "", 20*1024*1024, 3, time.Second*3, 0)
-		runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
-			writer.Close()
-		})
 	}
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
@@ -209,7 +205,9 @@ func (user *User) ReceiveHandler() {
 	for {
 		_, bytes, err := user.connection.ReadMessage()
 		if err != nil {
-			user.Log("Error in receive: %v", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
+				user.Log("Error in receive: %v", err)
+			}
 			return
 		}
 

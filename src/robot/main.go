@@ -19,6 +19,7 @@ import (
 	_ "github.com/atframework/atsf4g-go/robot/data/impl"
 	_ "github.com/atframework/atsf4g-go/robot/protocol"
 	_ "github.com/atframework/atsf4g-go/robot/task"
+	libatapp "github.com/atframework/libatapp-go"
 )
 
 func guessResourceDir() string {
@@ -116,5 +117,6 @@ func main() {
 
 	utils.StdoutLog("Closing all pending connections")
 	cmd.LogoutAllUsers()
+	libatapp.CloseAllLogWriters()
 	utils.StdoutLog("Exiting....")
 }
