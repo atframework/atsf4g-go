@@ -229,6 +229,7 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 				// 还有运行次数，继续放回OpenId
 				openidChannel <- openId
 			}
+			AddProgressBarCount()
 			if err != nil {
 				FailedCount.Add(1)
 				TotalFailedCount.Add(1)
@@ -249,7 +250,6 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 			// 运行TaskAction
 			mgr.RunTaskAction(action)
 			successCount++
-			AddProgressBarCount()
 			if successCount >= totalCount.Load() {
 				break
 			}
