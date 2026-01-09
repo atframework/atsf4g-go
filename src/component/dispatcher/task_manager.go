@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/rand"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -21,6 +22,16 @@ var taskManagerReflectType reflect.Type
 func init() {
 	var _ libatapp.AppModuleImpl = (*TaskManager)(nil)
 	taskManagerReflectType = lu.GetStaticReflectType[TaskManager]()
+}
+
+var randomAwaitDelay bool = false
+
+func EnableRandomAwaitDelay() {
+	randomAwaitDelay = true
+}
+
+func DisableRandomAwaitDelay() {
+	randomAwaitDelay = false
 }
 
 type TaskManager struct {
@@ -261,6 +272,11 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 
 	if awaitTimer != nil {
 		awaitTimer.Stop()
+	}
+
+	if randomAwaitDelay {
+		// 随机延迟测试代码
+		time.Sleep(time.Duration(50+rand.Int()%250) * time.Millisecond)
 	}
 
 	// 恢复占用令牌

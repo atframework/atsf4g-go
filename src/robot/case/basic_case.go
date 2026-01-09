@@ -17,6 +17,8 @@ func init() {
 	RegisterCase("logout", LogoutCase, time.Second*5)
 	RegisterCase("getinfo", GetInfoCase, time.Second*5)
 	RegisterCase("delaccount", DelAccountCase, time.Second*5)
+	RegisterCase("enable-random-delay", EnableRandomDelayCase, time.Second*5)
+	RegisterCase("disable-random-delay", DisableRandomDelayCase, time.Second*5)
 }
 
 var userMapContainer = sync.Map{}
@@ -124,5 +126,49 @@ func DelAccountCase(action *TaskActionCase, openId string) error {
 	}
 
 	u.AwaitReceiveHandlerClose()
+	return nil
+}
+
+func EnableRandomDelayCase(action *TaskActionCase, openId string) error {
+	u := GetUser(openId)
+	if u == nil {
+		return fmt.Errorf("User Not Found")
+	}
+
+	err := action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
+		errCode, _, rpcErr := protocol.GMRpc(tau, []string{"enable-random-delay"})
+		if rpcErr != nil {
+			return rpcErr
+		}
+		if errCode < 0 {
+			return fmt.Errorf("enable random delay failed, errCode: %d", errCode)
+		}
+		return nil
+	}, "EnableRandomDelay Task"))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DisableRandomDelayCase(action *TaskActionCase, openId string) error {
+	u := GetUser(openId)
+	if u == nil {
+		return fmt.Errorf("User Not Found")
+	}
+
+	err := action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
+		errCode, _, rpcErr := protocol.GMRpc(tau, []string{"disable-random-delay"})
+		if rpcErr != nil {
+			return rpcErr
+		}
+		if errCode < 0 {
+			return fmt.Errorf("disable random delay failed, errCode: %d", errCode)
+		}
+		return nil
+	}, "DisableRandomDelay Task"))
+	if err != nil {
+		return err
+	}
 	return nil
 }

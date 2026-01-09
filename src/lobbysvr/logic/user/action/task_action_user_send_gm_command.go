@@ -116,6 +116,8 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "query-module-status", "<module_id>", "query special module", (*TaskActionUserSendGmCommand).runGMCmdQueryModuleStatus)
 	registerGmCommandHandle(callbacks, "del-account", "", "删除账号", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
 	registerGmCommandHandle(callbacks, "copy-account", "<new_account_id>", "拷贝账号", (*TaskActionUserSendGmCommand).runGMCmdCopyAccount)
+	registerGmCommandHandle(callbacks, "enable-random-delay", "", "Enable random delay", (*TaskActionUserSendGmCommand).runGMCmdEnableRandomDelay)
+	registerGmCommandHandle(callbacks, "disable-random-delay", "", "Disable random delay", (*TaskActionUserSendGmCommand).runGMCmdDisableRandomDelay)
 
 	return callbacks
 }
@@ -689,5 +691,15 @@ func (t *TaskActionUserSendGmCommand) runGMCmdCopyAccount(ctx component_dispatch
 	copy.UserId = newUserId
 	copy.ExpectTableUserDbVersion = 0
 	db.DatabaseTableLoginLockReplaceUserId(ctx, copy, &version, true)
+	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdEnableRandomDelay(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	cd.EnableRandomAwaitDelay()
+	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdDisableRandomDelay(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	cd.DisableRandomAwaitDelay()
 	return []string{""}, nil
 }
