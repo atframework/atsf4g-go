@@ -104,6 +104,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	// 如果正在登出则要等登出结束重新获取
 	if user != nil && user.IsWriteable() {
+		t.GetRpcContext().LogInfo("user is logging out, await logout io task", "zone_id", zoneId, "user_id", userId)
 		result := t.awaitLogoutIoTask(t.GetAwaitableContext(), user)
 		if result.IsError() {
 			result.LogError(t.GetRpcContext(), "await logout io task failed", "zone_id", zoneId, "user_id", userId)

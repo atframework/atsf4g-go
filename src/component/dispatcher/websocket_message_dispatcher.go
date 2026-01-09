@@ -298,7 +298,7 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 			}
 		}
 
-		d.GetApp().GetDefaultLogger().LogDebug("handleSessionRead", "session_id", session.SessionId, "err", err, "message", msg.Head)
+		d.GetApp().GetDefaultLogger().LogDebug("handleSessionRead", "session_id", session.SessionId, "err", err, "rpc_name", msg.Head.GetRpcRequest().GetRpcName())
 
 		if err == nil {
 			d.OnReceiveMessage(session.runningContext, &DispatcherRawMessage{
