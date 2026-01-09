@@ -205,7 +205,7 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 	beginTime := time.Now()
 
 	bufferWriter, _ := libatapp.NewLogBufferedRotatingWriter(nil,
-		fmt.Sprintf("../log/%s.%s.%%N.log", caseName, beginTime.Format("15.04.05")), "", 50*1024*1024, 5, time.Second*3)
+		fmt.Sprintf("../log/%s.%s.%%N.log", caseName, beginTime.Format("15.04.05")), "", 50*1024*1024, 5, time.Second*3, 0)
 	runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
 		writer.Close()
 	})

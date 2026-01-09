@@ -86,7 +86,7 @@ func CreateUser(openId string, socketUrl string, logHandler func(format string, 
 	var bufferWriter *libatapp.LogBufferedRotatingWriter
 	if enableActorLog {
 		bufferWriter, _ = libatapp.NewLogBufferedRotatingWriter(nil,
-			fmt.Sprintf("../log/%s.%%N.log", openId), "", 20*1024*1024, 3, time.Second*3)
+			fmt.Sprintf("../log/%s.%%N.log", openId), "", 20*1024*1024, 3, time.Second*3, 0)
 		runtime.SetFinalizer(bufferWriter, func(writer *libatapp.LogBufferedRotatingWriter) {
 			writer.Close()
 		})

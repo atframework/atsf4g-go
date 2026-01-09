@@ -138,7 +138,7 @@ func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId str
 		writer, _ = libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), zoneId, userId),
 			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), zoneId, userId), config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
-			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration())
+			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
 		runtime.SetFinalizer(writer, func(writer *libatapp.LogBufferedRotatingWriter) {
 			writer.Close()
 		})

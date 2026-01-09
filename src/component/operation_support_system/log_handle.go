@@ -95,7 +95,7 @@ func (m *OperationSupportSystem) initLogWritter() error {
 	cfg := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetOperationSupportSystem()
 	if cfg.GetOssCfg().GetEnable() {
 		writer, err := libatapp.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetOssCfg().GetFile(), cfg.GetOssCfg().GetWritingAlias(),
-			cfg.GetOssCfg().GetRotate().GetSize(), cfg.GetOssCfg().GetRotate().GetNumber(), cfg.GetOssCfg().GetFlushInterval().AsDuration())
+			cfg.GetOssCfg().GetRotate().GetSize(), cfg.GetOssCfg().GetRotate().GetNumber(), cfg.GetOssCfg().GetFlushInterval().AsDuration(), 0)
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (m *OperationSupportSystem) initLogWritter() error {
 	}
 	if cfg.GetMonCfg().GetEnable() {
 		writer, err := libatapp.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetMonCfg().GetFile(), cfg.GetMonCfg().GetWritingAlias(),
-			cfg.GetMonCfg().GetRotate().GetSize(), cfg.GetMonCfg().GetRotate().GetNumber(), cfg.GetMonCfg().GetFlushInterval().AsDuration())
+			cfg.GetMonCfg().GetRotate().GetSize(), cfg.GetMonCfg().GetRotate().GetNumber(), cfg.GetMonCfg().GetFlushInterval().AsDuration(), 0)
 		if err != nil {
 			return err
 		}

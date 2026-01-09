@@ -329,7 +329,8 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetWritingAlias(),
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetSize(),
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetNumber(),
-					time.Duration(flushInterval))
+					time.Duration(flushInterval),
+					65536)
 				if err != nil {
 					return nil, err
 				}
@@ -1171,7 +1172,7 @@ func (app *AppInstance) setupStartupLog() error {
 			default:
 				{
 					out, _ := NewLogBufferedRotatingWriter(app,
-						fmt.Sprintf("../log/%s", logFile), "", 50*1024*1024, 1, time.Second*1)
+						fmt.Sprintf("../log/%s", logFile), "", 50*1024*1024, 1, time.Second*1, 4096)
 					handler.AppendWriter(createLogHandlerWriter(out))
 				}
 			}
