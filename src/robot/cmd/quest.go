@@ -6,17 +6,16 @@ import (
 	base "github.com/atframework/atsf4g-go/robot/base"
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 	protocol "github.com/atframework/atsf4g-go/robot/protocol"
-	utils "github.com/atframework/atsf4g-go/robot/utils"
 )
 
 // ========================= 注册指令 =========================
 func init() {
-	utils.RegisterCommandDefaultTimeout([]string{"quest", "receive"}, QuestReceiveRewardCmd, "<quest_id>", "领取任务奖励", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"quest", "receiveMulti"}, QuestReceiveRewardsCmd, "<quest_id1> [quest_id2] ...", "批量领取任务奖励", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"quest", "activate"}, QuestActivateCmd, "<activate_id>", "激活任务", nil)
+	RegisterUserCommand([]string{"quest", "receive"}, QuestReceiveRewardCmd, "<quest_id>", "领取任务奖励", nil)
+	RegisterUserCommand([]string{"quest", "receiveMulti"}, QuestReceiveRewardsCmd, "<quest_id1> [quest_id2] ...", "批量领取任务奖励", nil)
+	RegisterUserCommand([]string{"quest", "activate"}, QuestActivateCmd, "<activate_id>", "激活任务", nil)
 }
 
-func QuestReceiveRewardCmd(action base.TaskActionImpl, cmd []string) string {
+func QuestReceiveRewardCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	if len(cmd) < 1 {
 		return "Args Error"
 	}
@@ -26,7 +25,7 @@ func QuestReceiveRewardCmd(action base.TaskActionImpl, cmd []string) string {
 		return err.Error()
 	}
 
-	err = action.AwaitTask(CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+	err = action.AwaitTask(user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 		_, _, rpcErr := protocol.QuestReceiveRewardRpc(task, int32(questID))
 		return rpcErr
 	}, "QuestReceiveReward Task"))
@@ -36,7 +35,7 @@ func QuestReceiveRewardCmd(action base.TaskActionImpl, cmd []string) string {
 	return ""
 }
 
-func QuestReceiveRewardsCmd(action base.TaskActionImpl, cmd []string) string {
+func QuestReceiveRewardsCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	if len(cmd) < 1 {
 		return "Args Error"
 	}
@@ -51,7 +50,7 @@ func QuestReceiveRewardsCmd(action base.TaskActionImpl, cmd []string) string {
 	}
 
 	var err error
-	err = action.AwaitTask(CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+	err = action.AwaitTask(user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 		_, _, rpcErr := protocol.QuestReceiveRewardsRpc(task, questIDs)
 		return rpcErr
 	}, "QuestReceiveRewards Task"))
@@ -61,7 +60,7 @@ func QuestReceiveRewardsCmd(action base.TaskActionImpl, cmd []string) string {
 	return ""
 }
 
-func QuestActivateCmd(action base.TaskActionImpl, cmd []string) string {
+func QuestActivateCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	if len(cmd) < 1 {
 		return "Args Error"
 	}
@@ -71,7 +70,7 @@ func QuestActivateCmd(action base.TaskActionImpl, cmd []string) string {
 		return err.Error()
 	}
 
-	err = action.AwaitTask(CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+	err = action.AwaitTask(user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 		_, _, rpcErr := protocol.QuestActivateRpc(task, int32(questID))
 		return rpcErr
 	}, "QuestActivate Task"))

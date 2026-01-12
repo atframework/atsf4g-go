@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	cmd "github.com/atframework/atsf4g-go/robot/cmd"
 	config "github.com/atframework/atsf4g-go/robot/config"
 	user_data "github.com/atframework/atsf4g-go/robot/data"
 	protocol "github.com/atframework/atsf4g-go/robot/protocol"
@@ -15,11 +16,10 @@ import (
 func init() {
 	RegisterCase("login", LoginCase, time.Second*5)
 	RegisterCase("logout", LogoutCase, time.Second*5)
-	RegisterCase("getinfo", GetInfoCase, time.Second*5)
-	RegisterCase("delaccount", DelAccountCase, time.Second*5)
-	RegisterCase("enable-random-delay", EnableRandomDelayCase, time.Second*5)
-	RegisterCase("disable-random-delay", DisableRandomDelayCase, time.Second*5)
-	RegisterCase("delay_1s", DelayCase, time.Second*5)
+	RegisterCase("gm", GmCase, time.Second*5)
+	RegisterCase("await_close", AwaitCloseCase, time.Second*5)
+	RegisterCase("delay_second", DelayCase, 0)
+	RegisterCase("run_cmd", RunCmdCase, time.Second*5)
 }
 
 var userMapContainer = sync.Map{}
@@ -43,12 +43,19 @@ func GetUser(openId string) user_data.User {
 	return v.(user_data.User)
 }
 
-func DelayCase(action *TaskActionCase, _ string) error {
-	time.Sleep(time.Second)
+func DelayCase(action *TaskActionCase, openId string, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("invalid args")
+	}
+	duration, err := time.ParseDuration(args[0] + "s")
+	if err != nil {
+		return err
+	}
+	time.Sleep(duration)
 	return nil
 }
 
-func LoginCase(action *TaskActionCase, openId string) error {
+func LoginCase(action *TaskActionCase, openId string, args []string) error {
 	// 创建角色
 	u := user_data.CreateUser(openId, config.SocketUrl, action.Log, false)
 	if u == nil {
@@ -77,7 +84,7 @@ func LoginCase(action *TaskActionCase, openId string) error {
 	return nil
 }
 
-func LogoutCase(action *TaskActionCase, openId string) error {
+func LogoutCase(action *TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return fmt.Errorf("User Not Found")
@@ -92,89 +99,53 @@ func LogoutCase(action *TaskActionCase, openId string) error {
 	return nil
 }
 
-func GetInfoCase(action *TaskActionCase, openId string) error {
+func GmCase(action *TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return fmt.Errorf("User Not Found")
+	}
+
+	if len(args) < 1 {
+		return fmt.Errorf("invalid args")
 	}
 
 	return action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
-		errCode, _, rpcErr := protocol.GetInfoRpc(tau, nil)
+		errCode, _, rpcErr := protocol.GMRpc(tau, args[0:])
 		if rpcErr != nil {
 			return rpcErr
 		}
 		if errCode < 0 {
-			return fmt.Errorf("get info failed, errCode: %d", errCode)
+			return fmt.Errorf("gm command failed, errCode: %d", errCode)
 		}
-		tau.User.SetHasGetInfo(true)
 		return nil
-	}, "GetInfo Task"))
+	}, "Gm Task"))
 }
 
-func DelAccountCase(action *TaskActionCase, openId string) error {
+func AwaitCloseCase(action *TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
-		return fmt.Errorf("User Not Found")
-	}
-
-	err := action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
-		errCode, _, rpcErr := protocol.GMRpc(tau, []string{"del-account"})
-		if rpcErr != nil {
-			return rpcErr
-		}
-		if errCode < 0 {
-			return fmt.Errorf("del account failed, errCode: %d", errCode)
-		}
 		return nil
-	}, "DelAccount Task"))
-	if err != nil {
-		return err
 	}
 
 	u.AwaitReceiveHandlerClose()
 	return nil
 }
 
-func EnableRandomDelayCase(action *TaskActionCase, openId string) error {
+func RunCmdCase(action *TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return fmt.Errorf("User Not Found")
 	}
 
-	err := action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
-		errCode, _, rpcErr := protocol.GMRpc(tau, []string{"enable-random-delay"})
-		if rpcErr != nil {
-			return rpcErr
-		}
-		if errCode < 0 {
-			return fmt.Errorf("enable random delay failed, errCode: %d", errCode)
-		}
-		return nil
-	}, "EnableRandomDelay Task"))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func DisableRandomDelayCase(action *TaskActionCase, openId string) error {
-	u := GetUser(openId)
-	if u == nil {
-		return fmt.Errorf("User Not Found")
+	cmdArgs, fn := cmd.GetUserCommandFunc(args)
+	if fn == nil {
+		return fmt.Errorf("Command Not Found")
 	}
 
-	err := action.AwaitTask(u.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
-		errCode, _, rpcErr := protocol.GMRpc(tau, []string{"disable-random-delay"})
-		if rpcErr != nil {
-			return rpcErr
-		}
-		if errCode < 0 {
-			return fmt.Errorf("disable random delay failed, errCode: %d", errCode)
-		}
-		return nil
-	}, "DisableRandomDelay Task"))
-	if err != nil {
-		return err
+	result := fn(action, u, cmdArgs)
+	if result != "" {
+		return fmt.Errorf(result)
 	}
+
 	return nil
 }

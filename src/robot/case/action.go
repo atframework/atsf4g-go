@@ -16,15 +16,18 @@ import (
 	"github.com/atframework/libatapp-go"
 )
 
+type CaseFunc func(*TaskActionCase, string, []string) error
+
 type TaskActionCase struct {
 	base.TaskActionBase
-	Fn         func(*TaskActionCase, string) error
+	Fn         CaseFunc
 	logHandler func(openId string, format string, a ...any)
 	OpenId     string
+	Args       []string
 }
 
 func (t *TaskActionCase) HookRun() error {
-	return t.Fn(t, t.OpenId)
+	return t.Fn(t, t.OpenId, t.Args)
 }
 
 func (t *TaskActionCase) Log(format string, a ...any) {
@@ -33,17 +36,17 @@ func (t *TaskActionCase) Log(format string, a ...any) {
 
 func init() {
 	var _ base.TaskActionImpl = &TaskActionCase{}
-	utils.RegisterCommand([]string{"run-case"}, CmdRunCase, "<case name> <openid-prefix> <user-count> <batch-count> <run-time>", "运行用例", AutoCompleteCaseName, 0)
+	utils.RegisterCommand([]string{"run-case"}, CmdRunCase, "<case name> <openid-prefix> <user-count> <batch-count> <run-time> <args>", "运行用例", AutoCompleteCaseName, 0)
 }
 
 type CaseAction struct {
-	fun     func(*TaskActionCase, string) error
+	fun     CaseFunc
 	timeout time.Duration
 }
 
 var caseMapContainer = make(map[string]CaseAction)
 
-func RegisterCase(name string, fn func(*TaskActionCase, string) error, timeout time.Duration) {
+func RegisterCase(name string, fn CaseFunc, timeout time.Duration) {
 	caseMapContainer[name] = CaseAction{
 		fun:     fn,
 		timeout: timeout,
@@ -218,6 +221,9 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 			Fn:             caseAction.fun,
 			logHandler:     logHandler,
 		}
+		if len(cmd) > 5 {
+			task.Args = cmd[5:]
+		}
 		task.TaskActionBase.Impl = task
 		caseActionChannel <- task
 		task.InitOnFinish(func(err error) {
@@ -262,11 +268,13 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 		finishChannel <- struct{}{}
 	}()
 	<-finishChannel
-	logHandler("System", "Case[%s] All Completed, Total Time: %s", caseName, time.Since(beginTime).String())
+	useTime := time.Since(beginTime).String()
+	logHandler("System", "Case[%s] All Completed, Total Time: %s", caseName, useTime)
 	if TotalFailedCount.Load() == 0 {
-		utils.StdoutLog(fmt.Sprintf("Complete All Success Args: %v", cmd))
+		utils.StdoutLog(fmt.Sprintf("Complete All Success Args: %v, Total Time: %s", cmd, useTime))
 	} else {
-		return fmt.Sprintf("Complete With %d Failed", TotalFailedCount.Load())
+		utils.StdoutLog(fmt.Sprintf("Complete With %d Failed Args: %v, Total Time: %s", TotalFailedCount.Load(), cmd, useTime))
+		return fmt.Sprintf("Complete With %d Failed Args: %v, Total Time: %s", TotalFailedCount.Load(), cmd, useTime)
 	}
 	return ""
 }

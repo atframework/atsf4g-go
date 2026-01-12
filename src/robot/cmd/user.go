@@ -10,6 +10,7 @@ import (
 	base "github.com/atframework/atsf4g-go/robot/base"
 	config "github.com/atframework/atsf4g-go/robot/config"
 	user_data "github.com/atframework/atsf4g-go/robot/data"
+	"github.com/chzyer/readline"
 
 	protocol "github.com/atframework/atsf4g-go/robot/protocol"
 	task "github.com/atframework/atsf4g-go/robot/task"
@@ -19,11 +20,11 @@ import (
 // ========================= 注册指令 =========================
 func init() {
 	utils.RegisterCommandDefaultTimeout([]string{"user", "login"}, LoginCmd, "<openid>", "登录协议", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"user", "logout"}, LogoutCmd, "", "登出协议", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"user", "benchmark"}, BenchmarkCmd, "", "压测协议", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"user", "useItem"}, UseItemCmd, "<itemId> <count> [use_param_index]", "使用道具协议", nil)
-	utils.RegisterCommandDefaultTimeout([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
+	RegisterUserCommand([]string{"user", "logout"}, LogoutCmd, "", "登出协议", nil)
+	RegisterUserCommand([]string{"user", "getInfo"}, GetInfoCmd, "", "拉取用户信息", nil)
+	RegisterUserCommand([]string{"user", "benchmark"}, BenchmarkCmd, "", "压测协议", nil)
+	RegisterUserCommand([]string{"user", "useItem"}, UseItemCmd, "<itemId> <count> [use_param_index]", "使用道具协议", nil)
+	RegisterUserCommand([]string{"gm"}, GMCmd, "<args...>", "GM", nil)
 	utils.RegisterCommandDefaultTimeout([]string{"user", "show_all_login_user"}, func(action base.TaskActionImpl, cmd []string) string {
 		userMapLock.Lock()
 		defer userMapLock.Unlock()
@@ -54,12 +55,10 @@ func init() {
 	}, "<userId>", "切换登录User", AutoCompleteUseIdWithoutCurrent)
 }
 
-func LogoutCmd(action base.TaskActionImpl, cmd []string) string {
-	if GetCurrentUser() != nil {
-		err := action.AwaitTask(GetCurrentUser().RunTaskDefaultTimeout(task.LogoutTask, "Logout Task"))
-		if err != nil {
-			return err.Error()
-		}
+func LogoutCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
+	err := action.AwaitTask(user.RunTaskDefaultTimeout(task.LogoutTask, "Logout Task"))
+	if err != nil {
+		return err.Error()
 	}
 	return ""
 }
@@ -138,6 +137,59 @@ func CurrentUserRunTaskDefaultTimeout(f func(*user_data.TaskActionUser) error, n
 	return user.RunTaskDefaultTimeout(f, name)
 }
 
+type UserCommandFunc func(base.TaskActionImpl, user_data.User, []string) string
+
+type UserCommandNode struct {
+	Children map[string]*UserCommandNode
+	Func     UserCommandFunc
+}
+
+var root *UserCommandNode
+
+func MutableUserCommandRoot() *UserCommandNode {
+	if root != nil {
+		return root
+	}
+	root = &UserCommandNode{Children: make(map[string]*UserCommandNode)}
+	return root
+}
+
+func RegisterUserCommand(path []string, fn UserCommandFunc, argsInfo string, desc string,
+	dynamicComplete readline.DynamicCompleteFunc) {
+	utils.RegisterCommandDefaultTimeout(path, func(action base.TaskActionImpl, cmd []string) string {
+		user := GetCurrentUser()
+		if user == nil {
+			return "GetCurrentUser: User nil"
+		}
+		fn(action, user, cmd)
+		return ""
+	}, argsInfo, desc, dynamicComplete)
+
+	current := MutableUserCommandRoot()
+	for _, key := range path {
+		if current.Children[key] == nil {
+			current.Children[key] = &UserCommandNode{
+				Children: make(map[string]*UserCommandNode),
+			}
+		}
+		current = current.Children[key]
+	}
+	current.Func = fn
+}
+
+func GetUserCommandFunc(path []string) ([]string, UserCommandFunc) {
+	current := MutableUserCommandRoot()
+	ret := path
+	for _, key := range path {
+		if current.Children[key] == nil {
+			break
+		}
+		current = current.Children[key]
+		ret = ret[1:]
+	}
+	return ret, current.Func
+}
+
 func LogoutAllUsers() {
 	userMapLock.Lock()
 	userMapContainerCopy := userMapContainer
@@ -200,9 +252,9 @@ func LoginCmd(action base.TaskActionImpl, cmd []string) string {
 	return ""
 }
 
-func GetInfoCmd(action base.TaskActionImpl, cmd []string) string {
+func GetInfoCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	// 发送登录请求
-	err := action.AwaitTask(CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+	err := action.AwaitTask(user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 		errCode, _, rpcErr := protocol.GetInfoRpc(task, cmd)
 		if rpcErr != nil {
 			return rpcErr
@@ -219,7 +271,7 @@ func GetInfoCmd(action base.TaskActionImpl, cmd []string) string {
 	return ""
 }
 
-func UseItemCmd(action base.TaskActionImpl, cmd []string) string {
+func UseItemCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	if len(cmd) < 2 {
 		return "Args Error"
 	}
@@ -246,7 +298,7 @@ func UseItemCmd(action base.TaskActionImpl, cmd []string) string {
 		param.RandomPoolIndex = append(param.RandomPoolIndex, int32(index))
 	}
 
-	err = action.AwaitTask(CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+	err = action.AwaitTask(user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 		_, _, rpcErr := protocol.UsingItemRpc(task, item, param)
 		return rpcErr
 	}, "UsingItem Task"))
@@ -256,23 +308,23 @@ func UseItemCmd(action base.TaskActionImpl, cmd []string) string {
 	return ""
 }
 
-func BenchmarkCmd(action base.TaskActionImpl, cmd []string) string {
+func BenchmarkCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	var count int64 = 1000
 	if len(cmd) >= 1 {
 		count, _ = strconv.ParseInt(cmd[0], 10, 32)
 	}
 
 	for range count {
-		CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+		user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 			return protocol.PingRpc(task)
 		}, "Ping Task")
 	}
 	return ""
 }
 
-func GMCmd(action base.TaskActionImpl, cmd []string) string {
+func GMCmd(action base.TaskActionImpl, user user_data.User, cmd []string) string {
 	// 发送登录请求
-	err := action.AwaitTask(CurrentUserRunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
+	err := action.AwaitTask(user.RunTaskDefaultTimeout(func(task *user_data.TaskActionUser) error {
 		_, _, rpcErr := protocol.GMRpc(task, cmd)
 		return rpcErr
 	}, "GM Task"))
