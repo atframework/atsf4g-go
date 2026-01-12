@@ -36,7 +36,22 @@ func (t *TaskActionMallPurchase) Run(_startData *component_dispatcher.Dispatcher
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return fmt.Errorf("user mall manager not found")
 	}
-	t.SetResponseCode(manager.MallPurchase(t.GetRpcContext(), request_body.GetProductId(), request_body.GetPurchasePriority(), request_body.GetExpectCostItems(), response_body))
+
+	if request_body.GetProductId() != 0 {
+		request_body.AppendReqs(&service_protocol.DMallPurchaseData{
+			ProductId:        request_body.GetProductId(),
+			PurchasePriority: request_body.GetPurchasePriority(),
+			PurchaseCount:    1,
+			ExpectCostItems:  request_body.GetExpectCostItems(),
+		})
+	}
+
+	if request_body.GetReqs() == nil || len(request_body.GetReqs()) == 0 {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+		return fmt.Errorf("invalid request: reqs is empty")
+	}
+
+	t.SetResponseCode(manager.MallPurchase(t.GetRpcContext(), request_body.GetReqs(), response_body))
 
 	return nil
 }

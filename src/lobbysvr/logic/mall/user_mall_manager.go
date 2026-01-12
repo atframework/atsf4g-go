@@ -12,8 +12,7 @@ type UserMallManager interface {
 	data.UserModuleManagerImpl
 
 	// 客户端通知
-	MallPurchase(ctx cd.RpcContext, productId int32, purchasePriority int32,
-		expectCostItems []*public_protocol_common.DItemBasic, rspBody *service_protocol.SCMallPurchaseRsp) int32
+	MallPurchase(ctx cd.RpcContext, reqs []*service_protocol.DMallPurchaseData, rspBody *service_protocol.SCMallPurchaseRsp) int32
 	// GetInfo
 	FetchData() *public_protocol_pbdesc.DUserMallData
 

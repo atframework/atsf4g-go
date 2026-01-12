@@ -11,7 +11,6 @@ import (
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
-	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
@@ -43,14 +42,13 @@ func (t *TaskActionUserActivate) Run(_startData *component_dispatcher.Dispatcher
 
 	// 条件检查
 	if logic_condition.HasLimitData(activateCfg.GetCommonCondition()) {
-		runtime := logic_condition.CreateRuleCheckerRuntime(
-			logic_condition_data.CreateRuntimeParameterPair(t))
 		conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](user)
 		if conditionMgr == nil {
 			t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
 			return fmt.Errorf("conditionMgr is nil")
 		}
-		ok := conditionMgr.CheckBasicLimit(t.GetRpcContext(), activateCfg.GetCommonCondition(), runtime)
+		ok := conditionMgr.CheckBasicLimit(t.GetRpcContext(),
+			activateCfg.GetCommonCondition(), logic_condition.CreateEmptyRuleCheckerRuntime())
 		if !ok.IsOK() {
 			t.SetResponseCode(ok.GetResponseCode())
 			return fmt.Errorf("activate conditions not met, activateId: %d", request_body.ActivateId)

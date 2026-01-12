@@ -18,7 +18,6 @@ import (
 	logic_time "github.com/atframework/atsf4g-go/component-logical_time"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
-	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	. "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest/data"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
@@ -582,14 +581,12 @@ func (m *UserQuestManager) AddquestProgressInner(ctx cd.RpcContext, questCfg *pu
 
 	// 检查通用条件
 	if logic_condition.HasLimitData(questCfg.GetCommonCondition()) {
-		runtime := logic_condition.CreateRuleCheckerRuntime(
-			logic_condition_data.CreateRuntimeParameterPair(params))
 		conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
 		if conditionMgr == nil {
 			ctx.LogError("condition manager not found")
 			return
 		}
-		ok := conditionMgr.CheckBasicLimit(ctx, questCfg.GetCommonCondition(), runtime)
+		ok := conditionMgr.CheckBasicLimit(ctx, questCfg.GetCommonCondition(), logic_condition.CreateEmptyRuleCheckerRuntime())
 		if !ok.IsOK() {
 			ctx.LogDebug("quest common condition not met",
 
@@ -631,7 +628,7 @@ func (m *UserQuestManager) CheckQuestCommonCondition(ctx cd.RpcContext,
 	}
 
 	// 检查所有条件（包括静态和动态）
-	rpcResult := conditionMgr.CheckBasicLimit(ctx, commonCondition, logic_condition.CreateRuleCheckerRuntime())
+	rpcResult := conditionMgr.CheckBasicLimit(ctx, commonCondition, logic_condition.CreateEmptyRuleCheckerRuntime())
 	return rpcResult.IsOK()
 }
 
@@ -1567,7 +1564,7 @@ func (m *UserQuestManager) ClientQueryQuestUpdateStatus(ctx cd.RpcContext) {
 // 通用条件
 
 func checkRuleQuestStatus(m logic_condition.UserConditionManager, _ctx cd.RpcContext,
-	rule *public_protocol_common.Readonly_DConditionRule, _runtime *logic_condition.RuleCheckerRuntime,
+	rule *public_protocol_common.Readonly_DConditionRule, _ *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	mgr := data.UserGetModuleManager[logic_quest.UserQuestManager](m.GetOwner())
 	if mgr == nil {

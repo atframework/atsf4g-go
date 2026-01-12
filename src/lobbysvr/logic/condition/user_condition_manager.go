@@ -113,6 +113,10 @@ func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRu
 	return logic_condition_data.CreateRuleCheckerRuntime(params...)
 }
 
+func CreateEmptyRuleCheckerRuntime() *RuleCheckerRuntime {
+	return nil
+}
+
 type conditionRuleCheckHandle struct {
 	StaticChecker  CheckConditionFunc
 	DynamicChecker CheckConditionFunc

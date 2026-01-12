@@ -14,14 +14,18 @@ import "protocol/common/com.struct.item.common.proto";
 
 package proy;
 
-/////////////////////////////////////////////////////
-// 到loginsvr的CS协议
-/////////////////////////////////////////////////////
+message DMallPurchaseData {
+  int32 product_id = 1;
+  int32 purchase_priority = 2;
+  int32 purchase_count = 3;
+  repeated DItemBasic expect_cost_items = 4;
+}
 
 message CSMallPurchaseReq {
   int32 product_id = 1;
   int32 purchase_priority = 2;
   repeated DItemBasic expect_cost_items = 3;
+  repeated DMallPurchaseData reqs = 11;
 }
 
 message SCMallPurchaseRsp {

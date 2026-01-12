@@ -13,6 +13,7 @@ import (
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
+	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
@@ -132,10 +133,21 @@ func (m *UserMallManager) ForeachConditionCounter(f func(storage *public_protoco
 
 /////////////////////////////////////////////////////////////////////////////////
 
-func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purchasePriority int32,
-	expectCostItems []*public_protocol_common.DItemBasic, rspBody *service_protocol.SCMallPurchaseRsp) int32 {
+func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, reqs []*service_protocol.DMallPurchaseData,
+	rspBody *service_protocol.SCMallPurchaseRsp) int32 {
+	for _, req := range reqs {
+		resultCode := m.MallPurchaseSingle(ctx, req, rspBody)
+		if resultCode != 0 {
+			return resultCode
+		}
+	}
+	return 0
+}
+
+func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_protocol.DMallPurchaseData,
+	rspBody *service_protocol.SCMallPurchaseRsp) int32 {
 	// 先判断商城是否解锁
-	productRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallProductByProductIdPurchasePriority(productId, purchasePriority)
+	productRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallProductByProductIdPurchasePriority(req.GetProductId(), req.GetPurchasePriority())
 	if productRow == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PRODUCT_NOT_FOUND)
 	}
@@ -151,40 +163,48 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purch
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PRODUCT_NOT_ON_SELL)
 	}
 
+	if req.GetPurchaseCount() <= 0 {
+		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+
 	// 商城解锁条件
+	conditionRuntime := logic_condition.CreateRuleCheckerRuntime(
+		logic_condition_data.CreateRuntimeParameterPair(req),
+	)
 	if logic_condition.HasLimitData(mallRow.GetUnlockCondition()) {
 		conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
 		if conditionMgr == nil {
 			return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		}
 
-		rpcResult := conditionMgr.CheckBasicLimit(ctx, mallRow.GetUnlockCondition(), logic_condition.CreateRuleCheckerRuntime())
+		rpcResult := conditionMgr.CheckBasicLimit(ctx, mallRow.GetUnlockCondition(), conditionRuntime)
 		if !rpcResult.IsOK() {
 			return rpcResult.GetResponseCode()
 		}
 	}
 
-	// 商品解锁条件
 	{
+		// 商品解锁条件
 		if logic_condition.HasLimitData(productRow.GetUnlockCondition()) {
 			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
 			if conditionMgr == nil {
 				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
 
-			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetUnlockCondition(), logic_condition.CreateRuleCheckerRuntime())
+			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetUnlockCondition(), conditionRuntime)
 			if !rpcResult.IsOK() {
 				return rpcResult.GetResponseCode()
 			}
 		}
 
+		// 商品购买条件
 		if logic_condition.HasLimitData(productRow.GetPurchaseCondition()) {
 			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
 			if conditionMgr == nil {
 				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
 
-			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetPurchaseCondition(), logic_condition.CreateRuleCheckerRuntime())
+			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetPurchaseCondition(), conditionRuntime)
 			if !rpcResult.IsOK() {
 				return rpcResult.GetResponseCode()
 			}
@@ -221,7 +241,7 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purch
 		m.dirtyMallProduct[productRow.GetProductId()] = struct{}{}
 		m.insertDirtyHandle()
 	}
-	checkResult := conditionMgr.CheckCounterLimit(ctx, ctx.GetNow(), int64(1),
+	checkResult := conditionMgr.CheckCounterLimit(ctx, ctx.GetNow(), int64(req.GetPurchaseCount()),
 		productRow.GetTotalCounterCondition(), productData.MutableTotalCounterStorageData())
 	if checkResult.IsError() {
 		return checkResult.GetResponseCode()
@@ -230,13 +250,13 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purch
 	// 检查消耗
 	var subGuard []*data.ItemSubGuard
 	if len(productRow.GetPurchaseCost()) != 0 {
-		result := m.GetOwner().CheckCostItemCfg(ctx, expectCostItems, productRow.GetPurchaseCost())
+		result := m.GetOwner().CheckCostRatioItemCfg(ctx, req.GetExpectCostItems(), productRow.GetPurchaseCost(), int64(req.GetPurchaseCount()))
 		if result.IsError() {
 			ctx.LogError("check cost item failed", "error", result.GetResponseCode())
 			return result.GetResponseCode()
 		}
 
-		subGuard, result = m.GetOwner().CheckSubItem(ctx, expectCostItems)
+		subGuard, result = m.GetOwner().CheckSubItem(ctx, req.GetExpectCostItems())
 		if result.IsError() {
 			ctx.LogError("check sub item failed", "error", result.GetResponseCode())
 			return result.GetResponseCode()
@@ -245,7 +265,7 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purch
 	}
 
 	// 检查发放
-	rewardInstances, result := m.GetOwner().GenerateMultipleItemInstancesFromCfgOffset(ctx, productRow.GetProductItems(), true)
+	rewardInstances, result := m.GetOwner().GenerateMultipleItemInstancesFromCfgOffsetRatio(ctx, productRow.GetProductItems(), true, int64(req.GetPurchaseCount()))
 	if result.IsError() {
 		result.LogError(ctx, "generate reward item instances failed")
 		return result.GetResponseCode()
@@ -258,7 +278,7 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, productId int32, purch
 	}
 
 	// 加次数
-	conditionMgr.AddCounter(ctx, ctx.GetNow(), 1,
+	conditionMgr.AddCounter(ctx, ctx.GetNow(), int64(req.GetPurchaseCount()),
 		productRow.GetTotalCounterCondition(),
 		productData.MutableTotalCounterStorageData())
 
@@ -331,16 +351,21 @@ func registerCondition() {
 		nil, checkRuleMallProductPurchaseCustomCounter)
 }
 
-func checkConditionCountLimit(rule *public_protocol_common.Readonly_DConditionRuleMallProductPurchaseCount, count int64) bool {
-	if count < rule.GetMinValue() {
+func checkConditionCountLimit(rule *public_protocol_common.Readonly_DConditionRuleMallProductPurchaseCount,
+	currentCount int64, purchaseCount int64) bool {
+	if currentCount < rule.GetMinValue() {
 		return false
 	}
 
-	if rule.GetMaxValue() < 0 && count > 0 {
+	if rule.GetMaxValue() < 0 && currentCount > 0 {
 		return false
 	}
 
-	if rule.GetMaxValue() > 0 && count > rule.GetMaxValue() {
+	if rule.GetMaxValue() > 0 && currentCount > rule.GetMaxValue() {
+		return false
+	}
+
+	if purchaseCount > 1 && rule.GetMaxValue() > 0 && currentCount+purchaseCount-1 > rule.GetMaxValue() {
 		return false
 	}
 
@@ -360,9 +385,11 @@ func checkRuleMallProductPurchaseSumCounter(m logic_condition.UserConditionManag
 	}
 
 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseSumCounter().GetProductId())
-	count := counter.VersionCounter.GetSumCounter()
+	currentCount := counter.VersionCounter.GetSumCounter()
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseSumCounter(), count) {
+	purchaseCount := logic_condition_data.GetRuleRuntimeParameter[*service_protocol.DMallPurchaseData](runtime).GetPurchaseCount()
+
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseSumCounter(), currentCount, int64(purchaseCount)) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_SUM_LIMIT)
 	}
 
@@ -382,12 +409,14 @@ func checkRuleMallProductPurchaseDailyCounter(m logic_condition.UserConditionMan
 	}
 
 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseDailyCounter().GetProductId())
-	count := int64(0)
+	currentCount := int64(0)
 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetDailyNextCheckpoint().AsTime()) {
-		count = counter.VersionCounter.GetDailyCounter()
+		currentCount = counter.VersionCounter.GetDailyCounter()
 	}
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseDailyCounter(), count) {
+	purchaseCount := logic_condition_data.GetRuleRuntimeParameter[*service_protocol.DMallPurchaseData](runtime).GetPurchaseCount()
+
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseDailyCounter(), currentCount, int64(purchaseCount)) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DAILY_LIMIT)
 	}
 
@@ -407,12 +436,14 @@ func checkRuleMallProductPurchaseWeeklyCounter(m logic_condition.UserConditionMa
 	}
 
 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseWeeklyCounter().GetProductId())
-	count := int64(0)
+	currentCount := int64(0)
 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetWeeklyNextCheckpoint().AsTime()) {
-		count = counter.VersionCounter.GetWeeklyCounter()
+		currentCount = counter.VersionCounter.GetWeeklyCounter()
 	}
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseWeeklyCounter(), count) {
+	purchaseCount := logic_condition_data.GetRuleRuntimeParameter[*service_protocol.DMallPurchaseData](runtime).GetPurchaseCount()
+
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseWeeklyCounter(), currentCount, int64(purchaseCount)) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_WEEKLY_LIMIT)
 	}
 
@@ -432,12 +463,14 @@ func checkRuleMallProductPurchaseWeeklyCounter(m logic_condition.UserConditionMa
 // 	}
 
 // 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseMonthlyCounter().GetProductId())
-// 	count := int64(0)
+// 	currentCount := int64(0)
 // 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetMonthlyNextCheckpoint().AsTime()) {
-// 		count = counter.VersionCounter.GetMonthlyCounter()
+// 		currentCount = counter.VersionCounter.GetMonthlyCounter()
 // 	}
 
-// 	if !checkConditionCountLimit(rule.GetMallProductPurchaseMonthlyCounter(), count) {
+// purchaseCount := logic_condition_data.GetRuleRuntimeParameter[*service_protocol.DMallPurchaseData](runtime).GetPurchaseCount()
+
+// 	if !checkConditionCountLimit(rule.GetMallProductPurchaseMonthlyCounter(), currentCount, int64(purchaseCount)) {
 // 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_MONTHLY_LIMIT)
 // 	}
 
@@ -457,12 +490,14 @@ func checkRuleMallProductPurchaseCustomCounter(m logic_condition.UserConditionMa
 	}
 
 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCustomCounter().GetProductId())
-	count := int64(0)
+	currentCount := int64(0)
 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetCustomNextCheckpoint().AsTime()) {
-		count = counter.VersionCounter.GetCustomCounter()
+		currentCount = counter.VersionCounter.GetCustomCounter()
 	}
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseCustomCounter(), count) {
+	purchaseCount := logic_condition_data.GetRuleRuntimeParameter[*service_protocol.DMallPurchaseData](runtime).GetPurchaseCount()
+
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseCustomCounter(), currentCount, int64(purchaseCount)) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_CUSTOM_LIMIT)
 	}
 
