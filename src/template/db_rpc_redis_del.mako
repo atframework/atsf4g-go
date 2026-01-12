@@ -27,7 +27,7 @@ func ${message_name}DelWith${index_key_name}(
 		return
 	}
 
-	ctx.LogInfo("delete ${message_name} table with key from db success",
+	ctx.LogDebug("delete ${message_name} table with key from db success",
 % for field in key_fields:
 		"${field["ident"]}", ${field["ident"]},
 % endfor
@@ -70,7 +70,7 @@ func ${message_name}DelIndexWith${index_key_name}(
 		return
 	}
 
-	ctx.LogInfo("delete index ${message_name} table with key from db success",
+	ctx.LogDebug("delete index ${message_name} table with key from db success",
 		"listIndex", listIndex,
 % for field in key_fields:
 		"${field["ident"]}", ${field["ident"]},

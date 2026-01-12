@@ -37,7 +37,7 @@ func ${message_name}Add${index_meta["index_key_name"]}(
 		return
 	}
 
-	ctx.LogInfo("update ${message_name} table with key from db success",
+	ctx.LogDebug("update ${message_name} table with key from db success",
 		"RealCASVersion", CASVersion,
 % if not index_type_kv:
 		"listIndex", listIndex,
@@ -83,7 +83,7 @@ func ${message_name}Replace${index_meta["index_key_name"]}(
 		return
 	}
 
-	ctx.LogInfo("update ${message_name} table with key from db success",
+	ctx.LogDebug("update ${message_name} table with key from db success",
 		"RealCASVersion", *currentCASVersion,
 % if not index_type_kv:
 		"listIndex", listIndex,
@@ -122,7 +122,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		return
 	}
 
-	ctx.LogInfo("update ${message_name} table with key from db success",
+	ctx.LogDebug("update ${message_name} table with key from db success",
 % if not index_type_kv:
 		"listIndex", listIndex,
 % endif

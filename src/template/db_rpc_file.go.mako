@@ -37,7 +37,7 @@ func ${message_name}LoadWith${index_key_name}(
                         public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
 	}
 
-	ctx.LogInfo("load ${message_name} login table with key from db success",
+	ctx.LogDebug("load ${message_name} login table with key from db success",
 %           for key in index.key_fields:
 	"${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)}", ${message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)},
 %           endfor

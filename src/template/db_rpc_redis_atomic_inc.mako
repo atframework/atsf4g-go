@@ -31,7 +31,7 @@ func ${message_name}AtomicInc${index_key_name}${inc_field["ident"]}(
         return
     }
 
-    ctx.LogInfo("atomic inc ${message_name} table with key from db success",
+    ctx.LogDebug("atomic inc ${message_name} table with key from db success",
         "incValue", incValue,
         "${inc_field["ident"]}", newValue,
 % for field in key_fields:

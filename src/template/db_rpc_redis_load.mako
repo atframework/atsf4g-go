@@ -42,7 +42,7 @@ func ${message_name}LoadWith${index_key_name}(
 % for field in key_fields:
 	table.${field["ident"]} = ${field["ident"]}
 % endfor
-	ctx.LogInfo("load ${message_name} table with key from db success",
+	ctx.LogDebug("load ${message_name} table with key from db success",
 % if cas_enabled:
 		"CASVersion", CASVersion,
 % endif
@@ -83,7 +83,7 @@ func ${message_name}LoadAllWith${index_key_name}(
 % endfor
 		}
 	}
-	ctx.LogInfo("load ${message_name} table with key from db success",
+	ctx.LogDebug("load ${message_name} table with key from db success",
 		"index_message_len", len(indexMessage),
 % for field in key_fields:
 		"${field["ident"]}", ${field["ident"]},
@@ -128,7 +128,7 @@ func ${message_name}LoadIndexWith${index_key_name}(
 % endfor
 		}
 	}
-	ctx.LogInfo("load ${message_name} table with key from db success",
+	ctx.LogDebug("load ${message_name} table with key from db success",
 		"index_message_len", len(indexMessage),
 % for field in key_fields:
 		"${field["ident"]}", ${field["ident"]},
