@@ -450,8 +450,8 @@ func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []*data.Ite
 		// 虚拟道具分发
 		if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 			typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
-			standalone, _ := m.virtualItemManager.AddItem(ctx, add, reason)
-			if standalone {
+			process, _ := m.virtualItemManager.AddItem(ctx, add, reason)
+			if process {
 				continue
 			}
 		}
@@ -499,8 +499,8 @@ func (m *UserInventoryManager) SubItem(ctx cd.RpcContext, itemOffset []*data.Ite
 		// 虚拟道具分发
 		if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
 			typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
-			standalone, _ := m.virtualItemManager.SubItem(ctx, sub, reason)
-			if standalone {
+			process, _ := m.virtualItemManager.SubItem(ctx, sub, reason)
+			if process {
 				continue
 			}
 		}
@@ -628,22 +628,6 @@ func (m *UserInventoryManager) CheckSubItem(ctx cd.RpcContext, itemOffset []*pub
 		return nil, cd.CreateRpcResultError(fmt.Errorf("itemOffset is nil"), public_protocol_pbdesc.EnErrorCode(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 	}
 
-	// 虚拟道具分发
-	for i := 0; i < len(itemOffset); i++ {
-		item := itemOffset[i]
-		if item == nil {
-			continue
-		}
-		typeId := item.GetTypeId()
-		if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
-			typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
-			result := m.virtualItemManager.CheckSubItem(ctx, item)
-			if result.IsError() {
-				return nil, result
-			}
-		}
-	}
-
 	// 通用道具管理
 	guard, result := m.CreateItemSubGuard(itemOffset)
 	if result.IsError() {
@@ -655,6 +639,20 @@ func (m *UserInventoryManager) CheckSubItem(ctx cd.RpcContext, itemOffset []*pub
 		if sub == nil {
 			continue
 		}
+
+		// 虚拟道具分发
+		typeId := sub.Item.GetTypeId()
+		if typeId >= int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_BEGIN) &&
+			typeId < int32(public_protocol_common.EnItemTypeRange_EN_ITEM_TYPE_RANGE_VIRTUAL_ITEM_END) {
+			process, result := m.virtualItemManager.CheckSubItem(ctx, sub.Item)
+			if result.IsError() {
+				return nil, result
+			}
+			if process {
+				continue
+			}
+		}
+
 		group := m.getItemGroup(sub.Item.GetTypeId())
 		if group == nil {
 			return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode(m.GetNotEnoughErrorCode(sub.Item.GetTypeId())))
