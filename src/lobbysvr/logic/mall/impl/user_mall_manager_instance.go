@@ -319,16 +319,16 @@ func (m *UserMallManager) GetProductCounter(productId int32) *public_protocol_co
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCountAll(),
-		nil, checkRuleMallProductPurchaseCountAll)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCountDaily(),
-		nil, checkRuleMallProductPurchaseCountDaily)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCountWeekly(),
-		nil, checkRuleLotteryPoolGroupSumCountWeekly)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCountMonthly(),
-		nil, checkRuleMallProductPurchaseCountMonthly)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCountCustom(),
-		nil, checkRuleMallProductPurchaseCountCustom)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseSumCounter(),
+		nil, checkRuleMallProductPurchaseSumCounter)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseDailyCounter(),
+		nil, checkRuleMallProductPurchaseDailyCounter)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseWeeklyCounter(),
+		nil, checkRuleMallProductPurchaseWeeklyCounter)
+	// logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseMonthlyCounter(),
+	// 	nil, checkRuleMallProductPurchaseMonthlyCounter)
+	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCustomCounter(),
+		nil, checkRuleMallProductPurchaseCustomCounter)
 }
 
 func checkConditionCountLimit(rule *public_protocol_common.Readonly_DConditionRuleMallProductPurchaseCount, count int64) bool {
@@ -347,7 +347,7 @@ func checkConditionCountLimit(rule *public_protocol_common.Readonly_DConditionRu
 	return true
 }
 
-func checkRuleMallProductPurchaseCountAll(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+func checkRuleMallProductPurchaseSumCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule == nil {
@@ -359,17 +359,17 @@ func checkRuleMallProductPurchaseCountAll(m logic_condition.UserConditionManager
 		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
-	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCountAll().GetProductId())
+	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseSumCounter().GetProductId())
 	count := counter.VersionCounter.GetSumCounter()
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseCountAll(), count) {
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseSumCounter(), count) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_SUM_LIMIT)
 	}
 
 	return cd.CreateRpcResultOk()
 }
 
-func checkRuleMallProductPurchaseCountDaily(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+func checkRuleMallProductPurchaseDailyCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule == nil {
@@ -381,20 +381,20 @@ func checkRuleMallProductPurchaseCountDaily(m logic_condition.UserConditionManag
 		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
-	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCountDaily().GetProductId())
+	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseDailyCounter().GetProductId())
 	count := int64(0)
 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetDailyNextCheckpoint().AsTime()) {
 		count = counter.VersionCounter.GetDailyCounter()
 	}
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseCountDaily(), count) {
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseDailyCounter(), count) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DAILY_LIMIT)
 	}
 
 	return cd.CreateRpcResultOk()
 }
 
-func checkRuleLotteryPoolGroupSumCountWeekly(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+func checkRuleMallProductPurchaseWeeklyCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule == nil {
@@ -406,20 +406,45 @@ func checkRuleLotteryPoolGroupSumCountWeekly(m logic_condition.UserConditionMana
 		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
-	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCountWeekly().GetProductId())
+	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseWeeklyCounter().GetProductId())
 	count := int64(0)
 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetWeeklyNextCheckpoint().AsTime()) {
 		count = counter.VersionCounter.GetWeeklyCounter()
 	}
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseCountWeekly(), count) {
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseWeeklyCounter(), count) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_WEEKLY_LIMIT)
 	}
 
 	return cd.CreateRpcResultOk()
 }
 
-func checkRuleMallProductPurchaseCountMonthly(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+// func checkRuleMallProductPurchaseMonthlyCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+// 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+// ) cd.RpcResult {
+// 	if rule == nil {
+// 		return cd.CreateRpcResultOk()
+// 	}
+
+// 	mgr := data.UserGetModuleManager[logic_mall.UserMallManager](m.GetOwner())
+// 	if mgr == nil {
+// 		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+// 	}
+
+// 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseMonthlyCounter().GetProductId())
+// 	count := int64(0)
+// 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetMonthlyNextCheckpoint().AsTime()) {
+// 		count = counter.VersionCounter.GetMonthlyCounter()
+// 	}
+
+// 	if !checkConditionCountLimit(rule.GetMallProductPurchaseMonthlyCounter(), count) {
+// 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_MONTHLY_LIMIT)
+// 	}
+
+// 	return cd.CreateRpcResultOk()
+// }
+
+func checkRuleMallProductPurchaseCustomCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
 	if rule == nil {
@@ -431,38 +456,13 @@ func checkRuleMallProductPurchaseCountMonthly(m logic_condition.UserConditionMan
 		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
-	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCountMonthly().GetProductId())
-	count := int64(0)
-	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetMonthlyNextCheckpoint().AsTime()) {
-		count = counter.VersionCounter.GetMonthlyCounter()
-	}
-
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseCountMonthly(), count) {
-		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_MONTHLY_LIMIT)
-	}
-
-	return cd.CreateRpcResultOk()
-}
-
-func checkRuleMallProductPurchaseCountCustom(m logic_condition.UserConditionManager, ctx cd.RpcContext,
-	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
-) cd.RpcResult {
-	if rule == nil {
-		return cd.CreateRpcResultOk()
-	}
-
-	mgr := data.UserGetModuleManager[logic_mall.UserMallManager](m.GetOwner())
-	if mgr == nil {
-		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-	}
-
-	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCountCustom().GetProductId())
+	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseCustomCounter().GetProductId())
 	count := int64(0)
 	if counter != nil && ctx.GetNow().Before(counter.VersionCounter.GetCustomNextCheckpoint().AsTime()) {
 		count = counter.VersionCounter.GetCustomCounter()
 	}
 
-	if !checkConditionCountLimit(rule.GetMallProductPurchaseCountCustom(), count) {
+	if !checkConditionCountLimit(rule.GetMallProductPurchaseCustomCounter(), count) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_CUSTOM_LIMIT)
 	}
 
