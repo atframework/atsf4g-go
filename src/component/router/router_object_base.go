@@ -173,6 +173,7 @@ func (g *IoTaskGuard) ResumeAwaitTask(ctx cd.RpcContext) {
 	}
 
 	g.awaitTaskId = 0
+	g.owner.SetAwaitTaskAction(nil)
 	g.owner.ResumeAwaitTask(ctx)
 }
 
@@ -369,7 +370,7 @@ func (obj *RouterObjectBase) ResumeAwaitTask(ctx cd.RpcContext) {
 	// 可重入式的等待器
 	var failedTask cd.TaskActionImpl
 	for obj.awaitIOTaskList.Len() > 0 {
-		if obj.GetAwaitTaskId() == 0 {
+		if obj.GetAwaitTaskId() != 0 {
 			break
 		}
 
@@ -387,7 +388,7 @@ func (obj *RouterObjectBase) ResumeAwaitTask(ctx cd.RpcContext) {
 				ctx.LogError("Resume await IO task action failed", "error", err)
 				failedTask = taskAction
 			} else {
-				failedTask = nil
+				break
 			}
 		} else {
 			obj.awaitIOTaskList.Remove(e)

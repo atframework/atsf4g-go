@@ -353,7 +353,7 @@ func (t *TaskActionBase) TryFinishAwait(resumeData *DispatcherResumeData, notify
 		case *t.currentAwaiting.Channel <- TaskActionAwaitChannelData{resume: resumeData}:
 			t.currentAwaiting.Option = nil
 		default:
-			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, no receiver", t.impl.Name(), t.impl.GetTaskId())
+			return fmt.Errorf("task %s, %d TryFinishAwait send to channel failed, receive failed", t.impl.Name(), t.impl.GetTaskId())
 		}
 	}
 

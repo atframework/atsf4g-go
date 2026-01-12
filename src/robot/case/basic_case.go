@@ -19,6 +19,7 @@ func init() {
 	RegisterCase("delaccount", DelAccountCase, time.Second*5)
 	RegisterCase("enable-random-delay", EnableRandomDelayCase, time.Second*5)
 	RegisterCase("disable-random-delay", DisableRandomDelayCase, time.Second*5)
+	RegisterCase("delay_1s", DelayCase, time.Second*5)
 }
 
 var userMapContainer = sync.Map{}
@@ -40,6 +41,11 @@ func GetUser(openId string) user_data.User {
 		return nil
 	}
 	return v.(user_data.User)
+}
+
+func DelayCase(action *TaskActionCase, _ string) error {
+	time.Sleep(time.Second)
+	return nil
 }
 
 func LoginCase(action *TaskActionCase, openId string) error {
