@@ -178,9 +178,11 @@ func TestGetTypeIDOf_Generic(t *testing.T) {
 	assert.True(t, idStr.IsValid(), "TypeID for string should be valid")
 	assert.NotEqual(t, idInt, idStr, "int and string should have different TypeIDs")
 
-	// Compare with GetTypeID
-	assert.Equal(t, idInt, GetTypeID(42), "GetTypeIDOf[int]() should match GetTypeID(42)")
-	assert.Equal(t, idStr, GetTypeID("hello"), "GetTypeIDOf[string]() should match GetTypeID(\"hello\")")
+	// GetTypeIDOf uses *T internally, so it matches GetTypeID of a nil pointer
+	var pInt *int
+	var pStr *string
+	assert.Equal(t, idInt, GetTypeID(pInt), "GetTypeIDOf[int]() should match GetTypeID((*int)(nil))")
+	assert.Equal(t, idStr, GetTypeID(pStr), "GetTypeIDOf[string]() should match GetTypeID((*string)(nil))")
 }
 
 func TestGetTypeIDOfPointer_Generic(t *testing.T) {
@@ -192,24 +194,27 @@ func TestGetTypeIDOfPointer_Generic(t *testing.T) {
 	assert.True(t, idPtrInt.IsValid(), "TypeID for *int should be valid")
 	assert.NotEqual(t, idPtrInt, idPtrStr, "*int and *string should have different TypeIDs")
 
-	// Compare with GetTypeID
-	var p *int
-	assert.Equal(t, idPtrInt, GetTypeID(p), "GetTypeIDOfPointer[int]() should match GetTypeID((*int)(nil))")
+	// GetTypeIDOfPointer uses **T internally
+	var pp **int
+	assert.Equal(t, idPtrInt, GetTypeID(pp), "GetTypeIDOfPointer[int]() should match GetTypeID((**int)(nil))")
+
+	// GetTypeIDOfPointer[T] should differ from GetTypeIDOf[T]
+	assert.NotEqual(t, idPtrInt, GetTypeIDOf[int](), "GetTypeIDOfPointer[int] should differ from GetTypeIDOf[int]")
 }
 
 func TestTypeID_AsMapKey(t *testing.T) {
 	// Arrange: create a map using TypeID as key
 	typeNames := make(map[TypeID]string)
 
-	// Act: populate the map
+	// Act: populate the map using GetTypeIDOf (which uses *T internally)
 	typeNames[GetTypeIDOf[int]()] = "int"
 	typeNames[GetTypeIDOf[string]()] = "string"
 	typeNames[GetTypeIDOf[float64]()] = "float64"
 
-	// Assert: retrieve values
-	assert.Equal(t, "int", typeNames[GetTypeID(42)])
-	assert.Equal(t, "string", typeNames[GetTypeID("hello")])
-	assert.Equal(t, "float64", typeNames[GetTypeID(3.14)])
+	// Assert: retrieve values using GetTypeIDOf (consistent API)
+	assert.Equal(t, "int", typeNames[GetTypeIDOf[int]()])
+	assert.Equal(t, "string", typeNames[GetTypeIDOf[string]()])
+	assert.Equal(t, "float64", typeNames[GetTypeIDOf[float64]()])
 
 	// Non-existent type should return empty string
 	assert.Equal(t, "", typeNames[GetTypeIDOf[bool]()])
@@ -494,10 +499,13 @@ func TestTypeID_CustomType_GetTypeIDOf_Generic(t *testing.T) {
 	idItem := GetTypeIDOf[ItemModule]()
 	idBag := GetTypeIDOf[BagModule]()
 
-	// Verify they match instances
-	assert.Equal(t, idUser, GetTypeID(UserModule{}), "GetTypeIDOf[UserModule]() should match instance")
-	assert.Equal(t, idItem, GetTypeID(ItemModule{}), "GetTypeIDOf[ItemModule]() should match instance")
-	assert.Equal(t, idBag, GetTypeID(BagModule{}), "GetTypeIDOf[BagModule]() should match instance")
+	// GetTypeIDOf uses *T internally, so verify with nil pointers
+	var pUser *UserModule
+	var pItem *ItemModule
+	var pBag *BagModule
+	assert.Equal(t, idUser, GetTypeID(pUser), "GetTypeIDOf[UserModule]() should match nil pointer")
+	assert.Equal(t, idItem, GetTypeID(pItem), "GetTypeIDOf[ItemModule]() should match nil pointer")
+	assert.Equal(t, idBag, GetTypeID(pBag), "GetTypeIDOf[BagModule]() should match nil pointer")
 
 	// Verify they are different
 	assert.NotEqual(t, idUser, idItem)
@@ -511,20 +519,15 @@ func TestTypeID_CustomType_ModuleRegistry(t *testing.T) {
 
 	registry := make(map[TypeID]ModuleFactory)
 
-	// Register factories
+	// Register factories using GetTypeIDOf
 	registry[GetTypeIDOf[UserModule]()] = func() ModuleInterface { return &UserModule{} }
 	registry[GetTypeIDOf[ItemModule]()] = func() ModuleInterface { return &ItemModule{} }
 	registry[GetTypeIDOf[BagModule]()] = func() ModuleInterface { return &BagModule{} }
 
-	// Test retrieval with different instances
-	user1 := UserModule{UserID: 1}
-	user2 := UserModule{UserID: 999}
-	item := ItemModule{ItemID: 100}
-
-	// Same type should retrieve same factory
-	factory1, ok1 := registry[GetTypeID(user1)]
-	factory2, ok2 := registry[GetTypeID(user2)]
-	factoryItem, okItem := registry[GetTypeID(item)]
+	// Test retrieval using GetTypeIDOf (consistent API)
+	factory1, ok1 := registry[GetTypeIDOf[UserModule]()]
+	factory2, ok2 := registry[GetTypeIDOf[UserModule]()]
+	factoryItem, okItem := registry[GetTypeIDOf[ItemModule]()]
 
 	assert.True(t, ok1 && ok2, "should find UserModule factory")
 	assert.True(t, okItem, "should find ItemModule factory")
@@ -533,6 +536,200 @@ func TestTypeID_CustomType_ModuleRegistry(t *testing.T) {
 	assert.Equal(t, "user", factory1().GetModuleID())
 	assert.Equal(t, "user", factory2().GetModuleID())
 	assert.Equal(t, "item", factoryItem().GetModuleID())
+}
+
+// ============================================================================
+// Interface Type Tests - GetTypeIDOf for interface types
+// ============================================================================
+
+// Additional interfaces for testing
+type Reader interface {
+	Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+	Write(p []byte) (n int, err error)
+}
+
+type ReadWriter interface {
+	Reader
+	Writer
+}
+
+type Stringer interface {
+	String() string
+}
+
+func TestGetTypeIDOf_InterfaceTypes(t *testing.T) {
+	// GetTypeIDOf should work for interface types
+	idReader := GetTypeIDOf[Reader]()
+	idWriter := GetTypeIDOf[Writer]()
+	idReadWriter := GetTypeIDOf[ReadWriter]()
+	idStringer := GetTypeIDOf[Stringer]()
+	idModuleInterface := GetTypeIDOf[ModuleInterface]()
+
+	// All should be valid
+	assert.True(t, idReader.IsValid(), "Reader TypeID should be valid")
+	assert.True(t, idWriter.IsValid(), "Writer TypeID should be valid")
+	assert.True(t, idReadWriter.IsValid(), "ReadWriter TypeID should be valid")
+	assert.True(t, idStringer.IsValid(), "Stringer TypeID should be valid")
+	assert.True(t, idModuleInterface.IsValid(), "ModuleInterface TypeID should be valid")
+
+	// All should be different
+	assert.NotEqual(t, idReader, idWriter, "Reader and Writer should have different TypeIDs")
+	assert.NotEqual(t, idReader, idReadWriter, "Reader and ReadWriter should have different TypeIDs")
+	assert.NotEqual(t, idReader, idStringer, "Reader and Stringer should have different TypeIDs")
+	assert.NotEqual(t, idWriter, idReadWriter, "Writer and ReadWriter should have different TypeIDs")
+	assert.NotEqual(t, idWriter, idStringer, "Writer and Stringer should have different TypeIDs")
+	assert.NotEqual(t, idReadWriter, idStringer, "ReadWriter and Stringer should have different TypeIDs")
+	assert.NotEqual(t, idModuleInterface, idReader, "ModuleInterface and Reader should have different TypeIDs")
+}
+
+func TestGetTypeIDOf_InterfaceVsStruct(t *testing.T) {
+	// Interface types and struct types should have different TypeIDs
+	idModuleInterface := GetTypeIDOf[ModuleInterface]()
+	idUserModule := GetTypeIDOf[UserModule]()
+	idItemModule := GetTypeIDOf[ItemModule]()
+
+	assert.NotEqual(t, idModuleInterface, idUserModule,
+		"ModuleInterface and UserModule should have different TypeIDs")
+	assert.NotEqual(t, idModuleInterface, idItemModule,
+		"ModuleInterface and ItemModule should have different TypeIDs")
+}
+
+func TestGetTypeIDOf_SameInterfaceMultipleCalls(t *testing.T) {
+	// Multiple calls with the same interface type should return the same TypeID
+	id1 := GetTypeIDOf[ModuleInterface]()
+	id2 := GetTypeIDOf[ModuleInterface]()
+	id3 := GetTypeIDOf[ModuleInterface]()
+
+	assert.Equal(t, id1, id2, "same interface type should have same TypeID")
+	assert.Equal(t, id2, id3, "same interface type should have same TypeID")
+}
+
+func TestGetTypeIDOf_StructTypesAlsoWork(t *testing.T) {
+	// GetTypeIDOf should also work for struct types
+	idUser := GetTypeIDOf[UserModule]()
+	idItem := GetTypeIDOf[ItemModule]()
+
+	assert.True(t, idUser.IsValid(), "UserModule TypeID should be valid")
+	assert.True(t, idItem.IsValid(), "ItemModule TypeID should be valid")
+	assert.NotEqual(t, idUser, idItem, "different struct types should have different TypeIDs")
+
+	// Multiple instances should have the same TypeID
+	assert.Equal(t, idUser, GetTypeIDOf[UserModule]())
+}
+
+func TestGetTypeIDOf_PrimitiveTypes(t *testing.T) {
+	// GetTypeIDOf should work for primitive types
+	idInt := GetTypeIDOf[int]()
+	idString := GetTypeIDOf[string]()
+	idFloat64 := GetTypeIDOf[float64]()
+
+	assert.True(t, idInt.IsValid())
+	assert.True(t, idString.IsValid())
+	assert.True(t, idFloat64.IsValid())
+
+	assert.NotEqual(t, idInt, idString)
+	assert.NotEqual(t, idInt, idFloat64)
+	assert.NotEqual(t, idString, idFloat64)
+}
+
+func TestGetTypeIDOfPointer_InterfaceTypes(t *testing.T) {
+	// GetTypeIDOfPointer should work for interface types
+	idPtrReader := GetTypeIDOfPointer[Reader]()
+	idPtrWriter := GetTypeIDOfPointer[Writer]()
+	idPtrModuleInterface := GetTypeIDOfPointer[ModuleInterface]()
+
+	assert.True(t, idPtrReader.IsValid(), "*Reader TypeID should be valid")
+	assert.True(t, idPtrWriter.IsValid(), "*Writer TypeID should be valid")
+	assert.True(t, idPtrModuleInterface.IsValid(), "*ModuleInterface TypeID should be valid")
+
+	// All should be different
+	assert.NotEqual(t, idPtrReader, idPtrWriter)
+	assert.NotEqual(t, idPtrReader, idPtrModuleInterface)
+	assert.NotEqual(t, idPtrWriter, idPtrModuleInterface)
+}
+
+func TestGetTypeIDOf_InterfaceTypesWork(t *testing.T) {
+	// GetTypeIDOf now works for interface types (returns valid TypeID)
+	idModuleInterface := GetTypeIDOf[ModuleInterface]()
+	idReader := GetTypeIDOf[Reader]()
+
+	assert.True(t, idModuleInterface.IsValid(),
+		"GetTypeIDOf for interface should return valid TypeID")
+	assert.True(t, idReader.IsValid(),
+		"GetTypeIDOf for interface should return valid TypeID")
+	assert.NotEqual(t, idModuleInterface, idReader,
+		"different interfaces should have different TypeIDs")
+}
+
+func TestGetTypeIDOf_InterfaceAsMapKey(t *testing.T) {
+	// Use GetTypeIDOf for interface types as map keys
+	handlers := make(map[TypeID]string)
+
+	handlers[GetTypeIDOf[Reader]()] = "reader_handler"
+	handlers[GetTypeIDOf[Writer]()] = "writer_handler"
+	handlers[GetTypeIDOf[ModuleInterface]()] = "module_handler"
+
+	// Retrieve by TypeID
+	assert.Equal(t, "reader_handler", handlers[GetTypeIDOf[Reader]()])
+	assert.Equal(t, "writer_handler", handlers[GetTypeIDOf[Writer]()])
+	assert.Equal(t, "module_handler", handlers[GetTypeIDOf[ModuleInterface]()])
+
+	// Non-existent should be empty
+	assert.Equal(t, "", handlers[GetTypeIDOf[Stringer]()])
+}
+
+func TestGetTypeIDOf_AllTypesUnique(t *testing.T) {
+	// Ensure all different types (including interfaces) have unique TypeIDs
+	types := []TypeID{
+		// Primitive types
+		GetTypeIDOf[int](),
+		GetTypeIDOf[int8](),
+		GetTypeIDOf[int16](),
+		GetTypeIDOf[int32](),
+		GetTypeIDOf[int64](),
+		GetTypeIDOf[uint](),
+		GetTypeIDOf[string](),
+		GetTypeIDOf[bool](),
+		GetTypeIDOf[float32](),
+		GetTypeIDOf[float64](),
+		// Struct types
+		GetTypeIDOf[UserModule](),
+		GetTypeIDOf[ItemModule](),
+		GetTypeIDOf[BagModule](),
+		GetTypeIDOf[TaskModule](),
+		GetTypeIDOf[AnotherUserModule](),
+		// Interface types
+		GetTypeIDOf[Reader](),
+		GetTypeIDOf[Writer](),
+		GetTypeIDOf[ReadWriter](),
+		GetTypeIDOf[Stringer](),
+		GetTypeIDOf[ModuleInterface](),
+		// Generic types
+		GetTypeIDOf[GenericModule[int]](),
+		GetTypeIDOf[GenericModule[string]](),
+		GetTypeIDOf[GenericModule[UserModule]](),
+		// Slice types
+		GetTypeIDOf[[]int](),
+		GetTypeIDOf[[]string](),
+		GetTypeIDOf[[]UserModule](),
+		// Map types
+		GetTypeIDOf[map[string]int](),
+		GetTypeIDOf[map[uint64]UserModule](),
+	}
+
+	// Check for uniqueness
+	seen := make(map[TypeID]int)
+	for i, id := range types {
+		if existingIdx, exists := seen[id]; exists {
+			t.Errorf("TypeID collision at index %d and %d", existingIdx, i)
+		}
+		seen[id] = i
+	}
+
+	assert.Equal(t, len(types), len(seen), "all types should have unique TypeIDs")
 }
 
 // ============================================================================

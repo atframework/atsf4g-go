@@ -31,25 +31,32 @@ func GetTypeID(i interface{}) TypeID {
 	return TypeID(uintptr(ef._type))
 }
 
-// GetTypeIDOf returns the TypeID for type T using a zero value.
-// This is useful when you need the TypeID for a type without having an instance.
+// GetTypeIDOf returns a unique TypeID for type T that works for ALL types,
+// including interface types. This is achieved by using the pointer type *T internally,
+// which always has valid type information even for nil values.
+//
+// The returned TypeID uniquely identifies the type T. Different types always have
+// different TypeIDs, and the same type always has the same TypeID.
 //
 // Example:
 //
-//	id := GetTypeIDOf[int]()
+//	id := GetTypeIDOf[int]()              // works for primitive types
+//	id := GetTypeIDOf[MyStruct]()         // works for struct types
+//	id := GetTypeIDOf[io.Reader]()        // works for interface types
 func GetTypeIDOf[T any]() TypeID {
-	var zero T
+	var zero *T
 	return GetTypeID(zero)
 }
 
 // GetTypeIDOfPointer returns the TypeID for pointer type *T.
-// This avoids allocating a zero value for types that are expensive to create.
+// This is equivalent to GetTypeIDOf[*T]() but more convenient.
 //
 // Example:
 //
 //	id := GetTypeIDOfPointer[MyStruct]()  // returns TypeID for *MyStruct
+//	// equivalent to: GetTypeIDOf[*MyStruct]()
 func GetTypeIDOfPointer[T any]() TypeID {
-	var zero *T
+	var zero **T
 	return GetTypeID(zero)
 }
 
