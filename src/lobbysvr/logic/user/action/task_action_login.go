@@ -359,7 +359,7 @@ func (t *TaskActionLogin) OnSuccess() {
 	response_body.ZoneId = user.GetZoneId()
 	response_body.VersionType = uint32(user.GetAccountInfo().GetVersionType())
 
-	response_body.HeartbeatInterval = config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetHeartbeat().GetInterval().GetSeconds()
+	response_body.HeartbeatInterval = config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetHeartbeat().GetInterval().GetSeconds()
 	response_body.TimezoneBaseTimestamp = config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetTimezoneBaseTimestamp()
 
 	response_body.IsNewUser = t.isNewPlayer

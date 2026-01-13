@@ -15,7 +15,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
+	config "github.com/atframework/atsf4g-go/component-config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 	"github.com/redis/go-redis/v9"
@@ -40,7 +40,6 @@ type RedisMessageDispatcher struct {
 	DispatcherBase
 	log RedisLog
 
-	redisCfg      *private_protocol_config.Readonly_LogicRedisCfg
 	redisInstance *redis.ClusterClient
 	sequence      atomic.Uint64
 	recordPrefix  string
@@ -135,21 +134,15 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		return err
 	}
 
-	redisCfg := &private_protocol_config.LogicRedisCfg{}
-	loadErr := d.GetApp().LoadConfigByPath(redisCfg, "logic.redis", "ATAPP_LOGIC_REDIS", nil, "")
-	if loadErr != nil {
-		d.GetLogger().LogWarn("Failed to load websocket server config", "error", loadErr)
-	}
-	d.redisCfg = redisCfg.ToReadonly()
-
-	if len(d.redisCfg.GetAddrs()) == 0 {
+	redisCfg := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRedis()
+	if len(redisCfg.GetAddrs()) == 0 {
 		d.DispatcherBase.GetLogger().LogError("redis config error empty")
 		return fmt.Errorf("redis config error empty")
 	}
 
-	if d.redisCfg.GetRecordPrefix() != "" {
-		d.recordPrefix = d.redisCfg.GetRecordPrefix()
-	} else if d.redisCfg.GetRandomPrefix() {
+	if redisCfg.GetRecordPrefix() != "" {
+		d.recordPrefix = redisCfg.GetRecordPrefix()
+	} else if redisCfg.GetRandomPrefix() {
 		d.recordPrefix = GetStableHostID()
 	} else {
 		d.recordPrefix = "default"
@@ -159,9 +152,9 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 
 	redis.SetLogger(&d.log)
 	d.redisInstance = redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:    d.redisCfg.GetAddrs(),
-		Password: d.redisCfg.GetPassword(),
-		PoolSize: int(d.redisCfg.GetPoolSize()),
+		Addrs:    redisCfg.GetAddrs(),
+		Password: redisCfg.GetPassword(),
+		PoolSize: int(redisCfg.GetPoolSize()),
 	})
 
 	if d.redisInstance == nil {

@@ -34,7 +34,7 @@ func (t *TaskActionRouterCloseManagerSet) Run(_startData *cd.DispatcherStartData
 	t.status.reset()
 	t.LogInfo("router close task started")
 
-	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetClosingActionBatchCount()
+	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetClosingActionBatchCount()
 	pendingActionBatchTask := make([]cd.TaskActionImpl, 0, batchCount)
 
 	for t.status.currentIndex < len(t.pendingList) {

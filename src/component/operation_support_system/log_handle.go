@@ -93,7 +93,7 @@ func (m *OperationSupportSystem) Stop() (bool, error) {
 //////////////////////////////////////////////////////////////////////////////////
 
 func (m *OperationSupportSystem) initLogWritter() error {
-	cfg := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetOperationSupportSystem()
+	cfg := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetOperationSupportSystem()
 	if cfg.GetOssCfg().GetEnable() {
 		writer, err := libatapp.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetOssCfg().GetFile(), cfg.GetOssCfg().GetWritingAlias(),
 			cfg.GetOssCfg().GetRotate().GetSize(), cfg.GetOssCfg().GetRotate().GetNumber(), cfg.GetOssCfg().GetFlushInterval().AsDuration(), 0)

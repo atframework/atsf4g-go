@@ -96,7 +96,7 @@ func GenerateGlobalUniqueID(ctx cd.AwaitableContext,
 			cd.YieldTaskAction(ctx, currentTask, &cd.DispatcherAwaitOptions{
 				Type:     uint64(uintptr(unsafe.Pointer(pool))),
 				Sequence: currentTask.GetTaskId(),
-				Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
+				Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
 			}, func() cd.RpcResult {
 				pool.awaitIOTaskList.PushBack(currentTask)
 				return cd.CreateRpcResultOk()

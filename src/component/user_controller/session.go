@@ -63,7 +63,8 @@ func CreateSession(key SessionKey, handle SessionNetworkHandleImpl) *Session {
 		networkHandle:            handle,
 		networkClosed:            false,
 		sessionSequenceAllocator: 0,
-		enableActorLog:           config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog(),
+		enableActorLog: config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().
+			GetSession().GetEnableActorLog(),
 	}
 }
 
@@ -84,10 +85,10 @@ func (s *Session) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
 
 	// 处理日志
 	if len(s.pendingCsLog) > 0 {
-		writer, _ := libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), s.key.SessionId),
-			"", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
-			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
-			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
+		writer, _ := libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.key.SessionId),
+			"", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
+			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
 		if writer != nil {
 			s.FlushPendingActorLog(writer)
 		}

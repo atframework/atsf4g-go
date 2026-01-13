@@ -94,7 +94,7 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 
 	return TaskActionCSBase[RequestType, ResponseType]{
-		TaskActionBase:  CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
+		TaskActionBase:  CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
 		session:         session,
 		user:            user,
 		rpcDescriptor:   rpcDescriptor,

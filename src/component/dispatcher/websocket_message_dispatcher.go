@@ -19,7 +19,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var websocketMessageDispatcherReflectType reflect.Type
@@ -476,42 +475,27 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 	}
 
 	// reload from config
-	serverConfig := &private_protocol_config.WebserverCfg{
-		Host:         "",
-		Port:         7001,
-		ReadTimeout:  durationpb.New(15 * time.Second),
-		WriteTimeout: durationpb.New(15 * time.Second),
-		IdleTimeout:  durationpb.New(60 * time.Second),
-	}
-	wsConfig := &private_protocol_config.WebsocketServerCfg{
-		MaxConnections:       50000,
-		ReadBufferSize:       4096,
-		WriteBufferSize:      4096,
-		HandshakeTimeout:     durationpb.New(10 * time.Second),
-		PongWait:             durationpb.New(60 * time.Second),
-		PingPeriod:           durationpb.New(54 * time.Second),
-		WriteWait:            durationpb.New(10 * time.Second),
-		MaxMessageSize:       2 * 1024 * 1024,
-		MaxWriteMessageCount: 256,
-		EnableCompression:    true,
-		Path:                 "/ws/v1",
-	}
+	serverConfig := &private_protocol_config.WebserverCfg{}
+	wsConfig := &private_protocol_config.WebsocketServerCfg{}
 
 	loadErr := d.GetApp().LoadConfigByPath(serverConfig, d.webServerConfigurePath,
 		strings.ToUpper(strings.ReplaceAll(d.webServerConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
-		d.GetLogger().LogWarn("Failed to load web server config", "error", loadErr)
+		d.GetLogger().LogError("Failed to load web server config", "error", loadErr)
+		return loadErr
 	}
 
 	loadErr = d.GetApp().LoadConfigByPath(wsConfig, d.webSocketServerConfigurePath,
 		strings.ToUpper(strings.ReplaceAll(d.webSocketServerConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
-		d.GetLogger().LogWarn("Failed to load websocket server config", "error", loadErr)
+		d.GetLogger().LogError("Failed to load websocket server config", "error", loadErr)
+		return loadErr
 	}
 
 	if serverConfig.GetPort() <= 0 || serverConfig.GetPort() > 65535 {
 		err = fmt.Errorf("invalid web server port: %d", serverConfig.GetPort())
-		serverConfig.Port = 7001
+		d.GetLogger().LogError("invalid web server port: ", "Port", serverConfig.GetPort())
+		return err
 	}
 
 	d.serverConfig = serverConfig.ToReadonly()

@@ -131,7 +131,7 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 
 	// 更新登录锁信息
 	p.obj.GetLoginLockInfo().LoginExpired = ctx.GetSysNow().Unix() +
-		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
+		config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 	p.obj.GetLoginLockInfo().LoginZoneId = p.obj.GetZoneId()
 
 	p.obj.GetLoginLockInfo().RouterServerId = uint64(config.GetConfigManager().GetLogicId())
@@ -193,7 +193,7 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 		// 冲突检测的版本号设置
 		p.obj.GetLoginLockInfo().ExpectTableUserDbVersion = p.obj.GetUserCASVersion() + 1
 		p.obj.GetLoginLockInfo().ExpectTableUserDbTimeout = timestamppb.New(ctx.GetSysNow().Add(
-			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()))
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()))
 
 		if p.GetRouterSvrId() == 0 {
 			// 登出

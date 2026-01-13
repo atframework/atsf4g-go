@@ -23,7 +23,7 @@ func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
 	actor *ActorExecutor,
 	createFn func(DispatcherImpl, *ActorExecutor, time.Duration) TaskActionType,
 ) (TaskActionType, DispatcherStartData) {
-	ta := createFn(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetNomsg().GetTimeout().AsDuration())
+	ta := createFn(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetNomsg().GetTimeout().AsDuration())
 	ta.SetImplementation(ta)
 	awaitableContext := rd.CreateAwaitableContext()
 	if !lu.IsNil(ctx) && ctx.GetContext() != nil {

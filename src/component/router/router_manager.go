@@ -159,7 +159,7 @@ func (manager *RouterManager[T, PrivData]) InnerRemoveObject(ctx cd.AwaitableCon
 }
 
 func (manager *RouterManager[T, PrivData]) MutableCacheWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData, guard *IoTaskGuard) (T, cd.RpcResult) {
-	leftTTL := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetRetryMaxTtl()
+	leftTTL := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetRetryMaxTtl()
 	if leftTTL <= 0 {
 		leftTTL = 1
 	}
@@ -218,7 +218,7 @@ func (manager *RouterManager[T, PrivData]) MutableCacheWithGuard(ctx cd.Awaitabl
 }
 
 func (manager *RouterManager[T, PrivData]) MutableObjectWithGuard(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData, guard *IoTaskGuard) (T, cd.RpcResult) {
-	leftTTL := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetRetryMaxTtl()
+	leftTTL := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetRetryMaxTtl()
 	if leftTTL <= 0 {
 		leftTTL = 1
 	}
@@ -416,8 +416,8 @@ func (manager *RouterManager[T, PrivData]) ensureCache(ctx cd.RpcContext, key Ro
 
 func (manager *RouterManager[T, PrivData]) waitCacheRetry(ctx cd.AwaitableContext) {
 	// 等待Retry 时间后唤醒
-	waitIntervalMs := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheRetryInterval().GetSeconds()*1000 +
-		int64(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheRetryInterval().GetNanos()/1000000)
+	waitIntervalMs := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetCacheRetryInterval().GetSeconds()*1000 +
+		int64(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetCacheRetryInterval().GetNanos()/1000000)
 	if waitIntervalMs <= 0 {
 		waitIntervalMs = 512
 	}
@@ -426,8 +426,8 @@ func (manager *RouterManager[T, PrivData]) waitCacheRetry(ctx cd.AwaitableContex
 
 func (manager *RouterManager[T, PrivData]) waitObjectRetry(ctx cd.AwaitableContext) {
 	// 等待Retry 时间后唤醒
-	waitIntervalMs := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectRetryInterval().GetSeconds()*1000 +
-		int64(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectRetryInterval().GetNanos()/1000000)
+	waitIntervalMs := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetObjectRetryInterval().GetSeconds()*1000 +
+		int64(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetObjectRetryInterval().GetNanos()/1000000)
 	if waitIntervalMs <= 0 {
 		waitIntervalMs = 512
 	}

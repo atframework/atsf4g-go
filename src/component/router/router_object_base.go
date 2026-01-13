@@ -279,7 +279,7 @@ func (obj *RouterObjectBase) IsCacheAvailable(ctx cd.RpcContext) bool {
 	}
 
 	if obj.lastSaveTime+
-		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheUpdateInterval().GetSeconds() < ctx.GetSysNow().Unix() {
+		config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetCacheUpdateInterval().GetSeconds() < ctx.GetSysNow().Unix() {
 		return false
 	}
 
@@ -358,7 +358,7 @@ func (obj *RouterObjectBase) AwaitIOTask(ctx cd.AwaitableContext) cd.RpcResult {
 		_, _ = cd.YieldTaskAction(ctx, ctx.GetAction(), &cd.DispatcherAwaitOptions{
 			Type:     obj.key.ObjectID,
 			Sequence: ctx.GetAction().GetTaskId(),
-			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
+			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
 		}, nil, nil)
 		obj.awaitIOTaskList.Remove(e)
 	}

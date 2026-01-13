@@ -134,9 +134,9 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 
 	// 正在执行closing任务则不需要自动清理/保存了
 	if !set.isClosingTaskRunning() {
-		cacheExpire := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetCacheFreeTimeout().GetSeconds()
-		objectExpire := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectFreeTimeout().GetSeconds()
-		objectSave := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetObjectSaveInterval().GetSeconds()
+		cacheExpire := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetCacheFreeTimeout().GetSeconds()
+		objectExpire := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetObjectFreeTimeout().GetSeconds()
+		objectSave := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetObjectSaveInterval().GetSeconds()
 
 		set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.DefaultTimerList, false)
 		set.tickTimer(ctx, cacheExpire, objectExpire, objectSave, set.timers.FastTimerList, true)
@@ -294,10 +294,10 @@ func (set *RouterManagerSet) insertTimer(ctx cd.RpcContext, mgr RouterManagerBas
 	var interval int64
 	if !isFast {
 		tmTimer = set.timers.DefaultTimerList
-		interval = config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetDefaultTimerInterval().GetSeconds()
+		interval = config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetDefaultTimerInterval().GetSeconds()
 	} else {
 		tmTimer = set.timers.FastTimerList
-		interval = config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetFastTimerInterval().GetSeconds()
+		interval = config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetFastTimerInterval().GetSeconds()
 	}
 
 	timer := &RouterTimer{

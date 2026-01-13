@@ -29,10 +29,11 @@ type ConfigManager struct {
 	reloading    atomic.Bool
 	reloadFinish atomic.Bool
 
-	originConfigData     interface{}
-	overwriteResourceDir string
-	logger               *libatapp.Logger
-	app                  libatapp.AppImpl
+	originConfigData        interface{}
+	overwriteResourceDir    string
+	serverConfigureLoadFunc generate_config.ServerConfigureLoadFuncType
+	logger                  *libatapp.Logger
+	app                     libatapp.AppImpl
 }
 
 // 管理所有配置
@@ -44,6 +45,18 @@ func (configManagerInst *ConfigManager) SetConfigOriginData(data interface{}) {
 
 func (configManagerInst *ConfigManager) SetResourceDir(path string) {
 	configManagerInst.overwriteResourceDir = path
+}
+
+func (configManagerInst *ConfigManager) SetServerConfigureLoadFunc(serverConfigureLoadFunc generate_config.ServerConfigureLoadFuncType) {
+	configManagerInst.serverConfigureLoadFunc = serverConfigureLoadFunc
+}
+
+func GetServerConfig[T any](configGroup *generate_config.ConfigGroup) T {
+	if configGroup == nil {
+		var zero T
+		return zero
+	}
+	return configGroup.GetServerConfig().(T)
 }
 
 func (configManagerInst *ConfigManager) GetLogger() *libatapp.Logger {
@@ -112,7 +125,7 @@ func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_confi
 	// 加载配置逻辑
 	configManagerInst.GetLogger().LogInfo("Excel Loading Begin")
 	var callback ExcelConfigCallback
-	err := loadConfigGroup.Init(configManagerInst.originConfigData, callback)
+	err := loadConfigGroup.Init(configManagerInst.originConfigData, callback, configManagerInst.serverConfigureLoadFunc)
 	if err != nil {
 		return err
 	}
@@ -146,15 +159,15 @@ func (configManagerInst *ConfigManager) GetCurrentConfigGroup() *generate_config
 }
 
 func (configManagerInst *ConfigManager) GetZoneId() uint32 {
-	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetZoneId()
+	return configManagerInst.GetCurrentConfigGroup().GetSectionConfig().GetZoneId()
 }
 
 func (configManagerInst *ConfigManager) GetWorldId() uint32 {
-	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetWorldId()
+	return configManagerInst.GetCurrentConfigGroup().GetSectionConfig().GetWorldId()
 }
 
 func (configManagerInst *ConfigManager) GetLogicId() uint32 {
-	return configManagerInst.GetCurrentConfigGroup().GetServerConfig().GetLogicId()
+	return configManagerInst.GetCurrentConfigGroup().GetSectionConfig().GetLogicId()
 }
 
 func (configManagerInst *ConfigManager) GetApp() libatapp.AppImpl {

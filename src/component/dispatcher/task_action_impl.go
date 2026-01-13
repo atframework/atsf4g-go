@@ -99,7 +99,7 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 	cb_actor.actionLock.Lock()
 	cb_actor.actionStatus = ActorExecutorStatusFree
 
-	max_loop_count := int(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetActorMaxLoopCount())
+	max_loop_count := int(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetActorMaxLoopCount())
 
 	for i := 0; i < max_loop_count; i++ {
 		if cb_actor.pendingActions.Len() == 0 {
@@ -155,7 +155,7 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 	// TODO: 走接口，进配置
 	pendingLen := actor.pendingActions.Len()
 	if !lu.IsNil(action) && !lu.IsNil(run_action) {
-		if pendingLen > int(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetTask().GetActorMaxPendingCount()) {
+		if pendingLen > int(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetActorMaxPendingCount()) {
 			action.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_ACTOR_MAX_PENDING_COUNT))
 			action.SendResponse()
 			app.GetDefaultLogger().LogError("Actor pending actions too many", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Int("response_code", int(action.GetResponseCode())))

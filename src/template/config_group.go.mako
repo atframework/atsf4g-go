@@ -23,7 +23,8 @@ type ConfigCallback interface {
 
 type ConfigGroup struct {
 	ExcelResourceDir string
-	serverConfig 	 *private_protocol_config.Readonly_LogicSectionCfg
+	sectionConfig 	 *private_protocol_config.Readonly_LogicSectionCfg
+	serverConfig     interface{}
 
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
@@ -49,43 +50,62 @@ func (configGroup *ConfigGroup) GetCustomIndexLastBuildTime() *custom_index_type
 }
 
 
-func (configGroup *ConfigGroup) GetServerConfig() *private_protocol_config.Readonly_LogicSectionCfg {
+func (configGroup *ConfigGroup) GetSectionConfig() *private_protocol_config.Readonly_LogicSectionCfg {
+	if configGroup == nil {
+		return nil
+	}
+	return configGroup.sectionConfig
+}
+
+func (configGroup *ConfigGroup) GetServerConfig() interface{} {
 	if configGroup == nil {
 		return nil
 	}
 	return configGroup.serverConfig
 }
 
-func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback ConfigCallback) (err error) {
+type ServerConfigureLoadFuncType = func(originConfigData interface{}, callback ConfigCallback) (interface{}, error)
+
+func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback ConfigCallback,
+	serverConfigureLoadFunc ServerConfigureLoadFuncType) (err error) {
 	if originConfigData != nil {
-		callback.GetLogger().LogInfo("Load config from file", "file", originConfigData)
-		serverConfig := &private_protocol_config.LogicSectionCfg{}
+		callback.GetLogger().LogInfo("Load section config from file", "file", originConfigData)
+		sectionConfig := &private_protocol_config.LogicSectionCfg{}
 		err = libatapp.LoadConfigFromOriginDataByPath(callback.GetLogger(),
-			originConfigData, serverConfig, "logic", "ATAPP_LOGIC", nil, nil, "")
+			originConfigData, sectionConfig, "logic", "ATAPP_LOGIC", nil, nil, "")
 		if err != nil {
 			callback.GetLogger().LogError("Load config failed", "error", err)
 			return
 		}
-		configGroup.serverConfig = serverConfig.ToReadonly()
+		configGroup.sectionConfig = sectionConfig.ToReadonly()
+
+		if serverConfigureLoadFunc != nil {
+			callback.GetLogger().LogInfo("Load server config from file", "file", originConfigData)
+			configGroup.serverConfig, err = serverConfigureLoadFunc(originConfigData, callback)
+			if err != nil {
+				callback.GetLogger().LogError("Load server config failed", "error", err)
+				return
+			}
+		}
 	} else {
 		// 使用默认配置
 		callback.GetLogger().LogInfo("Load config from default")
-		serverConfig := &private_protocol_config.LogicSectionCfg{}
-		err = libatapp.LoadDefaultConfigMessageFields(serverConfig, callback.GetLogger(), nil, "")
+		sectionConfig := &private_protocol_config.LogicSectionCfg{}
+		err = libatapp.LoadDefaultConfigMessageFields(sectionConfig, callback.GetLogger(), nil, "")
 		if err != nil {
 			callback.GetLogger().LogError("Load config failed", "error", err)
 			return
 		}
-		configGroup.serverConfig = serverConfig.ToReadonly()
+		configGroup.sectionConfig = sectionConfig.ToReadonly()
 	}
 
-	if !configGroup.serverConfig.GetExcel().GetEnable() {
+	if !configGroup.sectionConfig.GetExcel().GetEnable() {
 		callback.GetLogger().LogWarn("Disable Excel")
 		return
 	}
 	callback.GetLogger().LogWarn("Enable Excel")
 	if configGroup.ExcelResourceDir == "" {
-		configGroup.ExcelResourceDir = configGroup.serverConfig.GetExcel().GetBindir()
+		configGroup.ExcelResourceDir = configGroup.sectionConfig.GetExcel().GetBindir()
 	}
 
 % for pb_msg in pb_set.generate_message:

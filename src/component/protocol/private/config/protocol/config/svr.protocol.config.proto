@@ -69,7 +69,7 @@ message websocket_server_cfg {
       [(atframework.atapp.protocol.CONFIGURE) = { default_value: "10s" min_value: "1s" }];
 
   uint32 max_message_size = 8
-      [(atframework.atapp.protocol.CONFIGURE) = { default_value: "2097152" min_value: "32768" }];
+      [(atframework.atapp.protocol.CONFIGURE) = { default_value: "2MB" min_value: "32KB" size_mode: true }];
   uint32 max_write_message_count = 9 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "256" min_value: "1" }];
 
   bool enable_compression = 10 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
@@ -97,7 +97,6 @@ message logic_user_cfg {
   uint64 max_online = 101 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "50000" }];
   string default_openid = 102 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "gm://system" }];
   logic_user_async_job_cfg async_job = 103;
-  bool enable_session_actor_log = 104 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
 }
 
 message logic_session_cfg {
@@ -106,7 +105,7 @@ message logic_session_cfg {
       [(atframework.atapp.protocol.CONFIGURE) = { default_value: "10m" }];
   google.protobuf.Duration login_ban_time = 103 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "3h" }];
   google.protobuf.Duration tick_sec = 104 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "60s" }];
-  bool enable_actor_log = 105 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "false" }];
+  bool enable_actor_log = 105 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
   bool enable_actor_otel_log = 106 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "false" }];
   bool remove_player_cache_when_stop = 107 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
   uint64 actor_log_size = 108 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "10MB" size_mode: true }];
@@ -236,6 +235,7 @@ message logic_section_cfg {
   google.protobuf.Duration remote_configure_update_interval = 5
       [(atframework.atapp.protocol.CONFIGURE) = { default_value: "300s" min_value: "60s" }];
 
+  logic_redis_cfg redis = 101;
   logic_server_cfg server = 102;
   logic_user_cfg user = 103;
   logic_session_cfg session = 104;

@@ -37,8 +37,8 @@ func (t *TaskActionAutoSaveObjects) Run(_startData *cd.DispatcherStartData) erro
 	t.status.reset(t.GetSysNow().Unix())
 	t.LogInfo("auto save task started")
 
-	left := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetPendingActionMaxCount()
-	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetRouter().GetPendingActionBatchCount()
+	left := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetPendingActionMaxCount()
+	batchCount := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetRouter().GetPendingActionBatchCount()
 	if left == 0 {
 		t.manager.taskPendingActionListLock.Lock()
 		left = uint64(t.manager.taskPendingActionList.Len())

@@ -628,7 +628,7 @@ func (u *User) UpdateHeartbeat(ctx cd.RpcContext) {
 
 	// 续期LoginCode,
 	u.GetLoginLockInfo().LoginExpired = ctx.GetSysNow().Unix() +
-		config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
+		config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 }
 
 func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {

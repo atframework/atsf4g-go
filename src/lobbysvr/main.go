@@ -8,7 +8,10 @@ import (
 
 	ssc "github.com/atframework/atsf4g-go/component-service_shared_collection"
 
+	config "github.com/atframework/atsf4g-go/component-config"
+	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
 
@@ -22,6 +25,17 @@ func main() {
 	app := ssc.CreateServiceApplication()
 
 	uc.InitUserRouterManager(app)
+
+	config.GetConfigManager().SetServerConfigureLoadFunc(func(originConfigData interface{}, callback generate_config.ConfigCallback) (interface{}, error) {
+		serverConfig := &private_protocol_config.LobbyServerCfg{}
+		err := libatapp.LoadConfigFromOriginDataByPath(callback.GetLogger(),
+			originConfigData, serverConfig, "lobbysvr", "", nil, nil, "")
+		if err != nil {
+			callback.GetLogger().LogError("Load config failed", "error", err)
+			return nil, err
+		}
+		return serverConfig.ToReadonly(), nil
+	})
 
 	sessionManager := uc.CreateSessionManager(app)
 	atapp.AtappAddModule(app, sessionManager)

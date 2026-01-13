@@ -133,11 +133,11 @@ type UserCache struct {
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
 	// 由路由系统创建可能没有OpenId
 	var writer *libatapp.LogBufferedRotatingWriter
-	if config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetUser().GetEnableSessionActorLog() {
-		writer, _ = libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), zoneId, userId),
-			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetServer().GetLogPath(), zoneId, userId), config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogSize(),
-			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorLogRotate()),
-			config.GetConfigManager().GetCurrentConfigGroup().GetServerConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
+	if config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetEnableActorLog() {
+		writer, _ = libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId),
+			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId), config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
+			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
 	}
 	cache = UserCache{
 		zoneId:           zoneId,
