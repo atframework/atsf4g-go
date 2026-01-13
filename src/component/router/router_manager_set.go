@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,11 +53,8 @@ type RouterManagerSet struct {
 	isPreClosing atomic.Bool
 }
 
-var routerManagerSetReflectType reflect.Type
-
 func init() {
 	var _ libatapp.AppModuleImpl = (*RouterManagerSet)(nil)
-	routerManagerSetReflectType = lu.GetStaticReflectType[RouterManagerSet]()
 }
 
 // CreateRouterManagerSet 创建路由管理器集合
@@ -75,10 +71,6 @@ func CreateRouterManagerSet(app libatapp.AppImpl) *RouterManagerSet {
 	// 假设最大类型数为256
 	ret.mgrs = make([]RouterManagerBaseImpl, 256)
 	return ret
-}
-
-func (m *RouterManagerSet) GetReflectType() reflect.Type {
-	return routerManagerSetReflectType
 }
 
 func (m *RouterManagerSet) Init(parent context.Context) error {

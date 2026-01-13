@@ -1,8 +1,7 @@
 package lobbysvr_data
 
 import (
-	"reflect"
-
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -11,8 +10,6 @@ import (
 
 type UserModuleManagerImpl interface {
 	GetOwner() *User
-	GetReflectType() reflect.Type
-
 	// 每次执行任务前刷新
 	RefreshLimit(cd.RpcContext)
 	// 每秒刷新
@@ -32,8 +29,8 @@ type UserModuleManagerImpl interface {
 	OnUpdateSession(ctx cd.RpcContext, from *uc.Session, to *uc.Session)
 }
 
-var userModuleManagerCreators = make(map[reflect.Type]struct {
-	typeInst reflect.Type
+var userModuleManagerCreators = make(map[lu.TypeID]struct {
+	typeInst lu.TypeID
 	fn       func(cd.RpcContext, *User) UserModuleManagerImpl
 })
 
@@ -42,13 +39,13 @@ func RegisterUserModuleManagerCreator[ManagerType UserModuleManagerImpl](creator
 		panic("nil user module manager creator")
 	}
 
-	typeInst := reflect.TypeOf((*ManagerType)(nil)).Elem()
+	typeInst := lu.GetTypeIDOf[ManagerType]()
 	if _, exists := userModuleManagerCreators[typeInst]; exists {
 		panic("duplicate user module manager creator for type: " + typeInst.String())
 	}
 
 	userModuleManagerCreators[typeInst] = struct {
-		typeInst reflect.Type
+		typeInst lu.TypeID
 		fn       func(cd.RpcContext, *User) UserModuleManagerImpl
 	}{
 		typeInst: typeInst,

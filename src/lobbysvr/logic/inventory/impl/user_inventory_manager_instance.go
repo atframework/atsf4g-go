@@ -3,11 +3,9 @@ package lobbysvr_logic_inventory_impl
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"time"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -21,15 +19,10 @@ import (
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
-
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
-
-var userManagerReflectType reflect.Type
 
 func init() {
 	var _ logic_inventory.UserInventoryManager = (*UserInventoryManager)(nil)
-	userManagerReflectType = lu.GetStaticReflectType[UserInventoryManager]()
 	data.RegisterUserModuleManagerCreator[logic_inventory.UserInventoryManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
@@ -58,10 +51,6 @@ func init() {
 	})
 
 	registerCondition()
-}
-
-func (m *UserInventoryManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 type UserInventoryItemGroup struct {
@@ -754,7 +743,7 @@ func (m *UserInventoryManager) ForeachItem(fn func(item *public_protocol_common.
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_HasItem(), nil, checkRuleHasItem)
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_HasItem(), nil, checkRuleHasItem)
 }
 
 func checkRuleHasItem(m logic_condition.UserConditionManager, ctx cd.RpcContext,

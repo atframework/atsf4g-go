@@ -2,7 +2,6 @@ package atframework_component_operation_support_system
 
 import (
 	"context"
-	"reflect"
 	"sync/atomic"
 	"time"
 
@@ -24,8 +23,6 @@ func SendMonLog(app libatapp.AppImpl, monLog *private_protocol_log.MonitorLog) {
 
 ////////////////////////////////////////////////////////////////////////
 
-var operationSupportSystemReflectType reflect.Type
-
 type OperationSupportSystem struct {
 	libatapp.AppModuleBase
 	ossLogWriter *libatapp.LogBufferedRotatingWriter
@@ -35,12 +32,7 @@ type OperationSupportSystem struct {
 }
 
 func init() {
-	operationSupportSystemReflectType = lu.GetStaticReflectType[OperationSupportSystem]()
 	var _ libatapp.AppModuleImpl = (*OperationSupportSystem)(nil)
-}
-
-func (m *OperationSupportSystem) GetReflectType() reflect.Type {
-	return operationSupportSystemReflectType
 }
 
 func (m *OperationSupportSystem) Init(parent context.Context) error {

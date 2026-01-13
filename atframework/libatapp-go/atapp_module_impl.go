@@ -2,7 +2,6 @@ package libatapp
 
 import (
 	"context"
-	"reflect"
 	"time"
 )
 
@@ -11,8 +10,6 @@ type AppModuleImpl interface {
 	GetApp() AppImpl
 
 	Name() string
-
-	GetReflectType() reflect.Type
 
 	// Call this callback when a module is added into atapp for the first time
 	OnBind()

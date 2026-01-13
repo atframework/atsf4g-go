@@ -1,20 +1,20 @@
 package lobbysvr_logic_condition_data
 
 import (
-	"reflect"
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
 
 type RuleCheckerParameterPair struct {
-	key   reflect.Type
+	key   lu.TypeID
 	value interface{}
 }
 
 type RuleCheckerRuntime struct {
-	ruleParameter        map[reflect.Type]interface{}
+	ruleParameter        map[lu.TypeID]interface{}
 	currentRuleParameter interface{}
 }
 
-func (r *RuleCheckerRuntime) GetRuleParameter(t reflect.Type) interface{} {
+func (r *RuleCheckerRuntime) GetRuleParameter(t lu.TypeID) interface{} {
 	if r == nil {
 		return nil
 	}
@@ -22,7 +22,7 @@ func (r *RuleCheckerRuntime) GetRuleParameter(t reflect.Type) interface{} {
 	return r.ruleParameter[t]
 }
 
-func (r *RuleCheckerRuntime) MakeCurrentRuntime(t reflect.Type) *RuleCheckerRuntime {
+func (r *RuleCheckerRuntime) MakeCurrentRuntime(t lu.TypeID) *RuleCheckerRuntime {
 	if r == nil {
 		return nil
 	}
@@ -35,7 +35,7 @@ func (r *RuleCheckerRuntime) MakeCurrentRuntime(t reflect.Type) *RuleCheckerRunt
 
 func CreateRuntimeParameterPair[T interface{}](v T) RuleCheckerParameterPair {
 	return RuleCheckerParameterPair{
-		key:   reflect.TypeOf((*T)(nil)).Elem(),
+		key:   lu.GetTypeIDOf[T](),
 		value: v,
 	}
 }
@@ -45,7 +45,7 @@ func CreateRuleCheckerRuntime(params ...RuleCheckerParameterPair) *RuleCheckerRu
 		return nil
 	}
 
-	m := make(map[reflect.Type]interface{}, len(params))
+	m := make(map[lu.TypeID]interface{}, len(params))
 	for _, p := range params {
 		m[p.key] = p.value
 	}
@@ -64,7 +64,7 @@ func GetRuleRuntimeParameter[T interface{}](r *RuleCheckerRuntime) T {
 		return empty
 	}
 
-	v := r.GetRuleParameter(reflect.TypeOf((*T)(nil)).Elem())
+	v := r.GetRuleParameter(lu.GetTypeIDOf[T]())
 	if v == nil {
 		var empty T
 		return empty

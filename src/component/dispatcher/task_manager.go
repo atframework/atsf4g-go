@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"math/rand"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,11 +16,8 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 )
 
-var taskManagerReflectType reflect.Type
-
 func init() {
 	var _ libatapp.AppModuleImpl = (*TaskManager)(nil)
-	taskManagerReflectType = lu.GetStaticReflectType[TaskManager]()
 }
 
 var randomAwaitDelay bool = false
@@ -47,10 +43,6 @@ func CreateTaskManager(owner libatapp.AppImpl) *TaskManager {
 }
 
 func (t *TaskManager) Name() string { return "TaskManager" }
-
-func (t *TaskManager) GetReflectType() reflect.Type {
-	return taskManagerReflectType
-}
 
 func (t *TaskManager) Init(initCtx context.Context) error {
 	return nil

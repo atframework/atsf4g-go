@@ -1,7 +1,6 @@
 package lobbysvr_logic_module_unlock_internal
 
 import (
-	"reflect"
 	"time"
 
 	config "github.com/atframework/atsf4g-go/component-config"
@@ -11,17 +10,13 @@ import (
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 )
 
-var userManagerReflectType reflect.Type
-
 func init() {
 	var _ logic_module_unlock.UserModuleUnlockManager = (*UserModuleUnlockManager)(nil)
-	userManagerReflectType = lu.GetStaticReflectType[UserModuleUnlockManager]()
 	data.RegisterUserModuleManagerCreator[logic_module_unlock.UserModuleUnlockManager](func(ctx cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
 		return CreateUserModuleUnlockManager(owner)
 	})
@@ -38,10 +33,6 @@ type UserModuleUnlockManager struct {
 
 	// 模块解锁事件回调 map[moduleId]callback
 	unlockCallbacks map[int32]logic_module_unlock.ModuleUnlockCallback
-}
-
-func (m *UserModuleUnlockManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 func CreateUserModuleUnlockManager(owner *data.User) *UserModuleUnlockManager {

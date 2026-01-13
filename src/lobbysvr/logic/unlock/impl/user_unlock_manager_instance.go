@@ -2,7 +2,6 @@ package lobbysvr_logic_unlock_internal
 
 import (
 	"fmt"
-	"reflect"
 
 	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -11,18 +10,14 @@ import (
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
-var userManagerReflectType reflect.Type
-
 // 确保实现接口
 func init() {
 	var _ logic_unlock.UserUnlockManager = (*UserUnlockManager)(nil)
-	userManagerReflectType = lu.GetStaticReflectType[UserUnlockManager]()
 	data.RegisterUserModuleManagerCreator[logic_unlock.UserUnlockManager](func(ctx cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
 		return CreateUserUnlockManager(owner)
 	})
@@ -35,10 +30,6 @@ type UserUnlockManager struct {
 	functions map[public_protocol_common.EnUnlockFunctionID]logic_unlock.UserUnlockListener
 
 	lastCheckUnlockTime int64
-}
-
-func (m *UserUnlockManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 func CreateUserUnlockManager(owner *data.User) *UserUnlockManager {

@@ -3,7 +3,6 @@ package atframework_component_user_controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
@@ -17,19 +16,12 @@ import (
 
 type CreateUserCallback func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl
 
-var userManagerReflectType reflect.Type
-
 type UserManager struct {
 	libatapp.AppModuleBase
 }
 
 func init() {
-	userManagerReflectType = lu.GetStaticReflectType[UserManager]()
 	var _ libatapp.AppModuleImpl = (*UserManager)(nil)
-}
-
-func (m *UserManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 func (m *UserManager) Init(parent context.Context) error {

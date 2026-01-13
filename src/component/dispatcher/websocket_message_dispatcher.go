@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	libatapp "github.com/atframework/libatapp-go"
 
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
@@ -21,11 +19,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var websocketMessageDispatcherReflectType reflect.Type
-
 func init() {
 	var _ libatapp.AppModuleImpl = (*WebSocketMessageDispatcher)(nil)
-	websocketMessageDispatcherReflectType = lu.GetStaticReflectType[WebSocketMessageDispatcher]()
 }
 
 type closeParam struct {
@@ -103,10 +98,6 @@ func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl, webServerConfigu
 }
 
 func (d *WebSocketMessageDispatcher) Name() string { return "WebSocketMessageDispatcher" }
-
-func (m *WebSocketMessageDispatcher) GetReflectType() reflect.Type {
-	return websocketMessageDispatcherReflectType
-}
 
 func (d *WebSocketMessageDispatcher) Init(initCtx context.Context) error {
 	err := d.DispatcherBase.Init(initCtx)

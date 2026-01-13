@@ -8,24 +8,19 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"reflect"
 	"runtime"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component-config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 	"github.com/redis/go-redis/v9"
 )
 
-var redisMessageDispatcherReflectType reflect.Type
-
 func init() {
 	var _ libatapp.AppModuleImpl = (*RedisMessageDispatcher)(nil)
-	redisMessageDispatcherReflectType = lu.GetStaticReflectType[RedisMessageDispatcher]()
 }
 
 type RedisLog struct {
@@ -106,10 +101,6 @@ func CreateRedisMessageDispatcher(owner libatapp.AppImpl) *RedisMessageDispatche
 }
 
 func (d *RedisMessageDispatcher) Name() string { return "RedisMessageDispatcher" }
-
-func (m *RedisMessageDispatcher) GetReflectType() reflect.Type {
-	return redisMessageDispatcherReflectType
-}
 
 var CASLuaScript = `local real_version_str = redis.call('HGET', KEYS[1], ARGV[1])
 local real_version = 0

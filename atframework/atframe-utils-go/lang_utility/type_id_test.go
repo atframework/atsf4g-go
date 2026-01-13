@@ -756,12 +756,6 @@ func BenchmarkGetTypeIDOf_Generic(b *testing.B) {
 	}
 }
 
-func BenchmarkGetStaticReflectType_Generic(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		_ = GetStaticReflectType[int]()
-	}
-}
-
 func BenchmarkTypeID_MapLookup(b *testing.B) {
 	m := make(map[TypeID]int)
 	m[GetTypeIDOf[int]()] = 1

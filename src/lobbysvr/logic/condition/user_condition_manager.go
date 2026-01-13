@@ -2,11 +2,11 @@ package lobbysvr_logic_condition
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
@@ -74,11 +74,10 @@ type UserConditionCounterDelegate interface {
 	ForeachConditionCounter(f func(storage *public_protocol_common.DConditionCounterStorage) bool)
 }
 
-var userConditionCounterDelegates = map[reflect.Type]func(u *data.User) UserConditionCounterDelegate{}
+var userConditionCounterDelegates = map[lu.TypeID]func(u *data.User) UserConditionCounterDelegate{}
 
 func RegisterConditionCounterDelegate[FinalType interface{}](fn func(u *data.User) UserConditionCounterDelegate) {
-	t := reflect.TypeOf((*FinalType)(nil)).Elem()
-	userConditionCounterDelegates[t] = fn
+	userConditionCounterDelegates[lu.GetTypeIDOf[FinalType]()] = fn
 }
 
 func ForeachConditionCounterDelegate(u *data.User, fn func(d UserConditionCounterDelegate) bool) {
@@ -122,8 +121,8 @@ type conditionRuleCheckHandle struct {
 	DynamicChecker CheckConditionFunc
 }
 
-func buildRuleCheckers() map[reflect.Type]*conditionRuleCheckHandle {
-	ret := map[reflect.Type]*conditionRuleCheckHandle{}
+func buildRuleCheckers() map[lu.TypeID]*conditionRuleCheckHandle {
+	ret := map[lu.TypeID]*conditionRuleCheckHandle{}
 	return ret
 }
 
@@ -131,7 +130,7 @@ var conditionRuleCheckers = buildRuleCheckers()
 
 // 注册规则检查器，此函数请在init函数中调用
 // t 必须是 DConditionRule.RuleType 中的具体类型
-func AddRuleChecker(t reflect.Type, staticChecker CheckConditionFunc, dynamicChecker CheckConditionFunc) error {
+func AddRuleChecker(t lu.TypeID, staticChecker CheckConditionFunc, dynamicChecker CheckConditionFunc) error {
 	if staticChecker == nil && dynamicChecker == nil {
 		return fmt.Errorf("at least one of staticChecker or dynamicChecker must be non-nil")
 	}
@@ -148,7 +147,7 @@ func AddRuleChecker(t reflect.Type, staticChecker CheckConditionFunc, dynamicChe
 	return nil
 }
 
-func GetStaticRuleChecker(t reflect.Type) CheckConditionFunc {
+func GetStaticRuleChecker(t lu.TypeID) CheckConditionFunc {
 	checker, exists := conditionRuleCheckers[t]
 	if !exists {
 		return nil
@@ -157,7 +156,7 @@ func GetStaticRuleChecker(t reflect.Type) CheckConditionFunc {
 	return checker.StaticChecker
 }
 
-func GetDynamicRuleChecker(t reflect.Type) CheckConditionFunc {
+func GetDynamicRuleChecker(t lu.TypeID) CheckConditionFunc {
 	checker, exists := conditionRuleCheckers[t]
 	if !exists {
 		return nil

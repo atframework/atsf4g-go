@@ -2,7 +2,6 @@ package lobbysvr_logic_user_impl
 
 import (
 	"fmt"
-	"reflect"
 
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
@@ -17,18 +16,14 @@ import (
 
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
 
-var userManagerReflectType reflect.Type
-
 func init() {
 	var _ logic_user.UserBasicManager = (*UserBasicManager)(nil)
-	userManagerReflectType = lu.GetStaticReflectType[UserBasicManager]()
 	data.RegisterUserModuleManagerCreator[logic_user.UserBasicManager](func(_ctx cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
@@ -47,10 +42,6 @@ type UserBasicManager struct {
 
 	dirtyLevelUpRewards map[int32]map[int64]*public_protocol_common.DItemInstance
 	userOptions         *private_protocol_pbdesc.UserOptionsData
-}
-
-func (m *UserBasicManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 func CreateUserBasicManager(owner *data.User) *UserBasicManager {
@@ -423,9 +414,9 @@ func (m *UserBasicManager) UpdateUserClientOptions(ctx cd.RpcContext, opts *publ
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_LoginChannel(), checkRuleUserLoginChannel, nil)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_SystemPlatform(), checkRuleUserSystemPlatform, nil)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_UserLevel(), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_LoginChannel(), checkRuleUserLoginChannel, nil)
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_SystemPlatform(), checkRuleUserSystemPlatform, nil)
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_UserLevel(), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
 }
 
 func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.RpcContext,

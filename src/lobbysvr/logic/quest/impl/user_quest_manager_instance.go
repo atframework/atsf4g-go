@@ -2,7 +2,6 @@ package lobbysvr_logic_quest_internal
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	logic_time "github.com/atframework/atsf4g-go/component-logical_time"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
@@ -23,11 +21,8 @@ import (
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 )
 
-var userManagerReflectType reflect.Type
-
 func init() {
 	var _ logic_quest.UserQuestManager = (*UserQuestManager)(nil)
-	userManagerReflectType = lu.GetStaticReflectType[UserQuestManager]()
 	data.RegisterUserModuleManagerCreator[logic_quest.UserQuestManager](func(_ cd.RpcContext,
 		owner *data.User,
 	) data.UserModuleManagerImpl {
@@ -53,10 +48,6 @@ func init() {
 	})
 
 	registerCondition()
-}
-
-func (m *UserQuestManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 type UserQuestManager struct {
@@ -109,8 +100,7 @@ func (m *UserQuestManager) GetOwner() *data.User {
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_QuestStatus(), nil, checkRuleQuestStatus)
-
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_QuestStatus(), nil, checkRuleQuestStatus)
 }
 
 // 道具相关api实现.

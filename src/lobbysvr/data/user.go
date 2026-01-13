@@ -3,7 +3,6 @@ package lobbysvr_data
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -80,7 +79,7 @@ type User struct {
 	refreshLimitSecondChenckpoint int64
 	refreshLimitMinuteChenckpoint int64
 
-	moduleManagerMap map[reflect.Type]UserModuleManagerImpl
+	moduleManagerMap map[lu.TypeID]UserModuleManagerImpl
 	itemManagerList  []userItemManagerWrapper
 
 	dirtyHandles                   map[unsafe.Pointer]userDirtyHandles
@@ -109,7 +108,7 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, 
 		loginTaskLock:    sync.Mutex{},
 		loginTaskId:      0,
 		isLoginInited:    false,
-		moduleManagerMap: make(map[reflect.Type]UserModuleManagerImpl),
+		moduleManagerMap: make(map[lu.TypeID]UserModuleManagerImpl),
 		itemManagerList:  make([]userItemManagerWrapper, 0),
 
 		dirtyHandles:                   make(map[unsafe.Pointer]userDirtyHandles),
@@ -153,8 +152,8 @@ func createUser(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, 
 		curr := ret.itemManagerList[i]
 		if prev.idRange.endTypeId > curr.idRange.beginTypeId {
 			ctx.LogError("user item manager type id range conflict",
-				"prev_manager", prev.manager.GetReflectType().String(),
-				"curr_manager", curr.manager.GetReflectType().String(),
+				"prev_manager", lu.GetTypeID(prev.manager).String(),
+				"curr_manager", lu.GetTypeID(curr.manager).String(),
 				"prev_range", prev.idRange,
 				"prev_begin", prev.idRange.beginTypeId,
 				"prev_end", prev.idRange.endTypeId,
@@ -631,7 +630,7 @@ func (u *User) UpdateHeartbeat(ctx cd.RpcContext) {
 		config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 }
 
-func (u *User) GetModuleManager(typeInst reflect.Type) UserModuleManagerImpl {
+func (u *User) GetModuleManager(typeInst lu.TypeID) UserModuleManagerImpl {
 	if u.moduleManagerMap == nil {
 		return nil
 	}
@@ -650,7 +649,7 @@ func (u *User) GetModuleManagerByName(name string) UserModuleManagerImpl {
 	}
 
 	for typeInst, mgr := range u.moduleManagerMap {
-		if typeInst.Name() == name {
+		if typeInst.String() == name {
 			return mgr
 		}
 	}
@@ -664,7 +663,7 @@ func UserGetModuleManager[ManagerType UserModuleManagerImpl](u *User) ManagerTyp
 		return zero
 	}
 
-	ret := u.GetModuleManager(reflect.TypeOf((*ManagerType)(nil)).Elem())
+	ret := u.GetModuleManager(lu.GetTypeIDOf[ManagerType]())
 	if ret == nil {
 		var zero ManagerType
 		return zero
@@ -679,9 +678,9 @@ func UserGetModuleManager[ManagerType UserModuleManagerImpl](u *User) ManagerTyp
 	return convertRet
 }
 
-func (u *User) registerModuleManager(typeInst reflect.Type, mgr UserModuleManagerImpl) {
+func (u *User) registerModuleManager(typeInst lu.TypeID, mgr UserModuleManagerImpl) {
 	if u.moduleManagerMap == nil {
-		u.moduleManagerMap = make(map[reflect.Type]UserModuleManagerImpl)
+		u.moduleManagerMap = make(map[lu.TypeID]UserModuleManagerImpl)
 	}
 
 	u.moduleManagerMap[typeInst] = mgr

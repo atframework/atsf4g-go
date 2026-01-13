@@ -3,10 +3,8 @@ package atframework_component_user_controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -20,15 +18,8 @@ type SessionManager struct {
 	sessions    map[uint64]map[uint64]*Session
 }
 
-var sessionManagerReflectType reflect.Type
-
 func init() {
-	sessionManagerReflectType = lu.GetStaticReflectType[SessionManager]()
 	var _ libatapp.AppModuleImpl = (*SessionManager)(nil)
-}
-
-func (m *SessionManager) GetReflectType() reflect.Type {
-	return sessionManagerReflectType
 }
 
 func (m *SessionManager) Init(parent context.Context) error {

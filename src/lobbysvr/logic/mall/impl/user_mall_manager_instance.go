@@ -2,7 +2,6 @@ package lobbysvr_logic_mall_impl
 
 import (
 	"fmt"
-	"reflect"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
@@ -16,15 +15,10 @@ import (
 	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
-
-	lu "github.com/atframework/atframe-utils-go/lang_utility"
 )
-
-var userManagerReflectType reflect.Type
 
 func init() {
 	var _ logic_mall.UserMallManager = (*UserMallManager)(nil)
-	userManagerReflectType = lu.GetStaticReflectType[UserMallManager]()
 
 	var _ logic_condition.UserConditionCounterDelegate = (*UserMallManager)(nil)
 
@@ -47,10 +41,6 @@ func init() {
 		return finalMgr
 	})
 	registerCondition()
-}
-
-func (m *UserMallManager) GetReflectType() reflect.Type {
-	return userManagerReflectType
 }
 
 type UserMallManager struct {
@@ -339,15 +329,15 @@ func (m *UserMallManager) GetProductCounter(productId int32) *public_protocol_co
 }
 
 func registerCondition() {
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseSumCounter(),
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallProductPurchaseSumCounter(),
 		nil, checkRuleMallProductPurchaseSumCounter)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseDailyCounter(),
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallProductPurchaseDailyCounter(),
 		nil, checkRuleMallProductPurchaseDailyCounter)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseWeeklyCounter(),
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallProductPurchaseWeeklyCounter(),
 		nil, checkRuleMallProductPurchaseWeeklyCounter)
-	// logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseMonthlyCounter(),
+	// logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallProductPurchaseMonthlyCounter(),
 	// 	nil, checkRuleMallProductPurchaseMonthlyCounter)
-	logic_condition.AddRuleChecker(public_protocol_common.GetReflectTypeDConditionRule_MallProductPurchaseCustomCounter(),
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallProductPurchaseCustomCounter(),
 		nil, checkRuleMallProductPurchaseCustomCounter)
 }
 

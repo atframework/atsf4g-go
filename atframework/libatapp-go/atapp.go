@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"runtime/debug"
 	"slices"
@@ -110,9 +109,9 @@ type AppImpl interface {
 
 	GetSysNow() time.Time
 
-	AddModule(typeInst reflect.Type, module AppModuleImpl) error
+	AddModule(typeInst lu.TypeID, module AppModuleImpl) error
 
-	GetModule(typeInst reflect.Type) AppModuleImpl
+	GetModule(typeInst lu.TypeID) AppModuleImpl
 
 	// 消息相关
 	SendMessage(targetId uint64, msgType int32, data []byte) error
@@ -171,7 +170,7 @@ type AppInstance struct {
 
 	// 模块管理
 	modules   []AppModuleImpl
-	moduleMap map[reflect.Type]AppModuleImpl
+	moduleMap map[lu.TypeID]AppModuleImpl
 
 	// 生命周期控制
 	appContext    context.Context
@@ -211,7 +210,7 @@ type AppInstance struct {
 func CreateAppInstance() AppImpl {
 	ret := &AppInstance{
 		mode:          AppModeHelp,
-		moduleMap:     make(map[reflect.Type]AppModuleImpl),
+		moduleMap:     make(map[lu.TypeID]AppModuleImpl),
 		stopTimepoint: time.Time{},
 		stopTimeout:   time.Time{},
 		eventHandlers: make(map[string]EventHandler),
@@ -378,7 +377,7 @@ func (app *AppInstance) IsRunning() bool { return app.CheckFlag(AppFlagRunning) 
 func (app *AppInstance) IsClosing() bool { return app.CheckFlag(AppFlagStopping) }
 func (app *AppInstance) IsClosed() bool  { return app.CheckFlag(AppFlagStopped) }
 
-func (app *AppInstance) AddModule(typeInst reflect.Type, module AppModuleImpl) error {
+func (app *AppInstance) AddModule(typeInst lu.TypeID, module AppModuleImpl) error {
 	if lu.IsNil(module) {
 		return fmt.Errorf("module is nil")
 	}
@@ -399,10 +398,10 @@ func AtappAddModule[ModuleType AppModuleImpl](app AppImpl, module ModuleType) er
 		return fmt.Errorf("app is nil")
 	}
 
-	return app.AddModule(module.GetReflectType(), module)
+	return app.AddModule(lu.GetTypeIDOf[ModuleType](), module)
 }
 
-func (app *AppInstance) GetModule(typeInst reflect.Type) AppModuleImpl {
+func (app *AppInstance) GetModule(typeInst lu.TypeID) AppModuleImpl {
 	mod, ok := app.moduleMap[typeInst]
 	if !ok {
 		return nil
@@ -417,7 +416,7 @@ func AtappGetModule[ModuleType AppModuleImpl](app AppImpl) ModuleType {
 		return zero
 	}
 
-	ret := app.GetModule(lu.GetReflectType[ModuleType]())
+	ret := app.GetModule(lu.GetTypeIDOf[ModuleType]())
 	if ret == nil {
 		return zero
 	}
