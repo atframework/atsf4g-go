@@ -13,9 +13,9 @@ import (
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
+	log "github.com/atframework/atframe-utils-go/log"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	router "github.com/atframework/atsf4g-go/component-router"
-	libatapp "github.com/atframework/libatapp-go"
 )
 
 const (
@@ -122,7 +122,7 @@ type UserCache struct {
 	userData    UserDirtyWrapper[private_protocol_pbdesc.UserData]
 	// Basic Data
 
-	csActorLogWriter libatapp.LogWriter
+	csActorLogWriter log.LogWriter
 
 	hasCreateInit bool
 
@@ -132,9 +132,9 @@ type UserCache struct {
 
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
 	// 由路由系统创建可能没有OpenId
-	var writer *libatapp.LogBufferedRotatingWriter
+	var writer *log.LogBufferedRotatingWriter
 	if config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetEnableActorLog() {
-		writer, _ = libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId),
+		writer, _ = log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId),
 			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId), config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
 			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
@@ -534,7 +534,7 @@ func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInf
 	return u.MutableUserLogin().MutableLastLoginRecord().MutableClientInfo()
 }
 
-func (u *UserCache) GetCsActorLogWriter() libatapp.LogWriter {
+func (u *UserCache) GetCsActorLogWriter() log.LogWriter {
 	if u == nil {
 		return nil
 	}

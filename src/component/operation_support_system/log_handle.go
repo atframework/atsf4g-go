@@ -6,6 +6,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	log "github.com/atframework/atframe-utils-go/log"
 	config "github.com/atframework/atsf4g-go/component-config"
 	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
 	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
@@ -25,8 +26,8 @@ func SendMonLog(app libatapp.AppImpl, monLog *private_protocol_log.MonitorLog) {
 
 type OperationSupportSystem struct {
 	libatapp.AppModuleBase
-	ossLogWriter *libatapp.LogBufferedRotatingWriter
-	monLogWriter *libatapp.LogBufferedRotatingWriter
+	ossLogWriter *log.LogBufferedRotatingWriter
+	monLogWriter *log.LogBufferedRotatingWriter
 
 	startTimestamp uint64
 }
@@ -87,7 +88,7 @@ func (m *OperationSupportSystem) Stop() (bool, error) {
 func (m *OperationSupportSystem) initLogWritter() error {
 	cfg := config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetOperationSupportSystem()
 	if cfg.GetOssCfg().GetEnable() {
-		writer, err := libatapp.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetOssCfg().GetFile(), cfg.GetOssCfg().GetWritingAlias(),
+		writer, err := log.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetOssCfg().GetFile(), cfg.GetOssCfg().GetWritingAlias(),
 			cfg.GetOssCfg().GetRotate().GetSize(), cfg.GetOssCfg().GetRotate().GetNumber(), cfg.GetOssCfg().GetFlushInterval().AsDuration(), 0)
 		if err != nil {
 			return err
@@ -95,7 +96,7 @@ func (m *OperationSupportSystem) initLogWritter() error {
 		m.ossLogWriter = writer
 	}
 	if cfg.GetMonCfg().GetEnable() {
-		writer, err := libatapp.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetMonCfg().GetFile(), cfg.GetMonCfg().GetWritingAlias(),
+		writer, err := log.NewLogBufferedRotatingWriter(m.GetApp(), cfg.GetMonCfg().GetFile(), cfg.GetMonCfg().GetWritingAlias(),
 			cfg.GetMonCfg().GetRotate().GetSize(), cfg.GetMonCfg().GetRotate().GetNumber(), cfg.GetMonCfg().GetFlushInterval().AsDuration(), 0)
 		if err != nil {
 			return err

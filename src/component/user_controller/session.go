@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	libatapp "github.com/atframework/libatapp-go"
+	log "github.com/atframework/atframe-utils-go/log"
 
 	config "github.com/atframework/atsf4g-go/component-config"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -85,7 +85,7 @@ func (s *Session) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
 
 	// 处理日志
 	if len(s.pendingCsLog) > 0 {
-		writer, _ := libatapp.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.key.SessionId),
+		writer, _ := log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.key.SessionId),
 			"", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
 			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
@@ -193,7 +193,7 @@ func (s *Session) GetNetworkHandle() SessionNetworkHandleImpl {
 	return s.networkHandle
 }
 
-func (s *Session) GetActorLogWriter() libatapp.LogWriter {
+func (s *Session) GetActorLogWriter() log.LogWriter {
 	user := s.GetUser()
 	if lu.IsNil(user) {
 		return nil
@@ -209,7 +209,7 @@ func (s *Session) InsertPendingActorLog(content string) {
 	s.pendingCsLog = append(s.pendingCsLog, content)
 }
 
-func (s *Session) FlushPendingActorLog(logWriter libatapp.LogWriter) {
+func (s *Session) FlushPendingActorLog(logWriter log.LogWriter) {
 	for _, log := range s.pendingCsLog {
 		fmt.Fprint(logWriter, log)
 	}

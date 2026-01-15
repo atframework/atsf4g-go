@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	log "github.com/atframework/atframe-utils-go/log"
 	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
 )
@@ -24,7 +25,7 @@ type ConfigManager struct {
 	originConfigData        interface{}
 	overwriteResourceDir    string
 	serverConfigureLoadFunc generate_config.ServerConfigureLoadFuncType
-	logger                  *libatapp.Logger
+	logger                  *log.Logger
 	app                     libatapp.AppImpl
 }
 
@@ -51,7 +52,7 @@ func GetServerConfig[T any](configGroup *generate_config.ConfigGroup) T {
 	return configGroup.GetServerConfig().(T)
 }
 
-func (configManagerInst *ConfigManager) GetLogger() *libatapp.Logger {
+func (configManagerInst *ConfigManager) GetLogger() *log.Logger {
 	if configManagerInst.logger == nil {
 		return nil
 	}
@@ -189,7 +190,7 @@ func (callback ExcelConfigCallback) LoadFile(prefixPath string, pbinName string)
 	return content, nil
 }
 
-func (callback ExcelConfigCallback) GetLogger() *libatapp.Logger {
+func (callback ExcelConfigCallback) GetLogger() *log.Logger {
 	return GetConfigManager().GetLogger()
 }
 

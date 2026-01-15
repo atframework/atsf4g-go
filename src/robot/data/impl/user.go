@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	log "github.com/atframework/atframe-utils-go/log"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	base "github.com/atframework/atsf4g-go/robot/base"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
-	libatapp "github.com/atframework/libatapp-go"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -41,7 +41,7 @@ type User struct {
 	connection         *websocket.Conn
 	rpcAwaitTask       sync.Map
 
-	csLog *libatapp.LogBufferedRotatingWriter
+	csLog *log.LogBufferedRotatingWriter
 
 	onClosed                []func(user user_data.User)
 	taskManager             *base.TaskActionManager
@@ -61,7 +61,7 @@ func init() {
 	user_data.RegisterCreateUser(CreateUser)
 }
 
-func NewUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBufferedRotatingWriter, logHandler func(format string, a ...any)) *User {
+func NewUser(openId string, conn *websocket.Conn, bufferWriter *log.LogBufferedRotatingWriter, logHandler func(format string, a ...any)) *User {
 	var _ user_data.User = &User{}
 	ret := &User{
 		OpenId:                  openId,
@@ -82,9 +82,9 @@ func NewUser(openId string, conn *websocket.Conn, bufferWriter *libatapp.LogBuff
 }
 
 func CreateUser(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) user_data.User {
-	var bufferWriter *libatapp.LogBufferedRotatingWriter
+	var bufferWriter *log.LogBufferedRotatingWriter
 	if enableActorLog {
-		bufferWriter, _ = libatapp.NewLogBufferedRotatingWriter(nil,
+		bufferWriter, _ = log.NewLogBufferedRotatingWriter(nil,
 			fmt.Sprintf("../log/%s.%%N.log", openId), "", 20*1024*1024, 3, time.Second*3, 0)
 	}
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)

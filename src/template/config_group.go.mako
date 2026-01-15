@@ -10,6 +10,7 @@ package atframework_component_config_generate_config
 
 import (
 	libatapp "github.com/atframework/libatapp-go"
+	log "github.com/atframework/atframe-utils-go/log"
 	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
 	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
@@ -17,7 +18,7 @@ import (
 
 type ConfigCallback interface {
 	LoadFile(string, string) ([]byte, error)
-	GetLogger() *libatapp.Logger
+	GetLogger() *log.Logger
 	OnLoaded(*ConfigGroup) error
 }
 

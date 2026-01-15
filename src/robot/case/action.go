@@ -11,9 +11,9 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	log "github.com/atframework/atframe-utils-go/log"
 	base "github.com/atframework/atsf4g-go/robot/base"
 	utils "github.com/atframework/atsf4g-go/robot/utils"
-	"github.com/atframework/libatapp-go"
 )
 
 type CaseFunc func(*TaskActionCase, string, []string) error
@@ -206,7 +206,7 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 
 	beginTime := time.Now()
 
-	bufferWriter, _ := libatapp.NewLogBufferedRotatingWriter(nil,
+	bufferWriter, _ := log.NewLogBufferedRotatingWriter(nil,
 		fmt.Sprintf("../log/%s.%s.%%N.log", caseName, beginTime.Format("15.04.05")), "", 50*1024*1024, 5, time.Second*3, 0)
 	logHandler := func(openId string, format string, a ...any) {
 		logString := fmt.Sprintf("[%s][%s]: %s", time.Now().Format("2006-01-02 15:04:05.000"), openId, fmt.Sprintf(format, a...))

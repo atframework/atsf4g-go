@@ -11,6 +11,7 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 
+	log "github.com/atframework/atframe-utils-go/log"
 	config "github.com/atframework/atsf4g-go/component-config"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
@@ -22,7 +23,7 @@ type TaskActionCSSession interface {
 	GetSessionNodeId() uint64
 	AllocSessionSequence() uint64
 
-	GetActorLogWriter() libatapp.LogWriter
+	GetActorLogWriter() log.LogWriter
 
 	GetUser() TaskActionCSUser
 	BindUser(ctx RpcContext, user TaskActionCSUser)
@@ -32,7 +33,7 @@ type TaskActionCSSession interface {
 
 	IsEnableActorLog() bool
 	InsertPendingActorLog(string)
-	FlushPendingActorLog(libatapp.LogWriter)
+	FlushPendingActorLog(log.LogWriter)
 }
 
 type TaskActionCSUser interface {
@@ -41,7 +42,7 @@ type TaskActionCSUser interface {
 	GetOpenId() string
 
 	GetSession() TaskActionCSSession
-	GetCsActorLogWriter() libatapp.LogWriter
+	GetCsActorLogWriter() log.LogWriter
 	GetActorExecutor() *ActorExecutor
 
 	OnSendResponse(ctx RpcContext) error
@@ -182,7 +183,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) MutableResponseBody() Resp
 	return t.responseBody
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetCsActorLogWriter() libatapp.LogWriter {
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetCsActorLogWriter() log.LogWriter {
 	user := t.GetUser()
 	if lu.IsNil(user) {
 		return nil

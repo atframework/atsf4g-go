@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-
+	log "github.com/atframework/atframe-utils-go/log"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -25,10 +25,10 @@ type ActorExecutor struct {
 	actionLock     sync.Mutex
 	pendingActions list.List
 
-	Instance libatapp.LogAttr
+	Instance log.LogAttr
 }
 
-func CreateActorExecutor(actorInstance libatapp.LogAttr) *ActorExecutor {
+func CreateActorExecutor(actorInstance log.LogAttr) *ActorExecutor {
 	return &ActorExecutor{
 		actionStatus:   ActorExecutorStatusFree,
 		pendingActions: list.List{},

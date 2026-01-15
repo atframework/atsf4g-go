@@ -111,15 +111,15 @@ type LogWriter interface {
 }
 
 type logHandlerWriter struct {
-	out LogWriter
+	Out LogWriter
 
-	minLevel slog.Level
-	maxLevel slog.Level
+	MinLevel slog.Level
+	MaxLevel slog.Level
 
-	enableStackTrace bool
-	stackTraceLevel  slog.Level
+	EnableStackTrace bool
+	StackTraceLevel  slog.Level
 
-	autoFlushLevel slog.Level
+	AutoFlushLevel slog.Level
 }
 
 type logHandlerImpl struct {
@@ -139,27 +139,27 @@ func NewLogHandlerImpl(cache *sync.Map, prefix string) *logHandlerImpl {
 	}
 }
 
-func createLogHandlerWriter(out LogWriter) logHandlerWriter {
+func CreateLogHandlerWriter(out LogWriter) logHandlerWriter {
 	return logHandlerWriter{
-		minLevel:         slog.LevelInfo,
-		maxLevel:         slog.LevelError,
-		out:              out,
-		enableStackTrace: true,
-		stackTraceLevel:  slog.LevelError,
-		autoFlushLevel:   slog.LevelError,
+		MinLevel:         slog.LevelInfo,
+		MaxLevel:         slog.LevelError,
+		Out:              out,
+		EnableStackTrace: true,
+		StackTraceLevel:  slog.LevelError,
+		AutoFlushLevel:   slog.LevelError,
 	}
 }
 
 func (h *logHandlerImpl) AppendWriter(writer logHandlerWriter) {
-	if writer.maxLevel < writer.minLevel {
-		writer.maxLevel = writer.minLevel
+	if writer.MaxLevel < writer.MinLevel {
+		writer.MaxLevel = writer.MinLevel
 	}
 	h.innerWriters = append(h.innerWriters, writer)
-	if writer.minLevel < h.minLevel {
-		h.minLevel = writer.minLevel
+	if writer.MinLevel < h.minLevel {
+		h.minLevel = writer.MinLevel
 	}
-	if writer.maxLevel > h.maxLevel {
-		h.maxLevel = writer.maxLevel
+	if writer.MaxLevel > h.maxLevel {
+		h.maxLevel = writer.MaxLevel
 	}
 }
 
@@ -224,7 +224,7 @@ func (h *logHandlerImpl) getStack(pc uintptr) string {
 }
 
 func (h *logHandlerWriter) Enabled(level slog.Level) bool {
-	return level >= h.minLevel && level <= h.maxLevel
+	return level >= h.MinLevel && level <= h.MaxLevel
 }
 
 func (h *logHandlerImpl) Enabled(_ context.Context, level slog.Level) bool {
@@ -264,7 +264,7 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 			continue
 		}
 		// 写入基础日志
-		if r.PC != 0 && h.innerWriters[k].enableStackTrace && r.Level >= h.innerWriters[k].stackTraceLevel {
+		if r.PC != 0 && h.innerWriters[k].EnableStackTrace && r.Level >= h.innerWriters[k].StackTraceLevel {
 			// 需要StackTrace
 			if stackTrace == nil {
 				// 生成
@@ -275,13 +275,13 @@ func (h *logHandlerImpl) Handle(_ context.Context, r slog.Record) error {
 				defer stackTrace.Free()
 			}
 			// 写入StackTrace
-			h.innerWriters[k].out.Write(stackTrace.Bytes())
+			h.innerWriters[k].Out.Write(stackTrace.Bytes())
 		} else {
-			h.innerWriters[k].out.Write(sb.Bytes())
+			h.innerWriters[k].Out.Write(sb.Bytes())
 		}
 
-		if r.Level >= h.innerWriters[k].autoFlushLevel {
-			h.innerWriters[k].out.Flush()
+		if r.Level >= h.innerWriters[k].AutoFlushLevel {
+			h.innerWriters[k].Out.Flush()
 		}
 	}
 	return nil

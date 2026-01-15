@@ -20,6 +20,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	log "github.com/atframework/atframe-utils-go/log"
 	"google.golang.org/protobuf/proto"
 
 	atframe_protocol "github.com/atframework/libatapp-go/protocol/atframe"
@@ -148,13 +149,13 @@ type AppImpl interface {
 	GetAppContext() context.Context
 
 	// Logger
-	GetDefaultLogger() *Logger
-	GetLogger(index int) *Logger
+	GetDefaultLogger() *log.Logger
+	GetLogger(index int) *log.Logger
 }
 
 type AppLog struct {
-	loggers []*Logger
-	writers []LogWriter
+	loggers []*log.Logger
+	writers []log.LogWriter
 }
 
 type AppInstance struct {
@@ -216,16 +217,16 @@ func CreateAppInstance() AppImpl {
 		eventHandlers: make(map[string]EventHandler),
 		signalChan:    make(chan os.Signal, 1),
 		logger: &AppLog{
-			loggers: make([]*Logger, 0),
+			loggers: make([]*log.Logger, 0),
 		},
 	}
 
 	// 初始化编译信息
 	initBuildInfo()
 
-	handler := NewLogHandlerImpl(&ret.logFrameInfoCache, "[%P][%L](%k:%n): ")
-	handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
-	ret.logger.loggers = append(ret.logger.loggers, NewLogger(handler, ret))
+	handler := log.NewLogHandlerImpl(&ret.logFrameInfoCache, "[%P][%L](%k:%n): ")
+	handler.AppendWriter(log.CreateLogHandlerWriter(log.NewlogStdoutWriter()))
+	ret.logger.loggers = append(ret.logger.loggers, log.NewLogger(handler, ret))
 
 	ret.flagSet = flag.NewFlagSet(
 		fmt.Sprintf("%s [options...] <start|stop|reload|run> [<custom command> [command args...]]", filepath.Base(os.Args[0])), flag.ContinueOnError)
@@ -309,21 +310,21 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 		return nil, fmt.Errorf("log config is nil")
 	}
 
-	globalLevel := ConvertLogLevel(config.Level)
+	globalLevel := log.ConvertLogLevel(config.Level)
 	appLog := new(AppLog)
 
 	for i := range config.Category {
 		index := config.Category[i].Index
 
-		handler := NewLogHandlerImpl(&app.logFrameInfoCache, config.Category[i].Prefix)
+		handler := log.NewLogHandlerImpl(&app.logFrameInfoCache, config.Category[i].Prefix)
 		for sinkIndex := range config.Category[i].Sink {
-			writer := createLogHandlerWriter(nil)
-			writer.minLevel = max(globalLevel, ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min))
-			writer.maxLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max)
+			writer := log.CreateLogHandlerWriter(nil)
+			writer.MinLevel = max(globalLevel, log.ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Min))
+			writer.MaxLevel = log.ConvertLogLevel(config.Category[i].Sink[sinkIndex].Level.Max)
 
 			if config.Category[i].Sink[sinkIndex].Type == "file" {
 				flushInterval := int64(config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Nanos) + config.Category[i].Sink[sinkIndex].GetLogBackendFile().FlushInterval.Seconds*int64(time.Second)
-				bufferWriter, err := NewLogBufferedRotatingWriter(app,
+				bufferWriter, err := log.NewLogBufferedRotatingWriter(app,
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetFile(),
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetWritingAlias(),
 					config.Category[i].Sink[sinkIndex].GetLogBackendFile().GetRotate().GetSize(),
@@ -333,40 +334,40 @@ func (app *AppInstance) InitLog(config *atframe_protocol.AtappLog) (*AppLog, err
 				if err != nil {
 					return nil, err
 				}
-				writer.out = bufferWriter
+				writer.Out = bufferWriter
 				if config.Category[i].Stacktrace.Min != "disable" {
-					writer.enableStackTrace = true
-					writer.stackTraceLevel = ConvertLogLevel(config.Category[i].Stacktrace.Min)
+					writer.EnableStackTrace = true
+					writer.StackTraceLevel = log.ConvertLogLevel(config.Category[i].Stacktrace.Min)
 				}
-				writer.autoFlushLevel = ConvertLogLevel(config.Category[i].Sink[sinkIndex].GetLogBackendFile().AutoFlush)
+				writer.AutoFlushLevel = log.ConvertLogLevel(config.Category[i].Sink[sinkIndex].GetLogBackendFile().AutoFlush)
 				handler.AppendWriter(writer)
-				appLog.writers = append(appLog.writers, writer.out)
+				appLog.writers = append(appLog.writers, writer.Out)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stdout" {
-				writer.out = NewlogStdoutWriter()
+				writer.Out = log.NewlogStdoutWriter()
 				handler.AppendWriter(writer)
-				appLog.writers = append(appLog.writers, writer.out)
+				appLog.writers = append(appLog.writers, writer.Out)
 			}
 
 			if config.Category[i].Sink[sinkIndex].Type == "stderr" {
-				writer.out = NewlogStderrWriter()
+				writer.Out = log.NewlogStderrWriter()
 				handler.AppendWriter(writer)
-				appLog.writers = append(appLog.writers, writer.out)
+				appLog.writers = append(appLog.writers, writer.Out)
 			}
 		}
 
 		if len(appLog.loggers) <= int(index) {
-			appLog.loggers = append(appLog.loggers, make([]*Logger, int(index)+1-len(appLog.loggers))...)
+			appLog.loggers = append(appLog.loggers, make([]*log.Logger, int(index)+1-len(appLog.loggers))...)
 		}
-		appLog.loggers[index] = NewLogger(handler, app)
+		appLog.loggers[index] = log.NewLogger(handler, app)
 	}
 
 	for i := range appLog.loggers {
 		if appLog.loggers[i] == nil {
-			handler := NewLogHandlerImpl(&app.logFrameInfoCache, "[%P][%L](%k:%n): ")
-			handler.AppendWriter(createLogHandlerWriter(NewlogStdoutWriter()))
-			appLog.loggers[i] = NewLogger(handler, app)
+			handler := log.NewLogHandlerImpl(&app.logFrameInfoCache, "[%P][%L](%k:%n): ")
+			handler.AppendWriter(log.CreateLogHandlerWriter(log.NewlogStdoutWriter()))
+			appLog.loggers[i] = log.NewLogger(handler, app)
 		}
 	}
 	return appLog, nil
@@ -880,7 +881,7 @@ func (app *AppInstance) LoadOriginConfigData(configFile string) (err error) {
 }
 
 // 配置管理
-func LoadConfigFromOriginDataByPath(logger *Logger,
+func LoadConfigFromOriginDataByPath(logger *log.Logger,
 	originData interface{}, target proto.Message,
 	configurePrefixPath string, loadEnvironemntPrefix string,
 	loadOptions *LoadConfigOptions,
@@ -1059,11 +1060,11 @@ func (app *AppInstance) GetAppContext() context.Context {
 	return app.appContext
 }
 
-func (app *AppInstance) GetDefaultLogger() *Logger {
+func (app *AppInstance) GetDefaultLogger() *log.Logger {
 	return app.logger.loggers[0]
 }
 
-func (app *AppInstance) GetLogger(index int) *Logger {
+func (app *AppInstance) GetLogger(index int) *log.Logger {
 	log := app.logger
 	if len(log.loggers) > index {
 		return log.loggers[index]
@@ -1151,17 +1152,17 @@ func (app *AppInstance) setupStartupLog() error {
 		app.GetDefaultLogger().LogInfo("Setting up startup log", "config", app.config.StartupLog)
 		app.logger.loggers = nil
 
-		handler := NewLogHandlerImpl(&app.logFrameInfoCache, "[%P][%L](%k:%n): ")
+		handler := log.NewLogHandlerImpl(&app.logFrameInfoCache, "[%P][%L](%k:%n): ")
 		for _, logFile := range app.config.StartupLog {
 			switch logFile {
 			case "stdout":
 				{
-					logHandler := createLogHandlerWriter(NewlogStdoutWriter())
+					logHandler := log.CreateLogHandlerWriter(log.NewlogStdoutWriter())
 					handler.AppendWriter(logHandler)
 				}
 			case "stderr":
 				{
-					logHandler := createLogHandlerWriter(NewlogStderrWriter())
+					logHandler := log.CreateLogHandlerWriter(log.NewlogStderrWriter())
 					handler.AppendWriter(logHandler)
 				}
 			case "stdsys":
@@ -1170,13 +1171,13 @@ func (app *AppInstance) setupStartupLog() error {
 				}
 			default:
 				{
-					out, _ := NewLogBufferedRotatingWriter(app,
+					out, _ := log.NewLogBufferedRotatingWriter(app,
 						fmt.Sprintf("../log/%s", logFile), "", 50*1024*1024, 1, time.Second*1, 4096)
-					handler.AppendWriter(createLogHandlerWriter(out))
+					handler.AppendWriter(log.CreateLogHandlerWriter(out))
 				}
 			}
 		}
-		app.logger.loggers = append(app.logger.loggers, NewLogger(handler, app))
+		app.logger.loggers = append(app.logger.loggers, log.NewLogger(handler, app))
 	}
 
 	if app.config.CrashOutputFile != "" {

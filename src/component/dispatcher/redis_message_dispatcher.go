@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	log "github.com/atframework/atframe-utils-go/log"
 	config "github.com/atframework/atsf4g-go/component-config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -28,7 +29,7 @@ type RedisLog struct {
 }
 
 func (l *RedisLog) Printf(ctx context.Context, format string, v ...interface{}) {
-	l.app.GetLogger(1).LogInner(l.app.GetSysNow(), libatapp.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
+	l.app.GetLogger(1).LogInner(l.app.GetSysNow(), log.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
 }
 
 type RedisMessageDispatcher struct {
