@@ -24,15 +24,6 @@ replace github.com/atframework/atsf4g-go/component-operation-support-system => .
 
 replace github.com/atframework/atsf4g-go/component-uuid => ../component/uuid
 
-require (
-	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
-	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
-	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
-	github.com/atframework/atsf4g-go/component-service_shared_collection v0.0.0-00010101000000-000000000000
-	github.com/atframework/atsf4g-go/component-user_controller v0.0.0-00010101000000-000000000000
-	google.golang.org/protobuf v1.36.9
-)
-
 replace github.com/xresloader/xresloader => ../../third_party/xresloader/protocols/core
 
 replace github.com/atframework/atsf4g-go/component-protocol-private => ../component/protocol/private
@@ -45,11 +36,17 @@ require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-config v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-db v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-dispatcher v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-logical_time v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-operation-support-system v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-protocol-private v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-protocol-public v0.0.0-00010101000000-000000000000
 	github.com/atframework/atsf4g-go/component-router v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-service_shared_collection v0.0.0-00010101000000-000000000000
+	github.com/atframework/atsf4g-go/component-user_controller v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v0.0.0-00010101000000-000000000000
-	github.com/google/uuid v1.1.1
+	github.com/google/uuid v1.6.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (

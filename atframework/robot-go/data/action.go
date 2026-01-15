@@ -1,7 +1,7 @@
 package atsf4g_go_robot_user
 
 import (
-	base "github.com/atframework/atsf4g-go/robot/base"
+	base "github.com/atframework/robot-go/base"
 )
 
 type TaskActionUser struct {

@@ -5,21 +5,22 @@ import (
 	"sync"
 	"time"
 
-	cmd "github.com/atframework/atsf4g-go/robot/cmd"
-	config "github.com/atframework/atsf4g-go/robot/config"
-	user_data "github.com/atframework/atsf4g-go/robot/data"
 	protocol "github.com/atframework/atsf4g-go/robot/protocol"
 	task "github.com/atframework/atsf4g-go/robot/task"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	base "github.com/atframework/robot-go/base"
+	robot_case "github.com/atframework/robot-go/case"
+	cmd "github.com/atframework/robot-go/cmd"
+	user_data "github.com/atframework/robot-go/data"
 )
 
 func init() {
-	RegisterCase("login", LoginCase, time.Second*5)
-	RegisterCase("logout", LogoutCase, time.Second*5)
-	RegisterCase("gm", GmCase, time.Second*5)
-	RegisterCase("await_close", AwaitCloseCase, time.Second*5)
-	RegisterCase("delay_second", DelayCase, 0)
-	RegisterCase("run_cmd", RunCmdCase, time.Second*5)
+	robot_case.RegisterCase("login", LoginCase, time.Second*5)
+	robot_case.RegisterCase("logout", LogoutCase, time.Second*5)
+	robot_case.RegisterCase("gm", GmCase, time.Second*5)
+	robot_case.RegisterCase("await_close", AwaitCloseCase, time.Second*5)
+	robot_case.RegisterCase("delay_second", DelayCase, 0)
+	robot_case.RegisterCase("run_cmd", RunCmdCase, time.Second*5)
 }
 
 var userMapContainer = sync.Map{}
@@ -43,7 +44,7 @@ func GetUser(openId string) user_data.User {
 	return v.(user_data.User)
 }
 
-func DelayCase(action *TaskActionCase, openId string, args []string) error {
+func DelayCase(action *robot_case.TaskActionCase, openId string, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("invalid args")
 	}
@@ -55,14 +56,14 @@ func DelayCase(action *TaskActionCase, openId string, args []string) error {
 	return nil
 }
 
-func LoginCase(action *TaskActionCase, openId string, args []string) error {
+func LoginCase(action *robot_case.TaskActionCase, openId string, args []string) error {
 	// 创建角色
-	u := user_data.CreateUser(openId, config.SocketUrl, action.Log, false)
+	u := user_data.CreateUser(openId, base.SocketUrl, action.Log, false)
 	if u == nil {
 		return fmt.Errorf("Failed to create user")
 	}
 
-	user_data.RegisterMessageHandlerUserDirtyChgSync(u,
+	protocol.RegisterMessageHandlerUserDirtyChgSync(u,
 		func(action *user_data.TaskActionUser, msg *lobysvr_protocol_pbdesc.SCUserDirtyChgSync, errCode int32) error {
 			// 处理脏数据变更通知
 			return nil
@@ -84,7 +85,7 @@ func LoginCase(action *TaskActionCase, openId string, args []string) error {
 	return nil
 }
 
-func LogoutCase(action *TaskActionCase, openId string, args []string) error {
+func LogoutCase(action *robot_case.TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return fmt.Errorf("User Not Found")
@@ -99,7 +100,7 @@ func LogoutCase(action *TaskActionCase, openId string, args []string) error {
 	return nil
 }
 
-func GmCase(action *TaskActionCase, openId string, args []string) error {
+func GmCase(action *robot_case.TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return fmt.Errorf("User Not Found")
@@ -121,7 +122,7 @@ func GmCase(action *TaskActionCase, openId string, args []string) error {
 	}, "Gm Task"))
 }
 
-func AwaitCloseCase(action *TaskActionCase, openId string, args []string) error {
+func AwaitCloseCase(action *robot_case.TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return nil
@@ -131,7 +132,7 @@ func AwaitCloseCase(action *TaskActionCase, openId string, args []string) error 
 	return nil
 }
 
-func RunCmdCase(action *TaskActionCase, openId string, args []string) error {
+func RunCmdCase(action *robot_case.TaskActionCase, openId string, args []string) error {
 	u := GetUser(openId)
 	if u == nil {
 		return fmt.Errorf("User Not Found")

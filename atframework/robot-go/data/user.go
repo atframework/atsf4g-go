@@ -3,17 +3,26 @@ package atsf4g_go_robot_user
 import (
 	"time"
 
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	"google.golang.org/protobuf/proto"
 )
 
+type UserReceiveUnpackFunc func(proto.Message) (
+	rpcName string,
+	typeName string,
+	errorCode int32,
+	msgHead proto.Message,
+	bodyBin []byte,
+	sequence uint64,
+	err error)
+type UserReceiveCreateMessageFunc func() proto.Message
+
 type User interface {
 	IsLogin() bool
-	CheckPingTask()
 	Logout()
-	MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead
-	ReceiveHandler()
-	SendReq(action *TaskActionUser, csMsg *public_protocol_extension.CSMsg, csBody proto.Message, needRsp bool) (int32, proto.Message, error)
+	AllocSequence() uint64
+	ReceiveHandler(unpack UserReceiveUnpackFunc, createMsg UserReceiveCreateMessageFunc)
+	SendReq(action *TaskActionUser, csMsg proto.Message, csHead proto.Message,
+		csBody proto.Message, rpcName string, sequence uint64, needRsp bool) (int32, proto.Message, error)
 	TakeActionGuard()
 	ReleaseActionGuard()
 	RunTask(timeout time.Duration, f func(*TaskActionUser) error, name string) *TaskActionUser
@@ -21,6 +30,7 @@ type User interface {
 	AddOnClosedHandler(f func(User))
 	Log(format string, a ...any)
 	AwaitReceiveHandlerClose()
+	InitHeartbeatFunc(func(User) error)
 
 	GetLoginCode() string
 	GetLogined() bool
@@ -41,8 +51,11 @@ type User interface {
 
 var createUserFn func(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User
 
-func RegisterCreateUser(f func(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User) {
-	createUserFn = f
+func RegisterCreateUser(f func(openId string, socketUrl string, logHandler func(format string, a ...any),
+	enableActorLog bool, unpack UserReceiveUnpackFunc, createMsg UserReceiveCreateMessageFunc) User, unpack UserReceiveUnpackFunc, createMsg UserReceiveCreateMessageFunc) {
+	createUserFn = func(openId, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User {
+		return f(openId, socketUrl, logHandler, enableActorLog, unpack, createMsg)
+	}
 }
 
 func CreateUser(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User {

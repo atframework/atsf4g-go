@@ -8,7 +8,7 @@ import (
 
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	user_data "github.com/atframework/atsf4g-go/robot/data"
+	user_data "github.com/atframework/robot-go/data"
 
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -33,7 +33,7 @@ func LoginAuthRpc(action *user_data.TaskActionUser) (int32, *lobysvr_protocol_pb
 		PackageVersion:  "0.0.0.1",
 		ResourceVersion: "0.0.0.1",
 	}
-	return user_data.SendLoginAuth(action, csBody, false)
+	return SendLoginAuth(action, csBody, false)
 }
 
 func LoginRpc(action *user_data.TaskActionUser) (int32, *lobysvr_protocol_pbdesc.SCLoginRsp, error) {
@@ -74,7 +74,7 @@ func LoginRpc(action *user_data.TaskActionUser) (int32, *lobysvr_protocol_pbdesc
 		},
 	}
 
-	return user_data.SendLogin(action, csBody, false)
+	return SendLogin(action, csBody, false)
 }
 
 func PingRpc(action *user_data.TaskActionUser) error {
@@ -82,7 +82,7 @@ func PingRpc(action *user_data.TaskActionUser) error {
 		Timepoint: time.Now().UnixNano(),
 	}
 
-	errCode, _, err := user_data.SendPing(action, csBody, true)
+	errCode, _, err := SendPing(action, csBody, true)
 	if err != nil {
 		return err
 	}
@@ -124,14 +124,14 @@ func GetInfoRpc(action *user_data.TaskActionUser, args []string) (int32, *lobysv
 		}
 	}
 
-	return user_data.SendUserGetInfo(action, csBody, true)
+	return SendUserGetInfo(action, csBody, true)
 }
 
 func GMRpc(action *user_data.TaskActionUser, args []string) (int32, *lobysvr_protocol_pbdesc.SCUserGMCommandRsp, error) {
 	csBody := &lobysvr_protocol_pbdesc.CSUserGMCommandReq{
 		Args: args,
 	}
-	return user_data.SendUserSendGmCommand(action, csBody, true)
+	return SendUserSendGmCommand(action, csBody, true)
 }
 
 func UsingItemRpc(action *user_data.TaskActionUser, item *public_protocol_common.DItemBasic, param *public_protocol_common.DItemUseParam) (int32, *lobysvr_protocol_pbdesc.SCUserUseItemRsp, error) {
@@ -139,5 +139,5 @@ func UsingItemRpc(action *user_data.TaskActionUser, item *public_protocol_common
 		Item:     item,
 		UseParam: param,
 	}
-	return user_data.SendUserUseItem(action, csBody, true)
+	return SendUserUseItem(action, csBody, true)
 }

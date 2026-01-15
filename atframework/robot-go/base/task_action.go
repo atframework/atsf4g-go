@@ -7,7 +7,6 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 )
 
 type TaskActionImpl interface {
@@ -206,7 +205,7 @@ type TaskActionManager struct {
 func NewTaskActionManager() *TaskActionManager {
 	ret := &TaskActionManager{}
 	ret.taskIdAlloc.Store(
-		uint64(time.Since(time.Unix(int64(private_protocol_pbdesc.EnSystemLimit_EN_SL_TIMESTAMP_FOR_ID_ALLOCATOR_OFFSET), 0)).Nanoseconds()))
+		uint64(time.Since(time.Unix(1577836800, 0)).Nanoseconds()))
 	return ret
 }
 

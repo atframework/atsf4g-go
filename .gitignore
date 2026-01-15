@@ -77,7 +77,7 @@ _generated/
 /src/component/db/global_db.go
 /src/component/db/local_db.go
 *.log
-/src/robot/data/rpc_handle.go
+/src/robot/protocol/rpc_handle.go
 
 # ignore git-lfs auto gen hooks
 script/hooks/post-checkout

@@ -8,19 +8,15 @@ import (
 
 	log "github.com/atframework/atframe-utils-go/log"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
-	base "github.com/atframework/atsf4g-go/robot/base"
-	utils "github.com/atframework/atsf4g-go/robot/utils"
+	base "github.com/atframework/robot-go/base"
+	utils "github.com/atframework/robot-go/utils"
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
-	protocol "github.com/atframework/atsf4g-go/robot/protocol"
-
-	user_data "github.com/atframework/atsf4g-go/robot/data"
+	user_data "github.com/atframework/robot-go/data"
 )
 
 type User struct {
@@ -58,7 +54,7 @@ type CmdAction struct {
 }
 
 func init() {
-	user_data.RegisterCreateUser(CreateUser)
+	var _ user_data.User = &User{}
 }
 
 func NewUser(openId string, conn *websocket.Conn, bufferWriter *log.LogBufferedRotatingWriter, logHandler func(format string, a ...any)) *User {
@@ -81,7 +77,8 @@ func NewUser(openId string, conn *websocket.Conn, bufferWriter *log.LogBufferedR
 	return ret
 }
 
-func CreateUser(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) user_data.User {
+func CreateUser(openId string, socketUrl string, logHandler func(format string, a ...any),
+	enableActorLog bool, unpack user_data.UserReceiveUnpackFunc, createMsg user_data.UserReceiveCreateMessageFunc) user_data.User {
 	var bufferWriter *log.LogBufferedRotatingWriter
 	if enableActorLog {
 		bufferWriter, _ = log.NewLogBufferedRotatingWriter(nil,
@@ -94,7 +91,7 @@ func CreateUser(openId string, socketUrl string, logHandler func(format string, 
 	}
 
 	ret := NewUser(openId, conn, bufferWriter, logHandler)
-	go ret.ReceiveHandler()
+	go ret.ReceiveHandler(unpack, createMsg)
 
 	ret.Log("Create User: %s", openId)
 	return ret
@@ -120,20 +117,6 @@ func (u *User) IsLogin() bool {
 	return true
 }
 
-func (u *User) CheckPingTask() {
-	if !u.IsLogin() {
-		return
-	}
-	if u.LastPingTime.Add(u.HeartbeatInterval).Before(logical_time.GetSysNow()) {
-		err := u.PingTask()
-		if err != nil {
-			u.Log("ping error stop check")
-			return
-		}
-	}
-	time.AfterFunc(5*time.Second, u.CheckPingTask)
-}
-
 func (u *User) Logout() {
 	if !u.IsLogin() {
 		return
@@ -150,18 +133,9 @@ func (u *User) ReleaseActionGuard() {
 	u.taskActionGuard.Unlock()
 }
 
-func (user *User) MakeMessageHead(rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
+func (user *User) AllocSequence() uint64 {
 	user.connectionSequence++
-	return &public_protocol_extension.CSMsgHead{
-		Timestamp:      logical_time.GetLogicalNow().Unix(),
-		ClientSequence: user.connectionSequence,
-		RpcType: &public_protocol_extension.CSMsgHead_RpcRequest{
-			RpcRequest: &public_protocol_extension.RpcRequestMeta{
-				RpcName: rpcName,
-				TypeUrl: typeName,
-			},
-		},
-	}
+	return user.connectionSequence
 }
 
 func (user *User) RunTask(timeout time.Duration, f func(*user_data.TaskActionUser) error, name string) *user_data.TaskActionUser {
@@ -189,7 +163,7 @@ type rpcResumeData struct {
 	rspCode int32
 }
 
-func (user *User) ReceiveHandler() {
+func (user *User) ReceiveHandler(unpack user_data.UserReceiveUnpackFunc, createMsg user_data.UserReceiveCreateMessageFunc) {
 	defer func() {
 		user.Log("User %v:%v connection closed.", user.ZoneId, user.UserId)
 		user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) error {
@@ -211,8 +185,8 @@ func (user *User) ReceiveHandler() {
 			return
 		}
 
-		csMsg := &public_protocol_extension.CSMsg{}
-		err = proto.Unmarshal(bytes, csMsg)
+		Msg := createMsg()
+		err = proto.Unmarshal(bytes, Msg)
 		if err != nil {
 			user.Log("Error in Unmarshal: %v", err)
 			return
@@ -220,57 +194,74 @@ func (user *User) ReceiveHandler() {
 
 		var rpcName string
 		var typeName string
-		switch csMsg.Head.GetRpcType().(type) {
-		case *public_protocol_extension.CSMsgHead_RpcResponse:
-			rpcName = csMsg.Head.GetRpcResponse().GetRpcName()
-			typeName = csMsg.Head.GetRpcResponse().GetTypeUrl()
-		case *public_protocol_extension.CSMsgHead_RpcStream:
-			rpcName = csMsg.Head.GetRpcStream().GetRpcName()
-			typeName = csMsg.Head.GetRpcStream().GetTypeUrl()
-		default:
-			user.Log("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<")
-			user.Log("%s", prototext.Format(csMsg.Head))
+		var errorCode int32
+		var csMsgHead proto.Message
+		var bodyBin []byte
+		var sequence uint64
+
+		rpcName, typeName, errorCode, csMsgHead, bodyBin, sequence, err = unpack(Msg)
+		if err != nil {
+			user.Log("<<<<<<<<<<<<<<<<<<<< Received: Error In Unpack %v <<<<<<<<<<<<<<<<<<<<", err)
+			user.Log("%s", prototext.Format(csMsgHead))
 			continue
 		}
 
-		user.Log("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", user.GetUserId(), csMsg.Head.ErrorCode, rpcName)
+		// errorCode = csMsg.Head.ErrorCode
+		// csMsgHead = csMsg.Head
+		// bodyBin = csMsg.BodyBin
+		// sequence = csMsg.Head.ClientSequence
+
+		// switch csMsg.Head.GetRpcType().(type) {
+		// case *public_protocol_extension.CSMsgHead_RpcResponse:
+		// 	rpcName = csMsg.Head.GetRpcResponse().GetRpcName()
+		// 	typeName = csMsg.Head.GetRpcResponse().GetTypeUrl()
+		// case *public_protocol_extension.CSMsgHead_RpcStream:
+		// 	rpcName = csMsg.Head.GetRpcStream().GetRpcName()
+		// 	typeName = csMsg.Head.GetRpcStream().GetTypeUrl()
+		// default:
+		// 	user.Log("<<<<<<<<<<<<<<<<<<<< Received: Unsupport RpcType <<<<<<<<<<<<<<<<<<<<")
+		// 	user.Log("%s", prototext.Format(csMsgHead))
+		// 	continue
+		// }
+
+		user.Log("User: %d Code: %d <<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", user.GetUserId(), errorCode, rpcName)
 		messageType, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(typeName))
 		if err != nil {
 			user.Log("Unsupport in TypeName: %s ", typeName)
 			if user.csLog != nil {
-				fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
-					fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unsupport Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
+				fmt.Fprintf(user.csLog, "%s %s\nHead:%s", time.Now().Format("2006-01-02 15:04:05.000"),
+					fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unsupport Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsgHead))
 			}
 			continue
 		}
 		csBody := messageType.New().Interface()
 
-		err = proto.Unmarshal(csMsg.BodyBin, csBody)
+		err = proto.Unmarshal(bodyBin, csBody)
 		if err != nil {
 			user.Log("Error in Unmarshal: %v", err)
 			if user.csLog != nil {
-				fmt.Fprintf(user.csLog, "%s %s\nHead:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
-					fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unmarshal Error Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head))
+				fmt.Fprintf(user.csLog, "%s %s\nHead:%s", time.Now().Format("2006-01-02 15:04:05.000"),
+					fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Unmarshal Error Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsgHead))
 			}
 			return
 		}
 
 		if user.csLog != nil {
-			fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", logical_time.GetSysNow().Format("2006-01-02 15:04:05.000"),
-				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
+			fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", time.Now().Format("2006-01-02 15:04:05.000"),
+				fmt.Sprintf("<<<<<<<<<<<<<<<<<<<< Received: %s <<<<<<<<<<<<<<<<<<<", rpcName), pu.MessageReadableTextIndent(csMsgHead), pu.MessageReadableTextIndent(csBody))
 		}
-		task, ok := user.rpcAwaitTask.Load(csMsg.Head.ClientSequence)
+		task, ok := user.rpcAwaitTask.Load(sequence)
 		if ok {
 			// RPC response
-			user.rpcAwaitTask.Delete(csMsg.Head.ClientSequence)
+			user.rpcAwaitTask.Delete(sequence)
 			task.(*user_data.TaskActionUser).Resume(&base.TaskActionAwaitData{
 				WaitingType: base.TaskActionAwaitTypeRPC,
-				WaitingId:   csMsg.Head.ClientSequence,
+				WaitingId:   sequence,
 			}, &base.TaskActionResumeData{
 				Err: nil,
 				Data: rpcResumeData{
 					body:    csBody,
-					rspCode: csMsg.Head.ErrorCode,
+					rspCode: errorCode,
 				},
 			})
 		} else {
@@ -278,7 +269,7 @@ func (user *User) ReceiveHandler() {
 			f, ok := user.messageHandler[rpcName]
 			if ok && f != nil {
 				user.RunTaskDefaultTimeout(func(tau *user_data.TaskActionUser) error {
-					return f(tau, csBody, csMsg.Head.ErrorCode)
+					return f(tau, csBody, errorCode)
 				}, rpcName)
 			}
 		}
@@ -289,13 +280,30 @@ func (user *User) AwaitReceiveHandlerClose() {
 	<-user.receiveHandlerCloseChan
 }
 
+func (user *User) InitHeartbeatFunc(f func(user_data.User) error) {
+	if !user.IsLogin() {
+		return
+	}
+	if user.LastPingTime.Add(user.HeartbeatInterval).Before(time.Now()) {
+		err := f(user)
+		if err != nil {
+			user.Log("Heartbeat error stop check")
+			return
+		}
+	}
+	time.AfterFunc(5*time.Second, func() {
+		user.InitHeartbeatFunc(f)
+	})
+}
+
 type RpcTimeout struct {
 	sendTime time.Time
 	rpcName  string
 	seq      uint64
 }
 
-func (user *User) SendReq(action *user_data.TaskActionUser, csMsg *public_protocol_extension.CSMsg, csBody proto.Message, needRsp bool) (int32, proto.Message, error) {
+func (user *User) SendReq(action *user_data.TaskActionUser, csMsg proto.Message,
+	csHead proto.Message, csBody proto.Message, rpcName string, sequence uint64, needRsp bool) (int32, proto.Message, error) {
 	if user == nil {
 		return 0, nil, fmt.Errorf("no login")
 	}
@@ -310,11 +318,11 @@ func (user *User) SendReq(action *user_data.TaskActionUser, csMsg *public_protoc
 
 	var csBin []byte
 	csBin, _ = proto.Marshal(csMsg)
-	titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), csMsg.Head.GetRpcRequest().GetRpcName())
+	titleString := fmt.Sprintf("User: %d >>>>>>>>>>>>>>>>>>>> Sending: %s >>>>>>>>>>>>>>>>>>>>", user.GetUserId(), rpcName)
 	user.Log("%s", titleString)
 	if user.csLog != nil {
 		fmt.Fprintf(user.csLog, "%s %s\nHead:%s\nBody:%s", time.Now().Format("2006-01-02 15:04:05.000"),
-			titleString, pu.MessageReadableTextIndent(csMsg.Head), pu.MessageReadableTextIndent(csBody))
+			titleString, pu.MessageReadableTextIndent(csHead), pu.MessageReadableTextIndent(csBody))
 	}
 
 	// Send an echo packet every second
@@ -325,10 +333,10 @@ func (user *User) SendReq(action *user_data.TaskActionUser, csMsg *public_protoc
 	}
 
 	if needRsp {
-		user.rpcAwaitTask.Store(csMsg.Head.ClientSequence, action)
+		user.rpcAwaitTask.Store(sequence, action)
 		resumeData := action.Yield(base.TaskActionAwaitData{
 			WaitingType: base.TaskActionAwaitTypeRPC,
-			WaitingId:   csMsg.Head.ClientSequence,
+			WaitingId:   sequence,
 		})
 		if resumeData.Err != nil {
 			return 0, nil, resumeData.Err
@@ -357,13 +365,6 @@ func (user *User) Close() {
 
 func (user *User) RegisterMessageHandler(rpcName string, f func(*user_data.TaskActionUser, proto.Message, int32) error) {
 	user.messageHandler[rpcName] = f
-}
-
-func (user *User) PingTask() error {
-	user.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) error {
-		return protocol.PingRpc(action)
-	}, "PingTask")
-	return nil
 }
 
 func (user *User) Log(format string, a ...any) {

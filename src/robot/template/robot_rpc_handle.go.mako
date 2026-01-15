@@ -8,24 +8,39 @@ module_name = service.get_extension_field("service_options", lambda x: x.module_
 %>// Copyright ${time.strftime("%Y", time.localtime()) } atframework
 // @brief Created by ${generator} for ${service.get_full_name()}, please don't edit it
 
-package atsf4g_go_robot_user
+package atsf4g_go_robot_protocol
 
 import (
 	"fmt"
 
+	"time"
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	data "github.com/atframework/robot-go/data"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
 )
+
+func MakeMessageHead(user data.User, rpcName string, typeName string) *public_protocol_extension.CSMsgHead {
+	return &public_protocol_extension.CSMsgHead{
+		Timestamp:      time.Now().Unix(),
+		ClientSequence: user.AllocSequence(),
+		RpcType: &public_protocol_extension.CSMsgHead_RpcRequest{
+			RpcRequest: &public_protocol_extension.RpcRequestMeta{
+				RpcName: rpcName,
+				TypeUrl: typeName,
+			},
+		},
+	}
+}
 
 % for rpc in rpcs.values():
 <%
 rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
 % if rpc.get_request_descriptor().full_name == "google.protobuf.Empty":
-func RegisterMessageHandler${rpc_name}(user User, f func(*TaskActionUser, *lobysvr_protocol_pbdesc.${rpc.get_response().get_name()}, int32) error) {
-	user.RegisterMessageHandler("${rpc.descriptor.full_name}", func(action *TaskActionUser, msg proto.Message, errCode int32) error {
+func RegisterMessageHandler${rpc_name}(user data.User, f func(*data.TaskActionUser, *lobysvr_protocol_pbdesc.${rpc.get_response().get_name()}, int32) error) {
+	user.RegisterMessageHandler("${rpc.descriptor.full_name}", func(action *data.TaskActionUser, msg proto.Message, errCode int32) error {
 		body, ok := msg.(*lobysvr_protocol_pbdesc.${rpc.get_response().get_name()})
 		if !ok {
 			action.Log("type assertion to ${rpc.get_response().get_name()} failed")
@@ -35,7 +50,7 @@ func RegisterMessageHandler${rpc_name}(user User, f func(*TaskActionUser, *lobys
 	})
 }
 % else:
-func Send${rpc_name}(task *TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rpc.get_request().get_name()}, needLogin bool) (
+func Send${rpc_name}(task *data.TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rpc.get_request().get_name()}, needLogin bool) (
 	int32, *lobysvr_protocol_pbdesc.${rpc.get_response().get_name()}, error) {
 	if lu.IsNil(task.User) || reqBody == nil {
 		return 0, nil, fmt.Errorf("user or request is nil")
@@ -46,10 +61,11 @@ func Send${rpc_name}(task *TaskActionUser, reqBody *lobysvr_protocol_pbdesc.${rp
 		}
 	}
 	csMsg := &public_protocol_extension.CSMsg{
-		Head: task.User.MakeMessageHead("${rpc.descriptor.full_name}", "${rpc.get_request_descriptor().full_name}"),
+		Head: MakeMessageHead(task.User, "${rpc.descriptor.full_name}", "${rpc.get_request_descriptor().full_name}"),
 	}
 	csMsg.BodyBin, _ = proto.Marshal(reqBody)
-	code, bodyRaw, err := task.User.SendReq(task, csMsg, reqBody, true)
+	code, bodyRaw, err := task.User.SendReq(task, csMsg, csMsg.Head, reqBody,
+		csMsg.Head.GetRpcRequest().GetRpcName(), csMsg.Head.GetClientSequence(), true)
 	body, ok := bodyRaw.(*lobysvr_protocol_pbdesc.${rpc.get_response().get_name()})
 	if !ok {
 		return code, nil, fmt.Errorf("type assertion to ${rpc.get_response().get_name()} failed")

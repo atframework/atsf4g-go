@@ -11,7 +11,7 @@ import (
 
 	"github.com/chzyer/readline"
 
-	base "github.com/atframework/atsf4g-go/robot/base"
+	base "github.com/atframework/robot-go/base"
 )
 
 type TaskActionCmd struct {

@@ -3,23 +3,18 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 
 	component_config "github.com/atframework/atsf4g-go/component-config"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	"google.golang.org/protobuf/proto"
 
-	config "github.com/atframework/atsf4g-go/robot/config"
-	utils "github.com/atframework/atsf4g-go/robot/utils"
-
-	log "github.com/atframework/atframe-utils-go/log"
-	robot_case "github.com/atframework/atsf4g-go/robot/case"
-	cmd "github.com/atframework/atsf4g-go/robot/cmd"
-	_ "github.com/atframework/atsf4g-go/robot/data/impl"
-	_ "github.com/atframework/atsf4g-go/robot/protocol"
-	_ "github.com/atframework/atsf4g-go/robot/task"
+	_ "github.com/atframework/atsf4g-go/robot/case"
+	_ "github.com/atframework/atsf4g-go/robot/cmd"
+	robot "github.com/atframework/robot-go"
 )
 
 func guessResourceDir() string {
@@ -64,14 +59,33 @@ func guessResourceDir() string {
 	return filepath.Join(filepath.Dir(os.Args[0]), "..", "..", "resource")
 }
 
-func main() {
-	flagSet := flag.NewFlagSet(
-		fmt.Sprintf("%s [options...]", filepath.Base(os.Args[0])), flag.ContinueOnError)
-	flagSet.String("url", "ws://localhost:7001/ws/v1", "server socket url")
-	flagSet.Bool("h", false, "show help")
-	flagSet.Bool("help", false, "show help")
+func UnpackMessage(msg proto.Message) (rpcName string, typeName string, errorCode int32,
+	msgHead proto.Message, bodyBin []byte, sequence uint64, err error) {
+	csMsg, ok := msg.(*public_protocol_extension.CSMsg)
+	if !ok {
+		err = fmt.Errorf("message type invalid: %T", msg)
+		return
+	}
+	switch csMsg.Head.GetRpcType().(type) {
+	case *public_protocol_extension.CSMsgHead_RpcResponse:
+		rpcName = csMsg.Head.GetRpcResponse().GetRpcName()
+		typeName = csMsg.Head.GetRpcResponse().GetTypeUrl()
+	case *public_protocol_extension.CSMsgHead_RpcStream:
+		rpcName = csMsg.Head.GetRpcStream().GetRpcName()
+		typeName = csMsg.Head.GetRpcStream().GetTypeUrl()
+	default:
+		err = fmt.Errorf("unsupport RpcType: %T", csMsg.Head.GetRpcType())
+		return
+	}
+	errorCode = csMsg.Head.GetErrorCode()
+	msgHead = csMsg.Head
+	bodyBin = csMsg.BodyBin
+	sequence = csMsg.Head.GetClientSequence()
+	return
+}
 
-	flagSet.String("case_file", "", "case file path")
+func main() {
+	flagSet := robot.NewRobotFlagSet()
 	flagSet.String("resource", "", "resource directory")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
@@ -95,28 +109,7 @@ func main() {
 		return
 	}
 
-	if flagSet.Lookup("help").Value.String() == "true" ||
-		flagSet.Lookup("h").Value.String() == "true" {
-		flagSet.PrintDefaults()
-		return
-	}
-
-	config.SocketUrl = flagSet.Lookup("url").Value.String()
-	fmt.Println("URL:", config.SocketUrl)
-
-	caseFile := flagSet.Lookup("case_file").Value.String()
-	if caseFile != "" {
-		err := robot_case.RunCaseFile(caseFile)
-		if err != nil {
-			fmt.Println("Run case file error:", err)
-			os.Exit(1)
-		}
-	} else {
-		utils.ReadLine()
-	}
-
-	utils.StdoutLog("Closing all pending connections")
-	cmd.LogoutAllUsers()
-	log.CloseAllLogWriters()
-	utils.StdoutLog("Exiting....")
+	robot.StartRobot(flagSet, UnpackMessage, func() proto.Message {
+		return &public_protocol_extension.CSMsg{}
+	})
 }

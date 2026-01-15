@@ -4,11 +4,17 @@ import (
 	"fmt"
 	"time"
 
-	user_data "github.com/atframework/atsf4g-go/robot/data"
-
 	protocol "github.com/atframework/atsf4g-go/robot/protocol"
 	lobysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	user_data "github.com/atframework/robot-go/data"
 )
+
+func PingTask(u user_data.User) error {
+	u.RunTaskDefaultTimeout(func(action *user_data.TaskActionUser) error {
+		return protocol.PingRpc(action)
+	}, "PingTask")
+	return nil
+}
 
 func LoginTask(task *user_data.TaskActionUser) (err error) {
 	errCode, rsp, rpcErr := protocol.LoginAuthRpc(task)
@@ -55,7 +61,7 @@ func LoginTask(task *user_data.TaskActionUser) (err error) {
 	}
 
 	// 创建Ping流程
-	user.CheckPingTask()
+	user.InitHeartbeatFunc(PingTask)
 	return
 }
 

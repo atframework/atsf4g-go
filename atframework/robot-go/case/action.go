@@ -12,8 +12,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	log "github.com/atframework/atframe-utils-go/log"
-	base "github.com/atframework/atsf4g-go/robot/base"
-	utils "github.com/atframework/atsf4g-go/robot/utils"
+	base "github.com/atframework/robot-go/base"
+	utils "github.com/atframework/robot-go/utils"
 )
 
 type CaseFunc func(*TaskActionCase, string, []string) error
