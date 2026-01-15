@@ -288,6 +288,9 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 		Parameter:   int64(productRow.GetProductId()),
 	})
 
+	for _, guard := range addGuard {
+		rspBody.MergeRewardItems(guard.GetAddedItems())
+	}
 	return 0
 }
 
