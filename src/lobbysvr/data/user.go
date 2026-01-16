@@ -632,10 +632,6 @@ func (u *User) OnSendResponse(ctx cd.RpcContext) error {
 
 func (u *User) UpdateHeartbeat(ctx cd.RpcContext) {
 	// TODO: 加速器检查
-
-	// 续期LoginCode,
-	u.GetLoginLockInfo().LoginExpired = ctx.GetSysNow().Unix() +
-		config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 }
 
 func (u *User) GetModuleManager(typeInst lu.TypeID) UserModuleManagerImpl {

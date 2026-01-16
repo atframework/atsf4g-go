@@ -94,7 +94,7 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 
 	// 冲突检测
 	expectVersion := privateData.loginLockTb.GetExpectTableUserDbVersion()
-	if userCasVersion < expectVersion {
+	if privateData.loginLockTb.GetLoginZoneId() == p.obj.GetZoneId() && userCasVersion < expectVersion {
 		// 版本不对
 		ctx.LogWarn("user table version conflict", "db_version", userCasVersion, "expect_version", expectVersion)
 		if ctx.GetSysNow().UnixNano() < privateData.loginLockTb.GetExpectTableUserDbTimeout().AsTime().UnixNano() {
@@ -203,7 +203,8 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 			// 版本更新
 			p.obj.GetLoginLockInfo().RouterVersion = oldRouterVersion + 1
 
-			// 登出时间由上层逻辑设置
+			// 登录锁失效
+			p.obj.GetLoginLockInfo().LoginExpired = 0
 			loginLockVersin := p.obj.GetLoginLockCASVersion()
 			err = db.DatabaseTableLoginLockReplaceUserId(ctx, p.obj.GetLoginLockInfo(), &loginLockVersin, false)
 			if err.IsError() {
@@ -223,7 +224,9 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 			// Logout
 			p.obj.OnLogout(ctx)
 		} else {
-			// 登录续期 LoginCodeExpired 由上层逻辑设置
+			// 登录锁续期
+			p.obj.GetLoginLockInfo().LoginExpired = ctx.GetSysNow().Unix() +
+				config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetLoginCodeValidSec().GetSeconds()
 			oldRouterServerId := p.obj.GetLoginLockInfo().RouterServerId
 			oldRouterVersion := p.obj.GetLoginLockInfo().RouterVersion
 
