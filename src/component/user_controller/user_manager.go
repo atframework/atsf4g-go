@@ -118,7 +118,6 @@ func UserManagerFindUserAs[T UserImpl](ctx cd.RpcContext, app libatapp.AppImpl, 
 func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableContext,
 	zoneID uint32, userID uint64, openID string,
 	loginLockTb *private_protocol_pbdesc.DatabaseTableLoginLock,
-	routerVersion uint64,
 	loginLockTbCASVersion uint64,
 	fillBasicInfo func(user T),
 	tryLockUserResource func(user T) cd.RpcResult,
@@ -145,7 +144,6 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 	}, &UserRouterPrivateData{
 		loginLockTb:     loginLockTb,
 		loginCASVersion: loginLockTbCASVersion,
-		routerVersion:   routerVersion,
 		openId:          openID,
 	})
 

@@ -169,13 +169,12 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	}
 
 	// 可以开始尝试登录了
-	routerVersion := loginTb.RouterVersion
 	// 填充LoginCode
 	loginTb.LoginCode = request_body.GetLoginCode()
 
 	user, result = uc.UserManagerCreateUserAs(
 		t.GetAwaitableContext().GetApp(), t.GetAwaitableContext(), zoneId, userId, request_body.GetOpenId(),
-		loginTb, routerVersion, loginCASVersion, func(user *data.User) {
+		loginTb, loginCASVersion, func(user *data.User) {
 			// 填充客户端数据
 			accountInfo := user.MutableAccountInfo()
 			accountInfo.AccountType = request_body.GetAccount().GetAccountType()

@@ -33,7 +33,6 @@ func CreateUserRouterCache(ctx cd.RpcContext, key router.RouterObjectKey) *UserR
 type UserRouterPrivateData struct {
 	loginLockTb     *private_protocol_pbdesc.DatabaseTableLoginLock
 	loginCASVersion uint64
-	routerVersion   uint64
 	openId          string
 }
 
@@ -92,7 +91,6 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 	if p.obj.GetOpenId() == "" {
 		p.obj.InitOpenId(userTb.GetOpenId())
 	}
-	p.obj.SetUserCASVersion(userCasVersion)
 
 	// 冲突检测
 	expectVersion := privateData.loginLockTb.GetExpectTableUserDbVersion()
@@ -124,6 +122,7 @@ func (p *UserRouterCache) pullObject(ctx cd.AwaitableContext, privateData *UserR
 		result.LogError(ctx, "init user from db failed")
 		return result
 	}
+	p.obj.SetUserCASVersion(userCasVersion)
 
 	// 更新LoginLock表路由信息
 	oldRouterServerId := p.obj.GetLoginLockInfo().GetRouterServerId()
