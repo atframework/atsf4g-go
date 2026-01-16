@@ -18,6 +18,8 @@ import (
 
 type CaseFunc func(*TaskActionCase, string, []string) error
 
+var CaseActionActor sync.Map
+
 type TaskActionCase struct {
 	base.TaskActionBase
 	Fn         CaseFunc
@@ -26,7 +28,24 @@ type TaskActionCase struct {
 	Args       []string
 }
 
+func (t *TaskActionCase) BeforeYield() {
+	channel, _ := CaseActionActor.Load(t.OpenId)
+	channel.(chan struct{}) <- struct{}{}
+}
+
+func (t *TaskActionCase) AfterYield() {
+	channel, ok := CaseActionActor.Load(t.OpenId)
+	if !ok {
+		newChannel := make(chan struct{}, 1)
+		newChannel <- struct{}{}
+		channel, _ = CaseActionActor.LoadOrStore(t.OpenId, newChannel)
+	}
+	<-channel.(chan struct{})
+}
+
 func (t *TaskActionCase) HookRun() error {
+	t.AfterYield()
+	defer t.BeforeYield()
 	return t.Fn(t, t.OpenId, t.Args)
 }
 
@@ -67,52 +86,57 @@ var (
 
 	FailedCount      atomic.Int64
 	TotalFailedCount atomic.Int64
-
-	RefreshCount int64
-	RefreshFunc  *time.Timer
+	RefreshFunc      *time.Timer
 )
 
-func RefreshProgressBar(first bool) {
+func RefreshProgressBar() {
 	countProgressBar := ""
-	RefreshCount++
-	loadType := RefreshCount % 3
-	{
-		width := 25
-		progress := float64(ProgressBarCurrentCount.Load()) / float64(ProgressBarTotalCount)
+	width := 25
+	var progress float64 = 0
+	if ProgressBarTotalCount != 0 {
+		progress = float64(ProgressBarCurrentCount.Load()) / float64(ProgressBarTotalCount)
 		completed := int(progress * float64(width))
 		countProgressBar = fmt.Sprintf("[%-*s] %d/%d", width, strings.Repeat("#", completed), ProgressBarCurrentCount.Load(), ProgressBarTotalCount)
+		utils.StdoutLog(fmt.Sprintf("Total:%s || Failed:%d             ", countProgressBar, FailedCount.Load()))
+		if ProgressBarCurrentCount.Load() >= ProgressBarTotalCount {
+			return
+		}
 	}
-	loadTypeString := ""
-	switch loadType {
-	case 0:
-		loadTypeString = "--"
-	case 1:
-		loadTypeString = "\\"
-	case 2:
-		loadTypeString = "/"
-	}
-	if first {
-		fmt.Printf("%s Total:%s || Failed:%d             ", loadTypeString, countProgressBar, FailedCount.Load())
-	} else {
-		fmt.Printf("\r%s Total:%s || Failed:%d             ", loadTypeString, countProgressBar, FailedCount.Load())
-	}
-	if ProgressBarCurrentCount.Load() >= ProgressBarTotalCount {
-		return
-	}
-	RefreshFunc = time.AfterFunc(time.Second, func() { RefreshProgressBar(false) })
+	RefreshFunc = time.AfterFunc(time.Second, func() { RefreshProgressBar() })
+}
+
+func ClearProgressBar() {
+	ProgressBarTotalCount = 0
+	ProgressBarCurrentCount.Store(0)
+	FailedCount.Store(0)
 }
 
 func InitProgressBar(totalCount int64) {
-	ProgressBarTotalCount = totalCount
-	RefreshCount = 0
-	ProgressBarCurrentCount.Store(0)
-	FailedCount.Store(0)
-
-	RefreshProgressBar(true)
+	ProgressBarTotalCount += totalCount
 }
 
 func AddProgressBarCount() {
 	ProgressBarCurrentCount.Add(1)
+}
+
+func RunCaseWait(pendingCase []chan string) error {
+	if len(pendingCase) == 0 {
+		return nil
+	}
+	RefreshProgressBar()
+	for _, ch := range pendingCase {
+		result := <-ch
+		if result != "" {
+			return fmt.Errorf("Run Case Failed: %s", result)
+		}
+	}
+	RefreshProgressBar()
+	if RefreshFunc != nil {
+		RefreshFunc.Stop()
+		RefreshFunc = nil
+	}
+	ClearProgressBar()
+	return nil
 }
 
 func RunCaseFile(caseFile string) error {
@@ -123,6 +147,8 @@ func RunCaseFile(caseFile string) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+
+	var pendingCase []chan string
 	for scanner.Scan() {
 		line := scanner.Text()
 		if idx := strings.Index(line, "#"); idx >= 0 {
@@ -138,10 +164,38 @@ func RunCaseFile(caseFile string) error {
 			continue
 		}
 
-		if errMsg := CmdRunCase(nil, args); len(errMsg) > 0 {
-			return fmt.Errorf("run case failed: %s, args: %v", errMsg, args)
+		batchPending := false
+		if strings.ToLower(args[len(args)-1]) == "&" {
+			args = args[:len(args)-1]
+			batchPending = true
+		}
+
+		if len(args) == 0 {
+			continue
+		}
+
+		waitingChan := make(chan string, 1)
+		go func() {
+			waitingChan <- CmdRunCase(nil, args)
+		}()
+		pendingCase = append(pendingCase, waitingChan)
+
+		if batchPending {
+			continue
+		} else {
+			err = RunCaseWait(pendingCase)
+			if err != nil {
+				return err
+			}
+			pendingCase = pendingCase[:0]
 		}
 	}
+
+	err = RunCaseWait(pendingCase)
+	if err != nil {
+		return err
+	}
+	pendingCase = pendingCase[:0]
 
 	if err := scanner.Err(); err != nil {
 		return err
@@ -262,19 +316,15 @@ func CmdRunCase(_ base.TaskActionImpl, cmd []string) string {
 		}
 		// 等待任务完成
 		mgr.WaitAll()
-		RefreshFunc.Stop()
-		RefreshProgressBar(false)
-		fmt.Printf("\n")
 		finishChannel <- struct{}{}
 	}()
 	<-finishChannel
 	useTime := time.Since(beginTime).String()
 	logHandler("System", "Case[%s] All Completed, Total Time: %s", caseName, useTime)
-	if TotalFailedCount.Load() == 0 {
-		utils.StdoutLog(fmt.Sprintf("Complete All Success Args: %v, Total Time: %s", cmd, useTime))
-	} else {
-		utils.StdoutLog(fmt.Sprintf("Complete With %d Failed Args: %v, Total Time: %s", TotalFailedCount.Load(), cmd, useTime))
+
+	if TotalFailedCount.Load() != 0 {
 		return fmt.Sprintf("Complete With %d Failed Args: %v, Total Time: %s", TotalFailedCount.Load(), cmd, useTime)
 	}
+	utils.StdoutLog(fmt.Sprintf("Complete All Success Args: %v, Total Time: %s", cmd, useTime))
 	return ""
 }
