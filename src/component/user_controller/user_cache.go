@@ -38,13 +38,12 @@ type UserImpl interface {
 
 	// 拉取DB时注册OpenId
 	InitOpenId(openId string)
-	// 登录成功时更新登录数据
-	UpdateLoginData(ctx cd.RpcContext)
 
 	InitFromDB(ctx cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 	DumpToDB(ctx cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 
 	CreateInit(ctx cd.RpcContext, versionType uint32)
+	HasCreateInit() bool
 	LoginInit(ctx cd.RpcContext)
 
 	OnLogin(ctx cd.RpcContext)
@@ -54,7 +53,6 @@ type UserImpl interface {
 
 	GetLoginLockInfo() *private_protocol_pbdesc.DatabaseTableLoginLock
 	LoadLoginLockInfo(loginTB *private_protocol_pbdesc.DatabaseTableLoginLock)
-	HasCreateInit() bool
 
 	GetUserCASVersion() uint64
 	SetUserCASVersion(CASVersion uint64)
@@ -324,10 +322,6 @@ func (u *UserCache) UnbindSession(ctx cd.RpcContext, session *Session) {
 	if !lu.IsNil(old_session) {
 		old_session.UnbindUser(ctx, u.Impl)
 	}
-
-	if u.Impl.IsWriteable() {
-		u.Impl.OnLogout(ctx)
-	}
 }
 
 func (u *UserCache) AllocSessionSequence() uint64 {
@@ -406,17 +400,25 @@ func (u *UserCache) HasCreateInit() bool {
 	return u.hasCreateInit
 }
 
-func (u *UserCache) LoginInit(ctx cd.RpcContext) {
+func (u *UserCache) LoginInit(_ cd.RpcContext) {
 	if u == nil {
 		return
 	}
-	u.UpdateLoginData(ctx)
 }
 
-func (u *UserCache) OnLogin(__ctx cd.RpcContext) {
+func (u *UserCache) OnLogin(ctx cd.RpcContext) {
 	if u == nil {
 		return
 	}
+
+	nowSec := ctx.GetSysNow().Unix()
+	// 更新登录数据
+	if u.IsNewUser() {
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessRegisterTime = nowSec
+	}
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLoginTime = nowSec
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginSuccessTimes++
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginTotalTimes++
 }
 
 func (u *UserCache) OnLogout(ctx cd.RpcContext) {
@@ -572,22 +574,6 @@ func (u *UserCache) SetUserCASVersion(version uint64) {
 	}
 
 	u.userCASVersion = version
-}
-
-func (u *UserCache) UpdateLoginData(ctx cd.RpcContext) {
-	if u == nil {
-		return
-	}
-
-	nowSec := ctx.GetSysNow().Unix()
-	// 更新登录数据
-	if u.IsNewUser() {
-		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessRegisterTime = nowSec
-	}
-	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLoginTime = nowSec
-
-	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginSuccessTimes++
-	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginTotalTimes++
 }
 
 func (u *UserCache) IsNewUser() bool {

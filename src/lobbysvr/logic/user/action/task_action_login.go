@@ -366,6 +366,8 @@ func (t *TaskActionLogin) OnSuccess() {
 
 	// 事件和刷新
 	user.RefreshLimit(t.GetRpcContext(), t.GetNow())
+	// 补充 OnLogin 里面会判断状态
+	user.OnLogin(t.GetRpcContext())
 }
 
 func (t *TaskActionLogin) OnComplete() {

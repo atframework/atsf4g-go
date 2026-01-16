@@ -76,6 +76,7 @@ type User struct {
 	loginTaskLock                 sync.Mutex
 	loginTaskId                   uint64
 	isLoginInited                 bool
+	isLogin                       bool
 	refreshLimitSecondChenckpoint int64
 	refreshLimitMinuteChenckpoint int64
 
@@ -344,6 +345,10 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 }
 
 func (u *User) LoginInit(ctx cd.RpcContext) {
+	if u.isLoginInited {
+		ctx.LogError("already login init", "user_id", u.GetUserId())
+		return
+	}
 	u.UserCache.LoginInit(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -351,11 +356,13 @@ func (u *User) LoginInit(ctx cd.RpcContext) {
 	}
 
 	u.OnLogin(ctx)
+	u.isLoginInited = true
 }
 
 func (u *User) OnLogin(ctx cd.RpcContext) {
-	u.isLoginInited = true
-
+	if u.isLogin {
+		return
+	}
 	u.UserCache.OnLogin(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -367,9 +374,13 @@ func (u *User) OnLogin(ctx cd.RpcContext) {
 		log.MutableLoginFlow()
 		u.SendUserOssLog(ctx, &log)
 	}
+	u.isLogin = true
 }
 
 func (u *User) OnLogout(ctx cd.RpcContext) {
+	if !u.isLogin {
+		return
+	}
 	u.UserCache.OnLogout(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -381,6 +392,7 @@ func (u *User) OnLogout(ctx cd.RpcContext) {
 		log.MutableLogoutFlow()
 		u.SendUserOssLog(ctx, &log)
 	}
+	u.isLogin = false
 }
 
 func (u *User) OnSaved(ctx cd.RpcContext, version uint64) {
@@ -388,10 +400,6 @@ func (u *User) OnSaved(ctx cd.RpcContext, version uint64) {
 
 	for _, mgr := range u.moduleManagerMap {
 		mgr.OnSaved(ctx, version)
-	}
-
-	if u.GetSession() == nil {
-		u.isLoginInited = false
 	}
 }
 

@@ -214,15 +214,15 @@ func (p *UserRouterCache) SaveObject(ctx cd.AwaitableContext, _ router.RouterPri
 					// 重试
 					err.LogError(ctx, "save login to db failed DatabaseTableLoginLockUpdateUserId try next time")
 					continue
-				} else {
-					err.LogError(ctx, "save login to db failed")
-					return err
 				}
-			} else {
-				// 成功
-				p.obj.SetLoginLockCASVersion(loginLockVersin)
-				p.SetRouterServerId(p.obj.GetLoginLockInfo().GetRouterServerId(), p.obj.GetLoginLockInfo().GetRouterVersion())
+				err.LogError(ctx, "save login to db failed")
+				return err
 			}
+			// 成功
+			p.obj.SetLoginLockCASVersion(loginLockVersin)
+			p.SetRouterServerId(p.obj.GetLoginLockInfo().GetRouterServerId(), p.obj.GetLoginLockInfo().GetRouterVersion())
+			// Logout
+			p.obj.OnLogout(ctx)
 		} else {
 			// 登录续期 LoginCodeExpired 由上层逻辑设置
 			oldRouterServerId := p.obj.GetLoginLockInfo().RouterServerId
