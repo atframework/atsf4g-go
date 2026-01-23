@@ -131,7 +131,7 @@ message database_table_user_async_jobs {
     index: {
       name: "async_jobs"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KL
-      enable_cas: true
+      max_list_length: 50
       key_fields: "job_type"
       key_fields: "user_id"
       key_fields: "zone_id"

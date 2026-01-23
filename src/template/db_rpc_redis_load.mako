@@ -3,8 +3,8 @@
 <%
 	index_type_kv = index_meta["index_type_kv"]
 	index_key_name = index_meta["index_key_name"]
-	load_index_key = index_meta["load_index_key"]
-	batch_load_index_key = index_meta["batch_load_index_key"]
+	args_index_key = index_meta["args_index_key"]
+	batch_args_index_key = index_meta["batch_args_index_key"]
 	key_fields = index_meta["key_fields"]
 	cas_enabled = index_meta["cas_enabled"]
 %>
@@ -26,7 +26,7 @@ func ${message_name}LoadWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${load_index_key}
+	${args_index_key}
 	var message proto.Message
 % if cas_enabled:
 	message, CASVersion, retResult = HashTableLoad(
@@ -82,7 +82,7 @@ func ${message_name}BatchLoadWith${index_key_name}(
 	}
 	loadIndexs := make([]string, len(keys))
 	for i := range keys {
-		${batch_load_index_key}
+		${batch_args_index_key}
 	}
 	var messages []*RedisSetIndexMessage
 	messages, retResult = HashTableBatchLoad(
@@ -146,7 +146,7 @@ func ${message_name}LoadAllWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${load_index_key}
+	${args_index_key}
 	indexMessage, retResult = HashTableLoadListAll(
 		ctx, index, "${message_name}", dispatcher, instance, func() proto.Message {
 			return new(private_protocol_pbdesc.${message_name})
@@ -186,16 +186,11 @@ func ${message_name}LoadIndexWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${load_index_key}
+	${args_index_key}
 	indexMessage, retResult = HashTableLoadListIndex(
 		ctx, index, "${message_name}", dispatcher, instance, func() proto.Message {
 			return new(private_protocol_pbdesc.${message_name})
-		}, listIndex,
-% if cas_enabled:
-		true)
-% else:
-		false)
-% endif
+		}, listIndex)
 	if retResult.IsError() {
 		return
 	}

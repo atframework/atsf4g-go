@@ -40,6 +40,7 @@ type RedisMessageDispatcher struct {
 	sequence      atomic.Uint64
 	recordPrefix  string
 	casLuaSHA     string
+	listAddLuaSHA string
 }
 
 const (
@@ -120,6 +121,33 @@ else
     return  { ok = tostring(real_version) };
 end`
 
+var ListAddLuaScript = `local max_len = tonumber(ARGV[1])
+local index_field = "index_number"
+
+local fields = redis.call('HKEYS', KEYS[1])
+local current_len = #fields
+
+if current_len >= max_len + 1 then
+    local min_idx = nil
+    for _, field in ipairs(fields) do
+        if field ~= index_field then
+            local num = tonumber(field)
+            if num ~= nil then
+                if min_idx == nil or num < min_idx then
+                    min_idx = num
+                end
+            end
+        end
+    end
+    if min_idx ~= nil then
+        redis.call('HDEL', KEYS[1], tostring(min_idx))
+    end
+end
+
+local new_idx = redis.call('HINCRBY', KEYS[1], index_field, 1)
+redis.call('HSET', KEYS[1], tostring(new_idx), ARGV[2])
+return { ok = tostring(new_idx) }`
+
 func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	err := d.DispatcherBase.Init(initCtx)
 	if err != nil {
@@ -160,6 +188,13 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		return err
 	}
 	d.casLuaSHA = sha
+	d.GetLogger().LogInfo("CAS lua script registered", "sha", sha)
+	sha, err = d.redisInstance.ScriptLoad(initCtx, ListAddLuaScript).Result()
+	if err != nil {
+		d.GetLogger().LogError("register list add CAS lua script failed", "err", err)
+		return err
+	}
+	d.listAddLuaSHA = sha
 	d.GetLogger().LogInfo("CAS lua script registered", "sha", sha)
 
 	d.DispatcherBase.GetLogger().LogInfo("Init Redis success")
@@ -202,4 +237,8 @@ func (d *RedisMessageDispatcher) PickMessageTaskId(msg *DispatcherRawMessage) ui
 
 func (d *RedisMessageDispatcher) GetCASLuaSHA() string {
 	return d.casLuaSHA
+}
+
+func (d *RedisMessageDispatcher) GetListAddLuaSHA() string {
+	return d.listAddLuaSHA
 }

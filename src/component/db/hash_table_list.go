@@ -118,7 +118,7 @@ func HashTableLoadListAll(ctx cd.AwaitableContext, index string, tableName strin
 }
 
 func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message, listIndex []uint64, enableCAS bool,
+	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message, listIndex []uint64,
 ) (indexMessage []pu.RedisListIndexMessage, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -137,27 +137,13 @@ func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName str
 		IndexMessage []pu.RedisListIndexMessage
 	}
 
-	var indexGetField []string
-	var sliceKey []pu.RedisSliceKey
-	if enableCAS {
-		indexGetField = make([]string, 0, len(listIndex)*2)
-		sliceKey = make([]pu.RedisSliceKey, 0, len(listIndex)*2)
-	} else {
-		indexGetField = make([]string, 0, len(listIndex))
-		sliceKey = make([]pu.RedisSliceKey, 0, len(listIndex))
-	}
+	indexGetField := make([]string, 0, len(listIndex))
+	sliceKey := make([]pu.RedisSliceKey, 0, len(listIndex))
+
 	for _, listIndexId := range listIndex {
-		if enableCAS {
-			indexGetField = append(indexGetField, fmt.Sprintf("%s%d", pu.RedisListVersionField, listIndexId))
-			sliceKey = append(sliceKey, pu.RedisSliceKey{
-				Version: true,
-				Index:   listIndexId,
-			})
-		}
-		indexGetField = append(indexGetField, fmt.Sprintf("%s%d", pu.RedisListValueField, listIndexId))
+		indexGetField = append(indexGetField, fmt.Sprintf("%d", listIndexId))
 		sliceKey = append(sliceKey, pu.RedisSliceKey{
-			Version: false,
-			Index:   listIndexId,
+			Index: listIndexId,
 		})
 	}
 
@@ -246,7 +232,7 @@ func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName str
 }
 
 func HashTableDelListIndex(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, listIndex []uint64, enabelCAS bool,
+	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, listIndex []uint64,
 ) (retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -266,18 +252,10 @@ func HashTableDelListIndex(ctx cd.AwaitableContext, index string, tableName stri
 		return
 	}
 
-	var delField []string
-	if enabelCAS {
-		delField = make([]string, 0, len(listIndex)*2)
-	} else {
-		delField = make([]string, 0, len(listIndex))
-	}
+	delField := make([]string, 0, len(listIndex))
 
 	for _, listIndex := range listIndex {
-		if enabelCAS {
-			delField = append(delField, fmt.Sprintf("%s%d", pu.RedisListVersionField, listIndex))
-		}
-		delField = append(delField, fmt.Sprintf("%s%d", pu.RedisListValueField, listIndex))
+		delField = append(delField, fmt.Sprintf("%d", listIndex))
 	}
 
 	pushActionFunc := func() cd.RpcResult {
@@ -346,8 +324,7 @@ func HashTableUpdateList(ctx cd.AwaitableContext, index string, tableName string
 		return
 	}
 
-	redisData := pu.PBMapToRedisKL(table, nil, false, listIndex)
-
+	redisData := pu.PBMapToRedisKLUpdate(table, listIndex)
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
 			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateList HSet Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "listIndex", listIndex, "data", table)
@@ -398,10 +375,10 @@ func HashTableUpdateList(ctx cd.AwaitableContext, index string, tableName string
 	return
 }
 
-func HashTableUpdateListCAS(ctx cd.AwaitableContext, index string, tableName string,
+func HashTableAddList(ctx cd.AwaitableContext, index string, tableName string,
 	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
-	table proto.Message, listIndex uint64, currentCASVersion *uint64, forceUpdate bool,
-) (retResult cd.RpcResult) {
+	table proto.Message, maxListLen uint32,
+) (retResult cd.RpcResult, newListIndex uint64) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
 	if lu.IsNil(currentAction) {
@@ -414,18 +391,18 @@ func HashTableUpdateListCAS(ctx cd.AwaitableContext, index string, tableName str
 		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-
-	if forceUpdate {
-		*currentCASVersion = 0
+	if maxListLen == 0 {
+		ctx.LogError("maxListLen is zero")
+		retResult = cd.CreateRpcResultError(fmt.Errorf("maxListLen is zero"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
 	}
-	OldCASVersion := *currentCASVersion
-	redisData := pu.PBMapToRedisKL(table, &OldCASVersion, forceUpdate, listIndex)
 
+	redisData := pu.PBMapToRedisKLAdd(table, maxListLen)
 	pushActionFunc := func() cd.RpcResult {
 		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateListCAS EvalSha Send", "TableName", tableName, "Seq", awaitOption.Sequence,
-				"index", index, "listIndex", listIndex, "currentCASVersion", OldCASVersion, "data", table)
-			cmdResult, redisError := instance.EvalSha(ctx.GetContext(), dispatcher.GetCASLuaSHA(), []string{index}, redisData).Result()
+			ctx.GetApp().GetLogger(2).LogDebug("HashTableAddListCAS EvalSha Send", "TableName", tableName, "Seq", awaitOption.Sequence,
+				"index", index, "data", table)
+			cmdResult, redisError := instance.EvalSha(ctx.GetContext(), dispatcher.GetListAddLuaSHA(), []string{index}, redisData).Result()
 			resumeData := &cd.DispatcherResumeData{
 				Message: &cd.DispatcherRawMessage{
 					Type: awaitOption.Type,
@@ -433,19 +410,19 @@ func HashTableUpdateListCAS(ctx cd.AwaitableContext, index string, tableName str
 				Sequence:    awaitOption.Sequence,
 				PrivateData: nil,
 			}
-			var realVersion uint64
+			var newIndex uint64
 			if redisError == nil {
 				switch val := cmdResult.(type) {
 				case string:
-					realVersion, redisError = strconv.ParseUint(val, 10, 64)
+					newIndex, redisError = strconv.ParseUint(val, 10, 64)
 				case []byte:
-					realVersion, redisError = strconv.ParseUint(string(val), 10, 64)
+					newIndex, redisError = strconv.ParseUint(string(val), 10, 64)
 				default:
 					redisError = fmt.Errorf("unsupport cmd result")
 				}
 			}
 			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTableUpdateListCAS EvalSha Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "currentCASVersion", *currentCASVersion, "redisError", redisError)
+				ctx.GetApp().GetLogger(2).LogError("HashTableAddListCAS EvalSha Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
 				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
@@ -456,8 +433,8 @@ func HashTableUpdateListCAS(ctx cd.AwaitableContext, index string, tableName str
 				}
 				return redisError
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateListCAS EvalSha Recv", "TableName", tableName, "Seq", awaitOption.Sequence, "realVersion", realVersion)
-			resumeData.PrivateData = &realVersion
+			ctx.GetApp().GetLogger(2).LogDebug("HashTableAddListCAS EvalSha Recv", "TableName", tableName, "Seq", awaitOption.Sequence)
+			resumeData.PrivateData = &newIndex
 			resumeData.Result = cd.CreateRpcResultOk()
 			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 			if resumeError != nil {
@@ -482,17 +459,12 @@ func HashTableUpdateListCAS(ctx cd.AwaitableContext, index string, tableName str
 		retResult = resumeData.Result
 		return
 	}
-	realVersion, ok := resumeData.PrivateData.(*uint64)
+	newListIndexPtr, ok := resumeData.PrivateData.(*uint64)
 	if !ok {
 		ctx.LogError("load CASVersion failed not *uint64", "TableName", tableName)
 		retResult = cd.CreateRpcResultError(fmt.Errorf("private data not CASVersion"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	*currentCASVersion = *realVersion
-	if !forceUpdate && OldCASVersion+1 != *currentCASVersion {
-		ctx.GetApp().GetLogger(2).LogInfo("EvalSha HSet CAS Check Failed", "TableName", tableName, "Seq",
-			awaitOption.Sequence, "listIndex", listIndex, "currentCASVersion+1", OldCASVersion+1, "RealCASVersion", *currentCASVersion)
-		retResult = cd.CreateRpcResultError(fmt.Errorf("cas check failed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_CAS_CHECK_FAILED)
-	}
+	newListIndex = *newListIndexPtr
 	return
 }

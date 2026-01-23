@@ -2,9 +2,9 @@
 <%page args="message_name,message,index,index_meta,partly_get,partly_field_name" />
 <%
     index_type_kv = index_meta["index_type_kv"]
-    batch_load_index_key = index_meta["batch_load_index_key"]
+    batch_args_index_key = index_meta["batch_args_index_key"]
     key_fields = index_meta["key_fields"]
-    load_index_key = index_meta["load_index_key"]
+    args_index_key = index_meta["args_index_key"]
     cas_enabled = index_meta["cas_enabled"]
 %>
 % if index_type_kv:
@@ -25,7 +25,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${load_index_key}
+	${args_index_key}
 	redisField := []string{
 % if cas_enabled:
 		pu.CASKeyField,
@@ -78,7 +78,7 @@ func ${message_name}BatchLoadWith${index_meta["index_key_name"]}PartlyGet${partl
 	}
 	loadIndexs := make([]string, len(keys))
 	for i := range keys {
-		${batch_load_index_key}
+		${batch_args_index_key}
 	}
 	redisField := []string{
 % if cas_enabled:

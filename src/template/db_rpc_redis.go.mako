@@ -13,9 +13,9 @@ import sys
 <%
     db_fmt_key = index.name
     index_key_name = ""
-    batch_load_key_fmt_args = ""
-    load_key_fmt_args = ""
-    update_key_fmt_args = ""
+    batch_args_key_fmt_args = ""
+    args_key_fmt_args = ""
+    struct_key_fmt_args = ""
     key_fields = []
     index_type_kv = True
     if index.type == index_type_enum.values_by_name["EN_ATFRAMEWORK_DB_INDEX_TYPE_KL"].descriptor.number:
@@ -26,9 +26,9 @@ import sys
         ident = message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
         index_key_name += ident
         db_fmt_key += "." + field.get_go_fmt_type()
-        batch_load_key_fmt_args += "keys[i]." + ident + ", "
-        load_key_fmt_args += ident + ", "
-        update_key_fmt_args += "table.Get" + ident + "(), "
+        batch_args_key_fmt_args += "keys[i]." + ident + ", "
+        args_key_fmt_args += ident + ", "
+        struct_key_fmt_args += "table.Get" + ident + "(), "
         key_fields.append({
             "raw_name": key,
             "ident": ident,
@@ -37,25 +37,25 @@ import sys
 
     prefix_fmt_key = "%s-"
     prefix_fmt_value = "dispatcher.GetRecordPrefix()"
-    batch_load_index_key = (
+    batch_args_index_key = (
         "loadIndexs[i] = fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "
         + prefix_fmt_value
         + ",\n\t   "
-        + batch_load_key_fmt_args
+        + batch_args_key_fmt_args
         + "\n    )"
     )
-    load_index_key = (
+    args_index_key = (
         "index := fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "
         + prefix_fmt_value
         + ",\n\t   "
-        + load_key_fmt_args
+        + args_key_fmt_args
         + "\n    )"
     )
-    update_index_key = (
+    struct_index_key = (
         "index := fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "
         + prefix_fmt_value
         + ",\n\t   "
-        + update_key_fmt_args
+        + struct_key_fmt_args
         + "\n    )"
     )
 
@@ -76,11 +76,12 @@ import sys
     index_meta = {
         "index_type_kv": index_type_kv,
         "index_key_name": index_key_name,
-        "batch_load_index_key": batch_load_index_key,
-        "load_index_key": load_index_key,
-        "update_index_key": update_index_key,
+        "batch_args_index_key": batch_args_index_key,
+        "args_index_key": args_index_key,
+        "struct_index_key": struct_index_key,
         "key_fields": key_fields,
         "cas_enabled": index.enable_cas,
+        "max_list_length": index.max_list_length,
         "atomic_inc_fields": atomic_inc_fields,
     }
 %>

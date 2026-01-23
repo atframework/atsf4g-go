@@ -3,7 +3,7 @@
 <%
     index_type_kv = index_meta["index_type_kv"]
     index_key_name = index_meta["index_key_name"]
-    load_index_key = index_meta["load_index_key"]
+    args_index_key = index_meta["args_index_key"]
     key_fields = index_meta["key_fields"]
     go_type = inc_field["go_type"]
     is_unsigned = go_type.startswith("uint")
@@ -23,7 +23,7 @@ func ${message_name}AtomicInc${index_key_name}${inc_field["ident"]}(
         retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
         return
     }
-    ${load_index_key}
+    ${args_index_key}
 
     newValue, retResult = HashTableAtomicInc(ctx, index, "${message_name}",
         dispatcher, instance, "${inc_field["raw_name"]}", uint64(incValue))

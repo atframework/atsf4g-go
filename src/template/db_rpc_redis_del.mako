@@ -3,7 +3,7 @@
 <%
     index_type_kv = index_meta["index_type_kv"]
     index_key_name = index_meta["index_key_name"]
-    load_index_key = index_meta["load_index_key"]
+    args_index_key = index_meta["args_index_key"]
     key_fields = index_meta["key_fields"]
     cas_enabled = index_meta["cas_enabled"]
 %>
@@ -20,7 +20,7 @@ func ${message_name}DelWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${load_index_key}
+	${args_index_key}
 
 	retResult = HashTableDel(ctx, index, "${message_name}", dispatcher, instance)
 	if retResult.IsError() {
@@ -51,14 +51,9 @@ func ${message_name}DelIndexWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${load_index_key}
+	${args_index_key}
 
-	retResult = HashTableDelListIndex(ctx, index, "${message_name}", dispatcher, instance, listIndex,
-% if cas_enabled:
-		true)
-% else:
-		false)
-% endif
+	retResult = HashTableDelListIndex(ctx, index, "${message_name}", dispatcher, instance, listIndex)
 	if retResult.IsError() {
 		ctx.LogError("delete ${message_name} table with key from db failed",
 			"listIndex", listIndex,
