@@ -2,6 +2,7 @@
 <%page args="message_name,message,index,index_meta,partly_get,partly_field_name" />
 <%
     index_type_kv = index_meta["index_type_kv"]
+    batch_load_index_key = index_meta["batch_load_index_key"]
     key_fields = index_meta["key_fields"]
     load_index_key = index_meta["load_index_key"]
     cas_enabled = index_meta["cas_enabled"]
@@ -52,7 +53,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 % for field in key_fields:
 	table.${field["ident"]} = ${field["ident"]}
 % endfor
-	ctx.LogDebug("load ${message_name} table with key from db success",
+	ctx.LogDebug("partly load ${message_name} table with key from db success",
 % if cas_enabled:
 		"CASVersion", CASVersion,
 % endif
@@ -61,6 +62,77 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 % endfor
 	)
 	retResult = cd.CreateRpcResultOk()
+	return
+}
+
+func ${message_name}BatchLoadWith${index_meta["index_key_name"]}PartlyGet${partly_field_name}(
+	ctx cd.AwaitableContext,
+	keys []${message_name}TableKey,
+) (dbResult []${message_name}BatchGetResult, retResult cd.RpcResult) {
+	dispatcher := libatapp.AtappGetModule[*cd.RedisMessageDispatcher](ctx.GetApp())
+	instance := dispatcher.GetRedisInstance()
+	if instance == nil {
+        ctx.LogError("get redis instance failed")
+		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
+	}
+	loadIndexs := make([]string, len(keys))
+	for i := range keys {
+		${batch_load_index_key}
+	}
+	redisField := []string{
+% if cas_enabled:
+		pu.CASKeyField,
+% endif
+% for field in key_fields:
+		"${field["raw_name"]}",
+% endfor
+% for field_name in partly_get.fields:
+		"${field_name}",
+% endfor
+	}
+	var messages []*RedisSetIndexMessage
+	messages, retResult = HashTableBatchPartlyGet(
+		ctx, loadIndexs, "${message_name}", dispatcher, instance, func() proto.Message {
+			return new(private_protocol_pbdesc.${message_name})
+		}, redisField)
+	dbResult = make([]${message_name}BatchGetResult, len(messages))
+	for index, message := range messages {
+		if message == nil {
+			dbResult[index].Result = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			ctx.LogDebug("partly load ${message_name} table with key from db error nil",
+% for field in key_fields:
+				"${field["ident"]}", keys[index].${field["ident"]},
+% endfor
+			)
+			continue
+		}
+		dbResult[index].Result = message.Result
+		if message.Result.IsError() {
+			ctx.LogDebug("partly load ${message_name} table with key from db error",
+				"error", message.Result,
+% for field in key_fields:
+				"${field["ident"]}", keys[index].${field["ident"]},
+% endfor
+			)
+			continue
+		}
+		dbResult[index].Table = message.Message.(*private_protocol_pbdesc.${message_name})
+% for field in key_fields:
+		dbResult[index].Table.${field["ident"]} = keys[index].${field["ident"]}
+% endfor
+% if cas_enabled:
+		dbResult[index].CASVersion = message.CASVersion
+% endif
+		ctx.LogDebug("partly load ${message_name} table with key from db success",
+% if cas_enabled:
+			"CASVersion", dbResult[index].CASVersion,
+% endif
+% for field in key_fields:
+			"${field["ident"]}", keys[index].${field["ident"]},
+% endfor
+		)
+	}
 	return
 }
 % endif

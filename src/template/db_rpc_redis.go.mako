@@ -13,6 +13,7 @@ import sys
 <%
     db_fmt_key = index.name
     index_key_name = ""
+    batch_load_key_fmt_args = ""
     load_key_fmt_args = ""
     update_key_fmt_args = ""
     key_fields = []
@@ -25,6 +26,7 @@ import sys
         ident = message.get_identify_name(key, PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
         index_key_name += ident
         db_fmt_key += "." + field.get_go_fmt_type()
+        batch_load_key_fmt_args += "keys[i]." + ident + ", "
         load_key_fmt_args += ident + ", "
         update_key_fmt_args += "table.Get" + ident + "(), "
         key_fields.append({
@@ -35,6 +37,13 @@ import sys
 
     prefix_fmt_key = "%s-"
     prefix_fmt_value = "dispatcher.GetRecordPrefix()"
+    batch_load_index_key = (
+        "loadIndexs[i] = fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "
+        + prefix_fmt_value
+        + ",\n\t   "
+        + batch_load_key_fmt_args
+        + "\n    )"
+    )
     load_index_key = (
         "index := fmt.Sprintf(\"" + prefix_fmt_key + db_fmt_key + "\", "
         + prefix_fmt_value
@@ -67,6 +76,7 @@ import sys
     index_meta = {
         "index_type_kv": index_type_kv,
         "index_key_name": index_key_name,
+        "batch_load_index_key": batch_load_index_key,
         "load_index_key": load_index_key,
         "update_index_key": update_index_key,
         "key_fields": key_fields,

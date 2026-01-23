@@ -13,6 +13,67 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type RedisSetIndexMessage struct {
+	Result     cd.RpcResult
+	Message    proto.Message
+	CASVersion uint64
+}
+
+func HashTableBatchLoad(ctx cd.AwaitableContext, index []string, tableName string,
+	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message,
+) (setMessage []*RedisSetIndexMessage, retResult cd.RpcResult) {
+	currentAction := ctx.GetAction()
+	if lu.IsNil(currentAction) {
+		ctx.LogError("not in context action")
+		retResult = cd.CreateRpcResultError(fmt.Errorf("action not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
+	}
+	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().GetContext()) {
+		ctx.LogError("not found context")
+		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
+	}
+
+	pendingActionBatchCount := 20
+	runnnigTask := make([]cd.TaskActionImpl, 0, pendingActionBatchCount)
+	setMessage = make([]*RedisSetIndexMessage, len(index))
+	for i, idx := range index {
+		if currentAction.IsExiting() {
+			retResult = cd.CreateRpcResultError(fmt.Errorf("task exiting"), public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
+			return
+		}
+
+		indexName := idx
+		subTaskAction := cd.AsyncInvoke(ctx, "HashTableBatchLoadInner",
+			currentAction.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
+				message, casVersion, result := HashTableLoad(childCtx, indexName, tableName, dispatcher, instance, messageCreate)
+				setMessage[i] = &RedisSetIndexMessage{
+					Result:     result,
+					Message:    message,
+					CASVersion: casVersion,
+				}
+				return cd.CreateRpcResultOk()
+			})
+		if lu.IsNil(subTaskAction) {
+			continue
+		}
+		runnnigTask = append(runnnigTask, subTaskAction)
+		if len(runnnigTask) >= pendingActionBatchCount {
+			retResult = cd.AwaitTasks(ctx, runnnigTask)
+			if retResult.IsError() {
+				ctx.LogError("HashTableBatchLoad AwaitTasks failed", "err", retResult.GetErrorString())
+				return
+			}
+			runnnigTask = runnnigTask[:0]
+		}
+	}
+	retResult = cd.AwaitTasks(ctx, runnnigTask)
+	if retResult.IsError() {
+		ctx.LogError("HashTableBatchLoad AwaitTasks failed", "err", retResult.GetErrorString())
+	}
+	return
+}
+
 func HashTableLoad(ctx cd.AwaitableContext, index string, tableName string,
 	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message,
 ) (table proto.Message, CASVersion uint64, retResult cd.RpcResult) {
@@ -350,6 +411,62 @@ func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName str
 		return
 	}
 	return privateData.IndexMessage, cd.CreateRpcResultOk()
+}
+
+func HashTableBatchPartlyGet(ctx cd.AwaitableContext, index []string, tableName string,
+	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message,
+	partlyGetField []string,
+) (setMessage []*RedisSetIndexMessage, retResult cd.RpcResult) {
+	currentAction := ctx.GetAction()
+	if lu.IsNil(currentAction) {
+		ctx.LogError("not in context action")
+		retResult = cd.CreateRpcResultError(fmt.Errorf("action not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
+	}
+	if currentAction.GetRpcContext() == nil || lu.IsNil(currentAction.GetRpcContext().GetContext()) {
+		ctx.LogError("not found context")
+		retResult = cd.CreateRpcResultError(fmt.Errorf("context not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		return
+	}
+
+	pendingActionBatchCount := 20
+	runnnigTask := make([]cd.TaskActionImpl, 0, pendingActionBatchCount)
+	setMessage = make([]*RedisSetIndexMessage, len(index))
+	for i, idx := range index {
+		if currentAction.IsExiting() {
+			retResult = cd.CreateRpcResultError(fmt.Errorf("task exiting"), public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
+			return
+		}
+
+		indexName := idx
+		subTaskAction := cd.AsyncInvoke(ctx, "HashTableBatchLoadInner",
+			currentAction.GetActorExecutor(), func(childCtx cd.AwaitableContext) cd.RpcResult {
+				message, casVersion, result := HashTablePartlyGet(childCtx, indexName, tableName, dispatcher, instance, messageCreate, partlyGetField)
+				setMessage[i] = &RedisSetIndexMessage{
+					Result:     result,
+					Message:    message,
+					CASVersion: casVersion,
+				}
+				return cd.CreateRpcResultOk()
+			})
+		if lu.IsNil(subTaskAction) {
+			continue
+		}
+		runnnigTask = append(runnnigTask, subTaskAction)
+		if len(runnnigTask) >= pendingActionBatchCount {
+			retResult = cd.AwaitTasks(ctx, runnnigTask)
+			if retResult.IsError() {
+				ctx.LogError("HashTableBatchLoad AwaitTasks failed", "err", retResult.GetErrorString())
+				return
+			}
+			runnnigTask = runnnigTask[:0]
+		}
+	}
+	retResult = cd.AwaitTasks(ctx, runnnigTask)
+	if retResult.IsError() {
+		ctx.LogError("HashTableBatchLoad AwaitTasks failed", "err", retResult.GetErrorString())
+	}
+	return
 }
 
 func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
