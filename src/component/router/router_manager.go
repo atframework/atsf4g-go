@@ -449,9 +449,10 @@ func (manager *RouterManager[T, PrivData]) shouldAbortCacheRetry(code public_pro
 func (manager *RouterManager[T, PrivData]) shouldAbortObjectRetry(code public_protocol_pbdesc.EnErrorCode) bool {
 	switch code {
 	case public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT,
+		public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE,
 		public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND,
-		public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE,
 		public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND,
+		public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE,
 		public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_BUSSINESS_VERSION_DENY:
 		return true
 	default:
