@@ -209,3 +209,16 @@ message CSUserUseItemReq {
 message SCUserUseItemRsp {
   repeated DItemInstance gain_item = 1;
 }
+
+message CSUserRenameReq {
+  string new_name = 1;
+  repeated DItemBasic expect_cost_items = 2;
+}
+
+message SCUserRenameRsp {}
+
+message CSUserEditProfileReq {
+  string profile_card = 1;
+}
+
+message SCUserEditProfileRsp {}

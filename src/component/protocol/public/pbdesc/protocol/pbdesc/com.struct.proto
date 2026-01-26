@@ -73,8 +73,7 @@ message DUserProfile {
   string open_id = 1;
   uint64 user_id = 2;
   string nick_name = 3;
-  string logo_url = 4;
-  bool sex = 5;  // true男, false女
+  string profile_card = 4;
 }
 
 // 用户profile

@@ -11,3 +11,8 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-private
 package proy;
 
 import "google/protobuf/descriptor.proto";
+
+enum NameMappingType {
+    EN_NAME_MAPPING_TYPE_INVALID = 0;
+    EN_NAME_MAPPING_TYPE_USER_NICKNAME = 1;
+}

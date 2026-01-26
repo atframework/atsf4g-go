@@ -143,3 +143,20 @@ message database_table_user_async_jobs {
   uint32 zone_id = 3;
   user_async_jobs_blob_data job_data = 11;
 }
+
+message database_table_name_mapping {
+  option (atframework.database_table) = {
+    index: {
+      name: "name_mapping"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
+      enable_cas: true
+      key_fields: "type_id"
+      key_fields: "zone_id"
+      key_fields: "name"
+    }
+  };
+  uint32 type_id = 1;
+  uint32 zone_id = 2;
+  string name = 3;
+  database_name_mapping_blob_data mapping_data = 11;
+}

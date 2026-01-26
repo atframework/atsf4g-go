@@ -195,3 +195,14 @@ message user_async_jobs_cache_blob_data {
   };
   repeated retry_job_data retry_jobs = 11;
 }
+
+message database_name_mapping_blob_data {
+  oneof mapping_type {
+    user_mapping_data user_mapping = 1;
+  }
+}
+
+message user_mapping_data {
+  uint32 zone_id = 1;
+  uint64 user_id = 2;
+}

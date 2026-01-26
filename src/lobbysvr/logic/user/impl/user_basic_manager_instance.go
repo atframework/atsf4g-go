@@ -2,15 +2,18 @@ package lobbysvr_logic_user_impl
 
 import (
 	"fmt"
+	"unicode/utf8"
 
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
 
+	private_protocol_common "github.com/atframework/atsf4g-go/component-protocol-private/common/protocol/common"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
 	config "github.com/atframework/atsf4g-go/component-config"
+	db "github.com/atframework/atsf4g-go/component-db"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
@@ -39,6 +42,7 @@ type UserBasicManager struct {
 	dirtyExp         bool
 	dirtyUserInfo    bool
 	dirtyUserOptions bool
+	dirtyUserProfile bool
 
 	dirtyLevelUpRewards map[int32]map[int64]*public_protocol_common.DItemInstance
 	userOptions         *private_protocol_pbdesc.UserOptionsData
@@ -113,6 +117,11 @@ func (m *UserBasicManager) insertDirtyHandle() {
 				ret = true
 			}
 
+			if m.dirtyUserProfile {
+				dirtyData.UserProfile = m.GetOwner().GetAccountInfo().GetProfile()
+				ret = true
+			}
+
 			var dirtyLevelUpRewards *public_protocol_common.DItemAutoReward = nil
 			for _, rewardItems := range m.dirtyLevelUpRewards {
 				if rewardItems == nil {
@@ -140,6 +149,7 @@ func (m *UserBasicManager) insertDirtyHandle() {
 			m.dirtyExp = false
 			m.dirtyUserInfo = false
 			m.dirtyUserOptions = false
+			m.dirtyUserProfile = false
 			clear(m.dirtyLevelUpRewards)
 		},
 	)
@@ -411,6 +421,125 @@ func (m *UserBasicManager) UpdateUserClientOptions(ctx cd.RpcContext, opts *publ
 	m.dirtyUserOptions = true
 	m.insertDirtyHandle()
 	return cd.CreateRpcResultOk()
+}
+
+func (m *UserBasicManager) Rename(ctx cd.AwaitableContext, newName string, expectCostItems []*public_protocol_common.DItemBasic) data.Result {
+	if newName == m.GetOwner().GetAccountInfo().GetProfile().GetNickName() || newName == "" {
+		return cd.CreateRpcResultOk()
+	}
+
+	// 检查长度合法
+	nameConfig := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetUserNameConfig()
+	if nameConfig != nil && (nameConfig.GetMinLength() > 0 || nameConfig.GetMaxLength() > 0) {
+		nameLen := int32(utf8.RuneCount([]byte(newName)))
+		if nameConfig.GetMaxLength() > 0 && nameLen > nameConfig.GetMaxLength() {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NAME_LENGTH_INVALID)
+		}
+		if nameConfig.GetMinLength() > 0 && nameLen < nameConfig.GetMinLength() {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NAME_LENGTH_INVALID)
+		}
+	}
+
+	// 检查消耗
+	costItems := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetRenameCost()
+	if len(costItems) != 0 {
+		result := m.GetOwner().CheckCostItemCfg(ctx, expectCostItems, costItems)
+		if result.IsError() {
+			ctx.LogError("check cost item failed", "error", result.GetResponseCode())
+			return result
+		}
+
+		_, result = m.GetOwner().CheckSubItem(ctx, expectCostItems)
+		if result.IsError() {
+			ctx.LogError("check sub item failed", "error", result.GetResponseCode())
+			return result
+		}
+	}
+	// 检查名字重复
+	table := &private_protocol_pbdesc.DatabaseTableNameMapping{
+		TypeId: uint32(private_protocol_common.NameMappingType_EN_NAME_MAPPING_TYPE_USER_NICKNAME),
+		Name:   newName,
+		ZoneId: m.GetOwner().GetZoneId(),
+		MappingData: &private_protocol_pbdesc.DatabaseNameMappingBlobData{
+			MappingType: &private_protocol_pbdesc.DatabaseNameMappingBlobData_UserMapping{
+				UserMapping: &private_protocol_pbdesc.UserMappingData{
+					UserId: m.GetOwner().GetUserId(),
+					ZoneId: m.GetOwner().GetZoneId(),
+				},
+			},
+		},
+	}
+	result, _ := db.DatabaseTableNameMappingAddTypeIdZoneIdName(ctx, table)
+	if result.IsError() {
+		if result.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_EXIST) {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NAME_DUPLICATE)
+		}
+		return result
+	}
+	// 扣除消耗
+	if len(costItems) != 0 {
+		result = m.GetOwner().CheckCostItemCfg(ctx, expectCostItems, costItems)
+		if result.IsError() {
+			ctx.LogError("check cost item failed", "error", result.GetResponseCode())
+			// 少数情况 清空名字
+			db.DatabaseTableNameMappingDelWithTypeIdZoneIdName(ctx,
+				uint32(private_protocol_common.NameMappingType_EN_NAME_MAPPING_TYPE_USER_NICKNAME),
+				m.GetOwner().GetZoneId(),
+				newName)
+			return result
+		}
+
+		subGuard, result := m.GetOwner().CheckSubItem(ctx, expectCostItems)
+		if result.IsError() {
+			ctx.LogError("check sub item failed", "error", result.GetResponseCode())
+			db.DatabaseTableNameMappingDelWithTypeIdZoneIdName(ctx,
+				uint32(private_protocol_common.NameMappingType_EN_NAME_MAPPING_TYPE_USER_NICKNAME),
+				m.GetOwner().GetZoneId(),
+				newName)
+			return result
+		}
+
+		m.GetOwner().SubItem(ctx, subGuard, &data.ItemFlowReason{
+			MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_USER),
+			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_USER_RENAME),
+			Parameter:   0,
+		})
+	}
+	// 改名字
+	m.GetOwner().GetAccountInfo().MutableProfile().NickName = newName
+	m.MarkUserProfileDirty()
+	return cd.CreateRpcResultOk()
+}
+
+func (m *UserBasicManager) EditProfileCard(ctx cd.AwaitableContext, profileCard string) data.Result {
+	if profileCard == m.GetOwner().GetAccountInfo().GetProfile().GetProfileCard() {
+		return cd.CreateRpcResultOk()
+	}
+
+	// 检查长度合法
+	textConfig := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetUserProfileCardConfig()
+	if textConfig != nil && (textConfig.GetMinLength() > 0 || textConfig.GetMaxLength() > 0) {
+		textLen := int32(utf8.RuneCount([]byte(profileCard)))
+		if textConfig.GetMaxLength() > 0 && textLen > textConfig.GetMaxLength() {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NAME_LENGTH_INVALID)
+		}
+		if textConfig.GetMinLength() > 0 && textLen < textConfig.GetMinLength() {
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_NAME_LENGTH_INVALID)
+		}
+	}
+
+	m.GetOwner().GetAccountInfo().MutableProfile().ProfileCard = profileCard
+	m.MarkUserProfileDirty()
+	return cd.CreateRpcResultOk()
+}
+
+func (m *UserBasicManager) MarkUserProfileDirty() {
+	if m == nil {
+		return
+	}
+
+	m.dirtyUserProfile = true
+	m.insertDirtyHandle()
 }
 
 func registerCondition() {

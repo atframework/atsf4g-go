@@ -13,6 +13,7 @@ import "google/protobuf/timestamp.proto";
 
 import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/common/com.struct.base.common.proto";
+import "protocol/common/com.struct.item.common.proto";
 
 package proy.config;
 
@@ -43,6 +44,11 @@ message TestConstStruct {
   repeated TestConstSubStruct test_repeated_sub_struct = 12;
 }
 
+message UserTextConfig {
+  int32 min_length = 1;
+  int32 max_length = 2;
+}
+
 message ExcelConstConfig {
   option (xrescode.loader) = {
     file_path: "const_settings.bytes"
@@ -67,4 +73,8 @@ message ExcelConstConfig {
 
   google.protobuf.Duration unlock_index_refresh_interval = 23;
   google.protobuf.Duration unlock_index_max_cache_time = 24;  // 需要大于等于 refresh interval
+
+  repeated DItemOffset rename_cost = 61 [(org.xresloader.field_separator) = ";"];  // 改名消耗
+  UserTextConfig user_name_config = 62;                                            // 用户名配置
+  UserTextConfig user_profile_card_config = 63;                                    // 名片配置
 }

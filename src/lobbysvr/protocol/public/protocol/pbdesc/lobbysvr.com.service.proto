@@ -86,8 +86,22 @@ service LobbyClientService {
       api_name: "Push dirty data"
     };
   };
+
+  rpc user_rename(CSUserRenameReq) returns (SCUserRenameRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "user"
+      api_name: "Rename user"
+    };
+  };
+
+  rpc user_edit_profile(CSUserEditProfileReq) returns (SCUserEditProfileRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "user"
+      api_name: "Edit user profile"
+    };
+  };
   /////////////////////////// user /////////////////////////////
-  
+
   /////////////////////////// quest /////////////////////////////
   rpc quest_receive_reward(CSQuestReceiveRewardReq) returns (SCQuestReceiveRewardRsp) {
     option (atframework.rpc_options) = {

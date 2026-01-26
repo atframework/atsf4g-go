@@ -189,7 +189,11 @@ enum EnErrorCode {
   EN_ERR_ALREADY_LOGIN = -124
                          [(error_code.description) = "在线中"];
   EN_ERR_DB_RECORD_EXIST = -125
-                               [(error_code.description) = "数据库记录已存在"];
+                           [(error_code.description) = "数据库记录已存在"];
+  EN_ERR_NAME_LENGTH_INVALID = -126
+                               [(error_code.description) = "名字长度无效"];
+  EN_ERR_NAME_DUPLICATE = -127
+                          [(error_code.description) = "名字重复"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];
