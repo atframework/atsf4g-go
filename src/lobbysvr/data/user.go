@@ -1,7 +1,6 @@
 package lobbysvr_data
 
 import (
-	"fmt"
 	"math"
 	"slices"
 	"sync"
@@ -307,9 +306,6 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 	for _, mgr := range u.moduleManagerMap {
 		mgr.CreateInit(ctx, versionType)
 	}
-
-	// 默认昵称
-	u.GetAccountInfo().MutableProfile().NickName = fmt.Sprintf("User-%v-%v", u.GetZoneId(), u.GetUserId())
 
 	// 玩家出身表
 	initItemCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelUserInitializeItemsAllOfIndex()

@@ -170,10 +170,9 @@ func UserManagerCreateUserAs[T UserImpl](app libatapp.AppImpl, ctx cd.AwaitableC
 		}
 	}
 
-	fillBasicInfo(convertRet)
-
 	// 创建初始化
 	if !u.HasCreateInit() {
+		fillBasicInfo(convertRet)
 		// 新用户初始化逻辑
 		u.CreateInit(ctx, uint32(public_protocol_common.EnVersionType_EN_VERSION_DEFAULT))
 		// 立刻保存一次
