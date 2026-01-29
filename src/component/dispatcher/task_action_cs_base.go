@@ -42,7 +42,6 @@ type TaskActionCSUser interface {
 	GetOpenId() string
 
 	GetSession() TaskActionCSSession
-	GetCsActorLogWriter() log.LogWriter
 	GetActorExecutor() *ActorExecutor
 
 	OnSendResponse(ctx RpcContext) error
@@ -112,10 +111,6 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSU
 	}
 
 	t.user = user
-	// 设置User 如果这时Session存在,那就将Session的日志写入User
-	if !lu.IsNil(t.session) && user.GetCsActorLogWriter() != nil {
-		t.session.FlushPendingActorLog(user.GetCsActorLogWriter())
-	}
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() TaskActionCSUser {
@@ -183,12 +178,12 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) MutableResponseBody() Resp
 	return t.responseBody
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetCsActorLogWriter() log.LogWriter {
-	user := t.GetUser()
-	if lu.IsNil(user) {
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetActorLogWriter() log.LogWriter {
+	sess := t.GetSession()
+	if lu.IsNil(sess) {
 		return nil
 	}
-	return user.GetCsActorLogWriter()
+	return sess.GetActorLogWriter()
 }
 
 func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uint64,
@@ -289,7 +284,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 			"client_sequence", responseMsg.Head.ClientSequence,
 			"response_code", t.GetResponseCode())
 		// 输出CSLOG
-		logWriter := t.GetCsActorLogWriter()
+		logWriter := t.GetActorLogWriter()
 		if logWriter != nil {
 			fmt.Fprintf(logWriter, "%s >>>>>>>>>>>>>>>>>>>> Session: %d Sending: %s\nHead:%s\nBody:%s",
 				now.Format("2006-01-02 15:04:05.000"), t.session.GetSessionId(), t.rpcDescriptor.Output().FullName(),
@@ -365,7 +360,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *Dispatc
 	csMsg.BodyBin = []byte{}
 
 	// 输出CSLOG
-	logWriter := t.GetCsActorLogWriter()
+	logWriter := t.GetActorLogWriter()
 	if logWriter != nil {
 		fmt.Fprintf(logWriter, "%s <<<<<<<<<<<<<<<<<<<< Session: %d Received: %s\nHead:%s\nBody:%s",
 			t.GetSysNow().Format("2006-01-02 15:04:05.000"), t.session.GetSessionId(), t.requestHead.GetRpcRequest().GetTypeUrl(),

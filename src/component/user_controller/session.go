@@ -44,6 +44,8 @@ type Session struct {
 
 	enableActorLog bool
 	pendingCsLog   []string
+
+	actorLogWriter log.LogWriter
 }
 
 func CreateSessionKey(nodeId uint64, sessionId uint64) SessionKey {
@@ -93,6 +95,11 @@ func (s *Session) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
 			s.FlushPendingActorLog(writer)
 		}
 		writer.Close()
+	}
+
+	if s.actorLogWriter != nil {
+		s.actorLogWriter.Close()
+		s.actorLogWriter = nil
 	}
 }
 
@@ -157,6 +164,22 @@ func (s *Session) BindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	if !lu.IsNil(oldUser) {
 		oldUser.UnbindSession(ctx, s)
 	}
+
+	if config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetEnableActorLog() {
+		s.actorLogWriter, _ = log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log",
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), bindUser.GetZoneId(), bindUser.GetUserId()),
+			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), bindUser.GetZoneId(),
+				bindUser.GetUserId()), config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
+			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
+		s.FlushPendingActorLog(s.actorLogWriter)
+		outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), s.GetSessionId())
+		ctx.LogDebug(outputLog)
+		logWriter := s.GetActorLogWriter()
+		if logWriter != nil {
+			fmt.Fprint(logWriter, outputLog)
+		}
+	}
 }
 
 func (s *Session) UnbindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
@@ -171,6 +194,15 @@ func (s *Session) UnbindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	// 关联解绑
 	if !lu.IsNil(oldUser) {
 		oldUser.UnbindSession(ctx, s)
+	}
+
+	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), s.GetSessionId())
+	ctx.LogDebug(outputLog)
+	logWriter := s.GetActorLogWriter()
+	if logWriter != nil {
+		fmt.Fprint(logWriter, outputLog)
+		s.actorLogWriter.Close()
+		s.actorLogWriter = nil
 	}
 }
 
@@ -194,11 +226,7 @@ func (s *Session) GetNetworkHandle() SessionNetworkHandleImpl {
 }
 
 func (s *Session) GetActorLogWriter() log.LogWriter {
-	user := s.GetUser()
-	if lu.IsNil(user) {
-		return nil
-	}
-	return user.GetCsActorLogWriter()
+	return s.actorLogWriter
 }
 
 func (s *Session) IsEnableActorLog() bool {

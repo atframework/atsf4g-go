@@ -6,14 +6,12 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
 
 	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
 	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 
-	log "github.com/atframework/atframe-utils-go/log"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	router "github.com/atframework/atsf4g-go/component-router"
 )
@@ -120,8 +118,6 @@ type UserCache struct {
 	userData    UserDirtyWrapper[private_protocol_pbdesc.UserData]
 	// Basic Data
 
-	csActorLogWriter log.LogWriter
-
 	hasCreateInit bool
 
 	loginLockCASVersion uint64
@@ -130,18 +126,10 @@ type UserCache struct {
 
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
 	// 由路由系统创建可能没有OpenId
-	var writer *log.LogBufferedRotatingWriter
-	if config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetEnableActorLog() {
-		writer, _ = log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId),
-			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), zoneId, userId), config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
-			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
-			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
-	}
 	cache = UserCache{
-		zoneId:           zoneId,
-		userId:           userId,
-		openId:           openId,
-		csActorLogWriter: writer,
+		zoneId: zoneId,
+		userId: userId,
+		openId: openId,
 	}
 	cache.actorExecutor = actorExecutor
 	cache.actorExecutor.Instance = &cache
@@ -278,15 +266,6 @@ func (u *UserCache) BindSession(ctx cd.RpcContext, session *Session) {
 	// 覆盖旧绑定,必须先设置成员变量再触发关联绑定，以解决重入问题
 	u.session = session
 	session.BindUser(ctx, u.Impl)
-
-	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), session.GetSessionId())
-	logWriter := u.GetCsActorLogWriter()
-	if logWriter != nil {
-		session.FlushPendingActorLog(logWriter)
-		fmt.Fprint(logWriter, outputLog)
-	}
-	ctx.LogDebug(outputLog)
-
 	u.OnUpdateSession(ctx, old_session, session)
 
 	if !lu.IsNil(old_session) {
@@ -306,13 +285,6 @@ func (u *UserCache) UnbindSession(ctx cd.RpcContext, session *Session) {
 	if !lu.IsNil(session) && u.session != session {
 		return
 	}
-
-	outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Unbind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), u.session.GetSessionId())
-	logWriter := u.GetCsActorLogWriter()
-	if logWriter != nil {
-		fmt.Fprint(logWriter, outputLog)
-	}
-	ctx.LogDebug(outputLog)
 
 	old_session := u.session
 	u.session = nil
@@ -428,7 +400,6 @@ func (u *UserCache) OnLogout(ctx cd.RpcContext) {
 
 	// 设置登出时间
 	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = ctx.GetSysNow().Unix()
-	u.csActorLogWriter.Flush()
 }
 
 func (u *UserCache) OnSaved(_ctx cd.RpcContext, routerVersion uint64) {
@@ -534,14 +505,6 @@ func (u *UserCache) MutableClientInfo() *public_protocol_pbdesc.DClientDeviceInf
 	}
 
 	return u.MutableUserLogin().MutableLastLoginRecord().MutableClientInfo()
-}
-
-func (u *UserCache) GetCsActorLogWriter() log.LogWriter {
-	if u == nil {
-		return nil
-	}
-
-	return u.csActorLogWriter
 }
 
 func (u *UserCache) GetLoginLockCASVersion() uint64 {
