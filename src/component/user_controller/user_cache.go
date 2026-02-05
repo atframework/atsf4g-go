@@ -333,13 +333,16 @@ func (u *UserCache) InitFromDB(_ctx cd.RpcContext, srcTb *private_protocol_pbdes
 	return cd.CreateRpcResultOk()
 }
 
-func (u *UserCache) DumpToDB(_ctx cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
+func (u *UserCache) DumpToDB(ctx cd.RpcContext, dstTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	if dstTb == nil {
 		return cd.RpcResult{
 			Error:        fmt.Errorf("dstTb should not be nil, zone_id: %d, user_id: %d", u.GetZoneId(), u.GetUserId()),
 			ResponseCode: int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM),
 		}
 	}
+
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).LastDumpDbTime = ctx.GetSysNow().Unix()
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLastDumpDbTime = ctx.GetNow().Unix()
 
 	dstTb.OpenId = u.GetOpenId()
 	dstTb.UserId = u.GetUserId()
@@ -384,11 +387,26 @@ func (u *UserCache) OnLogin(ctx cd.RpcContext) {
 	}
 
 	nowSec := ctx.GetSysNow().Unix()
+	nowLogicSec := ctx.GetNow().Unix()
 	// 更新登录数据
 	if u.IsNewUser() {
-		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessRegisterTime = nowSec
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessRegisterTime = nowLogicSec
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).RegisterTime = nowSec
 	}
-	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLoginTime = nowSec
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).MutableLastLoginRecord().LastLoginTime = u.loginData.Get().GetLoginTime()
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).MutableLastLoginRecord().LastBusinessLoginTime = u.loginData.Get().GetBusinessLoginTime()
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).MutableLastLoginRecord().LastDumpDbTime = u.loginData.Get().GetLastDumpDbTime()
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).MutableLastLoginRecord().LastBusinessDumpDbTime = u.loginData.Get().GetBusinessLastDumpDbTime()
+
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLoginTime = nowLogicSec
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).LoginTime = nowSec
+	if u.loginData.Get().GetBusinessLoginTime() <= u.loginData.Get().GetBusinessLogoutTime() {
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = u.loginData.Get().GetBusinessLoginTime() - 1
+	}
+	if u.loginData.Get().GetLoginTime() <= u.loginData.Get().GetLogoutTime() {
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).LogoutTime = u.loginData.Get().GetLoginTime() - 1
+	}
+
 	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginSuccessTimes++
 	u.loginData.Mutable(u.GetCurrentDbDataVersion()).StatLoginTotalTimes++
 }
@@ -399,7 +417,14 @@ func (u *UserCache) OnLogout(ctx cd.RpcContext) {
 	}
 
 	// 设置登出时间
-	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = ctx.GetSysNow().Unix()
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = ctx.GetNow().Unix()
+	if u.loginData.Get().GetBusinessLoginTime() >= u.loginData.Get().GetBusinessLogoutTime() {
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).BusinessLogoutTime = u.loginData.Get().GetBusinessLoginTime() + 1
+	}
+	u.loginData.Mutable(u.GetCurrentDbDataVersion()).LogoutTime = ctx.GetSysNow().Unix()
+	if u.loginData.Get().GetLoginTime() >= u.loginData.Get().GetLogoutTime() {
+		u.loginData.Mutable(u.GetCurrentDbDataVersion()).LogoutTime = u.loginData.Get().GetLoginTime() + 1
+	}
 }
 
 func (u *UserCache) OnSaved(_ctx cd.RpcContext, routerVersion uint64) {

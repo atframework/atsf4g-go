@@ -35,7 +35,11 @@ message account_information {
 
 // 登入数据记录
 message login_record {
-  DClientDeviceInfo client_info = 1;  // 终端信息
+  DClientDeviceInfo client_info = 1; // 终端信息
+  int64 last_login_time = 2; // 实际登入时间
+  int64 last_business_login_time = 3; // 实际登入时间
+  int64 last_dump_db_time = 4; // 存库时间
+  int64 last_business_dump_db_time = 5; //逻辑存库时间
 }
 
 message user_data {
@@ -49,10 +53,14 @@ message user_options_data {
 }
 
 message login_data {
-  // 业务层登入注册信息
-  int64 business_register_time = 31;  // 业务层注册时间
-  int64 business_login_time = 32;     // 业务层登入时间
-  int64 business_logout_time = 33;    // 业务层登出时间
+  int64 register_time = 21; // 实际注册时间
+  int64 login_time = 22; // 实际登入时间
+  int64 logout_time = 23; // 实际登出时间
+  int64 last_dump_db_time = 24; // 实际上次存库时间
+  int64 business_register_time = 31; // 逻辑注册时间
+  int64 business_login_time = 32; // 逻辑登入时间
+  int64 business_logout_time = 33; // 逻辑登出时间
+  int64 business_last_dump_db_time = 34; // 逻辑上次存库时间
 
   login_record last_login_record = 42;  // 上次登入的信息
 

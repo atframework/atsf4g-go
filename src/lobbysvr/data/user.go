@@ -258,6 +258,33 @@ func (u *User) DumpToDB(ctx cd.RpcContext, dstDb *private_protocol_pbdesc.Databa
 	}
 }
 
+func (u *User) GetLastLogoutTime() int64 {
+	// 检查上次是否成功登出
+	if u.GetUserLogin().GetLastLoginRecord().GetLastBusinessLoginTime() == 0 {
+		// 第一次登录
+		return u.GetUserLogin().GetBusinessLogoutTime()
+	}
+	// 非第一次登录
+	if u.GetUserLogin().GetLastLoginRecord().GetLastBusinessDumpDbTime() > u.GetUserLogin().GetBusinessLogoutTime() {
+		// 上次登录的最后存盘时间 大于 最后一次登出时间
+		// 使用存盘时间作为登出时间
+		return u.GetUserLogin().GetLastLoginRecord().GetLastBusinessDumpDbTime()
+	}
+	return u.GetUserLogin().GetBusinessLogoutTime()
+}
+
+func (u *User) GetLastLogoutDuration() int64 {
+	logoutTime := u.GetLastLogoutTime()
+	if logoutTime <= 0 {
+		return 0
+	}
+	duration := time.Now().Unix() - logoutTime
+	if duration < 0 {
+		return 0
+	}
+	return duration
+}
+
 func (u *User) createInitItemBatch(ctx cd.RpcContext,
 	itemInsts []*public_protocol_common.DItemInstance,
 ) cd.RpcResult {
@@ -353,6 +380,8 @@ func (u *User) LoginInit(ctx cd.RpcContext) {
 
 	u.OnLogin(ctx)
 	u.isLoginInited = true
+
+	ctx.LogDebug("logout duration", "time", u.GetLastLogoutDuration())
 }
 
 func (u *User) OnLogin(ctx cd.RpcContext) {
