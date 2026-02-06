@@ -261,13 +261,38 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 	defer d.AsyncClose(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closed by peer")
 
 	for {
-		_, messageData, err := session.Connection.ReadMessage()
+		messageType, messageData, err := session.Connection.ReadMessage()
 		if err != nil {
 			d.increaseErrorCounter(session)
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
 				d.GetApp().GetDefaultLogger().LogError("WebSocket unexpected close", "error", err, "session_id", session.SessionId)
+			} else {
+				d.GetApp().GetDefaultLogger().LogInfo("WebSocket closing or closed", "reason", err.Error(), "session_id", session.SessionId)
 			}
 			break
+		}
+
+		switch messageType {
+		case websocket.TextMessage:
+			d.GetApp().GetDefaultLogger().LogWarn("WebSocket received unexpected text message, only binary messages are supported", "session_id", session.SessionId)
+			continue
+		case websocket.BinaryMessage:
+			// expected
+		case websocket.CloseMessage:
+			code, reason := parseClosePayload(messageData)
+			d.GetApp().GetDefaultLogger().LogInfo("WebSocket received close message",
+				"session_id", session.SessionId, "code", code, "reason", reason)
+			d.AsyncClose(d.CreateRpcContext(), session, code, fmt.Sprintf("Session closed by peer: code=%d, reason=%s", code, reason))
+			return
+		case websocket.PingMessage:
+			d.GetApp().GetDefaultLogger().LogDebug("WebSocket received ping message", "session_id", session.SessionId)
+			continue
+		case websocket.PongMessage:
+			d.GetApp().GetDefaultLogger().LogDebug("WebSocket received pong message", "session_id", session.SessionId)
+			continue
+		default:
+			d.GetApp().GetDefaultLogger().LogWarn("WebSocket received unsupported message type", "message_type", messageType, "session_id", session.SessionId)
+			continue
 		}
 
 		msg := &public_protocol_extension.CSMsg{}
@@ -297,6 +322,16 @@ func (d *WebSocketMessageDispatcher) handleSessionRead(session *WebSocketSession
 			}, session, d.AllocSequence())
 		}
 	}
+}
+
+func parseClosePayload(messageData []byte) (int, string) {
+	if len(messageData) < 2 {
+		return websocket.CloseNoStatusReceived, ""
+	}
+
+	code := int(messageData[0])<<8 | int(messageData[1])
+	reason := string(messageData[2:])
+	return code, reason
 }
 
 func (d *WebSocketMessageDispatcher) handleSessionIO(session *WebSocketSession) {
