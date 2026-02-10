@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -206,6 +207,10 @@ type AppInstance struct {
 	}
 
 	timeOffset time.Duration // 时间偏移
+
+	// Cached parsed id value (避免每次调用 GetId 都执行字符串解析)
+	cachedId    atomic.Uint64
+	cachedIdStr atomic.Value // stores string; empty means not cached
 }
 
 func CreateAppInstance() AppImpl {
@@ -843,7 +848,34 @@ func (app *AppInstance) Reload() error {
 }
 
 // Getter methods
-func (app *AppInstance) GetId() uint64           { return app.config.ConfigPb.GetId() }
+func (app *AppInstance) GetId() uint64 {
+	idStr := app.config.ConfigPb.GetId()
+	if idStr == "" {
+		return 0
+	}
+
+	// Return cached value if the source string hasn't changed
+	if cached, ok := app.cachedIdStr.Load().(string); ok && cached == idStr {
+		return app.cachedId.Load()
+	}
+
+	// Parse hex (0x...) or decimal string to uint64
+	var val uint64
+	var err error
+	if strings.HasPrefix(idStr, "0x") || strings.HasPrefix(idStr, "0X") {
+		val, err = strconv.ParseUint(idStr[2:], 16, 64)
+	} else {
+		val, err = strconv.ParseUint(idStr, 10, 64)
+	}
+	if err != nil {
+		return 0
+	}
+
+	// Cache the result
+	app.cachedId.Store(val)
+	app.cachedIdStr.Store(idStr)
+	return val
+}
 func (app *AppInstance) GetTypeId() uint64       { return app.config.ConfigPb.GetTypeId() }
 func (app *AppInstance) GetTypeName() string     { return app.config.ConfigPb.GetTypeName() }
 func (app *AppInstance) GetAppName() string      { return app.config.AppName }
@@ -994,6 +1026,9 @@ func (app *AppInstance) LoadConfig(configFile string, configurePrefixPath string
 		return
 	}
 	app.config.ConfigPb = configPb
+
+	// Invalidate cached id (config may have changed)
+	app.cachedIdStr.Store("")
 
 	// 日志配置单独处理
 	configLog := &atframe_protocol.AtappLog{}

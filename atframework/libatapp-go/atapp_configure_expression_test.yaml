@@ -1,0 +1,43 @@
+atapp:
+  # Test expression expansion in gateway address field (has enable_expression: true)
+  bus:
+    gateways:
+      - address: "${EXPR_TEST_PROTOCOL}://${EXPR_TEST_HOST}:${EXPR_TEST_PORT}"
+        match_namespaces:
+          - "${EXPR_TEST_NAMESPACE:-default-ns}"
+          - "${EXPR_TEST_MISSING_NS:-fallback-namespace}"
+        match_labels:
+          "${EXPR_TEST_LABEL_KEY:-env}": "${EXPR_TEST_LABEL_VAL:-production}"
+          "region": "${EXPR_TEST_REGION}"
+      - address: "${EXPR_TEST_GATEWAY_ADDR:-tcp://0.0.0.0:8080}"
+      - address: "${EXPR_TEST_DEEP_PROTO:-${EXPR_TEST_DEEP_FALLBACK:-http}}://${EXPR_TEST_DEEP_HOST:-${EXPR_TEST_DEEP_FALLBACK_HOST:-localhost}}:${EXPR_TEST_DEEP_PORT:-${EXPR_TEST_DEEP_FALLBACK_PORT:-9090}}"
+        match_labels:
+          "${EXPR_TEST_DEEP_LKEY:-${EXPR_TEST_DEEP_LKEY_FB:-tier}}": "${EXPR_TEST_DEEP_LVAL:-${EXPR_TEST_DEEP_LVAL_FB:-backend}}"
+    listen: "${EXPR_TEST_BUS_LISTEN:-ipv6://:::21437}"
+    proxy: ""
+    backlog: 256
+    access_token_max_number: 5
+    first_idle_timeout: 30s
+    ping_interval: 60s
+    retry_interval: 3s
+    fault_tolerant: 3
+    message_size: 256KB
+    receive_buffer_size: 8MB
+    send_buffer_size: 2MB
+    send_buffer_number: 0
+    crypto:
+      key_exchange_type: 1
+      key_refresh_interval: 5s
+      algorithm:
+        - aes-128-gcm
+        - 32
+        - ATAPP_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF
+    compression:
+      algorithm:
+        - zstd
+        - 200
+        - ATAPP_COMPRESSION_ALGORITHM_ZLIB
+      level: ATAPP_COMPRESSION_LEVEL_FAST
+
+  log:
+    level: debug

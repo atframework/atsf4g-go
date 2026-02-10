@@ -135,7 +135,7 @@ func clearEnvVars(keys []string) {
 func verifyRootFields(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 	t.Helper()
 	assert := assert.New(t)
-	assert.Equal(uint64(0x00001234), cfg.GetId(), "atapp.id should match")
+	assert.Equal("0x00001234", cfg.GetId(), "atapp.id should match")
 	assert.Equal("sample_echo_svr-1", cfg.GetName(), "atapp.name should match")
 	assert.Equal(uint64(1), cfg.GetTypeId(), "atapp.type_id should match")
 	assert.Equal("sample_echo_svr", cfg.GetTypeName(), "atapp.type_name should match")
@@ -151,7 +151,6 @@ func verifyBusConfig(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 	}
 
 	assert.Equal([]string{"ipv6://:::21437"}, bus.GetListen(), "bus.listen should contain single endpoint")
-	assert.Equal([]string{"0/16"}, bus.GetSubnets(), "bus.subnets should contain single subnet")
 	assert.Equal("", bus.GetProxy(), "bus.proxy should be empty string")
 	assert.Equal(int32(256), bus.GetBacklog(), "bus.backlog should match")
 	assert.Equal(uint64(5), bus.GetAccessTokenMaxNumber(), "bus.access_token_max_number should match")
@@ -166,7 +165,7 @@ func verifyBusConfig(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 	}
 	assert.Equal(uint64(3), bus.GetFaultTolerant(), "bus.fault_tolerant should match")
 	assert.Equal(uint64(256*1024), bus.GetMessageSize(), "bus.message_size should match")
-	assert.Equal(uint64(8*1024*1024), bus.GetRecvBufferSize(), "bus.recv_buffer_size should match")
+	assert.Equal(uint64(8*1024*1024), bus.GetReceiveBufferSize(), "bus.receive_buffer_size should match")
 	assert.Equal(uint64(2*1024*1024), bus.GetSendBufferSize(), "bus.send_buffer_size should match")
 	assert.Equal(uint64(0), bus.GetSendBufferNumber(), "bus.send_buffer_number should match")
 
@@ -542,4 +541,533 @@ func TestConfigManagementFromEnvironment(t *testing.T) {
 	verifyEtcdLogConfigExistedIndex(t, existedEtcdKeys, existedLogKeys)
 	verifyEtcdConfig(t, etcdCfg)
 	verifyLogConfig(t, logsCfg)
+}
+
+// =========================================================================================
+// Expression expansion unit tests
+// =========================================================================================
+
+// TestExpandExpressionBasicVariable tests $VAR and ${VAR} variable reference parsing.
+func TestExpandExpressionBasicVariable(t *testing.T) {
+	assert := assert.New(t)
+
+	// Arrange: set environment variables
+	os.Setenv("EXPR_BASIC_VAR", "hello")
+	os.Setenv("EXPR_BASIC_VAR2", "world")
+	defer os.Unsetenv("EXPR_BASIC_VAR")
+	defer os.Unsetenv("EXPR_BASIC_VAR2")
+
+	// Act & Assert: $VAR form
+	assert.Equal("hello", ExpandExpression("$EXPR_BASIC_VAR"), "$VAR should expand to variable value")
+
+	// Act & Assert: ${VAR} form
+	assert.Equal("hello", ExpandExpression("${EXPR_BASIC_VAR}"), "${VAR} should expand to variable value")
+
+	// Act & Assert: embedded in text
+	assert.Equal("say hello to world", ExpandExpression("say $EXPR_BASIC_VAR to ${EXPR_BASIC_VAR2}"),
+		"embedded variables should expand correctly")
+
+	// Act & Assert: undefined variable should expand to empty string
+	assert.Equal("", ExpandExpression("$EXPR_UNDEFINED_VAR_12345"),
+		"undefined $VAR should expand to empty string")
+	assert.Equal("", ExpandExpression("${EXPR_UNDEFINED_VAR_12345}"),
+		"undefined ${VAR} should expand to empty string")
+
+	// Act & Assert: text with no variables
+	assert.Equal("no variables here", ExpandExpression("no variables here"),
+		"text without variables should remain unchanged")
+
+	// Act & Assert: empty string
+	assert.Equal("", ExpandExpression(""), "empty string should return empty string")
+
+	// Act & Assert: unbraced $VAR only supports POSIX chars, special chars stop the name
+	os.Setenv("app", "partial")
+	defer os.Unsetenv("app")
+	assert.Equal("partial.kubernetes.io/name", ExpandExpression("$app.kubernetes.io/name"),
+		"unbraced $VAR stops at dot — only 'app' is the var name")
+
+	// Act & Assert: braced ${VAR} supports k8s label characters (dot, hyphen, slash)
+	os.Setenv("app.kubernetes.io/name", "my-app")
+	os.Setenv("my-label.tier", "frontend")
+	os.Setenv("config/version", "v2.1")
+	os.Setenv("a.b-c/d_e", "complex")
+	defer os.Unsetenv("app.kubernetes.io/name")
+	defer os.Unsetenv("my-label.tier")
+	defer os.Unsetenv("config/version")
+	defer os.Unsetenv("a.b-c/d_e")
+
+	assert.Equal("my-app", ExpandExpression("${app.kubernetes.io/name}"),
+		"${VAR} with k8s label key chars should expand")
+	assert.Equal("frontend", ExpandExpression("${my-label.tier}"),
+		"${VAR} with hyphen and dot should expand")
+	assert.Equal("v2.1", ExpandExpression("${config/version}"),
+		"${VAR} with slash should expand")
+	assert.Equal("complex", ExpandExpression("${a.b-c/d_e}"),
+		"${VAR} with mixed special chars should expand")
+
+	// Special chars in default/conditional operators
+	assert.Equal("my-app", ExpandExpression("${app.kubernetes.io/name:-fallback}"),
+		"${k8s.var:-default} with set var should return var value")
+	assert.Equal("default-val", ExpandExpression("${unset.k8s.label:-default-val}"),
+		"${unset.k8s.var:-default} should return default")
+	assert.Equal("word", ExpandExpression("${app.kubernetes.io/name:+word}"),
+		"${k8s.var:+word} with set var should return word")
+	assert.Equal("", ExpandExpression("${unset.k8s.label:+word}"),
+		"${unset.k8s.var:+word} should return empty")
+}
+
+// TestExpandExpressionDefaultValue tests ${VAR:-default} parsing.
+func TestExpandExpressionDefaultValue(t *testing.T) {
+	assert := assert.New(t)
+
+	// Arrange
+	os.Setenv("EXPR_DEFAULT_EXISTING", "real_value")
+	defer os.Unsetenv("EXPR_DEFAULT_EXISTING")
+
+	// Act & Assert: variable exists - use its value
+	assert.Equal("real_value", ExpandExpression("${EXPR_DEFAULT_EXISTING:-fallback}"),
+		"${VAR:-default} should use VAR value when VAR is set")
+
+	// Act & Assert: variable not set - use default
+	assert.Equal("fallback", ExpandExpression("${EXPR_DEFAULT_MISSING:-fallback}"),
+		"${VAR:-default} should use default when VAR is not set")
+
+	// Act & Assert: variable set but empty - use default
+	os.Setenv("EXPR_DEFAULT_EMPTY", "")
+	defer os.Unsetenv("EXPR_DEFAULT_EMPTY")
+	assert.Equal("fallback", ExpandExpression("${EXPR_DEFAULT_EMPTY:-fallback}"),
+		"${VAR:-default} should use default when VAR is empty")
+
+	// Act & Assert: default value is empty string
+	assert.Equal("", ExpandExpression("${EXPR_DEFAULT_MISSING:-}"),
+		"${VAR:-} should return empty when VAR is not set and default is empty")
+}
+
+// TestExpandExpressionConditionalWord tests ${VAR:+word} parsing.
+func TestExpandExpressionConditionalWord(t *testing.T) {
+	assert := assert.New(t)
+
+	// Arrange
+	os.Setenv("EXPR_COND_EXISTING", "some_value")
+	defer os.Unsetenv("EXPR_COND_EXISTING")
+
+	// Act & Assert: variable exists - use word
+	assert.Equal("replacement_word", ExpandExpression("${EXPR_COND_EXISTING:+replacement_word}"),
+		"${VAR:+word} should use word when VAR is set and non-empty")
+
+	// Act & Assert: variable not set - return empty
+	assert.Equal("", ExpandExpression("${EXPR_COND_MISSING:+replacement_word}"),
+		"${VAR:+word} should return empty when VAR is not set")
+
+	// Act & Assert: variable set but empty - return empty
+	os.Setenv("EXPR_COND_EMPTY", "")
+	defer os.Unsetenv("EXPR_COND_EMPTY")
+	assert.Equal("", ExpandExpression("${EXPR_COND_EMPTY:+replacement_word}"),
+		"${VAR:+word} should return empty when VAR is empty")
+}
+
+// TestExpandExpressionEscape tests \$ escape character.
+func TestExpandExpressionEscape(t *testing.T) {
+	assert := assert.New(t)
+
+	// Arrange
+	os.Setenv("EXPR_ESCAPE_VAR", "value")
+	defer os.Unsetenv("EXPR_ESCAPE_VAR")
+
+	// Act & Assert: escaped dollar sign should produce literal $
+	assert.Equal("$EXPR_ESCAPE_VAR", ExpandExpression("\\$EXPR_ESCAPE_VAR"),
+		"\\$VAR should produce literal $VAR")
+
+	// Act & Assert: escaped in braced form
+	assert.Equal("${hello}", ExpandExpression("\\${hello}"),
+		"\\${...} should produce literal ${...}")
+
+	// Act & Assert: mixed escaped and real variables
+	assert.Equal("$literal and value", ExpandExpression("\\$literal and $EXPR_ESCAPE_VAR"),
+		"mixed escaped and real variables should work correctly")
+
+	// Act & Assert: double backslash (not an escape for $)
+	assert.Equal("prefix$EXPR_ESCAPE_VAR", ExpandExpression("prefix\\$EXPR_ESCAPE_VAR"),
+		"\\$ in middle should produce literal $")
+
+	// Act & Assert: escaped dollar in ${:-} default value
+	assert.Equal("price is $5", ExpandExpression("${EXPR_UNDEFINED_FOR_ESCAPE:-price is \\$5}"),
+		"\\$ in default value should produce literal $")
+}
+
+// TestExpandExpressionNested tests nested expressions like ${OUTER_${INNER}}.
+func TestExpandExpressionNested(t *testing.T) {
+	assert := assert.New(t)
+
+	// Arrange
+	os.Setenv("EXPR_NESTED_INNER", "PART")
+	os.Setenv("EXPR_NESTED_OUTER_PART", "resolved_value")
+	defer os.Unsetenv("EXPR_NESTED_INNER")
+	defer os.Unsetenv("EXPR_NESTED_OUTER_PART")
+
+	// Act & Assert: nested variable name
+	assert.Equal("resolved_value", ExpandExpression("${EXPR_NESTED_OUTER_${EXPR_NESTED_INNER}}"),
+		"${OUTER_${INNER}} should first resolve INNER, then use result in OUTER lookup")
+
+	// Act & Assert: nested inner resolves to empty -> looks up EXPR_NESTED_OUTER_
+	assert.Equal("", ExpandExpression("${EXPR_NESTED_OUTER_${EXPR_NESTED_UNDEFINED}}"),
+		"nested with undefined inner should resolve to empty var name suffix")
+}
+
+// TestExpandExpressionMultiLevelNested tests multi-level nested defaults like ${OUTER:-${INNER:-default}}.
+func TestExpandExpressionMultiLevelNested(t *testing.T) {
+	assert := assert.New(t)
+
+	// Scenario 1: outermost variable is set
+	os.Setenv("EXPR_MULTI_OUTER", "outer_value")
+	defer os.Unsetenv("EXPR_MULTI_OUTER")
+	assert.Equal("outer_value", ExpandExpression("${EXPR_MULTI_OUTER:-${EXPR_MULTI_INNER:-default2}}"),
+		"outermost variable set should use its value")
+
+	// Scenario 2: outer not set, inner is set
+	os.Setenv("EXPR_MULTI_INNER", "inner_value")
+	defer os.Unsetenv("EXPR_MULTI_INNER")
+	assert.Equal("inner_value", ExpandExpression("${EXPR_MULTI_MISSING_OUTER:-${EXPR_MULTI_INNER:-default2}}"),
+		"outer not set, inner set should use inner value")
+
+	// Scenario 3: both outer and inner not set, use deepest default
+	assert.Equal("default2", ExpandExpression("${EXPR_MULTI_MISSING_OUTER:-${EXPR_MULTI_MISSING_INNER:-default2}}"),
+		"both not set should use deepest default value")
+
+	// Scenario 4: three-level nesting
+	assert.Equal("deep_default", ExpandExpression(
+		"${EXPR_MULTI_MISS_A:-${EXPR_MULTI_MISS_B:-${EXPR_MULTI_MISS_C:-deep_default}}}"),
+		"three-level nested defaults should resolve to deepest default")
+}
+
+// TestExpandExpressionEdgeCases tests edge cases and boundary conditions.
+func TestExpandExpressionEdgeCases(t *testing.T) {
+	assert := assert.New(t)
+
+	// Act & Assert: lone $ at end of string
+	assert.Equal("trailing$", ExpandExpression("trailing$"),
+		"lone $ at end should be preserved")
+
+	// Act & Assert: $ followed by non-identifier character
+	assert.Equal("$ not a var", ExpandExpression("$ not a var"),
+		"$ followed by space should be preserved")
+
+	// Act & Assert: unclosed brace
+	assert.Equal("${unclosed", ExpandExpression("${unclosed"),
+		"unclosed ${...} should be preserved as literal")
+
+	// Act & Assert: empty variable name
+	os.Setenv("", "empty_name_val")
+	defer os.Unsetenv("")
+	assert.Equal("$", ExpandExpression("$"),
+		"lone $ should be preserved")
+
+	// Act & Assert: consecutive dollar signs
+	assert.Equal("$$", ExpandExpression("$$"),
+		"$$ should be preserved (two lone dollars)")
+
+	// Act & Assert: nested with default that contains braces
+	os.Setenv("EXPR_EDGE_VAR", "found")
+	defer os.Unsetenv("EXPR_EDGE_VAR")
+	assert.Equal("found", ExpandExpression("${EXPR_EDGE_VAR:-default}"),
+		"variable found should use its value")
+}
+
+// TestExpandExpressionDepthLimit tests that deeply nested expressions don't cause stack overflow.
+func TestExpandExpressionDepthLimit(t *testing.T) {
+	assert := assert.New(t)
+
+	// Build a deeply nested expression that exceeds maxExpressionDepth
+	// ${A:-${A:-${A:-...default...}}}
+	expr := "final_default"
+	for i := 0; i < maxExpressionDepth+5; i++ {
+		expr = fmt.Sprintf("${EXPR_DEPTH_LIMIT_MISSING_%d:-%s}", i, expr)
+	}
+
+	// Should not panic and should return some result
+	result := ExpandExpression(expr)
+	assert.NotEmpty(result, "deeply nested expression should not panic and return a result")
+}
+
+// TestExpandExpressionInConfigYaml tests expression expansion in actual config loading from YAML.
+func TestExpandExpressionInConfigYaml(t *testing.T) {
+	// Arrange: set environment variables used in expression test yaml
+	envVars := map[string]string{
+		"EXPR_TEST_PROTOCOL":  "https",
+		"EXPR_TEST_HOST":      "example.com",
+		"EXPR_TEST_PORT":      "8443",
+		"EXPR_TEST_NAMESPACE": "custom-namespace",
+		"EXPR_TEST_LABEL_KEY": "environment",
+		"EXPR_TEST_LABEL_VAL": "staging",
+		"EXPR_TEST_REGION":    "us-west-2",
+	}
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+	defer func() {
+		for k := range envVars {
+			os.Unsetenv(k)
+		}
+	}()
+
+	app := CreateAppInstance().(*AppInstance)
+
+	// Act: load config from expression test yaml
+	existedAppKeys := CreateConfigExistedIndex()
+	if err := app.LoadConfig("atapp_configure_expression_test.yaml", "atapp", "ATAPP", existedAppKeys); err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	cfg := app.config.ConfigPb
+	if cfg == nil {
+		t.Fatalf("config proto should be initialized after LoadConfig")
+	}
+
+	// Assert: verify expression expansion in gateway config
+	t.Run("gateway address expression", func(t *testing.T) {
+		assert := assert.New(t)
+		bus := cfg.GetBus()
+		if !assert.NotNil(bus, "bus config should not be nil") {
+			return
+		}
+		gateways := bus.GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 1, "should have at least one gateway") {
+			return
+		}
+
+		// First gateway: address should be expanded from ${EXPR_TEST_PROTOCOL}://${EXPR_TEST_HOST}:${EXPR_TEST_PORT}
+		assert.Equal("https://example.com:8443", gateways[0].GetAddress(),
+			"gateway address should be expanded from expression")
+	})
+
+	t.Run("gateway match_namespaces expression", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 1) {
+			return
+		}
+
+		ns := gateways[0].GetMatchNamespaces()
+		if assert.GreaterOrEqual(len(ns), 2, "should have at least 2 namespaces") {
+			assert.Equal("custom-namespace", ns[0], "first namespace should be resolved from EXPR_TEST_NAMESPACE")
+			assert.Equal("fallback-namespace", ns[1], "second namespace should use default (EXPR_TEST_MISSING_NS not set)")
+		}
+	})
+
+	t.Run("gateway match_labels expression", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 1) {
+			return
+		}
+
+		labels := gateways[0].GetMatchLabels()
+		// Keys and values should be expanded
+		assert.Equal("staging", labels["environment"],
+			"label key 'environment' (from EXPR_TEST_LABEL_KEY) with value 'staging' (from EXPR_TEST_LABEL_VAL)")
+		assert.Equal("us-west-2", labels["region"],
+			"region label value should be expanded from EXPR_TEST_REGION")
+	})
+
+	t.Run("gateway default address expression", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 2) {
+			return
+		}
+
+		// Second gateway uses ${EXPR_TEST_GATEWAY_ADDR:-tcp://0.0.0.0:8080}
+		// EXPR_TEST_GATEWAY_ADDR is not set, so default should be used
+		assert.Equal("tcp://0.0.0.0:8080", gateways[1].GetAddress(),
+			"gateway address should use default when env var is not set")
+	})
+
+	t.Run("multi-level nested default address in yaml", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 3, "should have at least 3 gateways") {
+			return
+		}
+
+		// Third gateway: ${EXPR_TEST_DEEP_PROTO:-${EXPR_TEST_DEEP_FALLBACK:-http}}://...
+		// All EXPR_TEST_DEEP_* vars are unset, so deepest defaults should be used
+		assert.Equal("http://localhost:9090", gateways[2].GetAddress(),
+			"multi-level nested defaults should resolve to deepest fallback values")
+	})
+
+	t.Run("multi-level nested default labels in yaml", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 3) {
+			return
+		}
+
+		labels := gateways[2].GetMatchLabels()
+		// Key: ${EXPR_TEST_DEEP_LKEY:-${EXPR_TEST_DEEP_LKEY_FB:-tier}} -> "tier"
+		// Value: ${EXPR_TEST_DEEP_LVAL:-${EXPR_TEST_DEEP_LVAL_FB:-backend}} -> "backend"
+		assert.Equal("backend", labels["tier"],
+			"multi-level nested default label key and value should resolve to deepest defaults")
+	})
+
+	t.Run("bus listen expression", func(t *testing.T) {
+		assert := assert.New(t)
+		bus := cfg.GetBus()
+		if !assert.NotNil(bus) {
+			return
+		}
+		assert.Contains(bus.GetListen(), "ipv6://:::21437",
+			"bus listen should be expanded from EXPR_TEST_BUS_LISTEN")
+	})
+}
+
+// TestExpandExpressionInConfigEnv tests expression expansion when loading config from environment variables.
+func TestExpandExpressionInConfigEnv(t *testing.T) {
+	// Arrange: set up env vars for expression test
+	envVars := map[string]string{
+		// Expression variables
+		"EXPR_ENV_HOST": "env-host.example.com",
+		"EXPR_ENV_PORT": "9443",
+
+		// Gateway config using expressions
+		"ATAPP_BUS_GATEWAYS_0_ADDRESS":              "${EXPR_ENV_HOST}:${EXPR_ENV_PORT}",
+		"ATAPP_BUS_GATEWAYS_0_MATCH_NAMESPACES_0":   "${EXPR_ENV_NS:-default-env-ns}",
+		"ATAPP_BUS_GATEWAYS_0_MATCH_LABELS_0_KEY":   "env-key",
+		"ATAPP_BUS_GATEWAYS_0_MATCH_LABELS_0_VALUE": "${EXPR_ENV_LABEL:-env-label-default}",
+
+		// Second gateway: multi-level nested default expressions ${OUTER:-${INNER:-default}}
+		"ATAPP_BUS_GATEWAYS_1_ADDRESS":              "${EXPR_ENV_DEEP_ADDR:-${EXPR_ENV_DEEP_FB_ADDR:-ws://fallback:7070}}",
+		"ATAPP_BUS_GATEWAYS_1_MATCH_NAMESPACES_0":   "${EXPR_ENV_DEEP_NS:-${EXPR_ENV_DEEP_FB_NS:-deep-fallback-ns}}",
+		"ATAPP_BUS_GATEWAYS_1_MATCH_LABELS_0_KEY":   "${EXPR_ENV_DEEP_LKEY:-${EXPR_ENV_DEEP_FB_LKEY:-service}}",
+		"ATAPP_BUS_GATEWAYS_1_MATCH_LABELS_0_VALUE": "${EXPR_ENV_DEEP_LVAL:-${EXPR_ENV_DEEP_FB_LVAL:-gateway}}",
+	}
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+	defer func() {
+		for k := range envVars {
+			os.Unsetenv(k)
+		}
+	}()
+
+	app := CreateAppInstance().(*AppInstance)
+
+	// Act: load config from environment only (no config file)
+	existedAppKeys := CreateConfigExistedIndex()
+	if err := app.LoadConfig("", "atapp", "ATAPP", existedAppKeys); err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	cfg := app.config.ConfigPb
+	if cfg == nil {
+		t.Fatalf("config proto should be initialized after LoadConfig")
+	}
+
+	// Assert
+	t.Run("env gateway address expression", func(t *testing.T) {
+		assert := assert.New(t)
+		bus := cfg.GetBus()
+		if !assert.NotNil(bus, "bus config should not be nil") {
+			return
+		}
+		gateways := bus.GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 1, "should have at least one gateway") {
+			return
+		}
+
+		assert.Equal("env-host.example.com:9443", gateways[0].GetAddress(),
+			"gateway address should be expanded from env expression")
+	})
+
+	t.Run("env gateway namespace default", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 1) {
+			return
+		}
+
+		ns := gateways[0].GetMatchNamespaces()
+		if assert.GreaterOrEqual(len(ns), 1) {
+			assert.Equal("default-env-ns", ns[0],
+				"namespace should use default value since EXPR_ENV_NS is not set")
+		}
+	})
+
+	t.Run("env gateway label expression", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 1) {
+			return
+		}
+
+		labels := gateways[0].GetMatchLabels()
+		assert.Equal("env-label-default", labels["env-key"],
+			"label value should use default since EXPR_ENV_LABEL is not set")
+	})
+
+	t.Run("env multi-level nested default address", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 2, "should have at least 2 gateways") {
+			return
+		}
+
+		// All EXPR_ENV_DEEP_* vars are unset, so deepest defaults should be used
+		assert.Equal("ws://fallback:7070", gateways[1].GetAddress(),
+			"multi-level nested default address should resolve to deepest fallback")
+	})
+
+	t.Run("env multi-level nested default namespace", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 2) {
+			return
+		}
+
+		ns := gateways[1].GetMatchNamespaces()
+		if assert.GreaterOrEqual(len(ns), 1) {
+			assert.Equal("deep-fallback-ns", ns[0],
+				"multi-level nested default namespace should resolve to deepest fallback")
+		}
+	})
+
+	t.Run("env multi-level nested default labels", func(t *testing.T) {
+		assert := assert.New(t)
+		gateways := cfg.GetBus().GetGateways()
+		if !assert.GreaterOrEqual(len(gateways), 2) {
+			return
+		}
+
+		labels := gateways[1].GetMatchLabels()
+		// Key: ${EXPR_ENV_DEEP_LKEY:-${EXPR_ENV_DEEP_FB_LKEY:-service}} -> "service"
+		// Value: ${EXPR_ENV_DEEP_LVAL:-${EXPR_ENV_DEEP_FB_LVAL:-gateway}} -> "gateway"
+		assert.Equal("gateway", labels["service"],
+			"multi-level nested default label key/value should resolve to deepest fallback")
+	})
+}
+
+// TestExpandExpressionCombinedOperators tests combinations of operators in expressions.
+func TestExpandExpressionCombinedOperators(t *testing.T) {
+	assert := assert.New(t)
+
+	// Arrange
+	os.Setenv("EXPR_COMBO_A", "alpha")
+	os.Setenv("EXPR_COMBO_B", "beta")
+	defer os.Unsetenv("EXPR_COMBO_A")
+	defer os.Unsetenv("EXPR_COMBO_B")
+
+	// Act & Assert: multiple expressions in one string
+	assert.Equal("alpha-beta", ExpandExpression("${EXPR_COMBO_A}-${EXPR_COMBO_B}"),
+		"multiple expressions should all be expanded")
+
+	// Act & Assert: expression with text around it
+	assert.Equal("prefix_alpha_suffix", ExpandExpression("prefix_${EXPR_COMBO_A}_suffix"),
+		"expression embedded in text should expand correctly")
+
+	// Act & Assert: conditional with nested default
+	assert.Equal("beta", ExpandExpression("${EXPR_COMBO_MISSING:+${EXPR_COMBO_A}}${EXPR_COMBO_MISSING:-${EXPR_COMBO_B}}"),
+		":+ on missing var gives empty, then :- on missing gives beta")
+
+	// Act & Assert: conditional (set) with variable in word
+	assert.Equal("alpha", ExpandExpression("${EXPR_COMBO_A:+${EXPR_COMBO_A}}"),
+		":+ on set var should expand the word which itself contains an expression")
 }

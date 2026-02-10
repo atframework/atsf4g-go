@@ -6,11 +6,24 @@ A Go-based game server framework for lobby and robot services using libatapp-go 
 
 **Service Entry Points**: `src/lobbysvr` and `src/robot` create applications via `component-service_shared_collection`, wire CS/Redis dispatchers, and register logic modules from `logic/<domain>`.
 
-**Domain Modules**: `src/lobbysvr/logic/{character,inventory,user,building,customer,menu}/` expose public interfaces (e.g., `UserCharacter`, `UserCharacterManager`) with internal implementations under `impl/`. Domain-specific RPC actions live in `action/` subdirs.
+- 构建/子模块/常用 gotask：`/.github/skills/build-gotask.md`
+- Proto/Config/RPC 代码生成：`/.github/skills/codegen.md`
+- 架构与常见模式：`/.github/skills/architecture.md`
+- 实现细节（dirty/cache/proto mutability）：`/.github/skills/implementation-details.md`
+- RPC Handler 任务动作规范：`/.github/skills/rpc-handler.md`
+- 配置加载与表达式展开：`/.github/skills/config-expression.md`
+- 测试：`/.github/skills/testing.md` + `/.github/instructions/gotest.instructions.md`
 
-**Data Layer**: `src/lobbysvr/data/` provides base classes (`UserModuleManagerImpl`, `UserItemManagerImpl`) and manager discovery via `data.UserGetModuleManager[T](user)`. Player data is persisted through `DumpToDB()` / `InitFromDB()`.
+### 子组件文档
 
-**Proto & Config**: Generated protobufs in `src/component/protocol/{public,private}/pbdesc/` with mutable helper methods. Excel configs load via `config.GetConfigManager().GetCurrentConfigGroup()` getters (never cache config pointers—reread on each access).
+- libatapp-go：`/atframework/libatapp-go/.github/copilot-instructions.md`
+
+## Repo 关键规则（高优先级）
+
+- 模块管理器：必须用 `data.UserGetModuleManager[T](user)` 获取，并做 nil-check。
+- 配置访问：配置 getter 可能返回 nil；不要跨 RPC 缓存 config struct 指针（配置可刷新）。
+- 配置表达式：proto 字段 `enable_expression: true` 的字段支持 `$VAR`/`${VAR:-default}` 环境变量展开（详见 `/.github/skills/config-expression.md`）。
+- 构建/生成：优先使用 `task`（`Taskfile.yml` 为准），不要手写脚本绕过流程。
 
 ## Data Flow & Patterns
 

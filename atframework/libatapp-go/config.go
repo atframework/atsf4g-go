@@ -24,6 +24,208 @@ type LoadConfigOptions struct {
 	ReorderListIndexByField string
 }
 
+// ============================================================================================
+// Expression expansion: supports $VAR, ${VAR}, ${VAR:-default}, ${VAR:+word}, \$ escape,
+// and nested expressions like ${OUTER_${INNER}} or ${OUTER:-${INNER:-default2}}.
+// ============================================================================================
+
+// maxExpressionDepth is the maximum nesting depth to prevent infinite/circular expansion.
+const maxExpressionDepth = 32
+
+// expandBracedExpression expands a single ${...} block starting after the opening '${'.
+// Returns the expanded value and the number of bytes consumed (including the closing '}').
+func expandBracedExpression(input string, depth int) (string, int) {
+	varName := ""
+	i := 0
+	braceDepth := 1
+
+	for i < len(input) && braceDepth > 0 {
+		// Nested ${...} in variable name part
+		if i+1 < len(input) && input[i] == '$' && input[i+1] == '{' {
+			nested, consumed := expandBracedExpression(input[i+2:], depth+1)
+			varName += nested
+			i += 2 + consumed
+			continue
+		}
+
+		if input[i] == '}' {
+			braceDepth--
+			if braceDepth == 0 {
+				i++ // consume '}'
+				// Simple variable reference: ${VAR}
+				expandedName := expandExpressionImpl(varName, depth+1)
+				envVal, exists := os.LookupEnv(expandedName)
+				if exists {
+					return envVal, i
+				}
+				return "", i
+			}
+		}
+
+		// Check for :- or :+ operator
+		if input[i] == ':' && i+1 < len(input) && (input[i+1] == '-' || input[i+1] == '+') {
+			op := input[i+1]
+			i += 2 // skip ':' and '-' or '+'
+
+			// Collect the operand (which may contain nested expressions)
+			operand := ""
+			for i < len(input) && braceDepth > 0 {
+				if i+1 < len(input) && input[i] == '$' && input[i+1] == '{' {
+					nested, consumed := expandBracedExpression(input[i+2:], depth+1)
+					operand += nested
+					i += 2 + consumed
+					continue
+				}
+				if input[i] == '{' {
+					braceDepth++
+					operand += string(input[i])
+					i++
+					continue
+				}
+				if input[i] == '}' {
+					braceDepth--
+					if braceDepth == 0 {
+						i++ // consume '}'
+						break
+					}
+					operand += string(input[i])
+					i++
+					continue
+				}
+				if input[i] == '\\' && i+1 < len(input) && input[i+1] == '$' {
+					operand += "$"
+					i += 2
+					continue
+				}
+				operand += string(input[i])
+				i++
+			}
+
+			expandedName := expandExpressionImpl(varName, depth+1)
+			envVal, exists := os.LookupEnv(expandedName)
+
+			if op == '-' {
+				// ${VAR:-default}: use env value if set and non-empty, otherwise use default
+				if exists && envVal != "" {
+					return envVal, i
+				}
+				return expandExpressionImpl(operand, depth+1), i
+			}
+			// ${VAR:+word}: use word if env is set and non-empty, otherwise empty
+			if exists && envVal != "" {
+				return expandExpressionImpl(operand, depth+1), i
+			}
+			return "", i
+		}
+
+		varName += string(input[i])
+		i++
+	}
+
+	// No matching '}' found — return literal
+	return "${" + varName, i
+}
+
+// expandExpressionImpl performs recursive expression expansion on the input string.
+func expandExpressionImpl(input string, depth int) string {
+	if depth > maxExpressionDepth {
+		return input
+	}
+
+	var result strings.Builder
+	result.Grow(len(input))
+	i := 0
+
+	for i < len(input) {
+		// Escaped dollar sign: \$ -> literal $
+		if input[i] == '\\' && i+1 < len(input) && input[i+1] == '$' {
+			result.WriteByte('$')
+			i += 2
+			continue
+		}
+
+		if input[i] == '$' {
+			// Braced expression: ${...}
+			if i+1 < len(input) && input[i+1] == '{' {
+				expanded, consumed := expandBracedExpression(input[i+2:], depth)
+				result.WriteString(expanded)
+				i += 2 + consumed
+				continue
+			}
+
+			// Unbraced variable: $variable_name (POSIX standard: [a-zA-Z_][a-zA-Z0-9_]*)
+			// For extended characters (dot, hyphen, slash etc.), use the braced ${VAR} form.
+			start := i + 1
+			if start < len(input) && (input[start] == '_' || (input[start] >= 'a' && input[start] <= 'z') ||
+				(input[start] >= 'A' && input[start] <= 'Z')) {
+				end := start + 1
+				for end < len(input) && (input[end] == '_' ||
+					(input[end] >= 'a' && input[end] <= 'z') ||
+					(input[end] >= 'A' && input[end] <= 'Z') || (input[end] >= '0' && input[end] <= '9')) {
+					end++
+				}
+
+				if end > start {
+					varName := input[start:end]
+					envVal, exists := os.LookupEnv(varName)
+					if exists {
+						result.WriteString(envVal)
+					}
+					i = end
+					continue
+				}
+			}
+
+			// Lone '$' at end or followed by non-identifier char
+			result.WriteByte('$')
+			i++
+			continue
+		}
+
+		result.WriteByte(input[i])
+		i++
+	}
+
+	return result.String()
+}
+
+// ExpandExpression expands environment variable expressions in the input string.
+// Supports $VAR, ${VAR}, ${VAR:-default}, ${VAR:+word}, \$ escape, and nested expressions.
+func ExpandExpression(input string) string {
+	return expandExpressionImpl(input, 0)
+}
+
+// expandExpressionIfEnabled expands expressions in a string value if the field
+// has enable_expression set to true in its CONFIGURE field option.
+func expandExpressionIfEnabled(value string, fd protoreflect.FieldDescriptor) string {
+	if value == "" || fd == nil {
+		return value
+	}
+
+	confMeta := proto.GetExtension(fd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta)
+	if confMeta == nil || !confMeta.GetEnableExpression() {
+		return value
+	}
+
+	return ExpandExpression(value)
+}
+
+// expandExpressionForMapField expands expressions in a string value if the
+// parent map field has enable_expression set to true in its CONFIGURE option.
+// Map keys and values don't carry their own field options, so we check the parent.
+func expandExpressionForMapField(value string, parentFd protoreflect.FieldDescriptor) string {
+	if value == "" || parentFd == nil {
+		return value
+	}
+
+	confMeta := proto.GetExtension(parentFd.Options(), atframe_protocol.E_CONFIGURE).(*atframe_protocol.AtappConfigureMeta)
+	if confMeta == nil || !confMeta.GetEnableExpression() {
+		return value
+	}
+
+	return ExpandExpression(value)
+}
+
 // skipSpace 跳过字符串中的空白字符
 func skipSpace(str string) string {
 	return strings.TrimSpace(str)
@@ -634,7 +836,8 @@ func convertField(inputData interface{}, minData interface{}, maxData interface{
 		if v, ok := inputData.(string); ok {
 			return protoreflect.ValueOfString(v), nil
 		}
-		return protoreflect.Value{}, fmt.Errorf("expected string, got %T", inputData)
+		// Convert non-string types (e.g., int from YAML) to string
+		return protoreflect.ValueOfString(fmt.Sprintf("%v", inputData)), nil
 
 	case protoreflect.FloatKind:
 		if v, ok := inputData.(float32); ok {
@@ -681,6 +884,13 @@ func pickSizeMode(value interface{}) (uint64, error) {
 
 // 从一个Field内读出数据 非Message 且为最底层 嵌套终点
 func parseField(inputData interface{}, fd protoreflect.FieldDescriptor, logger *log.Logger) (protoreflect.Value, error) {
+	// Apply expression expansion if enable_expression is set on this field
+	if inputData != nil {
+		if strVal, ok := inputData.(string); ok && strVal != "" {
+			inputData = expandExpressionIfEnabled(strVal, fd)
+		}
+	}
+
 	// 获取最大最小值
 	var minValue interface{}
 	var maxValue interface{}
@@ -888,14 +1098,26 @@ func ParsePlainMessage(yamlData map[string]interface{}, msg proto.Message, logge
 				continue
 			}
 			innerMap, ok := yamlData[fieldName].(map[string]interface{})
+			if !ok {
+				// Try JSON name
+				jsonName := fd.JSONName()
+				innerMap, ok = yamlData[string(jsonName)].(map[string]interface{})
+			}
 			if ok {
-				// 这边需要循环Value
+				// 这边需要循环Value, 对map字段的key和value应用表达式展开
 				for k, v := range innerMap {
-					keyValue, err := parseField(k, fd.MapKey(), logger)
+					// Expand expressions on map key (string) if parent field has enable_expression
+					expandedKey := expandExpressionForMapField(k, fd)
+					keyValue, err := parseField(expandedKey, fd.MapKey(), logger)
 					if err != nil {
 						return err
 					}
-					valueValue, err := parseField(v, fd.MapValue(), logger)
+					// Expand expressions on map value (non-message) if parent field has enable_expression
+					expandedVal := v
+					if strVal, ok := v.(string); ok {
+						expandedVal = expandExpressionForMapField(strVal, fd)
+					}
+					valueValue, err := parseField(expandedVal, fd.MapValue(), logger)
 					if err != nil {
 						return err
 					}
@@ -1099,15 +1321,22 @@ func dumpYamlIntoMessageFieldItem(yamlData map[string]interface{}, dst proto.Mes
 		nextMapExistedKeyIndex := 0
 		// 这边需要循环Value
 		for k, v := range innerMap {
+			// Expand expressions in map keys and values using the parent map field's enable_expression option
+			expandedK := expandExpressionForMapField(k, fd)
+			expandedV := v
+			if strV, ok := v.(string); ok {
+				expandedV = expandExpressionForMapField(strV, fd)
+			}
+
 			mapExistedKeyIndex := nextMapExistedKeyIndex
 			newKey := createEmptyMapKey(fd)
 			newValue := mapField.NewValue()
 
-			hasKey := dumpYamlIntoMessageFieldValue(k, &newKey, fd.MapKey(), logger, loadOptions, dumpExistedSet,
+			hasKey := dumpYamlIntoMessageFieldValue(expandedK, &newKey, fd.MapKey(), logger, loadOptions, dumpExistedSet,
 				fmt.Sprintf("%s%s.%d.key.", existedSetPrefix, fd.Name(), mapExistedKeyIndex))
 			hasValue := false
 			if hasKey {
-				hasValue = dumpYamlIntoMessageFieldValue(v, &newValue, fd.MapValue(), logger, loadOptions, dumpExistedSet,
+				valueOk = dumpYamlIntoMessageFieldValue(expandedV, &newValue, fd.MapValue(), logger, loadOptions, dumpExistedSet,
 					fmt.Sprintf("%s%s.%d.value.", existedSetPrefix, fd.Name(), mapExistedKeyIndex))
 			}
 			if !hasKey || !hasValue {
@@ -1379,7 +1608,7 @@ func GetEnvUpperKey(key string) string {
 }
 
 func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
-	logger *log.Logger,
+	logger *log.Logger, expressionParentFds ...protoreflect.FieldDescriptor,
 ) bool {
 	if fd == nil || dst == nil {
 		return false
@@ -1388,6 +1617,12 @@ func dumpEnvironemntIntoMessageFieldValueBasic(envPrefix string, dst *protorefle
 	envVal := GetEnvUpperKey(envPrefix)
 	if envVal == "" {
 		return false
+	}
+
+	// For map key/value fields, expression expansion needs the parent map field descriptor
+	// because the enable_expression option is on the parent map field, not on sub-fields.
+	for _, parentFd := range expressionParentFds {
+		envVal = expandExpressionForMapField(envVal, parentFd)
 	}
 
 	var err error
@@ -1433,6 +1668,23 @@ func dumpEnvironemntIntoMessageFieldValue(envPrefix string, dst *protoreflect.Va
 	}
 }
 
+// dumpEnvironemntIntoMapSubFieldValue loads a map key or value from environment variables,
+// with expression expansion using the parent map field descriptor's enable_expression option.
+func dumpEnvironemntIntoMapSubFieldValue(envPrefix string, dst *protoreflect.Value, fd protoreflect.FieldDescriptor,
+	parentMapFd protoreflect.FieldDescriptor, logger *log.Logger, loadOptions *LoadConfigOptions,
+	dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
+) bool {
+	if fd == nil || dst == nil {
+		return false
+	}
+
+	// For non-message map key/value fields, use expression expansion with parent fd
+	if fd.Kind() != protoreflect.MessageKind {
+		return dumpEnvironemntIntoMessageFieldValueBasic(envPrefix, dst, fd, logger, parentMapFd)
+	}
+	return dumpEnvironemntIntoMessageFieldValue(envPrefix, dst, fd, logger, loadOptions, dumpExistedSet, existedSetPrefix)
+}
+
 func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd protoreflect.FieldDescriptor,
 	logger *log.Logger, loadOptions *LoadConfigOptions, dumpExistedSet *ConfigExistedIndex, existedSetPrefix string,
 ) bool {
@@ -1456,12 +1708,12 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 		for i := 0; ; i++ {
 			newKey := createEmptyMapKey(fd)
 			newValue := mapField.NewValue()
-			hasKey := dumpEnvironemntIntoMessageFieldValue(
-				fmt.Sprintf("%s_%d_KEY", envKeyPrefix, i), &newKey, fd.MapKey(), logger, loadOptions, dumpExistedSet,
+			hasKey := dumpEnvironemntIntoMapSubFieldValue(
+				fmt.Sprintf("%s_%d_KEY", envKeyPrefix, i), &newKey, fd.MapKey(), fd, logger, loadOptions, dumpExistedSet,
 				fmt.Sprintf("%s%s.%d.key.", existedSetPrefix, fd.Name(), i))
 			if hasKey {
-				hasValue = dumpEnvironemntIntoMessageFieldValue(
-					fmt.Sprintf("%s_%d_VALUE", envKeyPrefix, i), &newValue, fd.MapValue(), logger, loadOptions, dumpExistedSet,
+				hasValue = dumpEnvironemntIntoMapSubFieldValue(
+					fmt.Sprintf("%s_%d_VALUE", envKeyPrefix, i), &newValue, fd.MapValue(), fd, logger, loadOptions, dumpExistedSet,
 					fmt.Sprintf("%s%s.%d.value.", existedSetPrefix, fd.Name(), i))
 			}
 			if hasKey && hasValue {
@@ -1483,12 +1735,12 @@ func dumpEnvironemntIntoMessageFieldItem(envPrefix string, dst proto.Message, fd
 		if !hasValue {
 			newKey := createEmptyMapKey(fd)
 			newValue := mapField.NewValue()
-			hasKey := dumpEnvironemntIntoMessageFieldValue(
-				fmt.Sprintf("%s_KEY", envKeyPrefix), &newKey, fd.MapKey(), logger, loadOptions,
+			hasKey := dumpEnvironemntIntoMapSubFieldValue(
+				fmt.Sprintf("%s_KEY", envKeyPrefix), &newKey, fd.MapKey(), fd, logger, loadOptions,
 				dumpExistedSet, fmt.Sprintf("%s%s.%d.key.", existedSetPrefix, fd.Name(), 0))
 			if hasKey {
-				hasValue = dumpEnvironemntIntoMessageFieldValue(
-					fmt.Sprintf("%s_VALUE", envKeyPrefix), &newValue, fd.MapValue(), logger, loadOptions,
+				hasValue = dumpEnvironemntIntoMapSubFieldValue(
+					fmt.Sprintf("%s_VALUE", envKeyPrefix), &newValue, fd.MapValue(), fd, logger, loadOptions,
 					dumpExistedSet, fmt.Sprintf("%s%s.%d.value.", existedSetPrefix, fd.Name(), 0))
 			}
 			if hasKey && hasValue {
