@@ -13,6 +13,35 @@ import (
 	types "github.com/atframework/libatbus-go/types"
 )
 
+// Golang暂不支持单工通道
+func buildSupportedChannelSchemes() map[string]struct{} {
+	ret := make(map[string]struct{})
+	ret["dns"] = struct{}{}
+	ret["ipv4"] = struct{}{}
+	ret["ipv6"] = struct{}{}
+	ret["atcp"] = struct{}{}
+	ret["unix"] = struct{}{}
+	ret["pipe"] = struct{}{}
+	return ret
+}
+
+var _supportedChannelSchemes map[string]struct{} = nil
+
+func getSupportedChannelSchemes() map[string]struct{} {
+	if _supportedChannelSchemes == nil {
+		_supportedChannelSchemes = buildSupportedChannelSchemes()
+	}
+	return _supportedChannelSchemes
+}
+
+func getConnectionBinding(conn types.Connection) types.Endpoint {
+	if conn == nil {
+		return nil
+	}
+
+	return getConnectionBinding(conn)
+}
+
 // This file is a Go port of the core helpers in atframework/libatbus
 // `atbus_message_handler.cpp`.
 //

@@ -48,8 +48,9 @@ func NewIoStreamChannel(ctx context.Context, conf *IoStreamConfigure) *IoStreamC
 
 // Listen starts listening on the specified address.
 // Supported address formats:
-//   - ipv4://host:port - IPv4 TCP
-//   - ipv6://host:port - IPv6 TCP
+//   - ipv4://host:port - IPv4/IPv6 TCP
+//   - ipv6://host:port - IPv4/IPv6 TCP
+//   - atcp://host:port - IPv4/IPv6 TCP
 //   - dns://host:port - DNS resolved TCP
 //   - unix://path - Unix domain socket
 //   - pipe://path - Named pipe (same as unix)
@@ -495,10 +496,12 @@ func (c *IoStreamChannel) resolveAddress(addr *channel_utility.ChannelAddress) (
 	scheme := strings.ToLower(addr.Scheme)
 
 	switch scheme {
-	case "ipv4":
-		return "tcp4", fmt.Sprintf("%s:%d", addr.Host, addr.Port)
-	case "ipv6":
-		return "tcp6", fmt.Sprintf("[%s]:%d", addr.Host, addr.Port)
+	case "atcp", "ipv4", "ipv6":
+		if strings.Contains(addr.Host, ":") {
+			return "tcp6", fmt.Sprintf("[%s]:%d", addr.Host, addr.Port)
+		} else {
+			return "tcp4", fmt.Sprintf("%s:%d", addr.Host, addr.Port)
+		}
 	case "dns":
 		// DNS uses regular TCP, Go's net package handles DNS resolution
 		return "tcp", fmt.Sprintf("%s:%d", addr.Host, addr.Port)

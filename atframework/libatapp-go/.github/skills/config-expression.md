@@ -15,7 +15,7 @@ libatapp-go 的配置加载系统支持从 YAML 文件和环境变量两个来�
 atapp:
   id: "0x00001234"
   bus:
-    listen: "ipv6://:::21437"
+    listen: "atcp://:::21437"
     gateways:
       - address: "tcp://0.0.0.0:8080"
         match_labels:
@@ -32,7 +32,7 @@ atapp:
 ```bash
 # 标量字段
 ATAPP_ID=0x00001234
-ATAPP_BUS_LISTEN=ipv6://:::21437
+ATAPP_BUS_LISTEN=atcp://:::21437
 
 # 数组字段（下标从 0 开始）
 ATAPP_BUS_GATEWAYS_0_ADDRESS=tcp://0.0.0.0:8080
@@ -77,7 +77,7 @@ ATAPP_BUS_GATEWAYS_0_MATCH_LABELS_0_VALUE=us-east-1
 ```yaml
 atapp:
   bus:
-    listen: "${BUS_LISTEN:-ipv6://:::21437}"
+    listen: "${BUS_LISTEN:-atcp://:::21437}"
     gateways:
       - address: "${GATEWAY_PROTO:-https}://${GATEWAY_HOST}:${GATEWAY_PORT:-443}"
         match_namespaces:

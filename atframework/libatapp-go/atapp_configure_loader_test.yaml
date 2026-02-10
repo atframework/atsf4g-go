@@ -10,7 +10,15 @@ atapp:
       deployment.region: cn
 
   bus:
-    listen: "ipv6://:::21437"
+    gateways:
+      # Gateway with conditional word (:+) expression
+      - address: "${EXPR_LOADER_COND_SET:+tcp://active-host:8080}"
+        match_namespaces:
+          - "${EXPR_LOADER_COND_SET:+active-ns}"
+          - "${EXPR_LOADER_COND_UNSET:+inactive-ns}"
+        match_labels:
+          "${EXPR_LOADER_COND_SET:+status}": "${EXPR_LOADER_COND_SET:+val-${EXPR_LOADER_COND_SET}}"
+    listen: "atcp://:::21437"
     proxy: ""
     backlog: 256
     access_token_max_number: 5

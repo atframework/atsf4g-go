@@ -649,8 +649,14 @@ func TestIsLocalHostAddressTableDriven(t *testing.T) {
 		{"ipv4 loopback with port", "ipv4://127.0.0.1:8080", true},
 		{"ipv6 loopback", "ipv6://::1", true},
 		{"ipv6 loopback with port", "ipv6://::1:8080", true},
+		{"atcp ipv4 loopback", "atcp://127.0.0.1", true},
+		{"atcp ipv4 loopback with port", "atcp://127.0.0.1:8080", true},
+		{"atcp ipv6 loopback", "atcp://::1", true},
+		{"atcp ipv6 loopback with port", "atcp://::1:8080", true},
 		{"ipv4 remote 2", "ipv4://192.168.1.1:8080", false},
 		{"ipv4 remote", "ipv4://10.0.0.1:80", false},
+		{"atcp ipv4 remote 2", "atcp://192.168.1.1:8080", false},
+		{"atcp ipv4 remote", "atcp://10.0.0.1:80", false},
 	}
 
 	for _, tt := range tests {

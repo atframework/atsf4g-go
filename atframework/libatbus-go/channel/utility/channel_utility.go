@@ -111,7 +111,7 @@ func IsSimplexAddress(in string) bool {
 }
 
 // IsLocalHostAddress checks if the address refers to the local host.
-// Local host addresses include: mem:, shm:, unix:, pipe:, ipv4://127.0.0.1, ipv6://::1
+// Local host addresses include: mem:, shm:, unix:, pipe:, atcp://127.0.0.1, atcp://::1, ipv4://127.0.0.1, ipv6://::1
 func IsLocalHostAddress(in string) bool {
 	if in == "" {
 		return false
@@ -137,14 +137,17 @@ func IsLocalHostAddress(in string) bool {
 		}
 	}
 
-	// Check for ipv4://127.0.0.1
-	if len(lowerIn) >= 16 && lowerIn[:16] == "ipv4://127.0.0.1" {
-		return true
-	}
-
-	// Check for ipv6://::1
-	if len(lowerIn) >= 10 && lowerIn[:10] == "ipv6://::1" {
-		return true
+	// Check for atcp/ipv4/ipv6://127.0.0.1 or atcp/ipv4/ipv6://::1
+	if len(lowerIn) >= 10 && (lowerIn[:5] == "atcp:" || lowerIn[:5] == "ipv4:" || lowerIn[:5] == "ipv6:") {
+		rest := lowerIn[7:] // skip "xxxx://"
+		for _, loopback := range []string{"127.0.0.1", "::1"} {
+			if strings.HasPrefix(rest, loopback) {
+				remaining := rest[len(loopback):]
+				if remaining == "" || remaining[0] == ':' {
+					return true
+				}
+			}
+		}
 	}
 
 	return false

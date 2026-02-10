@@ -150,7 +150,7 @@ func verifyBusConfig(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 		return
 	}
 
-	assert.Equal([]string{"ipv6://:::21437"}, bus.GetListen(), "bus.listen should contain single endpoint")
+	assert.Equal([]string{"atcp://:::21437"}, bus.GetListen(), "bus.listen should contain single endpoint")
 	assert.Equal("", bus.GetProxy(), "bus.proxy should be empty string")
 	assert.Equal(int32(256), bus.GetBacklog(), "bus.backlog should match")
 	assert.Equal(uint64(5), bus.GetAccessTokenMaxNumber(), "bus.access_token_max_number should match")
@@ -394,6 +394,10 @@ func verifyEtcdLogConfigExistedIndex(t *testing.T, existedEtcdKeys *ConfigExiste
 
 // TestConfigManagementFromYaml 测试从 YAML 文件加载配置
 func TestConfigManagementFromYaml(t *testing.T) {
+	// Set env vars needed by expression gateways in YAML
+	os.Setenv("EXPR_LOADER_COND_SET", "active-value")
+	defer os.Unsetenv("EXPR_LOADER_COND_SET")
+
 	app := CreateAppInstance().(*AppInstance)
 	config := app.GetConfig()
 
@@ -419,6 +423,11 @@ func TestConfigManagementFromYaml(t *testing.T) {
 	// 运行所有验证，包括 metadata（YAML 支持 map 类型）
 	runConfigVerification(t, cfg, logCfg, true)
 	verifyAppConfigExistedIndex(t, existedAppKeys)
+
+	// 验证 :+ 表达式 gateway（与 env 测试共享验证代码）
+	t.Run("loader gateways", func(t *testing.T) {
+		verifyLoaderConditionalWordGateway(t, cfg.GetBus().GetGateways())
+	})
 
 	// 验证key存在索引
 	existedEtcdKeys := CreateConfigExistedIndex()
@@ -527,9 +536,14 @@ func TestConfigManagementFromEnvironment(t *testing.T) {
 		t.Fatalf("log config proto should be initialized after LoadConfig")
 	}
 
-	// 运行环境变量配置验证（包含完整的 log 验证）
+	// 运行环境变量配置验证（与 YAML 测试共享基础验证代码）
 	runConfigVerificationForEnv(t, cfg, logCfg)
 	verifyAppConfigExistedIndex(t, existedAppKeys)
+
+	// 验证 :+ 表达式 gateway（与 YAML 测试共享验证代码）
+	t.Run("loader gateways", func(t *testing.T) {
+		verifyLoaderConditionalWordGateway(t, cfg.GetBus().GetGateways())
+	})
 
 	// 验证key存在索引
 	existedEtcdKeys := CreateConfigExistedIndex()
@@ -789,6 +803,100 @@ func TestExpandExpressionDepthLimit(t *testing.T) {
 	assert.NotEmpty(result, "deeply nested expression should not panic and return a result")
 }
 
+// =========================================================================================
+// Shared gateway verification functions
+// =========================================================================================
+
+// verifyExpressionGateways verifies expression expansion in all 4 gateway configs.
+// Used by both TestExpandExpressionInConfigYaml and TestExpandExpressionInConfigEnv.
+func verifyExpressionGateways(t *testing.T, gateways []*atframe_protocol.AtappGateway) {
+	t.Helper()
+
+	if !assert.New(t).GreaterOrEqual(len(gateways), 4, "should have at least 4 gateways for expression tests") {
+		return
+	}
+
+	t.Run("gateway 0 basic expression", func(t *testing.T) {
+		assert := assert.New(t)
+		gw := gateways[0]
+		assert.Equal("https://example.com:8443", gw.GetAddress(),
+			"gateway address should be expanded from ${EXPR_TEST_PROTOCOL}://${EXPR_TEST_HOST}:${EXPR_TEST_PORT}")
+
+		ns := gw.GetMatchNamespaces()
+		if assert.GreaterOrEqual(len(ns), 2) {
+			assert.Equal("custom-namespace", ns[0], "namespace should be resolved from EXPR_TEST_NAMESPACE")
+			assert.Equal("fallback-namespace", ns[1], "namespace should use default (EXPR_TEST_MISSING_NS not set)")
+		}
+
+		labels := gw.GetMatchLabels()
+		assert.Equal("staging", labels["environment"],
+			"label key 'environment' (from EXPR_TEST_LABEL_KEY) with value 'staging' (from EXPR_TEST_LABEL_VAL)")
+		assert.Equal("us-west-2", labels["region"],
+			"region label value should be expanded from EXPR_TEST_REGION")
+	})
+
+	t.Run("gateway 1 default expression", func(t *testing.T) {
+		assert := assert.New(t)
+		assert.Equal("tcp://0.0.0.0:8080", gateways[1].GetAddress(),
+			"gateway address should use default when EXPR_TEST_GATEWAY_ADDR is not set")
+	})
+
+	t.Run("gateway 2 multi-level nested default", func(t *testing.T) {
+		assert := assert.New(t)
+		gw := gateways[2]
+		assert.Equal("http://localhost:9090", gw.GetAddress(),
+			"multi-level nested defaults should resolve to deepest fallback values")
+
+		labels := gw.GetMatchLabels()
+		assert.Equal("backend", labels["tier"],
+			"multi-level nested default label key/value should resolve to deepest defaults")
+	})
+
+	t.Run("gateway 3 conditional word :+", func(t *testing.T) {
+		assert := assert.New(t)
+		gw := gateways[3]
+		assert.Equal("secure://example.com:8443", gw.GetAddress(),
+			"conditional word :+ should expand to word when var is set, empty when unset")
+
+		ns := gw.GetMatchNamespaces()
+		if assert.GreaterOrEqual(len(ns), 2) {
+			assert.Equal("ns-when-set", ns[0], ":+ should expand to word when variable is set")
+			assert.Equal("", ns[1], ":+ should expand to empty when variable is not set")
+		}
+
+		labels := gw.GetMatchLabels()
+		assert.Equal("val-staging", labels["region-active"],
+			":+ should expand label key and value, including nested expression in word")
+	})
+}
+
+// verifyLoaderConditionalWordGateway verifies the :+ expression gateway in loader tests.
+// Used by both TestConfigManagementFromYaml and TestConfigManagementFromEnvironment.
+func verifyLoaderConditionalWordGateway(t *testing.T, gateways []*atframe_protocol.AtappGateway) {
+	t.Helper()
+
+	if !assert.New(t).GreaterOrEqual(len(gateways), 1, "should have at least 1 gateway for loader :+ test") {
+		return
+	}
+
+	t.Run("conditional word :+ gateway", func(t *testing.T) {
+		assert := assert.New(t)
+		gw := gateways[0]
+		assert.Equal("tcp://active-host:8080", gw.GetAddress(),
+			":+ should expand to word when variable is set")
+
+		ns := gw.GetMatchNamespaces()
+		if assert.GreaterOrEqual(len(ns), 2) {
+			assert.Equal("active-ns", ns[0], ":+ should expand to word when variable is set")
+			assert.Equal("", ns[1], ":+ should expand to empty when variable is not set")
+		}
+
+		labels := gw.GetMatchLabels()
+		assert.Equal("val-active-value", labels["status"],
+			":+ should expand key and value, including nested expression in word")
+	})
+}
+
 // TestExpandExpressionInConfigYaml tests expression expansion in actual config loading from YAML.
 func TestExpandExpressionInConfigYaml(t *testing.T) {
 	// Arrange: set environment variables used in expression test yaml
@@ -822,132 +930,28 @@ func TestExpandExpressionInConfigYaml(t *testing.T) {
 	if cfg == nil {
 		t.Fatalf("config proto should be initialized after LoadConfig")
 	}
+	logCfg := app.config.ConfigLog
+	if logCfg == nil {
+		t.Fatalf("log config proto should be initialized after LoadConfig")
+	}
 
-	// Assert: verify expression expansion in gateway config
-	t.Run("gateway address expression", func(t *testing.T) {
-		assert := assert.New(t)
-		bus := cfg.GetBus()
-		if !assert.NotNil(bus, "bus config should not be nil") {
-			return
-		}
-		gateways := bus.GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 1, "should have at least one gateway") {
-			return
-		}
+	// Assert: verify base config (shared with loader tests)
+	runConfigVerification(t, cfg, logCfg, true)
 
-		// First gateway: address should be expanded from ${EXPR_TEST_PROTOCOL}://${EXPR_TEST_HOST}:${EXPR_TEST_PORT}
-		assert.Equal("https://example.com:8443", gateways[0].GetAddress(),
-			"gateway address should be expanded from expression")
-	})
-
-	t.Run("gateway match_namespaces expression", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 1) {
-			return
-		}
-
-		ns := gateways[0].GetMatchNamespaces()
-		if assert.GreaterOrEqual(len(ns), 2, "should have at least 2 namespaces") {
-			assert.Equal("custom-namespace", ns[0], "first namespace should be resolved from EXPR_TEST_NAMESPACE")
-			assert.Equal("fallback-namespace", ns[1], "second namespace should use default (EXPR_TEST_MISSING_NS not set)")
-		}
-	})
-
-	t.Run("gateway match_labels expression", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 1) {
-			return
-		}
-
-		labels := gateways[0].GetMatchLabels()
-		// Keys and values should be expanded
-		assert.Equal("staging", labels["environment"],
-			"label key 'environment' (from EXPR_TEST_LABEL_KEY) with value 'staging' (from EXPR_TEST_LABEL_VAL)")
-		assert.Equal("us-west-2", labels["region"],
-			"region label value should be expanded from EXPR_TEST_REGION")
-	})
-
-	t.Run("gateway default address expression", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 2) {
-			return
-		}
-
-		// Second gateway uses ${EXPR_TEST_GATEWAY_ADDR:-tcp://0.0.0.0:8080}
-		// EXPR_TEST_GATEWAY_ADDR is not set, so default should be used
-		assert.Equal("tcp://0.0.0.0:8080", gateways[1].GetAddress(),
-			"gateway address should use default when env var is not set")
-	})
-
-	t.Run("multi-level nested default address in yaml", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 3, "should have at least 3 gateways") {
-			return
-		}
-
-		// Third gateway: ${EXPR_TEST_DEEP_PROTO:-${EXPR_TEST_DEEP_FALLBACK:-http}}://...
-		// All EXPR_TEST_DEEP_* vars are unset, so deepest defaults should be used
-		assert.Equal("http://localhost:9090", gateways[2].GetAddress(),
-			"multi-level nested defaults should resolve to deepest fallback values")
-	})
-
-	t.Run("multi-level nested default labels in yaml", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 3) {
-			return
-		}
-
-		labels := gateways[2].GetMatchLabels()
-		// Key: ${EXPR_TEST_DEEP_LKEY:-${EXPR_TEST_DEEP_LKEY_FB:-tier}} -> "tier"
-		// Value: ${EXPR_TEST_DEEP_LVAL:-${EXPR_TEST_DEEP_LVAL_FB:-backend}} -> "backend"
-		assert.Equal("backend", labels["tier"],
-			"multi-level nested default label key and value should resolve to deepest defaults")
-	})
-
-	t.Run("bus listen expression", func(t *testing.T) {
-		assert := assert.New(t)
-		bus := cfg.GetBus()
-		if !assert.NotNil(bus) {
-			return
-		}
-		assert.Contains(bus.GetListen(), "ipv6://:::21437",
-			"bus listen should be expanded from EXPR_TEST_BUS_LISTEN")
+	// Assert: verify expression gateways (shared with env test)
+	t.Run("expression gateways", func(t *testing.T) {
+		verifyExpressionGateways(t, cfg.GetBus().GetGateways())
 	})
 }
 
 // TestExpandExpressionInConfigEnv tests expression expansion when loading config from environment variables.
 func TestExpandExpressionInConfigEnv(t *testing.T) {
-	// Arrange: set up env vars for expression test
-	envVars := map[string]string{
-		// Expression variables
-		"EXPR_ENV_HOST": "env-host.example.com",
-		"EXPR_ENV_PORT": "9443",
-
-		// Gateway config using expressions
-		"ATAPP_BUS_GATEWAYS_0_ADDRESS":              "${EXPR_ENV_HOST}:${EXPR_ENV_PORT}",
-		"ATAPP_BUS_GATEWAYS_0_MATCH_NAMESPACES_0":   "${EXPR_ENV_NS:-default-env-ns}",
-		"ATAPP_BUS_GATEWAYS_0_MATCH_LABELS_0_KEY":   "env-key",
-		"ATAPP_BUS_GATEWAYS_0_MATCH_LABELS_0_VALUE": "${EXPR_ENV_LABEL:-env-label-default}",
-
-		// Second gateway: multi-level nested default expressions ${OUTER:-${INNER:-default}}
-		"ATAPP_BUS_GATEWAYS_1_ADDRESS":              "${EXPR_ENV_DEEP_ADDR:-${EXPR_ENV_DEEP_FB_ADDR:-ws://fallback:7070}}",
-		"ATAPP_BUS_GATEWAYS_1_MATCH_NAMESPACES_0":   "${EXPR_ENV_DEEP_NS:-${EXPR_ENV_DEEP_FB_NS:-deep-fallback-ns}}",
-		"ATAPP_BUS_GATEWAYS_1_MATCH_LABELS_0_KEY":   "${EXPR_ENV_DEEP_LKEY:-${EXPR_ENV_DEEP_FB_LKEY:-service}}",
-		"ATAPP_BUS_GATEWAYS_1_MATCH_LABELS_0_VALUE": "${EXPR_ENV_DEEP_LVAL:-${EXPR_ENV_DEEP_FB_LVAL:-gateway}}",
+	// Arrange: load env file (expression variables + ATAPP_* config with expressions)
+	envKeys, err := loadEnvFile("atapp_configure_expression_test.env.txt")
+	if err != nil {
+		t.Fatalf("Failed to load env file: %v", err)
 	}
-	for k, v := range envVars {
-		os.Setenv(k, v)
-	}
-	defer func() {
-		for k := range envVars {
-			os.Unsetenv(k)
-		}
-	}()
+	defer clearEnvVars(envKeys)
 
 	app := CreateAppInstance().(*AppInstance)
 
@@ -961,88 +965,28 @@ func TestExpandExpressionInConfigEnv(t *testing.T) {
 	if cfg == nil {
 		t.Fatalf("config proto should be initialized after LoadConfig")
 	}
+	logCfg := app.config.ConfigLog
+	if logCfg == nil {
+		t.Fatalf("log config proto should be initialized after LoadConfig")
+	}
 
-	// Assert
-	t.Run("env gateway address expression", func(t *testing.T) {
-		assert := assert.New(t)
-		bus := cfg.GetBus()
-		if !assert.NotNil(bus, "bus config should not be nil") {
-			return
-		}
-		gateways := bus.GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 1, "should have at least one gateway") {
-			return
-		}
+	// Assert: verify base config (shared with loader tests)
+	runConfigVerificationForEnv(t, cfg, logCfg)
 
-		assert.Equal("env-host.example.com:9443", gateways[0].GetAddress(),
-			"gateway address should be expanded from env expression")
+	// Assert: verify expression gateways (shared with yaml test)
+	t.Run("expression gateways", func(t *testing.T) {
+		verifyExpressionGateways(t, cfg.GetBus().GetGateways())
 	})
 
-	t.Run("env gateway namespace default", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 1) {
-			return
-		}
-
-		ns := gateways[0].GetMatchNamespaces()
-		if assert.GreaterOrEqual(len(ns), 1) {
-			assert.Equal("default-env-ns", ns[0],
-				"namespace should use default value since EXPR_ENV_NS is not set")
-		}
-	})
-
-	t.Run("env gateway label expression", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 1) {
-			return
-		}
-
-		labels := gateways[0].GetMatchLabels()
-		assert.Equal("env-label-default", labels["env-key"],
-			"label value should use default since EXPR_ENV_LABEL is not set")
-	})
-
-	t.Run("env multi-level nested default address", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 2, "should have at least 2 gateways") {
-			return
-		}
-
-		// All EXPR_ENV_DEEP_* vars are unset, so deepest defaults should be used
-		assert.Equal("ws://fallback:7070", gateways[1].GetAddress(),
-			"multi-level nested default address should resolve to deepest fallback")
-	})
-
-	t.Run("env multi-level nested default namespace", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 2) {
-			return
-		}
-
-		ns := gateways[1].GetMatchNamespaces()
-		if assert.GreaterOrEqual(len(ns), 1) {
-			assert.Equal("deep-fallback-ns", ns[0],
-				"multi-level nested default namespace should resolve to deepest fallback")
-		}
-	})
-
-	t.Run("env multi-level nested default labels", func(t *testing.T) {
-		assert := assert.New(t)
-		gateways := cfg.GetBus().GetGateways()
-		if !assert.GreaterOrEqual(len(gateways), 2) {
-			return
-		}
-
-		labels := gateways[1].GetMatchLabels()
-		// Key: ${EXPR_ENV_DEEP_LKEY:-${EXPR_ENV_DEEP_FB_LKEY:-service}} -> "service"
-		// Value: ${EXPR_ENV_DEEP_LVAL:-${EXPR_ENV_DEEP_FB_LVAL:-gateway}} -> "gateway"
-		assert.Equal("gateway", labels["service"],
-			"multi-level nested default label key/value should resolve to deepest fallback")
-	})
+	// Verify separate path loading (shared with loader env test)
+	existedEtcdKeys := CreateConfigExistedIndex()
+	existedLogKeys := CreateConfigExistedIndex()
+	etcdCfg := &atframe_protocol.AtappEtcd{}
+	logsCfg := &atframe_protocol.AtappLog{}
+	app.LoadConfigByPath(etcdCfg, "atapp.etcd", "ATAPP_ETCD", existedEtcdKeys, "")
+	app.LoadLogConfigByPath(logsCfg, "atapp.log", "ATAPP_LOG", existedLogKeys, "")
+	verifyEtcdConfig(t, etcdCfg)
+	verifyLogConfig(t, logsCfg)
 }
 
 // TestExpandExpressionCombinedOperators tests combinations of operators in expressions.
