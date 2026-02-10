@@ -6,6 +6,7 @@ replace github.com/atframework/atframe-utils-go => ../atframe-utils-go
 
 require (
 	github.com/atframework/atframe-utils-go v0.0.0-00010101000000-000000000000
+	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.46.0
 	google.golang.org/protobuf v1.36.11
