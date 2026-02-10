@@ -372,8 +372,8 @@ tasks:
     desc: "Check and update build tools if needed"
     dir: "{{.TASKFILE_DIR}}"
     vars:
-      ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.3"}}'
-      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.2"}}'
+      ADTOOLS_VERSION: '{{.ENV_ADTOOLS_VERSION | default "1.0.5"}}'
+      XRESLOADER_VERSION: '{{.ENV_XRESLOADER_VERSION | default "2.23.4"}}'
     cmds:
       - task: build-prepare:atframe-utils:install-other-tools
         vars:
