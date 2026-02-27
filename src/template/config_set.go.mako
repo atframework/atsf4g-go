@@ -14,6 +14,8 @@ import time
 package atframework_component_config_generate_config
 
 import (
+	"hash/fnv"
+
 % for code_index in loader.code.indexes:
 	% if code_index.is_list() and len(code_index.sort_by) != 0:
 	"sort"
@@ -57,6 +59,7 @@ type ConfigSet${loader.get_go_pb_name()} struct {
     callBack ConfigCallback
 
     dataList []*${LoaderConfigExportPbName}
+	hashCodeVersion uint64
 
 % for code_index in loader.code.indexes:
 	% if code_index.is_vector():
@@ -97,7 +100,13 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) Init(configGroup *ConfigGr
 			}
 			configSet.mergeData(excelItemType.ToReadonly())
 		}
-		configSet.callBack.GetLogger().LogInfo("[EXCEL] ${loader.get_go_pb_name()} load success", "file", fileName, "row_size", len(configSet.dataList))
+
+		h := fnv.New64a()
+		h.Write([]byte(dataBlocks.GetHeader().GetHashCode()))
+		hashValue := h.Sum64()
+		configSet.hashCodeVersion ^= hashValue + 0x9e3779b9 + (configSet.hashCodeVersion << 6) + (configSet.hashCodeVersion >> 2)
+
+		configSet.callBack.GetLogger().LogInfo("[EXCEL] ${loader.get_go_pb_name()} load success", "file", fileName, "row_size", len(configSet.dataList), "hash_code_version", configSet.hashCodeVersion)
 	}
 	configSet.onDataLoaded()
     return nil
@@ -168,6 +177,10 @@ func (configSet *ConfigSet${loader.get_go_pb_name()}) onDataLoaded() {
 	}
 	% endif
 % endfor
+}
+
+func (configSet *ConfigSet${loader.get_go_pb_name()}) GetHashCodeVersion() uint64 {
+	return configSet.hashCodeVersion
 }
 
 % for code_index in loader.code.indexes:

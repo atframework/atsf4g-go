@@ -13,7 +13,7 @@
 
     <output_dir desc="输出目录，-o选项">{{.XRESCONV_BYTES_OUTPUT}}</output_dir>
     <data_src_dir desc="数据源目录，-d选项">{{.XRESCONV_EXECL_SRC}}</data_src_dir>
-    <!--<data_version desc="数据版本号，留空则自动生成">1.0.0.0</data_version>-->
+    <data_version desc="数据版本号，留空则自动生成">Ignore</data_version>
 
     <java_option desc="java选项-最大内存限制2GB">-Xmx2048m</java_option>
     <java_option desc="java选项-客户端模式">-client</java_option>
