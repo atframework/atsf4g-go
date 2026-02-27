@@ -442,7 +442,8 @@ func (m *UserBasicManager) Rename(ctx cd.AwaitableContext, newName string, expec
 
 	// 检查消耗
 	costItems := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetRenameCost()
-	if len(costItems) != 0 {
+	defaultName := m.GetOwner().GetAccountInfo().GetProfile().GetNickName() == ""
+	if len(costItems) != 0 && !defaultName {
 		result := m.GetOwner().CheckCostItemCfg(ctx, expectCostItems, costItems)
 		if result.IsError() {
 			ctx.LogError("check cost item failed", "error", result.GetResponseCode())
@@ -477,7 +478,7 @@ func (m *UserBasicManager) Rename(ctx cd.AwaitableContext, newName string, expec
 		return result
 	}
 	// 扣除消耗
-	if len(costItems) != 0 {
+	if len(costItems) != 0 && !defaultName {
 		result = m.GetOwner().CheckCostItemCfg(ctx, expectCostItems, costItems)
 		if result.IsError() {
 			ctx.LogError("check cost item failed", "error", result.GetResponseCode())
@@ -504,6 +505,13 @@ func (m *UserBasicManager) Rename(ctx cd.AwaitableContext, newName string, expec
 			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_USER_RENAME),
 			Parameter:   0,
 		})
+	}
+	// 删除旧名
+	if !defaultName {
+		db.DatabaseTableNameMappingDelWithTypeIdZoneIdName(ctx,
+			uint32(private_protocol_common.NameMappingType_EN_NAME_MAPPING_TYPE_USER_NICKNAME),
+			m.GetOwner().GetZoneId(),
+			m.GetOwner().GetAccountInfo().GetProfile().GetNickName())
 	}
 	// 改名字
 	m.GetOwner().GetAccountInfo().MutableProfile().NickName = newName
