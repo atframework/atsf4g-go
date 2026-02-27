@@ -126,6 +126,18 @@ func (configGroup *ConfigGroup) Init(originConfigData interface{}, callback Conf
 <%
 		LoaderConfigPbName = "public_protocol_config.Readonly_" + loader.get_go_pb_name()
 %>
+func Get${loader.get_go_pb_name()}HashCodeVersion(configGroup *ConfigGroup) uint64 {
+	if configGroup == nil {
+		return 0
+	}
+	return configGroup.${loader.get_go_pb_unexported_name()}.GetHashCodeVersion()
+}
+func (configGroup *ConfigGroup) Get${loader.get_go_pb_name()}HashCodeVersion() uint64 {
+	if configGroup == nil {
+		return 0
+	}
+	return configGroup.${loader.get_go_pb_unexported_name()}.GetHashCodeVersion()
+}
 		% for code_index in loader.code.indexes:
 			% if code_index.is_list():
 func Get${loader.get_go_pb_name()}By${pb_loader.MakoToCamelName(code_index.name)}(configGroup *ConfigGroup, ${code_index.get_go_key_decl()}) []*${LoaderConfigPbName} {
