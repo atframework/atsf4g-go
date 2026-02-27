@@ -1,14 +1,14 @@
 ## -*- coding: utf-8 -*-
 <%page args="message_name,message,index,index_meta,inc_field" />
 <%
-    index_type_kv = index_meta["index_type_kv"]
+    index_type = index_meta["index_type"]
     index_key_name = index_meta["index_key_name"]
-    args_index_key = index_meta["args_index_key"]
+    args_redis_key_call = index_meta["args_redis_key_call"]
     key_fields = index_meta["key_fields"]
     go_type = inc_field["go_type"]
     is_unsigned = go_type.startswith("uint")
 %>
-% if index_type_kv:
+% if index_type == "kv":
 func ${message_name}AtomicInc${index_key_name}${inc_field["ident"]}(
     ctx cd.AwaitableContext,
 % for field in key_fields:
@@ -23,7 +23,7 @@ func ${message_name}AtomicInc${index_key_name}${inc_field["ident"]}(
         retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
         return
     }
-    ${args_index_key}
+    ${args_redis_key_call}
 
     newValue, retResult = HashTableAtomicInc(ctx, index, "${message_name}",
         dispatcher, instance, "${inc_field["raw_name"]}", uint64(incValue))

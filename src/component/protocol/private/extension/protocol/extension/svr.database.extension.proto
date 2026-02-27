@@ -15,6 +15,7 @@ package atframework;
 enum database_index_type {
   EN_ATFRAMEWORK_DB_INDEX_TYPE_KV = 0;
   EN_ATFRAMEWORK_DB_INDEX_TYPE_KL = 1;
+  EN_ATFRAMEWORK_DB_INDEX_TYPE_SORTED_SET = 2;
 }
 
 message database_partly_field {

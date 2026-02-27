@@ -1,13 +1,13 @@
 ## -*- coding: utf-8 -*-
 <%page args="message_name,message,index,index_meta,partly_get,partly_field_name" />
 <%
-    index_type_kv = index_meta["index_type_kv"]
-    batch_args_index_key = index_meta["batch_args_index_key"]
+    index_type = index_meta["index_type"]
+    batch_redis_key_call = index_meta["batch_redis_key_call"]
     key_fields = index_meta["key_fields"]
-    args_index_key = index_meta["args_index_key"]
+    args_redis_key_call = index_meta["args_redis_key_call"]
     cas_enabled = index_meta["cas_enabled"]
 %>
-% if index_type_kv:
+% if index_type == "kv":
 func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_field_name}(
 	ctx cd.AwaitableContext,
 % for field in key_fields:
@@ -25,7 +25,7 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${args_index_key}
+	${args_redis_key_call}
 	redisField := []string{
 % if cas_enabled:
 		pu.CASKeyField,
@@ -78,7 +78,7 @@ func ${message_name}BatchLoadWith${index_meta["index_key_name"]}PartlyGet${partl
 	}
 	loadIndexs := make([]string, len(keys))
 	for i := range keys {
-		${batch_args_index_key}
+		${batch_redis_key_call}
 	}
 	redisField := []string{
 % if cas_enabled:

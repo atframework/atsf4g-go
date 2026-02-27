@@ -1,14 +1,14 @@
 ## -*- coding: utf-8 -*-
 <%page args="message_name,message,index,index_meta" />
 <%
-	index_type_kv = index_meta["index_type_kv"]
+	index_type = index_meta["index_type"]
 	index_key_name = index_meta["index_key_name"]
-	args_index_key = index_meta["args_index_key"]
-	batch_args_index_key = index_meta["batch_args_index_key"]
+	args_redis_key_call = index_meta["args_redis_key_call"]
+	batch_redis_key_call = index_meta["batch_redis_key_call"]
 	key_fields = index_meta["key_fields"]
 	cas_enabled = index_meta["cas_enabled"]
 %>
-% if index_type_kv:
+% if index_type == "kv":
 func ${message_name}LoadWith${index_key_name}(
 	ctx cd.AwaitableContext,
 % for field in key_fields:
@@ -26,7 +26,7 @@ func ${message_name}LoadWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${args_index_key}
+	${args_redis_key_call}
 	var message proto.Message
 % if cas_enabled:
 	message, CASVersion, retResult = HashTableLoad(
@@ -82,7 +82,7 @@ func ${message_name}BatchLoadWith${index_key_name}(
 	}
 	loadIndexs := make([]string, len(keys))
 	for i := range keys {
-		${batch_args_index_key}
+		${batch_redis_key_call}
 	}
 	var messages []*RedisSetIndexMessage
 	messages, retResult = HashTableBatchLoad(
@@ -146,7 +146,7 @@ func ${message_name}LoadAllWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${args_index_key}
+	${args_redis_key_call}
 	indexMessage, retResult = HashTableLoadListAll(
 		ctx, index, "${message_name}", dispatcher, instance, func() proto.Message {
 			return new(private_protocol_pbdesc.${message_name})
@@ -186,7 +186,7 @@ func ${message_name}LoadIndexWith${index_key_name}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${args_index_key}
+	${args_redis_key_call}
 	indexMessage, retResult = HashTableLoadListIndex(
 		ctx, index, "${message_name}", dispatcher, instance, func() proto.Message {
 			return new(private_protocol_pbdesc.${message_name})

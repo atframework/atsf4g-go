@@ -1,13 +1,13 @@
 ## -*- coding: utf-8 -*-
 <%page args="message_name,message,index,index_meta" />
 <%
-    index_type_kv = index_meta["index_type_kv"]
-    struct_index_key = index_meta["struct_index_key"]
+    index_type = index_meta["index_type"]
+    struct_redis_key_call = index_meta["struct_redis_key_call"]
     key_fields = index_meta["key_fields"]
     cas_enabled = index_meta["cas_enabled"]
     max_list_length = index_meta["max_list_length"]
 %>
-% if index_type_kv:
+% if index_type == "kv":
 % if cas_enabled:
 func ${message_name}Add${index_meta["index_key_name"]}(
 	ctx cd.AwaitableContext,
@@ -20,7 +20,7 @@ func ${message_name}Add${index_meta["index_key_name"]}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${struct_index_key}
+	${struct_redis_key_call}
 	CASVersion = 0
 	retResult = HashTableUpdateCAS(ctx, index, "${message_name}",
 		dispatcher, instance, table, &CASVersion, false)
@@ -54,7 +54,7 @@ func ${message_name}Replace${index_meta["index_key_name"]}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${struct_index_key}
+	${struct_redis_key_call}
 	if currentCASVersion == nil {
 		ctx.LogError("currentCASVersion nil")
 		retResult = cd.CreateRpcResultError(fmt.Errorf("currentCASVersion nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
@@ -87,7 +87,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${struct_index_key}
+	${struct_redis_key_call}
 	retResult = HashTableUpdate(ctx, index, "${message_name}",
 		dispatcher, instance, table)
 	if retResult.IsError() {
@@ -115,7 +115,7 @@ func ${message_name}Add${index_meta["index_key_name"]}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${struct_index_key}
+	${struct_redis_key_call}
 	retResult, newListIndex = HashTableAddList(ctx, index, "${message_name}",
 		dispatcher, instance, table, ${max_list_length})
 	if retResult.IsError() {
@@ -146,7 +146,7 @@ func ${message_name}Update${index_meta["index_key_name"]}(
 		retResult = cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		return
 	}
-	${struct_index_key}
+	${struct_redis_key_call}
 	retResult = HashTableUpdateList(ctx, index, "${message_name}",
 		dispatcher, instance, table, listIndex)
 	if retResult.IsError() {

@@ -160,3 +160,14 @@ message database_table_name_mapping {
   string name = 3;
   database_name_mapping_blob_data mapping_data = 11;
 }
+
+message database_table_rank {
+  option (atframework.database_table) = {
+    index: {
+      name: "rank"
+      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_SORTED_SET
+      key_fields: "id"
+    }
+  };
+  uint32 id = 1;
+}
