@@ -547,6 +547,16 @@ func (m *UserBasicManager) EditProfileCard(ctx cd.AwaitableContext, profileCard 
 	return cd.CreateRpcResultOk()
 }
 
+func (m *UserBasicManager) EditAvatar(ctx cd.AwaitableContext, avatar string) data.Result {
+	if avatar == m.GetOwner().GetAccountInfo().GetProfile().GetAvatar() {
+		return cd.CreateRpcResultOk()
+	}
+
+	m.GetOwner().GetAccountInfo().MutableProfile().Avatar = avatar
+	m.MarkUserProfileDirty()
+	return cd.CreateRpcResultOk()
+}
+
 func (m *UserBasicManager) MarkUserProfileDirty() {
 	if m == nil {
 		return

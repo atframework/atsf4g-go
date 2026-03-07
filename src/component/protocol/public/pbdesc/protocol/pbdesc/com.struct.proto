@@ -74,6 +74,7 @@ message DUserProfile {
   uint64 user_id = 2;
   string nick_name = 3;
   string profile_card = 4;
+  string avatar = 5;
 }
 
 // 用户profile

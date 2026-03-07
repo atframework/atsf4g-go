@@ -26,6 +26,7 @@ type UserBasicManager interface {
 
 	Rename(ctx cd.AwaitableContext, newName string, expectCostItems []*public_protocol_common.DItemBasic) data.Result
 	EditProfileCard(ctx cd.AwaitableContext, profileCard string) data.Result
+	EditAvatar(ctx cd.AwaitableContext, avatar string) data.Result
 
 	GmResetUserExp(ctx cd.RpcContext, v int64) data.Result
 

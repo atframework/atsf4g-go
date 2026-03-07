@@ -102,6 +102,13 @@ service LobbyClientService {
       api_name: "Edit user profile"
     };
   };
+
+  rpc user_edit_avatar(CSUserEditAvatarReq) returns (SCUserEditAvatarRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "user"
+      api_name: "Edit user avatar"
+    };
+  };
   /////////////////////////// user /////////////////////////////
 
   /////////////////////////// quest /////////////////////////////
