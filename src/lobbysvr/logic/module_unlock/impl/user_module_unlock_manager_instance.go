@@ -20,6 +20,7 @@ func init() {
 	data.RegisterUserModuleManagerCreator[logic_module_unlock.UserModuleUnlockManager](func(ctx cd.RpcContext, owner *data.User) data.UserModuleManagerImpl {
 		return CreateUserModuleUnlockManager(owner)
 	})
+	registerCondition()
 }
 
 type UserModuleUnlockManager struct {
