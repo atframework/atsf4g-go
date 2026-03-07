@@ -280,6 +280,36 @@ func (m *UserConditionManager) CheckDateTimeStaticLimit(ctx cd.RpcContext, rules
 	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DATETIME_ALREADY_END)
 }
 
+func (m *UserConditionManager) CheckWeeklyTimeStaticLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeTime) cd.RpcResult {
+	if len(rules) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	// 容忍一定秒数，避免时间同步误差导致的问题
+	toilateSeconds := int64(5)
+
+	nowWeekOffsetSec := getCurrentWeekOffsetSecond(ctx.GetNow())
+	for _, rule := range rules {
+
+		endTime := rule.GetEndTime().GetSeconds()
+
+		// 永远有效的时间段，直接通过，开始时间会在动态条件中检查
+		if endTime <= 0 {
+			return cd.CreateRpcResultOk()
+		}
+
+		// 任意一个时间段未结束即通过，开始时间会在动态条件中检查
+		if endTime > 0 && endTime+toilateSeconds < nowWeekOffsetSec {
+			continue
+		}
+
+		return cd.CreateRpcResultOk()
+	}
+
+	// 错误码: 所有可用时段都已结束
+	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DATETIME_ALREADY_END)
+}
+
 func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeDatetime) cd.RpcResult {
 	if len(rules) == 0 {
 		return cd.CreateRpcResultOk()
@@ -298,6 +328,39 @@ func (m *UserConditionManager) CheckDateTimeDynamicLimit(ctx cd.RpcContext, rule
 		}
 
 		if endTime > 0 && endTime+toilateSeconds < nowSec {
+			continue
+		}
+
+		return cd.CreateRpcResultOk()
+	}
+
+	// 错误码: 未开始
+	return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_DATETIME_NOT_START)
+}
+
+func getCurrentWeekOffsetSecond(now time.Time) int64 {
+	weekStart := logical_time.CalculateWeekStart(now)
+	return now.Unix() - weekStart.Unix()
+}
+
+func (m *UserConditionManager) CheckWeeklyTimeDynamicLimit(ctx cd.RpcContext, rules []*public_protocol_common.Readonly_DConditionRuleRangeTime) cd.RpcResult {
+	if len(rules) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	// 容忍一定秒数，避免时间同步误差导致的问题
+	toilateSeconds := int64(5)
+
+	nowWeekOffsetSec := getCurrentWeekOffsetSecond(ctx.GetNow())
+	for _, rule := range rules {
+		startTime := rule.GetBeginTime().GetSeconds()
+		endTime := rule.GetEndTime().GetSeconds()
+
+		if startTime > nowWeekOffsetSec+toilateSeconds {
+			continue
+		}
+
+		if endTime > 0 && endTime+toilateSeconds < nowWeekOffsetSec {
 			continue
 		}
 
@@ -329,6 +392,13 @@ func (m *UserConditionManager) CheckBasicStaticLimit(ctx cd.RpcContext, limit *p
 		}
 	}
 
+	if len(limit.GetWeeklyValidTime()) > 0 {
+		result := m.CheckWeeklyTimeStaticLimit(ctx, limit.GetWeeklyValidTime())
+		if !result.IsOK() {
+			return result
+		}
+	}
+
 	if len(limit.GetRule()) > 0 {
 		result := m.CheckStaticRules(ctx, limit.GetRule(), runtime)
 		if !result.IsOK() {
@@ -346,6 +416,13 @@ func (m *UserConditionManager) CheckBasicDynamicLimit(ctx cd.RpcContext, limit *
 
 	if len(limit.GetValidTime()) > 0 {
 		result := m.CheckDateTimeDynamicLimit(ctx, limit.GetValidTime())
+		if !result.IsOK() {
+			return result
+		}
+	}
+
+	if len(limit.GetWeeklyValidTime()) > 0 {
+		result := m.CheckWeeklyTimeDynamicLimit(ctx, limit.GetWeeklyValidTime())
 		if !result.IsOK() {
 			return result
 		}

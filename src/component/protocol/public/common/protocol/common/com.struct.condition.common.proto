@@ -173,6 +173,9 @@ message DConditionBasicLimit {
   // 多段时效性
   repeated DConditionRuleRangeDatetime valid_time = 2 [(org.xresloader.field_separator) = "|"];
 
+  // 多段时效性 - weekly
+  repeated DConditionRuleRangeTime weekly_valid_time = 3 [(org.xresloader.field_separator) = "|"];
+
   // 通用规则
   repeated DConditionRule rule = 11;
 }
