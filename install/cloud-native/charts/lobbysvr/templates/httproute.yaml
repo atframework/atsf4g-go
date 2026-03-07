@@ -1,5 +1,5 @@
-{{- if .Values.httproute.enabled -}}
-{{- template "libapp.httproute" (list . "lobbysvr.httproute") -}}
 {{- define "lobbysvr.httproute" -}}
 {{- end -}}
+{{- if .Values.httproute.enabled -}}
+{{- template "libapp.httproute" (list . "lobbysvr.httproute") -}}
 {{- end -}}
