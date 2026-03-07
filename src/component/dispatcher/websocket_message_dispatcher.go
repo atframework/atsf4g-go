@@ -73,6 +73,8 @@ type WebSocketMessageDispatcher struct {
 	webServerInstance *http.Server
 	webServerAddress  string
 
+	stopping bool
+
 	stopContext context.Context
 	stopCancel  context.CancelFunc
 
@@ -87,6 +89,8 @@ func CreateCSMessageWebsocketDispatcher(owner libatapp.AppImpl, webServerConfigu
 		DispatcherBase:               CreateDispatcherBase(owner),
 		webServerConfigurePath:       webServerConfigurePath,
 		webSocketServerConfigurePath: webSocketServerConfigurePath,
+
+		stopping: false,
 
 		sessions:           make(map[uint64]*WebSocketSession),
 		sessionIdAllocator: atomic.Uint64{},
@@ -177,7 +181,7 @@ func (d *WebSocketMessageDispatcher) runServer() error {
 		err = d.webServerInstance.ListenAndServe()
 	}
 
-	if err != nil {
+	if err != nil && !d.stopping {
 		d.GetApp().GetDefaultLogger().LogError("Web server error", "error", err)
 		d.GetApp().Stop()
 	}
@@ -535,6 +539,8 @@ func (d *WebSocketMessageDispatcher) Reload() error {
 }
 
 func (d *WebSocketMessageDispatcher) Stop() (bool, error) {
+	d.stopping = true
+
 	if d.stopContext == nil {
 		d.stopContext, d.stopCancel = context.WithTimeout(context.Background(), 5*time.Second)
 
