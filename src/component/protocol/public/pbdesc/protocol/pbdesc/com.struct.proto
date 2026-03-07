@@ -91,11 +91,6 @@ message DUserInfo {
 // 用户自定义选项
 message DUserOptions {}
 
-message DUserIDKey {
-  uint64 user_id = 1;
-  uint32 zone_id = 2;
-}
-
 message DUserAccountIDRefer {
   uint64 user_id = 1;
   uint32 zone_id = 2;

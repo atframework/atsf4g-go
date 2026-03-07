@@ -19,6 +19,7 @@ type UserUnlockListener interface {
 type UserUnlockManager interface {
 	data.UserModuleManagerImpl
 	RegisterFunctionUnlockEvent(ctx cd.RpcContext, functionID public_protocol_common.EnUnlockFunctionID, listener UserUnlockListener)
-	OnUserUnlockDataChange(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, oldValue, newValue int64)
+	OnUserUnlockRangeDataChange(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, oldValue, newValue int64)
+	OnUserUnlockDataChange(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, value int64)
 	CheckFunctionUnlock(ctx cd.RpcContext, conditions []*public_protocol_common.Readonly_DFunctionUnlockCondition) bool
 }

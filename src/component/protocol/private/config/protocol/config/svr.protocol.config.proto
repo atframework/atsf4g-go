@@ -213,6 +213,16 @@ message logic_excel_cfg {
   string bindir = 2 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "../../resource/excel" }];
 }
 
+message logic_mail_cfg {
+  // 邮件压缩淘汰时最大相对于发送时间的差值
+  google.protobuf.Duration compact_delivery_time_max_offset = 1 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "30d" }];
+
+  // 用户邮件的可用类型
+  repeated string user_mail_major_types = 11;
+
+  repeated string global_mail_major_types = 21;
+}
+
 message logic_operation_support_system_log_cfg {
   bool enable = 1 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
   string file = 2;
@@ -245,6 +255,7 @@ message logic_section_cfg {
   logic_excel_cfg excel = 110;
   logic_transaction_cfg transaction = 111;
   logic_operation_support_system_cfg operation_support_system = 112;
+  logic_mail_cfg mail = 113;
 }
 
 message lobby_server_cfg {

@@ -243,7 +243,7 @@ enum EnErrorCode {
   EN_ERR_RANDOM_POOL_CUSTOM_INDEX_NOT_MATCH = -316
                                               [(error_code.description) = "自选位置错误"];
   EN_ERR_RANDOM_POOL_CUSTOM_INDEX_REPEAT = -317
-                                              [(error_code.description) = "自选重复"];
+                                           [(error_code.description) = "自选重复"];
 
   // 登录服务的返回错误码
   EN_ERR_LOGIN_BAN = -401
@@ -297,8 +297,7 @@ enum EnErrorCode {
   EN_ERR_MONEY_CASH_NOT_ENOUGH = -506
                                  [(error_code.description) = "点券不足"];
   EN_ERR_ITEM_CANNOT_USE = -507
-                                [(error_code.description) = "道具不可使用"];
-
+                           [(error_code.description) = "道具不可使用"];
   // 玩家相关错误码
   EN_ERR_USER_MIN_LEVEL_LIMIT = -701
                                 [(error_code.description) = "用户等级过低"];
@@ -343,14 +342,37 @@ enum EnErrorCode {
 
   // 商城错误码 2600-2699
   EN_ERR_MALL_PRODUCT_NOT_FOUND = -2601
-                                 [(error_code.description) = "商城商品未找到"];
+                                  [(error_code.description) = "商城商品未找到"];
   EN_ERR_MALL_PRODUCT_NOT_ON_SELL = -2602
-                                 [(error_code.description) = "商城商品未上架"];
+                                    [(error_code.description) = "商城商品未上架"];
   EN_ERR_MALL_MALL_NOT_FOUND = -2603
-                                 [(error_code.description) = "商城未找到"];
+                               [(error_code.description) = "商城未找到"];
   EN_ERR_MALL_PRODUCT_INIT_FAILED = -2604
-                                 [(error_code.description) = "商城商品初始化失败"];
-
+                                    [(error_code.description) = "商城商品初始化失败"];
+  EN_ERR_MALL_PURCHASE_LIMIT_NOT_MATCH = -2605
+                                         [(error_code.description) = "商城商品购买限制不匹配"];
+  // 邮件系统 3000 - 3099
+  EN_ERR_MAIL_NOT_FOUND = -3001
+                          [(error_code.description) = "邮件未找到"];
+  EN_ERR_MAIL_EXPIRED = -3002
+                        [(error_code.description) = "邮件已过期"];
+  EN_ERR_MAIL_NOT_START = -3003
+                          [(error_code.description) = "邮件未开始"];
+  EN_ERR_MAIL_ALREADY_RECEIVED = -3004
+                                 [(error_code.description) = "邮件已领取"];
+  EN_ERR_MAIL_NO_ATTACHMENTS = -3005
+                               [(error_code.description) = "邮件无附件"];
+  EN_ERR_MAIL_INVALID_ATTACHMENT_COUNT = -3006
+                                         [(error_code.description) = "邮件附件数量无效"];
+  // 模块解锁 3100 - 3199
+  EN_ERR_MODULE_NOT_UNLOCKED = -3101
+                               [(error_code.description) = "模块未解锁"];
+  EN_ERR_MODULE_REWARD_ALREADY_RECEIVED = -3102
+                                          [(error_code.description) = "模块奖励已领取"];
+  EN_ERR_MODULE_NOT_FOUND = -3103
+                            [(error_code.description) = "模块未找到"];
+  EN_ERR_MODULE_REWARD_NOT_FOUND = -3104
+                                   [(error_code.description) = "模块奖励未找到"];
   // 客户端错误码，服务器不关心 800000-999999
   EN_ERR_CLIENT_INTERNAL_CODE_BEGIN = -800000;
   // 注意错误码不能小于 -999999，便于区分服务器错误码和客户端错误码

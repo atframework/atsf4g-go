@@ -159,3 +159,71 @@ func GenerateGlobalUniqueID(ctx cd.AwaitableContext,
 	}
 	return
 }
+
+type shortUUIDEncoder struct {
+	seq uint32
+	mu  sync.Mutex
+}
+
+const (
+	shortUUIDKeyLength = 36
+	// shortUUIDKeys 编码表（不区分大小写）
+	shortUUIDKeys = "y102a3gq58zrjbovpm7w6ltiuesf9h4kxncd"
+)
+
+var shortUUIDEncoderInstance = &shortUUIDEncoder{}
+
+
+func (e *shortUUIDEncoder) encodeValue(val uint64) string {
+	if val == 0 {
+		return string(shortUUIDKeys[1]) 
+	}
+
+	buf := make([]byte, 14)
+	idx := 1
+	for val > 0 && idx < len(buf) {
+		buf[idx] = shortUUIDKeys[val%shortUUIDKeyLength]
+		val /= shortUUIDKeyLength
+		idx++
+	}
+
+	if idx < shortUUIDKeyLength {
+		buf[0] = shortUUIDKeys[idx]
+	} else {
+		buf[0] = shortUUIDKeys[shortUUIDKeyLength-1]
+	}
+
+	return string(buf[:idx])
+}
+
+func (e *shortUUIDEncoder) encodeSeq() string {
+	e.mu.Lock()
+	e.seq++
+	if e.seq == 0 {
+		e.seq++
+	}
+	v := e.seq
+	e.mu.Unlock()
+
+	return e.encodeValue(uint64(v))
+}
+
+// GenerateShortUUID 生成短UUID
+// 格式: S1 + encode(nodeID) + encode(timestamp) + encode(seq)
+func GenerateShortUUID(ctx cd.RpcContext) string {
+	// nodeID:(timestamp-2022-01-01 00:00:00):sequence
+	// 2022-01-01 00:00:00 UTC => 1640995200
+	nodeID := config.GetConfigManager().GetLogicId()
+	timeParam := ctx.GetNow().Unix() - 1640995200
+
+	result := "S1"
+	result += shortUUIDEncoderInstance.encodeValue(uint64(nodeID))
+	if timeParam > 0 {
+		result += shortUUIDEncoderInstance.encodeValue(uint64(timeParam))
+	} else {
+		result += shortUUIDEncoderInstance.encodeValue(0)
+	}
+	result += shortUUIDEncoderInstance.encodeSeq()
+
+	return result
+}

@@ -4,8 +4,6 @@
 package libatbus_impl
 
 import (
-	"bytes"
-	"compress/zlib"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
@@ -17,220 +15,217 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	compression "github.com/atframework/atframe-utils-go/algorithm/compression"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
+	"google.golang.org/protobuf/proto"
 
+	buffer "github.com/atframework/libatbus-go/buffer"
+	error_code "github.com/atframework/libatbus-go/error_code"
+	protocol "github.com/atframework/libatbus-go/protocol"
 	types "github.com/atframework/libatbus-go/types"
 )
 
 var _ types.ConnectionContext = (*ConnectionContext)(nil)
 
-// CryptoAlgorithmType represents the encryption algorithm type.
-// This corresponds to ATBUS_CRYPTO_ALGORITHM_TYPE in the protobuf definition.
-type CryptoAlgorithmType int32
+// NOTE:
+// Do NOT re-define enum types in this file.
+// Use the protobuf generated enums from `libatbus-go/protocol` directly:
+//   - protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
+//   - protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE
+//   - protocol.ATBUS_CRYPTO_KDF_TYPE
+//   - protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE
+//
+// This file still needs some convenience behaviors (string formatting, key/iv sizes, curve mapping),
+// so we implement them as helper functions over protocol enums.
 
-const (
-	CryptoAlgorithmNone              CryptoAlgorithmType = 0
-	CryptoAlgorithmXXTEA             CryptoAlgorithmType = 1
-	CryptoAlgorithmAES128CBC         CryptoAlgorithmType = 11
-	CryptoAlgorithmAES192CBC         CryptoAlgorithmType = 12
-	CryptoAlgorithmAES256CBC         CryptoAlgorithmType = 13
-	CryptoAlgorithmAES128GCM         CryptoAlgorithmType = 14
-	CryptoAlgorithmAES192GCM         CryptoAlgorithmType = 15
-	CryptoAlgorithmAES256GCM         CryptoAlgorithmType = 16
-	CryptoAlgorithmChacha20          CryptoAlgorithmType = 31
-	CryptoAlgorithmChacha20Poly1305  CryptoAlgorithmType = 32
-	CryptoAlgorithmXChacha20Poly1305 CryptoAlgorithmType = 33
-)
-
-// String returns the string representation of the crypto algorithm type.
-func (c CryptoAlgorithmType) String() string {
+func cryptoAlgorithmString(c protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) string {
 	switch c {
-	case CryptoAlgorithmNone:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE:
 		return "NONE"
-	case CryptoAlgorithmXXTEA:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA:
 		return "XXTEA"
-	case CryptoAlgorithmAES128CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC:
 		return "AES-128-CBC"
-	case CryptoAlgorithmAES192CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC:
 		return "AES-192-CBC"
-	case CryptoAlgorithmAES256CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
 		return "AES-256-CBC"
-	case CryptoAlgorithmAES128GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM:
 		return "AES-128-GCM"
-	case CryptoAlgorithmAES192GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM:
 		return "AES-192-GCM"
-	case CryptoAlgorithmAES256GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM:
 		return "AES-256-GCM"
-	case CryptoAlgorithmChacha20:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20:
 		return "CHACHA20"
-	case CryptoAlgorithmChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF:
 		return "CHACHA20-POLY1305"
-	case CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return "XCHACHA20-POLY1305"
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", c)
 	}
 }
 
-// KeySize returns the key size in bytes for the crypto algorithm.
-func (c CryptoAlgorithmType) KeySize() int {
+func cryptoAlgorithmKeySize(c protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) int {
 	switch c {
-	case CryptoAlgorithmNone:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE:
 		return 0
-	case CryptoAlgorithmXXTEA:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA:
 		return 16 // 128 bits
-	case CryptoAlgorithmAES128CBC, CryptoAlgorithmAES128GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM:
 		return 16 // 128 bits
-	case CryptoAlgorithmAES192CBC, CryptoAlgorithmAES192GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM:
 		return 24 // 192 bits
-	case CryptoAlgorithmAES256CBC, CryptoAlgorithmAES256GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM:
 		return 32 // 256 bits
-	case CryptoAlgorithmChacha20, CryptoAlgorithmChacha20Poly1305, CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return 32 // 256 bits
 	default:
 		return 0
 	}
 }
 
-// IVSize returns the IV/nonce size in bytes for the crypto algorithm.
-func (c CryptoAlgorithmType) IVSize() int {
+func cryptoAlgorithmIVSize(c protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) int {
 	switch c {
-	case CryptoAlgorithmNone:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE:
 		return 0
-	case CryptoAlgorithmXXTEA:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA:
 		return 0
-	case CryptoAlgorithmAES128CBC, CryptoAlgorithmAES192CBC, CryptoAlgorithmAES256CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
 		return aes.BlockSize // 16 bytes
-	case CryptoAlgorithmAES128GCM, CryptoAlgorithmAES192GCM, CryptoAlgorithmAES256GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM:
 		return 12 // standard GCM nonce size
-	case CryptoAlgorithmChacha20:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20:
 		return 12
-	case CryptoAlgorithmChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF:
 		return chacha20poly1305.NonceSize // 12 bytes
-	case CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return chacha20poly1305.NonceSizeX // 24 bytes
 	default:
 		return 0
 	}
 }
 
-// IsAEAD returns true if the algorithm is an AEAD cipher.
-func (c CryptoAlgorithmType) IsAEAD() bool {
+func cryptoAlgorithmIsAEAD(c protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) bool {
 	switch c {
-	case CryptoAlgorithmAES128GCM, CryptoAlgorithmAES192GCM, CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmChacha20Poly1305, CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return true
 	default:
 		return false
 	}
 }
 
-// TagSize returns the authentication tag size for AEAD ciphers.
-func (c CryptoAlgorithmType) TagSize() int {
+func cryptoAlgorithmTagSize(c protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) int {
 	switch c {
-	case CryptoAlgorithmAES128GCM, CryptoAlgorithmAES192GCM, CryptoAlgorithmAES256GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM:
 		return 16 // GCM tag size
-	case CryptoAlgorithmChacha20Poly1305, CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return chacha20poly1305.Overhead // 16 bytes
 	default:
 		return 0
 	}
 }
 
-// KeyExchangeType represents the key exchange algorithm type.
-// This corresponds to ATBUS_CRYPTO_KEY_EXCHANGE_TYPE in the protobuf definition.
-type KeyExchangeType int32
-
-const (
-	KeyExchangeNone      KeyExchangeType = 0
-	KeyExchangeX25519    KeyExchangeType = 1
-	KeyExchangeSecp256r1 KeyExchangeType = 2
-	KeyExchangeSecp384r1 KeyExchangeType = 3
-	KeyExchangeSecp521r1 KeyExchangeType = 4
-)
-
-// String returns the string representation of the key exchange type.
-func (k KeyExchangeType) String() string {
+func keyExchangeString(k protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE) string {
 	switch k {
-	case KeyExchangeNone:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE:
 		return "NONE"
-	case KeyExchangeX25519:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519:
 		return "X25519"
-	case KeyExchangeSecp256r1:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1:
 		return "SECP256R1"
-	case KeyExchangeSecp384r1:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP384R1:
 		return "SECP384R1"
-	case KeyExchangeSecp521r1:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP521R1:
 		return "SECP521R1"
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", k)
 	}
 }
 
-// Curve returns the corresponding ecdh.Curve for the key exchange type.
-func (k KeyExchangeType) Curve() ecdh.Curve {
+func keyExchangeCurve(k protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE) ecdh.Curve {
 	switch k {
-	case KeyExchangeX25519:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519:
 		return ecdh.X25519()
-	case KeyExchangeSecp256r1:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1:
 		return ecdh.P256()
-	case KeyExchangeSecp384r1:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP384R1:
 		return ecdh.P384()
-	case KeyExchangeSecp521r1:
+	case protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP521R1:
 		return ecdh.P521()
 	default:
 		return nil
 	}
 }
 
-// KDFType represents the key derivation function type.
-// This corresponds to ATBUS_CRYPTO_KDF_TYPE in the protobuf definition.
-type KDFType int32
-
-const (
-	KDFTypeHKDFSha256 KDFType = 0
-)
-
-// String returns the string representation of the KDF type.
-func (k KDFType) String() string {
+func kdfTypeString(k protocol.ATBUS_CRYPTO_KDF_TYPE) string {
 	switch k {
-	case KDFTypeHKDFSha256:
+	case protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256:
 		return "HKDF-SHA256"
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", k)
 	}
 }
 
-// CompressionAlgorithmType represents the compression algorithm type.
-// This corresponds to ATBUS_COMPRESSION_ALGORITHM_TYPE in the protobuf definition.
-type CompressionAlgorithmType int32
-
-const (
-	CompressionNone   CompressionAlgorithmType = 0
-	CompressionZstd   CompressionAlgorithmType = 100
-	CompressionLZ4    CompressionAlgorithmType = 200
-	CompressionSnappy CompressionAlgorithmType = 300
-	CompressionZlib   CompressionAlgorithmType = 400
-)
-
-// String returns the string representation of the compression algorithm type.
-func (c CompressionAlgorithmType) String() string {
+func compressionAlgorithmString(c protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) string {
 	switch c {
-	case CompressionNone:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE:
 		return "NONE"
-	case CompressionZstd:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD:
 		return "ZSTD"
-	case CompressionLZ4:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_LZ4:
 		return "LZ4"
-	case CompressionSnappy:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_SNAPPY:
 		return "SNAPPY"
-	case CompressionZlib:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB:
 		return "ZLIB"
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", c)
 	}
+}
+
+func compressionAlgorithmToAdapter(c protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) compression.Algorithm {
+	switch c {
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD:
+		return compression.AlgorithmZstd
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_LZ4:
+		return compression.AlgorithmLz4
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_SNAPPY:
+		return compression.AlgorithmSnappy
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB:
+		return compression.AlgorithmZlib
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE:
+		return compression.AlgorithmNone
+	default:
+		return compression.AlgorithmNone
+	}
+}
+
+func compressionAlgorithmSupported(c protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) bool {
+	if c == protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE {
+		return true
+	}
+	return compression.IsAlgorithmSupported(compressionAlgorithmToAdapter(c))
 }
 
 // Error definitions for connection context.
@@ -256,9 +251,9 @@ var (
 // CryptoHandshakeData holds the data for crypto handshake.
 type CryptoHandshakeData struct {
 	Sequence    uint64
-	KeyExchange KeyExchangeType
-	KDFTypes    []KDFType
-	Algorithms  []CryptoAlgorithmType
+	KeyExchange protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE
+	KDFTypes    []protocol.ATBUS_CRYPTO_KDF_TYPE
+	Algorithms  []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 	PublicKey   []byte
 	IVSize      uint32
 	TagSize     uint32
@@ -269,9 +264,9 @@ type CryptoSession struct {
 	mu sync.RWMutex
 
 	// Negotiated algorithm and parameters
-	Algorithm   CryptoAlgorithmType
-	KeyExchange KeyExchangeType
-	KDFType     KDFType
+	Algorithm   protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
+	KeyExchange protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE
+	KDFType     protocol.ATBUS_CRYPTO_KDF_TYPE
 	Key         []byte
 	IV          []byte
 	TagSize     uint32
@@ -304,13 +299,13 @@ func (cs *CryptoSession) IsInitialized() bool {
 }
 
 // GenerateKeyPair generates a new ECDH key pair for the given key exchange type.
-func (cs *CryptoSession) GenerateKeyPair(keyExchange KeyExchangeType) error {
+func (cs *CryptoSession) GenerateKeyPair(keyExchange protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	curve := keyExchange.Curve()
+	curve := keyExchangeCurve(keyExchange)
 	if curve == nil {
-		return fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, keyExchange.String())
+		return fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, keyExchangeString(keyExchange))
 	}
 
 	privateKey, err := curve.GenerateKey(rand.Reader)
@@ -344,9 +339,9 @@ func (cs *CryptoSession) ComputeSharedSecret(peerPublicKeyBytes []byte) ([]byte,
 		return nil, ErrCryptoNotInitialized
 	}
 
-	curve := cs.KeyExchange.Curve()
+	curve := keyExchangeCurve(cs.KeyExchange)
 	if curve == nil {
-		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cs.KeyExchange.String())
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, keyExchangeString(cs.KeyExchange))
 	}
 
 	peerPublicKey, err := curve.NewPublicKey(peerPublicKeyBytes)
@@ -363,18 +358,18 @@ func (cs *CryptoSession) ComputeSharedSecret(peerPublicKeyBytes []byte) ([]byte,
 }
 
 // DeriveKey derives the encryption key and IV from the shared secret using HKDF.
-func (cs *CryptoSession) DeriveKey(sharedSecret []byte, algorithm CryptoAlgorithmType, kdfType KDFType) error {
+func (cs *CryptoSession) DeriveKey(sharedSecret []byte, algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE, kdfType protocol.ATBUS_CRYPTO_KDF_TYPE) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	if kdfType != KDFTypeHKDFSha256 {
-		return fmt.Errorf("%w: %s", ErrCryptoKDFFailed, kdfType.String())
+	if kdfType != protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256 {
+		return fmt.Errorf("%w: %s", ErrCryptoKDFFailed, kdfTypeString(kdfType))
 	}
 
-	keySize := algorithm.KeySize()
-	ivSize := algorithm.IVSize()
-	if keySize == 0 && algorithm != CryptoAlgorithmNone {
-		return fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, algorithm.String())
+	keySize := cryptoAlgorithmKeySize(algorithm)
+	ivSize := cryptoAlgorithmIVSize(algorithm)
+	if keySize == 0 && algorithm != protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		return fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(algorithm))
 	}
 
 	// Derive key material using HKDF
@@ -400,7 +395,7 @@ func (cs *CryptoSession) DeriveKey(sharedSecret []byte, algorithm CryptoAlgorith
 	cs.Algorithm = algorithm
 	cs.KDFType = kdfType
 	cs.IVSize = uint32(ivSize)
-	cs.TagSize = uint32(algorithm.TagSize())
+	cs.TagSize = uint32(cryptoAlgorithmTagSize(algorithm))
 
 	// Initialize cipher
 	if err := cs.initCipher(); err != nil {
@@ -412,14 +407,14 @@ func (cs *CryptoSession) DeriveKey(sharedSecret []byte, algorithm CryptoAlgorith
 }
 
 // SetKey directly sets the encryption key and IV.
-func (cs *CryptoSession) SetKey(key, iv []byte, algorithm CryptoAlgorithmType) error {
+func (cs *CryptoSession) SetKey(key, iv []byte, algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	expectedKeySize := algorithm.KeySize()
-	expectedIVSize := algorithm.IVSize()
+	expectedKeySize := cryptoAlgorithmKeySize(algorithm)
+	expectedIVSize := cryptoAlgorithmIVSize(algorithm)
 
-	if algorithm == CryptoAlgorithmNone {
+	if algorithm == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
 		cs.Algorithm = algorithm
 		cs.initialized = true
 		return nil
@@ -441,7 +436,7 @@ func (cs *CryptoSession) SetKey(key, iv []byte, algorithm CryptoAlgorithmType) e
 	}
 	cs.Algorithm = algorithm
 	cs.IVSize = uint32(expectedIVSize)
-	cs.TagSize = uint32(algorithm.TagSize())
+	cs.TagSize = uint32(cryptoAlgorithmTagSize(algorithm))
 
 	if err := cs.initCipher(); err != nil {
 		return err
@@ -455,10 +450,12 @@ func (cs *CryptoSession) SetKey(key, iv []byte, algorithm CryptoAlgorithmType) e
 // Caller must hold the lock.
 func (cs *CryptoSession) initCipher() error {
 	switch cs.Algorithm {
-	case CryptoAlgorithmNone:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE:
 		return nil
 
-	case CryptoAlgorithmAES128GCM, CryptoAlgorithmAES192GCM, CryptoAlgorithmAES256GCM:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM:
 		block, err := aes.NewCipher(cs.Key)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrCryptoAlgorithmNotSupported, err)
@@ -470,21 +467,23 @@ func (cs *CryptoSession) initCipher() error {
 		cs.aeadCipher = aead
 		cs.blockCipher = block
 
-	case CryptoAlgorithmAES128CBC, CryptoAlgorithmAES192CBC, CryptoAlgorithmAES256CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
 		block, err := aes.NewCipher(cs.Key)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrCryptoAlgorithmNotSupported, err)
 		}
 		cs.blockCipher = block
 
-	case CryptoAlgorithmChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF:
 		aead, err := chacha20poly1305.New(cs.Key)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrCryptoAlgorithmNotSupported, err)
 		}
 		cs.aeadCipher = aead
 
-	case CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		aead, err := chacha20poly1305.NewX(cs.Key)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrCryptoAlgorithmNotSupported, err)
@@ -492,7 +491,7 @@ func (cs *CryptoSession) initCipher() error {
 		cs.aeadCipher = aead
 
 	default:
-		return fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cs.Algorithm.String())
+		return fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
 	}
 
 	return nil
@@ -507,7 +506,7 @@ func (cs *CryptoSession) Encrypt(plaintext []byte) ([]byte, error) {
 		return nil, ErrCryptoNotInitialized
 	}
 
-	if cs.Algorithm == CryptoAlgorithmNone {
+	if cs.Algorithm == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
 		result := make([]byte, len(plaintext))
 		copy(result, plaintext)
 		return result, nil
@@ -518,15 +517,76 @@ func (cs *CryptoSession) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 
 	switch cs.Algorithm {
-	case CryptoAlgorithmAES128GCM, CryptoAlgorithmAES192GCM, CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmChacha20Poly1305, CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return cs.encryptAEAD(plaintext)
 
-	case CryptoAlgorithmAES128CBC, CryptoAlgorithmAES192CBC, CryptoAlgorithmAES256CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
 		return cs.encryptCBC(plaintext)
 
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cs.Algorithm.String())
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
+	}
+}
+
+// EncryptWithIVAndAAD encrypts data using AEAD with a caller-provided IV/nonce and AAD.
+// This is used for cross-language compatibility where IV/AAD are carried in message headers.
+func (cs *CryptoSession) EncryptWithIVAndAAD(plaintext []byte, iv []byte, aad []byte) ([]byte, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	if !cs.initialized {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	if !cryptoAlgorithmIsAEAD(cs.Algorithm) {
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
+	}
+
+	if cs.aeadCipher == nil {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	nonceSize := cs.aeadCipher.NonceSize()
+	if len(iv) != nonceSize {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrCryptoInvalidIVSize, nonceSize, len(iv))
+	}
+
+	return cs.aeadCipher.Seal(nil, iv, plaintext, aad), nil
+}
+
+// EncryptWithIV encrypts data for non-AEAD algorithms that require an IV (e.g., CBC).
+// The IV must be provided by the caller and will not be prepended to ciphertext.
+func (cs *CryptoSession) EncryptWithIV(plaintext []byte, iv []byte) ([]byte, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	if !cs.initialized {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	if cryptoAlgorithmIsAEAD(cs.Algorithm) {
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
+	}
+
+	if cs.Algorithm == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		result := make([]byte, len(plaintext))
+		copy(result, plaintext)
+		return result, nil
+	}
+
+	switch cs.Algorithm {
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
+		return cs.encryptCBCWithIV(plaintext, iv)
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
 	}
 }
 
@@ -597,6 +657,34 @@ func (cs *CryptoSession) encryptCBC(plaintext []byte) ([]byte, error) {
 	return result, nil
 }
 
+// encryptCBCWithIV encrypts using CBC mode with PKCS#7 padding and caller-provided IV.
+// Caller must hold the lock.
+func (cs *CryptoSession) encryptCBCWithIV(plaintext []byte, iv []byte) ([]byte, error) {
+	if cs.blockCipher == nil {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	blockSize := cs.blockCipher.BlockSize()
+	if len(iv) != blockSize {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrCryptoInvalidIVSize, blockSize, len(iv))
+	}
+
+	// Apply PKCS#7 padding
+	padding := blockSize - (len(plaintext) % blockSize)
+	padded := make([]byte, len(plaintext)+padding)
+	copy(padded, plaintext)
+	for i := len(plaintext); i < len(padded); i++ {
+		padded[i] = byte(padding)
+	}
+
+	// Encrypt
+	ciphertext := make([]byte, len(padded))
+	mode := cipher.NewCBCEncrypter(cs.blockCipher, iv)
+	mode.CryptBlocks(ciphertext, padded)
+
+	return ciphertext, nil
+}
+
 // Decrypt decrypts the ciphertext data.
 func (cs *CryptoSession) Decrypt(ciphertext []byte) ([]byte, error) {
 	cs.mu.RLock()
@@ -606,7 +694,7 @@ func (cs *CryptoSession) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, ErrCryptoNotInitialized
 	}
 
-	if cs.Algorithm == CryptoAlgorithmNone {
+	if cs.Algorithm == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
 		result := make([]byte, len(ciphertext))
 		copy(result, ciphertext)
 		return result, nil
@@ -617,15 +705,81 @@ func (cs *CryptoSession) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	switch cs.Algorithm {
-	case CryptoAlgorithmAES128GCM, CryptoAlgorithmAES192GCM, CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmChacha20Poly1305, CryptoAlgorithmXChacha20Poly1305:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF:
 		return cs.decryptAEAD(ciphertext)
 
-	case CryptoAlgorithmAES128CBC, CryptoAlgorithmAES192CBC, CryptoAlgorithmAES256CBC:
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
 		return cs.decryptCBC(ciphertext)
 
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cs.Algorithm.String())
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
+	}
+}
+
+// DecryptWithIVAndAAD decrypts data using AEAD with a caller-provided IV/nonce and AAD.
+// This is used for cross-language compatibility where IV/AAD are carried in message headers.
+func (cs *CryptoSession) DecryptWithIVAndAAD(ciphertext []byte, iv []byte, aad []byte) ([]byte, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	if !cs.initialized {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	if !cryptoAlgorithmIsAEAD(cs.Algorithm) {
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
+	}
+
+	if cs.aeadCipher == nil {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	nonceSize := cs.aeadCipher.NonceSize()
+	if len(iv) != nonceSize {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrCryptoInvalidIVSize, nonceSize, len(iv))
+	}
+
+	plaintext, err := cs.aeadCipher.Open(nil, iv, ciphertext, aad)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCryptoDecryptFailed, err)
+	}
+
+	return plaintext, nil
+}
+
+// DecryptWithIV decrypts data for non-AEAD algorithms that require an IV (e.g., CBC).
+// The IV must be provided by the caller and is not expected to be prepended to ciphertext.
+func (cs *CryptoSession) DecryptWithIV(ciphertext []byte, iv []byte) ([]byte, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	if !cs.initialized {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	if cryptoAlgorithmIsAEAD(cs.Algorithm) {
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
+	}
+
+	if cs.Algorithm == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		result := make([]byte, len(ciphertext))
+		copy(result, ciphertext)
+		return result, nil
+	}
+
+	switch cs.Algorithm {
+	case protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC:
+		return cs.decryptCBCWithIV(ciphertext, iv)
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrCryptoAlgorithmNotSupported, cryptoAlgorithmString(cs.Algorithm))
 	}
 }
 
@@ -696,39 +850,84 @@ func (cs *CryptoSession) decryptCBC(ciphertext []byte) ([]byte, error) {
 	return plaintext[:len(plaintext)-padding], nil
 }
 
+// decryptCBCWithIV decrypts using CBC mode and removes PKCS#7 padding with caller-provided IV.
+// Caller must hold the lock.
+func (cs *CryptoSession) decryptCBCWithIV(ciphertext []byte, iv []byte) ([]byte, error) {
+	if cs.blockCipher == nil {
+		return nil, ErrCryptoNotInitialized
+	}
+
+	blockSize := cs.blockCipher.BlockSize()
+	if len(iv) != blockSize {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrCryptoInvalidIVSize, blockSize, len(iv))
+	}
+
+	if len(ciphertext) < blockSize {
+		return nil, fmt.Errorf("%w: ciphertext too short", ErrCryptoDecryptFailed)
+	}
+
+	if len(ciphertext)%blockSize != 0 {
+		return nil, fmt.Errorf("%w: invalid ciphertext length", ErrCryptoDecryptFailed)
+	}
+
+	// Decrypt
+	plaintext := make([]byte, len(ciphertext))
+	mode := cipher.NewCBCDecrypter(cs.blockCipher, iv)
+	mode.CryptBlocks(plaintext, ciphertext)
+
+	// Remove PKCS#7 padding
+	if len(plaintext) == 0 {
+		return nil, fmt.Errorf("%w: invalid padding", ErrCryptoDecryptFailed)
+	}
+
+	padding := int(plaintext[len(plaintext)-1])
+	if padding <= 0 || padding > blockSize {
+		return nil, fmt.Errorf("%w: invalid padding value", ErrCryptoDecryptFailed)
+	}
+
+	// Verify padding
+	for i := len(plaintext) - padding; i < len(plaintext); i++ {
+		if plaintext[i] != byte(padding) {
+			return nil, fmt.Errorf("%w: invalid padding bytes", ErrCryptoDecryptFailed)
+		}
+	}
+
+	return plaintext[:len(plaintext)-padding], nil
+}
+
 // CompressionSession handles compression and decompression.
 type CompressionSession struct {
 	mu        sync.RWMutex
-	Algorithm CompressionAlgorithmType
+	Algorithm protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE
 }
 
 // NewCompressionSession creates a new compression session.
 func NewCompressionSession() *CompressionSession {
 	return &CompressionSession{
-		Algorithm: CompressionNone,
+		Algorithm: protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
 	}
 }
 
 // SetAlgorithm sets the compression algorithm.
-func (cs *CompressionSession) SetAlgorithm(algorithm CompressionAlgorithmType) error {
+func (cs *CompressionSession) SetAlgorithm(algorithm protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	switch algorithm {
-	case CompressionNone, CompressionZlib:
+	if algorithm == protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE {
 		cs.Algorithm = algorithm
 		return nil
-	case CompressionZstd, CompressionLZ4, CompressionSnappy:
-		// These require external libraries, mark as not supported for now
-		// TODO: Add support with optional build tags
-		return fmt.Errorf("%w: %s (external library required)", ErrCompressionNotSupported, algorithm.String())
-	default:
-		return fmt.Errorf("%w: %s", ErrCompressionNotSupported, algorithm.String())
 	}
+
+	if !compressionAlgorithmSupported(algorithm) {
+		return fmt.Errorf("%w: %s", ErrCompressionNotSupported, compressionAlgorithmString(algorithm))
+	}
+
+	cs.Algorithm = algorithm
+	return nil
 }
 
 // GetAlgorithm returns the current compression algorithm.
-func (cs *CompressionSession) GetAlgorithm() CompressionAlgorithmType {
+func (cs *CompressionSession) GetAlgorithm() protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 	return cs.Algorithm
@@ -745,34 +944,26 @@ func (cs *CompressionSession) Compress(data []byte) ([]byte, error) {
 	}
 
 	switch algorithm {
-	case CompressionNone:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE:
 		result := make([]byte, len(data))
 		copy(result, data)
 		return result, nil
-
-	case CompressionZlib:
-		return cs.compressZlib(data)
-
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrCompressionNotSupported, algorithm.String())
+		adapterAlg := compressionAlgorithmToAdapter(algorithm)
+		compressed, code := compression.Compress(adapterAlg, data, compression.LevelBalanced)
+		switch code {
+		case compression.ErrorCodeOk:
+			return compressed, nil
+		case compression.ErrorCodeNotSupport, compression.ErrorCodeDisabled:
+			return nil, fmt.Errorf("%w: %s", ErrCompressionNotSupported, compressionAlgorithmString(algorithm))
+		default:
+			return nil, fmt.Errorf("%w: %s", ErrCompressionFailed, compressionAlgorithmString(algorithm))
+		}
 	}
-}
-
-// compressZlib compresses data using zlib.
-func (cs *CompressionSession) compressZlib(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	writer := zlib.NewWriter(&buf)
-	if _, err := writer.Write(data); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
-	}
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrCompressionFailed, err)
-	}
-	return buf.Bytes(), nil
 }
 
 // Decompress decompresses the data using the configured algorithm.
-func (cs *CompressionSession) Decompress(data []byte) ([]byte, error) {
+func (cs *CompressionSession) Decompress(data []byte, originalSize int) ([]byte, error) {
 	cs.mu.RLock()
 	algorithm := cs.Algorithm
 	cs.mu.RUnlock()
@@ -782,52 +973,41 @@ func (cs *CompressionSession) Decompress(data []byte) ([]byte, error) {
 	}
 
 	switch algorithm {
-	case CompressionNone:
+	case protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE:
 		result := make([]byte, len(data))
 		copy(result, data)
 		return result, nil
-
-	case CompressionZlib:
-		return cs.decompressZlib(data)
-
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrCompressionNotSupported, algorithm.String())
+		adapterAlg := compressionAlgorithmToAdapter(algorithm)
+		decompressed, code := compression.Decompress(adapterAlg, data, originalSize)
+		switch code {
+		case compression.ErrorCodeOk:
+			return decompressed, nil
+		case compression.ErrorCodeNotSupport, compression.ErrorCodeDisabled:
+			return nil, fmt.Errorf("%w: %s", ErrCompressionNotSupported, compressionAlgorithmString(algorithm))
+		default:
+			return nil, fmt.Errorf("%w: %s", ErrDecompressionFailed, compressionAlgorithmString(algorithm))
+		}
 	}
-}
-
-// decompressZlib decompresses data using zlib.
-func (cs *CompressionSession) decompressZlib(data []byte) ([]byte, error) {
-	reader, err := zlib.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrDecompressionFailed, err)
-	}
-	defer reader.Close()
-
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, reader); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrDecompressionFailed, err)
-	}
-
-	return buf.Bytes(), nil
 }
 
 // NegotiateCompression negotiates the compression algorithm based on supported algorithms.
-func NegotiateCompression(local, remote []CompressionAlgorithmType) CompressionAlgorithmType {
+func NegotiateCompression(local, remote []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE {
 	// Priority order: ZSTD > LZ4 > SNAPPY > ZLIB > NONE
-	priority := []CompressionAlgorithmType{
-		CompressionZstd,
-		CompressionLZ4,
-		CompressionSnappy,
-		CompressionZlib,
-		CompressionNone,
+	priority := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD,
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_LZ4,
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_SNAPPY,
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
 	}
 
-	localSet := make(map[CompressionAlgorithmType]bool)
+	localSet := make(map[protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE]bool)
 	for _, alg := range local {
 		localSet[alg] = true
 	}
 
-	remoteSet := make(map[CompressionAlgorithmType]bool)
+	remoteSet := make(map[protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE]bool)
 	for _, alg := range remote {
 		remoteSet[alg] = true
 	}
@@ -838,30 +1018,30 @@ func NegotiateCompression(local, remote []CompressionAlgorithmType) CompressionA
 		}
 	}
 
-	return CompressionNone
+	return protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE
 }
 
 // NegotiateCryptoAlgorithm negotiates the crypto algorithm based on supported algorithms.
-func NegotiateCryptoAlgorithm(local, remote []CryptoAlgorithmType) CryptoAlgorithmType {
+func NegotiateCryptoAlgorithm(local, remote []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) protocol.ATBUS_CRYPTO_ALGORITHM_TYPE {
 	// Priority order: AEAD algorithms first, then CBC
-	priority := []CryptoAlgorithmType{
-		CryptoAlgorithmXChacha20Poly1305,
-		CryptoAlgorithmChacha20Poly1305,
-		CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmAES192GCM,
-		CryptoAlgorithmAES128GCM,
-		CryptoAlgorithmAES256CBC,
-		CryptoAlgorithmAES192CBC,
-		CryptoAlgorithmAES128CBC,
-		CryptoAlgorithmNone,
+	priority := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE,
 	}
 
-	localSet := make(map[CryptoAlgorithmType]bool)
+	localSet := make(map[protocol.ATBUS_CRYPTO_ALGORITHM_TYPE]bool)
 	for _, alg := range local {
 		localSet[alg] = true
 	}
 
-	remoteSet := make(map[CryptoAlgorithmType]bool)
+	remoteSet := make(map[protocol.ATBUS_CRYPTO_ALGORITHM_TYPE]bool)
 	for _, alg := range remote {
 		remoteSet[alg] = true
 	}
@@ -872,21 +1052,21 @@ func NegotiateCryptoAlgorithm(local, remote []CryptoAlgorithmType) CryptoAlgorit
 		}
 	}
 
-	return CryptoAlgorithmNone
+	return protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE
 }
 
 // NegotiateKeyExchange negotiates the key exchange algorithm.
-func NegotiateKeyExchange(local, remote KeyExchangeType) KeyExchangeType {
+func NegotiateKeyExchange(local, remote protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE) protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE {
 	// Both sides must agree on the same key exchange type
 	if local == remote {
 		return local
 	}
-	return KeyExchangeNone
+	return protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE
 }
 
 // NegotiateKDF negotiates the KDF type based on supported types.
-func NegotiateKDF(local, remote []KDFType) KDFType {
-	localSet := make(map[KDFType]bool)
+func NegotiateKDF(local, remote []protocol.ATBUS_CRYPTO_KDF_TYPE) protocol.ATBUS_CRYPTO_KDF_TYPE {
+	localSet := make(map[protocol.ATBUS_CRYPTO_KDF_TYPE]bool)
 	for _, kdf := range local {
 		localSet[kdf] = true
 	}
@@ -897,7 +1077,7 @@ func NegotiateKDF(local, remote []KDFType) KDFType {
 		}
 	}
 
-	return KDFTypeHKDFSha256 // Default
+	return protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256 // Default
 }
 
 // ConnectionContext manages the connection state including crypto and compression.
@@ -913,42 +1093,44 @@ type ConnectionContext struct {
 	compression *CompressionSession
 
 	// Connection state
-	sequence      uint64
-	closing       bool
-	handshakeDone bool
+	sequence           uint64
+	closing            bool
+	handshakeDone      bool
+	handshakeStartTime time.Time
+	handshakeSequence  uint64
 
 	// Supported algorithms
-	supportedCryptoAlgorithms      []CryptoAlgorithmType
-	supportedCompressionAlgorithms []CompressionAlgorithmType
-	supportedKeyExchange           KeyExchangeType
-	supportedKDFTypes              []KDFType
+	supportedCryptoAlgorithms      []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
+	supportedCompressionAlgorithms []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE
+	supportedKeyExchange           protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE
+	supportedKDFTypes              []protocol.ATBUS_CRYPTO_KDF_TYPE
 }
 
 // NewConnectionContext creates a new connection context with default settings.
-func NewConnectionContext() *ConnectionContext {
-	return &ConnectionContext{
+func NewConnectionContext(keyExchangeType protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE) *ConnectionContext {
+	ret := &ConnectionContext{
 		readCrypto:      NewCryptoSession(),
 		writeCrypto:     NewCryptoSession(),
 		handshakeCrypto: NewCryptoSession(),
 		compression:     NewCompressionSession(),
-		supportedCryptoAlgorithms: []CryptoAlgorithmType{
-			CryptoAlgorithmAES256GCM,
-			CryptoAlgorithmAES128GCM,
-			CryptoAlgorithmChacha20Poly1305,
-			CryptoAlgorithmXChacha20Poly1305,
-			CryptoAlgorithmAES256CBC,
-			CryptoAlgorithmAES128CBC,
-			CryptoAlgorithmNone,
+		supportedCryptoAlgorithms: []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF,
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC,
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE,
 		},
-		supportedCompressionAlgorithms: []CompressionAlgorithmType{
-			CompressionZlib,
-			CompressionNone,
-		},
-		supportedKeyExchange: KeyExchangeX25519,
-		supportedKDFTypes: []KDFType{
-			KDFTypeHKDFSha256,
+		supportedCompressionAlgorithms: nil,
+		supportedKeyExchange:           keyExchangeType,
+		supportedKDFTypes: []protocol.ATBUS_CRYPTO_KDF_TYPE{
+			protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256,
 		},
 	}
+
+	ret.supportedCompressionAlgorithms = ret.GetSupportedCompressionAlgorithms()
+	return ret
 }
 
 // IsClosing returns true if the connection is closing.
@@ -972,6 +1154,53 @@ func (cc *ConnectionContext) IsHandshakeDone() bool {
 	return cc.handshakeDone
 }
 
+// GetHandshakeStartTime returns the time when the handshake was started.
+func (cc *ConnectionContext) GetHandshakeStartTime() time.Time {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	return cc.handshakeStartTime
+}
+
+// GetCryptoKeyExchangeAlgorithm returns the key exchange algorithm used for crypto handshake.
+func (cc *ConnectionContext) GetCryptoKeyExchangeAlgorithm() protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	if cc.handshakeCrypto != nil {
+		return cc.handshakeCrypto.KeyExchange
+	}
+	return protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE
+}
+
+// GetCryptoSelectKdfType returns the KDF type selected during handshake.
+func (cc *ConnectionContext) GetCryptoSelectKdfType() protocol.ATBUS_CRYPTO_KDF_TYPE {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	if cc.handshakeCrypto != nil {
+		return cc.handshakeCrypto.KDFType
+	}
+	return protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256
+}
+
+// GetCryptoSelectAlgorithm returns the crypto algorithm selected during handshake.
+func (cc *ConnectionContext) GetCryptoSelectAlgorithm() protocol.ATBUS_CRYPTO_ALGORITHM_TYPE {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	if cc.writeCrypto != nil && cc.writeCrypto.IsInitialized() {
+		return cc.writeCrypto.Algorithm
+	}
+	return protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE
+}
+
+// GetCompressSelectAlgorithm returns the compression algorithm selected during handshake.
+func (cc *ConnectionContext) GetCompressSelectAlgorithm() protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	if cc.compression != nil {
+		return cc.compression.GetAlgorithm()
+	}
+	return protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE
+}
+
 // GetNextSequence returns the next sequence number.
 func (cc *ConnectionContext) GetNextSequence() uint64 {
 	return atomic.AddUint64(&cc.sequence, 1)
@@ -993,48 +1222,48 @@ func (cc *ConnectionContext) GetCompression() *CompressionSession {
 }
 
 // SetSupportedCryptoAlgorithms sets the supported crypto algorithms.
-func (cc *ConnectionContext) SetSupportedCryptoAlgorithms(algorithms []CryptoAlgorithmType) {
+func (cc *ConnectionContext) SetSupportedCryptoAlgorithms(algorithms []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
-	cc.supportedCryptoAlgorithms = make([]CryptoAlgorithmType, len(algorithms))
+	cc.supportedCryptoAlgorithms = make([]protocol.ATBUS_CRYPTO_ALGORITHM_TYPE, len(algorithms))
 	copy(cc.supportedCryptoAlgorithms, algorithms)
 }
 
 // GetSupportedCryptoAlgorithms returns the supported crypto algorithms.
-func (cc *ConnectionContext) GetSupportedCryptoAlgorithms() []CryptoAlgorithmType {
+func (cc *ConnectionContext) GetSupportedCryptoAlgorithms() []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
-	result := make([]CryptoAlgorithmType, len(cc.supportedCryptoAlgorithms))
+	result := make([]protocol.ATBUS_CRYPTO_ALGORITHM_TYPE, len(cc.supportedCryptoAlgorithms))
 	copy(result, cc.supportedCryptoAlgorithms)
 	return result
 }
 
 // SetSupportedCompressionAlgorithms sets the supported compression algorithms.
-func (cc *ConnectionContext) SetSupportedCompressionAlgorithms(algorithms []CompressionAlgorithmType) {
+func (cc *ConnectionContext) SetSupportedCompressionAlgorithms(algorithms []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
-	cc.supportedCompressionAlgorithms = make([]CompressionAlgorithmType, len(algorithms))
+	cc.supportedCompressionAlgorithms = make([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE, len(algorithms))
 	copy(cc.supportedCompressionAlgorithms, algorithms)
 }
 
 // GetSupportedCompressionAlgorithms returns the supported compression algorithms.
-func (cc *ConnectionContext) GetSupportedCompressionAlgorithms() []CompressionAlgorithmType {
+func (cc *ConnectionContext) GetSupportedCompressionAlgorithms() []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
-	result := make([]CompressionAlgorithmType, len(cc.supportedCompressionAlgorithms))
+	result := make([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE, len(cc.supportedCompressionAlgorithms))
 	copy(result, cc.supportedCompressionAlgorithms)
 	return result
 }
 
 // SetSupportedKeyExchange sets the supported key exchange type.
-func (cc *ConnectionContext) SetSupportedKeyExchange(keyExchange KeyExchangeType) {
+func (cc *ConnectionContext) SetSupportedKeyExchange(keyExchange protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 	cc.supportedKeyExchange = keyExchange
 }
 
 // GetSupportedKeyExchange returns the supported key exchange type.
-func (cc *ConnectionContext) GetSupportedKeyExchange() KeyExchangeType {
+func (cc *ConnectionContext) GetSupportedKeyExchange() protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 	return cc.supportedKeyExchange
@@ -1076,7 +1305,8 @@ func (cc *ConnectionContext) ProcessHandshakeData(peerData *CryptoHandshakeData)
 
 	// Negotiate key exchange
 	keyExchange := NegotiateKeyExchange(cc.supportedKeyExchange, peerData.KeyExchange)
-	if keyExchange == KeyExchangeNone && cc.supportedKeyExchange != KeyExchangeNone {
+	if keyExchange == protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE &&
+		cc.supportedKeyExchange != protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE {
 		return fmt.Errorf("%w: key exchange mismatch", ErrCryptoHandshakeFailed)
 	}
 
@@ -1117,7 +1347,7 @@ func (cc *ConnectionContext) ProcessHandshakeData(peerData *CryptoHandshakeData)
 }
 
 // NegotiateCompressionWithPeer negotiates compression with peer's supported algorithms.
-func (cc *ConnectionContext) NegotiateCompressionWithPeer(peerAlgorithms []CompressionAlgorithmType) error {
+func (cc *ConnectionContext) NegotiateCompressionWithPeer(peerAlgorithms []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
@@ -1125,295 +1355,560 @@ func (cc *ConnectionContext) NegotiateCompressionWithPeer(peerAlgorithms []Compr
 	return cc.compression.SetAlgorithm(algorithm)
 }
 
-// MessageHeader represents the header of a packed message.
-//
-// It is defined in `libatbus-go/types` and aliased here for convenience.
-type MessageHeader = types.MessageHeader
+// HandshakeGenerateSelfKey generates the local ECDH key pair for handshake.
+// In client mode, peerSequenceId should be 0 to generate a new sequence.
+// In server mode, peerSequenceId should be the peer's handshake sequence.
+func (cc *ConnectionContext) HandshakeGenerateSelfKey(peerSequenceId uint64) error_code.ErrorType {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
 
-// PackedMessage represents a packed message ready for transmission.
-//
-// It is defined in `libatbus-go/types` and aliased here for convenience.
-type PackedMessage = types.PackedMessage
-
-// Pack packs the message with optional compression and encryption.
-func (cc *ConnectionContext) Pack(data []byte, msgType int32, sourceBusID uint64) (*PackedMessage, error) {
-	cc.mu.RLock()
 	if cc.closing {
-		cc.mu.RUnlock()
-		return nil, ErrConnectionClosing
-	}
-	cc.mu.RUnlock()
-
-	originalSize := uint64(len(data))
-	processedData := data
-
-	// Step 1: Compress if needed
-	compressionAlg := cc.compression.GetAlgorithm()
-	if compressionAlg != CompressionNone && len(data) > 0 {
-		compressed, err := cc.compression.Compress(data)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrPackFailed, err)
-		}
-		// Only use compressed data if it's actually smaller
-		if len(compressed) < len(data) {
-			processedData = compressed
-		} else {
-			compressionAlg = CompressionNone
-		}
+		return error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
 	}
 
-	// Step 2: Encrypt
-	var cryptoIV []byte
-	cryptoAlg := CryptoAlgorithmNone
-	if cc.writeCrypto.IsInitialized() {
-		encrypted, err := cc.writeCrypto.Encrypt(processedData)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrPackFailed, err)
-		}
-		processedData = encrypted
-		cryptoAlg = cc.writeCrypto.Algorithm
-		// IV is embedded in the encrypted data for AEAD/CBC modes
+	// Set handshake start time
+	cc.handshakeStartTime = time.Now()
+
+	// Generate sequence ID
+	if peerSequenceId == 0 {
+		cc.handshakeSequence = atomic.AddUint64(&cc.sequence, 1)
+	} else {
+		cc.handshakeSequence = peerSequenceId
 	}
 
-	header := &MessageHeader{
-		Version:         3, // ATBUS_PROTOCOL_VERSION
-		Type:            msgType,
-		ResultCode:      0,
-		Sequence:        cc.GetNextSequence(),
-		SourceBusID:     sourceBusID,
-		CryptoAlgorithm: int32(cryptoAlg),
-		CryptoIV:        cryptoIV,
-		CryptoAAD:       nil,
-		CompressionType: int32(compressionAlg),
-		OriginalSize:    originalSize,
-		BodySize:        uint64(len(processedData)),
+	// Generate key pair using the configured key exchange algorithm
+	if err := cc.handshakeCrypto.GenerateKeyPair(cc.supportedKeyExchange); err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR
 	}
 
-	return &PackedMessage{
-		Header: header,
-		Body:   processedData,
-	}, nil
+	return error_code.EN_ATBUS_ERR_SUCCESS
 }
 
-// Unpack unpacks the message with optional decryption and decompression.
-func (cc *ConnectionContext) Unpack(msg *PackedMessage) ([]byte, error) {
+// HandshakeReadPeerKey reads the peer's public key and computes the shared secret.
+func (cc *ConnectionContext) HandshakeReadPeerKey(peerPubKey *protocol.CryptoHandshakeData,
+	supportedCryptoAlgorithms []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE,
+) error_code.ErrorType {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+
+	if cc.closing {
+		return error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
+	}
+
+	if peerPubKey == nil {
+		return error_code.EN_ATBUS_ERR_PARAMS
+	}
+
+	// Verify key exchange algorithm matches
+	if peerPubKey.GetType() != cc.supportedKeyExchange {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_READ_PEER_KEY
+	}
+
+	// Compute shared secret
+	sharedSecret, err := cc.handshakeCrypto.ComputeSharedSecret(peerPubKey.GetPublicKey())
+	if err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET
+	}
+
+	// Negotiate crypto algorithm
+	peerAlgorithms := peerPubKey.GetAlgorithms()
+	algorithm := NegotiateCryptoAlgorithm(supportedCryptoAlgorithms, peerAlgorithms)
+
+	// Negotiate KDF
+	peerKDFs := peerPubKey.GetKdfType()
+	kdf := NegotiateKDF(cc.supportedKDFTypes, peerKDFs)
+
+	// Derive keys
+	if err := cc.handshakeCrypto.DeriveKey(sharedSecret, algorithm, kdf); err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_KDF_ERROR
+	}
+
+	// Set up read and write crypto sessions with the same key
+	if err := cc.readCrypto.SetKey(cc.handshakeCrypto.Key, cc.handshakeCrypto.IV, algorithm); err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET
+	}
+	if err := cc.writeCrypto.SetKey(cc.handshakeCrypto.Key, cc.handshakeCrypto.IV, algorithm); err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET
+	}
+
+	cc.handshakeDone = true
+	return error_code.EN_ATBUS_ERR_SUCCESS
+}
+
+// HandshakeWriteSelfPublicKey writes the local public key to the handshake data structure.
+func (cc *ConnectionContext) HandshakeWriteSelfPublicKey(
+	selfPubKey *protocol.CryptoHandshakeData,
+	supportedCryptoAlgorithms []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE,
+) error_code.ErrorType {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+
+	if cc.closing {
+		return error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
+	}
+
+	if selfPubKey == nil {
+		return error_code.EN_ATBUS_ERR_PARAMS
+	}
+
+	// Check if key pair has been generated
+	pubKey := cc.handshakeCrypto.GetPublicKey()
+	if pubKey == nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR
+	}
+
+	// Fill in the handshake data
+	selfPubKey.Sequence = cc.handshakeSequence
+	selfPubKey.Type = cc.supportedKeyExchange
+	selfPubKey.KdfType = cc.supportedKDFTypes
+	selfPubKey.Algorithms = supportedCryptoAlgorithms
+	selfPubKey.PublicKey = pubKey
+
+	return error_code.EN_ATBUS_ERR_SUCCESS
+}
+
+// UpdateCompressionAlgorithm updates the list of supported compression algorithms.
+func (cc *ConnectionContext) UpdateCompressionAlgorithm(
+	algorithms []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE,
+) error_code.ErrorType {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+
+	if cc.closing {
+		return error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
+	}
+
+	cc.supportedCompressionAlgorithms = make([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE, len(algorithms))
+	copy(cc.supportedCompressionAlgorithms, algorithms)
+
+	return error_code.EN_ATBUS_ERR_SUCCESS
+}
+
+// IsCompressionAlgorithmSupported reports whether the specified compression algorithm is supported.
+func (cc *ConnectionContext) IsCompressionAlgorithmSupported(
+	algorithm protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE,
+) bool {
+	return compressionAlgorithmSupported(algorithm)
+}
+
+// SetupCryptoWithKey directly sets the encryption key and IV, skipping key exchange.
+// This is primarily used for testing purposes.
+func (cc *ConnectionContext) SetupCryptoWithKey(
+	algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE, key []byte, iv []byte,
+) error_code.ErrorType {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+
+	if cc.closing {
+		return error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
+	}
+
+	// Set up read crypto session
+	if err := cc.readCrypto.SetKey(key, iv, algorithm); err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET
+	}
+
+	// Set up write crypto session
+	if err := cc.writeCrypto.SetKey(key, iv, algorithm); err != nil {
+		return error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET
+	}
+
+	cc.handshakeDone = true
+	return error_code.EN_ATBUS_ERR_SUCCESS
+}
+
+// allowCrypto checks if a message type allows encryption.
+func allowCrypto(bodyType types.MessageBodyType) bool {
+	switch bodyType {
+	case types.MessageBodyTypeNodeRegisterReq,
+		types.MessageBodyTypeNodeRegisterRsp,
+		types.MessageBodyTypeNodePingReq,
+		types.MessageBodyTypeNodePongRsp:
+		return false
+	default:
+		return true
+	}
+}
+
+// allowCompress checks if compression should be applied.
+func allowCompress(messageType protocol.MessageBody_EnMessageTypeID, bodySize int) bool {
+	// If body is too small, compression overhead may make it larger
+	if bodySize <= 512 {
+		return false
+	}
+
+	switch messageType {
+	case protocol.MessageBody_EnMessageTypeID_DataTransformReq,
+		protocol.MessageBody_EnMessageTypeID_DataTransformRsp,
+		protocol.MessageBody_EnMessageTypeID_CustomCommandReq,
+		protocol.MessageBody_EnMessageTypeID_CustomCommandRsp:
+		return bodySize >= 1024
+	default:
+		return bodySize >= 2048
+	}
+}
+
+// PackMessage packs a Message into a StaticBufferBlock for transmission.
+// This matches the C++ connection_context::pack_message signature.
+// Message frame format: vint(header_length) + header + body
+func (cc *ConnectionContext) PackMessage(m *types.Message, protocolVersion int32, maxBodySize int) (*buffer.StaticBufferBlock, error_code.ErrorType) {
 	cc.mu.RLock()
 	if cc.closing {
 		cc.mu.RUnlock()
-		return nil, ErrConnectionClosing
+		return nil, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
 	}
 	cc.mu.RUnlock()
 
-	if msg == nil || msg.Header == nil {
-		return nil, fmt.Errorf("%w: nil message", ErrUnpackFailed)
+	if m == nil {
+		return nil, error_code.EN_ATBUS_ERR_PARAMS
 	}
 
-	processedData := msg.Body
+	// Get body size
+	body := m.GetBody()
+	var bodySize int
+	if body != nil {
+		bodySize = proto.Size(body)
+	}
+
+	// Determine compression and crypto algorithms based on message type
+	compressionAlg := protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE
+	cryptoAlg := protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE
+
+	bodyType := m.GetBodyType()
+	if allowCrypto(bodyType) && cc.writeCrypto.IsInitialized() {
+		cryptoAlg = cc.writeCrypto.Algorithm
+	}
+	if allowCompress(bodyType, bodySize) {
+		compressionAlg = cc.compression.GetAlgorithm()
+	}
+
+	// Check body size limits
+	if maxBodySize > 0 && bodySize > maxBodySize {
+		return nil, error_code.EN_ATBUS_ERR_INVALID_SIZE
+	}
+
+	// Set head fields
+	head := m.MutableHead()
+	head.Version = protocolVersion
+	head.BodySize = uint64(bodySize)
+
+	// If no compression and no encryption, use simple packing
+	if compressionAlg == protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE &&
+		cryptoAlg == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		return cc.packMessageOrigin(m)
+	}
+
+	return cc.packMessageWith(m, compressionAlg, cryptoAlg)
+}
+
+// packMessageOrigin packs a message without compression or encryption.
+func (cc *ConnectionContext) packMessageOrigin(m *types.Message) (*buffer.StaticBufferBlock, error_code.ErrorType) {
+	head := m.GetHead()
+	body := m.GetBody()
+
+	bodySize := int(head.GetBodySize())
+
+	// Serialize head
+	headBytes, err := proto.Marshal(head)
+	if err != nil {
+		return nil, error_code.EN_ATBUS_ERR_PACK
+	}
+	headSize := len(headBytes)
+
+	// Calculate vint size for head length
+	headVintSize := buffer.VintEncodedSize(uint64(headSize))
+
+	// Total size: vint(head_len) + head + body
+	totalSize := headVintSize + headSize + bodySize
+	buf := buffer.AllocateTemporaryBufferBlock(totalSize)
+	if buf == nil {
+		return nil, error_code.EN_ATBUS_ERR_MALLOC
+	}
+
+	// Write head length as vint
+	data := buf.Data()
+	vintWritten := buffer.WriteVint(uint64(headSize), data)
+	if vintWritten != headVintSize {
+		return nil, error_code.EN_ATBUS_ERR_PACK
+	}
+
+	// Write head
+	copy(data[headVintSize:], headBytes)
+
+	// Write body
+	if body != nil && bodySize > 0 {
+		bodyBytes, err := proto.Marshal(body)
+		if err != nil {
+			return nil, error_code.EN_ATBUS_ERR_PACK
+		}
+		copy(data[headVintSize+headSize:], bodyBytes)
+	}
+
+	buf.SetUsed(totalSize)
+	return buf, error_code.EN_ATBUS_ERR_SUCCESS
+}
+
+// packMessageWith packs a message with compression and/or encryption.
+func (cc *ConnectionContext) packMessageWith(m *types.Message, compressionAlg protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE, cryptoAlg protocol.ATBUS_CRYPTO_ALGORITHM_TYPE) (*buffer.StaticBufferBlock, error_code.ErrorType) {
+	head := m.MutableHead()
+	body := m.GetBody()
+
+	bodySize := int(head.GetBodySize())
+
+	// Serialize body first
+	var originBodyBytes []byte
+	if body != nil && bodySize > 0 {
+		var err error
+		originBodyBytes, err = proto.Marshal(body)
+		if err != nil {
+			return nil, error_code.EN_ATBUS_ERR_PACK
+		}
+	}
+
+	processedBody := originBodyBytes
+	compressedSize := 0
+
+	// Step 1: Compress if needed
+	if compressionAlg != protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE && len(originBodyBytes) > 0 {
+		if !compressionAlgorithmSupported(compressionAlg) {
+			return nil, error_code.EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT
+		}
+
+		compressed, err := cc.compression.Compress(originBodyBytes)
+		if err != nil {
+			if errors.Is(err, ErrCompressionNotSupported) {
+				return nil, error_code.EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT
+			}
+			return nil, error_code.EN_ATBUS_ERR_PACK
+		}
+
+		if len(compressed) > 0 && len(compressed) < len(originBodyBytes) {
+			processedBody = compressed
+			compressedSize = len(compressed)
+		} else {
+			compressionAlg = protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE
+		}
+	}
+
+	// Step 2: Encrypt if needed
+	if cryptoAlg != protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		if !cc.writeCrypto.IsInitialized() || cryptoAlg != cc.writeCrypto.Algorithm {
+			return nil, error_code.EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_MATCH
+		}
+
+		// Set crypto info in head (preserve existing AAD if already set)
+		if head.Crypto == nil {
+			head.Crypto = &protocol.MessageHeadCrypto{}
+		}
+		head.Crypto.Algorithm = cryptoAlg
+
+		if cryptoAlgorithmIsAEAD(cryptoAlg) {
+			nonceSize := cryptoAlgorithmIVSize(cryptoAlg)
+			iv := make([]byte, nonceSize)
+			if _, err := rand.Read(iv); err != nil {
+				return nil, error_code.EN_ATBUS_ERR_CRYPTO_ENCRYPT
+			}
+			head.Crypto.Iv = iv
+
+			encrypted, err := cc.writeCrypto.EncryptWithIVAndAAD(processedBody, iv, head.Crypto.Aad)
+			if err != nil {
+				return nil, error_code.EN_ATBUS_ERR_CRYPTO_ENCRYPT
+			}
+			processedBody = encrypted
+		} else {
+			ivSize := cryptoAlgorithmIVSize(cryptoAlg)
+			if ivSize > 0 {
+				iv := make([]byte, ivSize)
+				if _, err := rand.Read(iv); err != nil {
+					return nil, error_code.EN_ATBUS_ERR_CRYPTO_ENCRYPT
+				}
+				head.Crypto.Iv = iv
+
+				encrypted, err := cc.writeCrypto.EncryptWithIV(processedBody, iv)
+				if err != nil {
+					return nil, error_code.EN_ATBUS_ERR_CRYPTO_ENCRYPT
+				}
+				processedBody = encrypted
+			} else {
+				head.Crypto.Iv = nil
+				encrypted, err := cc.writeCrypto.Encrypt(processedBody)
+				if err != nil {
+					return nil, error_code.EN_ATBUS_ERR_CRYPTO_ENCRYPT
+				}
+				processedBody = encrypted
+			}
+		}
+	}
+
+	// Set compression info if used (for future)
+	if compressionAlg != protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE {
+		head.Compression = &protocol.MessageHeadCompression{
+			Type:         compressionAlg,
+			OriginalSize: uint64(compressedSize),
+		}
+	}
+
+	// Serialize head (after setting crypto/compression info)
+	headBytes, err := proto.Marshal(head)
+	if err != nil {
+		return nil, error_code.EN_ATBUS_ERR_PACK
+	}
+	headSize := len(headBytes)
+	headVintSize := buffer.VintEncodedSize(uint64(headSize))
+
+	// Total size: vint(head_len) + head + encrypted_body
+	totalSize := headVintSize + headSize + len(processedBody)
+	buf := buffer.AllocateTemporaryBufferBlock(totalSize)
+	if buf == nil {
+		return nil, error_code.EN_ATBUS_ERR_MALLOC
+	}
+
+	data := buf.Data()
+
+	// Write head length as vint
+	buffer.WriteVint(uint64(headSize), data)
+
+	// Write head
+	copy(data[headVintSize:], headBytes)
+
+	// Write processed body
+	copy(data[headVintSize+headSize:], processedBody)
+
+	buf.SetUsed(headVintSize + headSize + len(processedBody))
+	return buf, error_code.EN_ATBUS_ERR_SUCCESS
+}
+
+// UnpackMessage unpacks binary data into a Message.
+// This matches the C++ connection_context::unpack_message signature.
+// Message frame format: vint(header_length) + header + body
+func (cc *ConnectionContext) UnpackMessage(m *types.Message, input []byte, maxBodySize int) error_code.ErrorType {
+	cc.mu.RLock()
+	if cc.closing {
+		cc.mu.RUnlock()
+		return error_code.EN_ATBUS_ERR_CHANNEL_CLOSING
+	}
+	cc.mu.RUnlock()
+
+	if m == nil {
+		return error_code.EN_ATBUS_ERR_PARAMS
+	}
+
+	if len(input) == 0 {
+		return error_code.EN_ATBUS_ERR_PARAMS
+	}
+
+	// Check max size early
+	if maxBodySize > 0 && len(input) > maxBodySize+256 { // 256 bytes for header overhead
+		return error_code.EN_ATBUS_ERR_INVALID_SIZE
+	}
+
+	// Read head length vint
+	headSize, headVintSize := buffer.ReadVint(input)
+	if headVintSize == 0 {
+		return error_code.EN_ATBUS_ERR_INVALID_SIZE
+	}
+
+	if int(headSize)+headVintSize > len(input) {
+		return error_code.EN_ATBUS_ERR_INVALID_SIZE
+	}
+
+	// Parse head
+	head := m.MutableHead()
+	if err := proto.Unmarshal(input[headVintSize:headVintSize+int(headSize)], head); err != nil {
+		return error_code.EN_ATBUS_ERR_UNPACK
+	}
+
+	bodySize := head.GetBodySize()
+	if bodySize == 0 {
+		return error_code.EN_ATBUS_ERR_SUCCESS
+	}
+
+	if maxBodySize > 0 && int(bodySize) > maxBodySize+256 {
+		return error_code.EN_ATBUS_ERR_INVALID_SIZE
+	}
+
+	// Get the body data block
+	nextBlock := input[headVintSize+int(headSize):]
 
 	// Step 1: Decrypt if needed
-	if msg.Header.CryptoAlgorithm != int32(CryptoAlgorithmNone) {
-		if !cc.readCrypto.IsInitialized() {
-			return nil, fmt.Errorf("%w: crypto not initialized", ErrUnpackFailed)
+	cryptoInfo := head.GetCrypto()
+	if cryptoInfo != nil && cryptoInfo.GetAlgorithm() != protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		if !cc.readCrypto.IsInitialized() || cryptoInfo.GetAlgorithm() != cc.readCrypto.Algorithm {
+			return error_code.EN_ATBUS_ERR_CRYPTO_ALGORITHM_NOT_MATCH
 		}
-		decrypted, err := cc.readCrypto.Decrypt(processedData)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrUnpackFailed, err)
+
+		if cryptoAlgorithmIsAEAD(cryptoInfo.GetAlgorithm()) {
+			iv := cryptoInfo.GetIv()
+			if len(iv) != cryptoAlgorithmIVSize(cryptoInfo.GetAlgorithm()) {
+				return error_code.EN_ATBUS_ERR_CRYPTO_DECRYPT
+			}
+			decrypted, err := cc.readCrypto.DecryptWithIVAndAAD(nextBlock, iv, cryptoInfo.GetAad())
+			if err != nil {
+				return error_code.EN_ATBUS_ERR_CRYPTO_DECRYPT
+			}
+			nextBlock = decrypted
+		} else {
+			ivSize := cryptoAlgorithmIVSize(cryptoInfo.GetAlgorithm())
+			if ivSize > 0 {
+				iv := cryptoInfo.GetIv()
+				if len(iv) != ivSize {
+					return error_code.EN_ATBUS_ERR_CRYPTO_DECRYPT
+				}
+				decrypted, err := cc.readCrypto.DecryptWithIV(nextBlock, iv)
+				if err != nil {
+					return error_code.EN_ATBUS_ERR_CRYPTO_DECRYPT
+				}
+				nextBlock = decrypted
+			} else {
+				decrypted, err := cc.readCrypto.Decrypt(nextBlock)
+				if err != nil {
+					return error_code.EN_ATBUS_ERR_CRYPTO_DECRYPT
+				}
+				nextBlock = decrypted
+			}
 		}
-		processedData = decrypted
 	}
 
 	// Step 2: Decompress if needed
-	if msg.Header.CompressionType != int32(CompressionNone) {
-		// Temporarily set the decompression algorithm
-		originalAlg := cc.compression.GetAlgorithm()
-		if err := cc.compression.SetAlgorithm(CompressionAlgorithmType(msg.Header.CompressionType)); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrUnpackFailed, err)
+	compressionInfo := head.GetCompression()
+	if compressionInfo != nil && compressionInfo.GetType() != protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE {
+		if !compressionAlgorithmSupported(compressionInfo.GetType()) {
+			return error_code.EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT
 		}
-		decompressed, err := cc.compression.Decompress(processedData)
-		// Restore original algorithm
-		_ = cc.compression.SetAlgorithm(originalAlg)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrUnpackFailed, err)
+
+		compressedSize := int(compressionInfo.GetOriginalSize())
+		if compressedSize <= 0 || compressedSize > len(nextBlock) {
+			return error_code.EN_ATBUS_ERR_INVALID_SIZE
 		}
-		processedData = decompressed
+
+		compressedBlock := nextBlock[:compressedSize]
+		adapterAlg := compressionAlgorithmToAdapter(compressionInfo.GetType())
+		decompressed, code := compression.Decompress(adapterAlg, compressedBlock, int(bodySize))
+		switch code {
+		case compression.ErrorCodeOk:
+			nextBlock = decompressed
+		case compression.ErrorCodeNotSupport, compression.ErrorCodeDisabled:
+			return error_code.EN_ATBUS_ERR_COMPRESSION_ALGORITHM_NOT_SUPPORT
+		default:
+			return error_code.EN_ATBUS_ERR_UNPACK
+		}
 	}
 
-	return processedData, nil
+	// Parse body
+	if int(bodySize) > len(nextBlock) {
+		return error_code.EN_ATBUS_ERR_INVALID_SIZE
+	}
+
+	body := m.MutableBody()
+	if err := proto.Unmarshal(nextBlock[:bodySize], body); err != nil {
+		return error_code.EN_ATBUS_ERR_UNPACK
+	}
+
+	return error_code.EN_ATBUS_ERR_SUCCESS
 }
 
-// EncodePackedMessage encodes a PackedMessage to bytes for transmission.
-func EncodePackedMessage(msg *PackedMessage) ([]byte, error) {
-	if msg == nil || msg.Header == nil {
-		return nil, fmt.Errorf("%w: nil message", ErrPackFailed)
-	}
-
-	// Simple binary encoding format:
-	// [4 bytes: header length][header bytes][body bytes]
-	// Header format:
-	// [4: version][4: type][4: result_code][8: sequence][8: source_bus_id]
-	// [4: crypto_alg][4: iv_len][iv bytes][4: aad_len][aad bytes]
-	// [4: compression_type][8: original_size][8: body_size]
-
-	header := msg.Header
-	ivLen := len(header.CryptoIV)
-	aadLen := len(header.CryptoAAD)
-
-	headerSize := 4 + 4 + 4 + 8 + 8 + // version, type, result_code, sequence, source_bus_id
-		4 + 4 + ivLen + 4 + aadLen + // crypto fields
-		4 + 8 + 8 // compression fields
-
-	buf := make([]byte, 4+headerSize+len(msg.Body))
-	offset := 0
-
-	// Header length
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(headerSize))
-	offset += 4
-
-	// Version
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(header.Version))
-	offset += 4
-
-	// Type
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(header.Type))
-	offset += 4
-
-	// ResultCode
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(header.ResultCode))
-	offset += 4
-
-	// Sequence
-	binary.LittleEndian.PutUint64(buf[offset:], header.Sequence)
-	offset += 8
-
-	// SourceBusID
-	binary.LittleEndian.PutUint64(buf[offset:], header.SourceBusID)
-	offset += 8
-
-	// Crypto algorithm
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(header.CryptoAlgorithm))
-	offset += 4
-
-	// IV length and data
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(ivLen))
-	offset += 4
-	if ivLen > 0 {
-		copy(buf[offset:], header.CryptoIV)
-		offset += ivLen
-	}
-
-	// AAD length and data
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(aadLen))
-	offset += 4
-	if aadLen > 0 {
-		copy(buf[offset:], header.CryptoAAD)
-		offset += aadLen
-	}
-
-	// Compression type
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(header.CompressionType))
-	offset += 4
-
-	// Original size
-	binary.LittleEndian.PutUint64(buf[offset:], header.OriginalSize)
-	offset += 8
-
-	// Body size
-	binary.LittleEndian.PutUint64(buf[offset:], header.BodySize)
-	offset += 8
-
-	// Body
-	copy(buf[offset:], msg.Body)
-
-	return buf, nil
-}
-
-// DecodePackedMessage decodes bytes to a PackedMessage.
-func DecodePackedMessage(data []byte) (*PackedMessage, error) {
-	if len(data) < 4 {
-		return nil, fmt.Errorf("%w: data too short", ErrUnpackFailed)
-	}
-
-	offset := 0
-
-	// Header length
-	headerLen := binary.LittleEndian.Uint32(data[offset:])
-	offset += 4
-
-	if len(data) < int(4+headerLen) {
-		return nil, fmt.Errorf("%w: incomplete header", ErrUnpackFailed)
-	}
-
-	header := &MessageHeader{}
-
-	// Version
-	header.Version = int32(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
-
-	// Type
-	header.Type = int32(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
-
-	// ResultCode
-	header.ResultCode = int32(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
-
-	// Sequence
-	header.Sequence = binary.LittleEndian.Uint64(data[offset:])
-	offset += 8
-
-	// SourceBusID
-	header.SourceBusID = binary.LittleEndian.Uint64(data[offset:])
-	offset += 8
-
-	// Crypto algorithm
-	header.CryptoAlgorithm = int32(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
-
-	// IV length and data
-	ivLen := binary.LittleEndian.Uint32(data[offset:])
-	offset += 4
-	if ivLen > 0 {
-		if len(data) < offset+int(ivLen) {
-			return nil, fmt.Errorf("%w: incomplete IV", ErrUnpackFailed)
-		}
-		header.CryptoIV = make([]byte, ivLen)
-		copy(header.CryptoIV, data[offset:offset+int(ivLen)])
-		offset += int(ivLen)
-	}
-
-	// AAD length and data
-	aadLen := binary.LittleEndian.Uint32(data[offset:])
-	offset += 4
-	if aadLen > 0 {
-		if len(data) < offset+int(aadLen) {
-			return nil, fmt.Errorf("%w: incomplete AAD", ErrUnpackFailed)
-		}
-		header.CryptoAAD = make([]byte, aadLen)
-		copy(header.CryptoAAD, data[offset:offset+int(aadLen)])
-		offset += int(aadLen)
-	}
-
-	// Compression type
-	header.CompressionType = int32(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
-
-	// Original size
-	header.OriginalSize = binary.LittleEndian.Uint64(data[offset:])
-	offset += 8
-
-	// Body size
-	header.BodySize = binary.LittleEndian.Uint64(data[offset:])
-	offset += 8
-
-	// Body
-	if len(data) < offset+int(header.BodySize) {
-		return nil, fmt.Errorf("%w: incomplete body", ErrUnpackFailed)
-	}
-	body := make([]byte, header.BodySize)
-	copy(body, data[offset:offset+int(header.BodySize)])
-
-	return &PackedMessage{
-		Header: header,
-		Body:   body,
-	}, nil
+func init() {
+	types.InternalSetDelegateIsCompressionAlgorithmSupported(func(algorithm protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE) bool {
+		return compressionAlgorithmSupported(algorithm)
+	})
 }

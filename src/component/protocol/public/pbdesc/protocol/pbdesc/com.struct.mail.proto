@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
+
+import "protocol/common/com.struct.item.common.proto";
+import "protocol/common/com.struct.condition.common.proto";
+import "protocol/common/com.struct.user.common.proto";
+
+package proy;
+
+enum EnMutlLanguageType {
+  EN_MUTL_LANGUAGE_NONE = 0;
+  EN_MUTL_LANGUAGE_EN = 1;       // 英语
+  EN_MUTL_LANGUAGE_JA = 2;       // 日语
+  EN_MUTL_LANGUAGE_ZH_HANS = 3;  // 简体中文
+  EN_MUTL_LANGUAGE_ZH_HANT = 4;  // 繁体中文
+}
+
+message DMailContent {
+  int64 mail_id = 1;
+  int32 major_type = 2;  // @see EnMailMajorType
+  int32 minor_type = 3;
+  int32 status = 4;  // @see EnMailStatusType
+  string title = 5;
+  string content = 6;
+  DMailUserInfo sender = 8;
+  int32 flags = 9;           // @see EnMailFlagType
+  int32 channel = 10;        // @see EnMailChannelType
+  int64 channel_param = 11;  // 来源的参数, 如果 channel == EN_MAIL_CHANNEL_USER_REWARD,
+  bytes tip = 12;            // 操作原因，有些平台接口有操作原因。比如IDIP
+  repeated DMailMultLanguage language_data = 13;
+  int32 language = 14;  // 标记默认的title和content的语言
+
+  int64 delivery_time = 21;  // 接受时间
+  int64 show_time = 22;      // 展示时间
+  int64 start_time = 23;     // 生效时间
+  int64 expired_time = 24;   // 过期时间
+  repeated DConditionRule mail_limit = 25;
+  int64 remove_time = 26;           // 失效后存续时间
+  int64 resolve_expired_time = 27;  // 接收到邮件开始重置过期时间（每个玩家独立过去时间）
+
+  int32 mail_template_id = 31;  // 邮件模板ID
+  map<string, string> mail_template_extensions = 32;
+
+  repeated DMailItemOffset attachments_offset = 51;
+
+  DMailFlowReason reason = 54;
+}
+
+message DMailMultLanguage {
+  int32 language = 1;
+  string title = 2;
+  string content = 3;
+}
+
+message DMailFlowReason {
+  int32 major_reason = 1;
+  int32 minor_reason = 2;
+  int64 parameter = 3;
+}
+
+message DMailItemOffset {
+  int32 index = 1;
+  DItemOffset item = 2;
+}
+
+message DMailRecord {
+  int64 mail_id = 1;
+  int32 major_type = 2;  // @see EnMailMajorType
+  int32 minor_type = 3;
+  int32 status = 4;  // @see EnMailStatusType
+  int64 delivery_time = 21;
+  int64 show_time = 22;
+  int64 start_time = 23;
+  int64 expired_time = 24;
+  int64 remove_time = 26;
+  int64 resolve_expired_time = 27;
+
+  bool is_global_mail = 101;
+  uint32 fetch_error_count = 102;
+}
+
+message DMailUserInfo {
+  DUserIDKey profile = 1;
+  uint64 account_id = 2;
+
+  uint32 account_type = 11;    // @see EnAccountType
+  uint32 login_channel = 12;   // @see EnAccountITopLoginChannelType/EnAccountIntlLoginChannelType
+  uint32 friend_channel = 13;  // @see EnAccountITopFreindChannelType
+}
+
+enum EnMailChannelType {
+  EN_MAIL_CHANNEL_USER_REWARD = 0;  // 用户通用接口
+  EN_MAIL_CHANNEL_GM = 100;
+}
+
+message DMailOperationResult {
+  int32 result = 1;  // 操作返回码，仅给客户端使用
+  DMailRecord record = 2;
+}

@@ -31,7 +31,9 @@ import (
 
 var _ types.Node = (*Node)(nil)
 
-type Node struct{}
+type nodeUpstreamInfo struct {
+	node *Endpoint
+}
 
 type nodeStatistic struct {
 	DispatchTimes uint64

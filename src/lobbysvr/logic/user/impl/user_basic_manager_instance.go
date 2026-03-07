@@ -34,6 +34,7 @@ func init() {
 	})
 
 	registerCondition()
+	registerQuestProgressHandlers()
 }
 
 type UserBasicManager struct {
@@ -313,7 +314,7 @@ func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 			questMgr.QuestTriggerEvent(ctx, private_protocol_pbdesc.QuestTriggerParams_EnParamID_PlayerLevel,
 				&private_protocol_pbdesc.QuestTriggerParams{
 					Param: &private_protocol_pbdesc.QuestTriggerParams_PlayerLevel{
-						PlayerLevel: &private_protocol_pbdesc.QuestTargetParamsLevel{
+						PlayerLevel: &private_protocol_pbdesc.QuestTriggerParamsLevel{
 							PreLevel: int64(oldLevel),
 							CurLevel: int64(m.GetUserLevel()),
 						},
@@ -323,7 +324,7 @@ func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 
 		unlockMgr := data.UserGetModuleManager[logic_unlock.UserUnlockManager](m.GetOwner())
 		if unlockMgr != nil {
-			unlockMgr.OnUserUnlockDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_PlayerLevel,
+			unlockMgr.OnUserUnlockRangeDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_PlayerLevel,
 				int64(oldLevel), int64(m.GetUserLevel()))
 		}
 	}
@@ -396,6 +397,11 @@ func (m *UserBasicManager) ForeachItem(fn func(item *public_protocol_common.DIte
 
 func (m *UserBasicManager) GetAttributesCacheVersion() int64 {
 	return 0
+}
+
+func (m *UserBasicManager) AllowGMCmd() bool {
+	// TODO : 增加权限系统，目前先全部允许
+	return true
 }
 
 func (m *UserBasicManager) GetUserClientOptions() *public_protocol_pbdesc.DUserOptions {
@@ -556,6 +562,19 @@ func registerCondition() {
 	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_UserLevel(), checkRuleUserLevelStatic, checkRuleUserLevelDynamic)
 }
 
+func registerQuestProgressHandlers() {
+	logic_quest.RegisterProgressHandler(public_protocol_config.DQuestConditionProgress_EnProgressParamID_PlayerLevelReach,
+		questInitPlayerLevel,
+		questUpdatePlayerLevel,
+		nil,
+	)
+	logic_quest.RegisterProgressHandler(public_protocol_config.DQuestConditionProgress_EnProgressParamID_ItemHas,
+		questInitItemHas,
+		questUpdateItemHas,
+		questprogressKeyIndexItemHas,
+	)
+}
+
 func checkRuleUserLoginChannel(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
@@ -634,4 +653,70 @@ func checkRuleUserLevelStatic(m logic_condition.UserConditionManager, ctx cd.Rpc
 	}
 
 	return cd.CreateRpcResultOk()
+}
+
+func questInitPlayerLevel(ctx cd.RpcContext,
+	_progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestProgressData,
+	user *data.User,
+) cd.RpcResult {
+	userBasicMgr := data.UserGetModuleManager[logic_user.UserBasicManager](user)
+	if userBasicMgr == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("can not get UserBasicManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	if questData != nil {
+		questData.Value = int64(userBasicMgr.GetUserLevel())
+	}
+
+	return cd.CreateRpcResultOk()
+}
+
+func questUpdatePlayerLevel(ctx cd.RpcContext,
+	params *private_protocol_pbdesc.QuestTriggerParams,
+	_progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestProgressData,
+) cd.RpcResult {
+	if questData == nil {
+		return cd.CreateRpcResultOk()
+	}
+	if questData != nil {
+		questData.Value = params.GetPlayerLevel().GetCurLevel()
+	}
+
+	return cd.CreateRpcResultOk()
+}
+
+func questInitItemHas(ctx cd.RpcContext,
+	progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestProgressData,
+	user *data.User,
+) cd.RpcResult {
+	if questData == nil || user == nil {
+		return cd.CreateRpcResultOk()
+	}
+	stattistics := user.GetItemTypeStatistics(ctx, progressCfg.GetItemHas())
+	if stattistics == nil {
+		return cd.CreateRpcResultOk()
+	}
+	questData.Value = stattistics.TotalCount
+	return cd.CreateRpcResultOk()
+}
+
+func questUpdateItemHas(ctx cd.RpcContext,
+	params *private_protocol_pbdesc.QuestTriggerParams,
+	_progressCfg *public_protocol_config.Readonly_DQuestConditionProgress,
+	questData *public_protocol_pbdesc.DUserQuestProgressData,
+) cd.RpcResult {
+	if questData == nil {
+		return cd.CreateRpcResultOk()
+	}
+	questData.Value += params.GetHasItem().GetValue()
+	return cd.CreateRpcResultOk()
+}
+
+func questprogressKeyIndexItemHas(_ cd.RpcContext, progressType int32, params *private_protocol_pbdesc.QuestTriggerParams) logic_quest.UserQuestProgressIndexParams {
+	return logic_quest.UserQuestProgressIndexParams{
+		ParamsOne: params.GetHasItem().GetKey(),
+	}
 }

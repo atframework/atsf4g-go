@@ -24,7 +24,9 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+
 	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
+	mail_component "github.com/atframework/atsf4g-go/component-mail"
 	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
@@ -43,6 +45,15 @@ func (t *TaskActionUserSendGmCommand) Run(_startData *component_dispatcher.Dispa
 	if !ok || user == nil {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_USER_NOT_FOUND))
 		return fmt.Errorf("user not found")
+	}
+
+	redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](user)
+	if redirMgr == nil {
+		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
+	}
+
+	if !redirMgr.AllowGMCmd() {
+		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_GM))
 	}
 
 	request_body := t.GetRequestBody()
@@ -114,11 +125,14 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "unlock-all-modules", "", "unlock all modules", (*TaskActionUserSendGmCommand).runGMCmdUnlockAllModules)
 	registerGmCommandHandle(callbacks, "unlock-module", "<module_id>", "unlock special module", (*TaskActionUserSendGmCommand).runGMCmdUnlockModule)
 	registerGmCommandHandle(callbacks, "query-module-status", "<module_id>", "query special module", (*TaskActionUserSendGmCommand).runGMCmdQueryModuleStatus)
-	registerGmCommandHandle(callbacks, "del-account", "", "删除账号", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
-	registerGmCommandHandle(callbacks, "copy-account", "<new_account_id>", "拷贝账号", (*TaskActionUserSendGmCommand).runGMCmdCopyAccount)
+	registerGmCommandHandle(callbacks, "del-account", "", "delete account", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
+	registerGmCommandHandle(callbacks, "copy-account", "<new_account_id>", "copy account", (*TaskActionUserSendGmCommand).runGMCmdCopyAccount)
 	registerGmCommandHandle(callbacks, "enable-random-delay", "", "Enable random delay", (*TaskActionUserSendGmCommand).runGMCmdEnableRandomDelay)
 	registerGmCommandHandle(callbacks, "disable-random-delay", "", "Disable random delay", (*TaskActionUserSendGmCommand).runGMCmdDisableRandomDelay)
-
+	registerGmCommandHandle(callbacks, "send-user-mail", "", "Send user mail", (*TaskActionUserSendGmCommand).runGMCmdSendUserMail)
+	registerGmCommandHandle(callbacks, "send-global-mail", "", "Send global mail", (*TaskActionUserSendGmCommand).runGMCmdSendGlobalMail)
+	registerGmCommandHandle(callbacks, "delete-user-mail", "", "Delete user mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteUserMail)
+	registerGmCommandHandle(callbacks, "delete-global-mail", "", "Delete global mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteGlobalMail)
 	return callbacks
 }
 
@@ -701,5 +715,88 @@ func (t *TaskActionUserSendGmCommand) runGMCmdEnableRandomDelay(ctx component_di
 
 func (t *TaskActionUserSendGmCommand) runGMCmdDisableRandomDelay(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	cd.DisableRandomAwaitDelay()
+	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdSendUserMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
+	}
+
+	mailTemplateId, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+	}
+	sender := public_protocol_pbdesc.DMailUserInfo{}
+	receiver := public_protocol_pbdesc.DMailUserInfo{}
+	receiver.MutableProfile().UserId = user.GetUserId()
+	receiver.MutableProfile().ZoneId = user.GetZoneId()
+	result, mailResult := mail_component.AddUserMailWithTemplate(ctx, int32(mailTemplateId), &sender, &receiver,
+		user.GetZoneId(), int32(public_protocol_pbdesc.EnMailChannelType_EN_MAIL_CHANNEL_GM), 0, nil,
+		&public_protocol_pbdesc.DMailFlowReason{
+			MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_GM),
+			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM),
+			Parameter:   0,
+		}, nil, 0, 0)
+	if result.IsError() {
+		return nil, fmt.Errorf("send user mail failed: %v", result.Error)
+	}
+
+	return []string{fmt.Sprintf("Send user mail success, mail_id=%d", mailResult.MailId)}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdSendGlobalMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
+	}
+
+	mailTemplateId, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+	}
+	// sender := public_protocol_pbdesc.DMailUserInfo{}
+	result := mail_component.AddGlobalMailWithTemplate(ctx, int32(mailTemplateId), nil,
+		user.GetZoneId(), int32(public_protocol_pbdesc.EnMailChannelType_EN_MAIL_CHANNEL_GM), 0, nil, nil,
+		&public_protocol_pbdesc.DMailFlowReason{
+			MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_GM),
+			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM),
+			Parameter:   0,
+		})
+
+	if result.IsError() {
+		return nil, fmt.Errorf("send user mail failed: %v", result.Error)
+	}
+
+	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdDeleteUserMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
+	}
+
+	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdDeleteGlobalMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
+	}
+
+	zone_id, err := strconv.ParseUint(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+	}
+
+	mail_id, err := strconv.ParseInt(args[1], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+	}
+
+	result := mail_component.RemoveGlobalMail(ctx, uint32(zone_id), mail_id)
+	if result.IsError() {
+		return nil, fmt.Errorf("send user mail failed: %v", result.Error)
+	}
+
 	return []string{""}, nil
 }

@@ -14,6 +14,7 @@ import (
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
+	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
@@ -41,6 +42,11 @@ func init() {
 		return finalMgr
 	})
 	registerCondition()
+	registerQuestProgressHandlers()
+}
+
+type UserMallData struct {
+	purchaseSum int64
 }
 
 type UserMallManager struct {
@@ -48,8 +54,10 @@ type UserMallManager struct {
 	data.UserModuleManagerBase
 
 	productData map[int32]*private_protocol_pbdesc.UserMallProductData
+	mallData    map[public_protocol_common.EnMallType]*UserMallData
 	// Dirty 数据
 	dirtyMallProduct map[int32]struct{}
+	dirtyMall        map[public_protocol_common.EnMallType]struct{}
 }
 
 func CreateUserMallManager(owner *data.User) *UserMallManager {
@@ -58,6 +66,7 @@ func CreateUserMallManager(owner *data.User) *UserMallManager {
 		UserModuleManagerBase: *data.CreateUserModuleManagerBase(owner),
 
 		productData:      make(map[int32]*private_protocol_pbdesc.UserMallProductData),
+		mallData:         make(map[public_protocol_common.EnMallType]*UserMallData),
 		dirtyMallProduct: make(map[int32]struct{}),
 	}
 }
@@ -66,6 +75,11 @@ func (m *UserMallManager) InitFromDB(ctx cd.RpcContext, _dbUser *private_protoco
 	mallData := _dbUser.GetMallData()
 	for _, data := range mallData.GetMallData() {
 		m.productData[data.GetProductData().GetProductId()] = data
+	}
+	for _, data := range mallData.GetMallTypeData() {
+		m.mallData[data.GetMallType()] = &UserMallData{
+			purchaseSum: data.GetPurchaseSum(),
+		}
 	}
 
 	return cd.RpcResult{
@@ -80,6 +94,12 @@ func (m *UserMallManager) DumpToDB(ctx cd.RpcContext, _dbUser *private_protocol_
 		_dbUser.MutableMallData().MallData = append(_dbUser.MutableMallData().MallData, &private_protocol_pbdesc.UserMallProductData{
 			ProductData:             data.GetProductData(),
 			TotalCounterStorageData: data.GetTotalCounterStorageData(),
+		})
+	}
+	for mallType, data := range m.mallData {
+		_dbUser.MutableMallData().MallTypeData = append(_dbUser.MutableMallData().MallTypeData, &private_protocol_pbdesc.UserMallTypeData{
+			MallType:    mallType,
+			PurchaseSum: data.purchaseSum,
 		})
 	}
 	return cd.RpcResult{
@@ -124,7 +144,8 @@ func (m *UserMallManager) ForeachConditionCounter(f func(storage *public_protoco
 /////////////////////////////////////////////////////////////////////////////////
 
 func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, reqs []*service_protocol.DMallPurchaseData,
-	rspBody *service_protocol.SCMallPurchaseRsp) int32 {
+	rspBody *service_protocol.SCMallPurchaseRsp,
+) int32 {
 	for _, req := range reqs {
 		resultCode := m.MallPurchaseSingle(ctx, req, rspBody)
 		if resultCode != 0 {
@@ -135,7 +156,8 @@ func (m *UserMallManager) MallPurchase(ctx cd.RpcContext, reqs []*service_protoc
 }
 
 func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_protocol.DMallPurchaseData,
-	rspBody *service_protocol.SCMallPurchaseRsp) int32 {
+	rspBody *service_protocol.SCMallPurchaseRsp,
+) int32 {
 	// 先判断商城是否解锁
 	productRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallProductByProductIdPurchasePriority(req.GetProductId(), req.GetPurchasePriority())
 	if productRow == nil {
@@ -174,6 +196,19 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 	}
 
 	{
+		// 商品可见条件
+		if logic_condition.HasLimitData(productRow.GetVisibleCondition()) {
+			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
+			if conditionMgr == nil {
+				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			}
+
+			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetVisibleCondition(), conditionRuntime)
+			if !rpcResult.IsOK() {
+				return rpcResult.GetResponseCode()
+			}
+		}
+
 		// 商品解锁条件
 		if logic_condition.HasLimitData(productRow.GetUnlockCondition()) {
 			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
@@ -291,6 +326,31 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 	for _, guard := range addGuard {
 		rspBody.MergeRewardItems(guard.GetAddedItems())
 	}
+
+	data.UserGetModuleManager[logic_quest.UserQuestManager](m.GetOwner()).QuestTriggerEvent(ctx, private_protocol_pbdesc.QuestTriggerParams_EnParamID_MallPurchase,
+		&private_protocol_pbdesc.QuestTriggerParams{
+			Param: &private_protocol_pbdesc.QuestTriggerParams_MallPurchase{
+				MallPurchase: &private_protocol_pbdesc.QuestTriggerParamsMallPurchase{
+					MallId:    int32(mallRow.GetMallType()),
+					ProductId: productRow.GetProductId(),
+					Count:     req.GetPurchaseCount(),
+				},
+			},
+		})
+	if mallData, ok := m.mallData[mallRow.GetMallType()]; ok && mallData != nil {
+		mallData.purchaseSum += int64(req.GetPurchaseCount())
+	} else {
+		m.mallData[mallRow.GetMallType()] = &UserMallData{
+			purchaseSum: int64(req.GetPurchaseCount()),
+		}
+	}
+	return 0
+}
+
+func (m *UserMallManager) GetMallPurchaseSum(mallType public_protocol_common.EnMallType) int64 {
+	if mallData, ok := m.mallData[mallType]; ok && mallData != nil {
+		return mallData.purchaseSum
+	}
 	return 0
 }
 
@@ -299,6 +359,12 @@ func (m *UserMallManager) FetchData() *public_protocol_pbdesc.DUserMallData {
 	ret.ProductData = make([]*public_protocol_pbdesc.DMallProductData, 0, len(m.productData))
 	for _, data := range m.productData {
 		ret.ProductData = append(ret.ProductData, data.GetProductData())
+	}
+	for mallType, data := range m.mallData {
+		ret.MallData = append(ret.MallData, &public_protocol_pbdesc.DMallData{
+			MallType:    mallType,
+			PurchaseSum: data.purchaseSum,
+		})
 	}
 	return ret
 }
@@ -315,10 +381,21 @@ func (m *UserMallManager) insertDirtyHandle() {
 					ret = true
 				}
 			}
+			for id := range m.dirtyMall {
+				v, ok := m.mallData[id]
+				if ok && v != nil {
+					dirtyData.MutableDirtyMall().AppendMallData(&public_protocol_pbdesc.DMallData{
+						MallType:    id,
+						PurchaseSum: v.purchaseSum,
+					})
+					ret = true
+				}
+			}
 			return ret
 		},
 		func(ctx cd.RpcContext) {
 			clear(m.dirtyMallProduct)
+			clear(m.dirtyMall)
 		},
 	)
 }
@@ -342,10 +419,13 @@ func registerCondition() {
 	// 	nil, checkRuleMallProductPurchaseMonthlyCounter)
 	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallProductPurchaseCustomCounter(),
 		nil, checkRuleMallProductPurchaseCustomCounter)
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_MallPurchaseSumCounter(),
+		nil, checkRuleMallPurchaseCustomCounter)
 }
 
 func checkConditionCountLimit(rule *public_protocol_common.Readonly_DConditionRuleMallProductPurchaseCount,
-	currentCount int64, purchaseCount int64) bool {
+	currentCount int64, purchaseCount int64,
+) bool {
 	if currentCount < rule.GetMinValue() {
 		return false
 	}
@@ -365,6 +445,24 @@ func checkConditionCountLimit(rule *public_protocol_common.Readonly_DConditionRu
 	return true
 }
 
+func checkConditionCountMallLimit(rule *public_protocol_common.Readonly_DConditionRuleMallPurchaseCount,
+	count int64,
+) bool {
+	if count < rule.GetMinValue() {
+		return false
+	}
+
+	if rule.GetMaxValue() < 0 && count > 0 {
+		return false
+	}
+
+	if rule.GetMaxValue() > 0 && count > rule.GetMaxValue() {
+		return false
+	}
+
+	return true
+}
+
 func checkRuleMallProductPurchaseSumCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
 	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
 ) cd.RpcResult {
@@ -378,8 +476,7 @@ func checkRuleMallProductPurchaseSumCounter(m logic_condition.UserConditionManag
 	}
 
 	counter := mgr.GetProductCounter(rule.GetMallProductPurchaseSumCounter().GetProductId())
-	currentCount := counter.VersionCounter.GetSumCounter()
-
+	currentCount := counter.GetVersionCounter().GetSumCounter()
 	purchaseCount := logic_condition_data.GetRuleRuntimeParameter[*service_protocol.DMallPurchaseData](runtime).GetPurchaseCount()
 
 	if !checkConditionCountLimit(rule.GetMallProductPurchaseSumCounter(), currentCount, int64(purchaseCount)) {
@@ -492,6 +589,25 @@ func checkRuleMallProductPurchaseCustomCounter(m logic_condition.UserConditionMa
 
 	if !checkConditionCountLimit(rule.GetMallProductPurchaseCustomCounter(), currentCount, int64(purchaseCount)) {
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_CUSTOM_LIMIT)
+	}
+
+	return cd.CreateRpcResultOk()
+}
+
+func checkRuleMallPurchaseCustomCounter(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	if rule == nil {
+		return cd.CreateRpcResultOk()
+	}
+
+	mgr := data.UserGetModuleManager[logic_mall.UserMallManager](m.GetOwner())
+	if mgr == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("can not get UserMallManager"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	if !checkConditionCountMallLimit(rule.GetMallPurchaseSumCounter(), mgr.GetMallPurchaseSum(rule.GetMallPurchaseSumCounter().GetMallType())) {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PURCHASE_LIMIT_NOT_MATCH)
 	}
 
 	return cd.CreateRpcResultOk()

@@ -33,4 +33,6 @@ type UserBasicManager interface {
 
 	GetUserClientOptions() *public_protocol_pbdesc.DUserOptions
 	UpdateUserClientOptions(ctx cd.RpcContext, opts *public_protocol_pbdesc.DUserOptions) data.Result
+
+	AllowGMCmd() bool
 }

@@ -4,8 +4,10 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	lobbysvr_logic_quest_handler "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest/handler"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 )
 
@@ -17,6 +19,11 @@ const InitLoginDays int32 = 1
 const DeleteCacheKeepSeconds int64 = DaySeconds * 7
 
 const DQuestNoPeogressValue = 1
+
+type InitProgressHandler = lobbysvr_logic_quest_handler.InitProgressHandler
+type UpdateProgressHandler = lobbysvr_logic_quest_handler.UpdateProgressHandler
+type UserQuestProgressIndexParams = lobbysvr_logic_quest_handler.UserQuestProgressIndexParams
+type ProgressKeyIndexHandler = lobbysvr_logic_quest_handler.ProgressKeyIndexHandler
 
 type UserQuestManager interface {
 	data.UserItemManagerImpl
@@ -46,4 +53,8 @@ type UserQuestManager interface {
 
 	GMForceFinishQuest(ctx cd.RpcContext, questID int32) cd.RpcResult
 	GMForceUnlockQuest(ctx cd.RpcContext, questID int32) cd.RpcResult
+}
+
+func RegisterProgressHandler(progressType public_protocol_config.DQuestConditionProgress_EnProgressParamID, initHandler InitProgressHandler, updateHandler UpdateProgressHandler, progressKeyIndexHandler ProgressKeyIndexHandler) {
+	lobbysvr_logic_quest_handler.RegisterProgressHandler(int32(progressType), initHandler, updateHandler, progressKeyIndexHandler)
 }

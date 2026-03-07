@@ -169,6 +169,56 @@ func verifyBusConfig(t *testing.T, cfg *atframe_protocol.AtappConfigure) {
 	assert.Equal(uint64(2*1024*1024), bus.GetSendBufferSize(), "bus.send_buffer_size should match")
 	assert.Equal(uint64(0), bus.GetSendBufferNumber(), "bus.send_buffer_number should match")
 
+	topology := bus.GetTopology()
+	if assert.NotNil(topology, "bus.topology should not be nil") {
+		rule := topology.GetRule()
+		if assert.NotNil(rule, "bus.topology.rule should not be nil") {
+			assert.True(rule.GetAllowDirectConnection(), "bus.topology.rule.allow_direct_connection should match")
+			assert.True(rule.GetRequireSameUpstream(), "bus.topology.rule.require_same_upstream should match")
+			assert.False(rule.GetRequireSameProcess(), "bus.topology.rule.require_same_process should match")
+			assert.True(rule.GetRequireSameHost(), "bus.topology.rule.require_same_host should match")
+			ruleLabels := rule.GetMatchLabel()
+			if assert.Len(ruleLabels, 2, "bus.topology.rule.match_label size should match") {
+				assert.Equal([]string{"cn", "us"}, ruleLabels["region"].GetValue(), "bus.topology.rule.match_label.zone should match")
+				assert.Equal([]string{"test"}, ruleLabels["env"].GetValue(), "bus.topology.rule.match_label.env should match")
+			}
+		}
+
+		data := topology.GetData()
+		if assert.NotNil(data, "bus.topology.data should not be nil") {
+			dataLabels := data.GetLabel()
+			if assert.Len(dataLabels, 2, "bus.topology.data.label size should match") {
+				assert.Equal("cn", dataLabels["region"], "bus.topology.data.label.region should match")
+				assert.Equal("test", dataLabels["env"], "bus.topology.data.label.env should match")
+			}
+		}
+	}
+
+	crypto := bus.GetCrypto()
+	if assert.NotNil(crypto, "bus.crypto should not be nil") {
+		assert.Equal(atframe_protocol.ATAPP_CRYPTO_KEY_EXCHANGE_TYPE_ATAPP_CRYPTO_KEY_EXCHANGE_X25519, crypto.GetKeyExchangeType(),
+			"bus.crypto.key_exchange_type should match")
+		if assert.NotNil(crypto.GetKeyRefreshInterval(), "bus.crypto.key_refresh_interval should be parsed") {
+			assert.Equal(5*time.Second, crypto.GetKeyRefreshInterval().AsDuration(), "bus.crypto.key_refresh_interval should match")
+		}
+		assert.Equal([]atframe_protocol.ATAPP_CRYPTO_ALGORITHM_TYPE{
+			atframe_protocol.ATAPP_CRYPTO_ALGORITHM_TYPE_ATAPP_CRYPTO_ALGORITHM_AES_128_GCM,
+			atframe_protocol.ATAPP_CRYPTO_ALGORITHM_TYPE_ATAPP_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+			atframe_protocol.ATAPP_CRYPTO_ALGORITHM_TYPE_ATAPP_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF,
+		}, crypto.GetAlgorithm(), "bus.crypto.algorithm should match")
+	}
+
+	compression := bus.GetCompression()
+	if assert.NotNil(compression, "bus.compression should not be nil") {
+		assert.Equal([]atframe_protocol.ATAPP_COMPRESSION_ALGORITHM_TYPE{
+			atframe_protocol.ATAPP_COMPRESSION_ALGORITHM_TYPE_ATAPP_COMPRESSION_ALGORITHM_ZSTD,
+			atframe_protocol.ATAPP_COMPRESSION_ALGORITHM_TYPE_ATAPP_COMPRESSION_ALGORITHM_LZ4,
+			atframe_protocol.ATAPP_COMPRESSION_ALGORITHM_TYPE_ATAPP_COMPRESSION_ALGORITHM_ZLIB,
+		}, compression.GetAlgorithm(), "bus.compression.algorithm should match")
+		assert.Equal(atframe_protocol.ATAPP_COMPRESSION_LEVEL_ATAPP_COMPRESSION_LEVEL_FAST, compression.GetLevel(),
+			"bus.compression.level should match")
+	}
+
 	// 默认值验证
 	assert.Equal(int32(1000), bus.GetLoopTimes(), "bus.loop_times should be 1000 by default")
 }

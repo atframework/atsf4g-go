@@ -165,8 +165,7 @@ func BuildAllUnlockIndexes(group *generate_config.ConfigGroup) {
 		questIndexMaxCacheTime = questIndexRefreshInterval * 2
 	}
 
-	idx := make(map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID]interface{})
-	group.GetCustomIndex().UnlockIndex = idx
+	idx := make(map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID][]*custom_index_type.UnlockValueFunction)
 
 	for _, src := range GetUnlockRowSources() {
 		rows := src.Fetch(group)
@@ -174,15 +173,13 @@ func BuildAllUnlockIndexes(group *generate_config.ConfigGroup) {
 	}
 
 	// 排序每个条件类型的 value 列表
-	for condType, v := range idx {
-		if arr, ok := v.([]custom_index_type.UnlockValueFunction); ok {
-			sort.Slice(arr, func(i, j int) bool { return arr[i].Value < arr[j].Value })
-			idx[condType] = arr
-		}
+	for _, arr := range idx {
+		sort.Slice(arr, func(i, j int) bool { return arr[i].Value < arr[j].Value })
 	}
+	group.GetCustomIndex().UnlockIndex = idx
 }
 
-func buildUnlockIndexRows(rows []UnlockRow, functionID public_protocol_common.EnUnlockFunctionID, idx map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID]interface{}, maxCacheTime int64) {
+func buildUnlockIndexRows(rows []UnlockRow, functionID public_protocol_common.EnUnlockFunctionID, idx map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID][]*custom_index_type.UnlockValueFunction, maxCacheTime int64) {
 	now := time.Time{}
 	atapp := GetConfigManager().GetApp()
 	if atapp != nil {
@@ -225,12 +222,7 @@ func buildUnlockIndexRows(rows []UnlockRow, functionID public_protocol_common.En
 				}
 			}
 
-			var valueData []custom_index_type.UnlockValueFunction
-			if v, ok := idx[condType]; ok {
-				if cast, ok2 := v.([]custom_index_type.UnlockValueFunction); ok2 {
-					valueData = cast
-				}
-			}
+			valueData := idx[condType]
 
 			valueIdx := -1
 			for i := range valueData {
@@ -240,7 +232,8 @@ func buildUnlockIndexRows(rows []UnlockRow, functionID public_protocol_common.En
 				}
 			}
 			if valueIdx == -1 {
-				valueData = append(valueData, custom_index_type.UnlockValueFunction{Value: value, Functions: []custom_index_type.FunctionUnlockID{}})
+				newVal := custom_index_type.UnlockValueFunction{Value: value, Functions: []custom_index_type.FunctionUnlockID{}}
+				valueData = append(valueData, &newVal)
 				valueIdx = len(valueData) - 1
 			}
 
@@ -281,12 +274,14 @@ func getUnlockValue(unlockCondition *public_protocol_common.Readonly_DFunctionUn
 		return unlockCondition.GetQuestFinish()
 	case public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_QuestReceived:
 		return unlockCondition.GetQuestReceived()
+	case public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_ItemHas:
+		return int64(unlockCondition.GetItemHas())
 	default:
 		return 0
 	}
 }
 
-func GetUnlockData(unlockType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, previous int64, newValue int64) []custom_index_type.UnlockValueFunction {
+func GetUnlockDataRange(unlockType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, previous int64, newValue int64) []custom_index_type.UnlockValueFunction {
 	group := GetConfigManager().GetCurrentConfigGroup()
 	if group == nil {
 		return nil
@@ -297,13 +292,8 @@ func GetUnlockData(unlockType public_protocol_common.DFunctionUnlockCondition_En
 		return nil
 	}
 
-	v, ok := customIndex.UnlockIndex[unlockType]
-	if !ok {
-		return nil
-	}
-
-	valueList, ok := v.([]custom_index_type.UnlockValueFunction)
-	if !ok {
+	valueList := customIndex.UnlockIndex[unlockType]
+	if valueList == nil {
 		return nil
 	}
 
@@ -322,7 +312,46 @@ func GetUnlockData(unlockType public_protocol_common.DFunctionUnlockCondition_En
 
 	result := make([]custom_index_type.UnlockValueFunction, 0, endIdx-startIdx)
 	for i := startIdx; i < endIdx && i < len(valueList); i++ {
-		result = append(result, valueList[i])
+		result = append(result, *valueList[i])
+	}
+
+	return result
+}
+
+func GetUnlockData(unlockType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, value int64) []custom_index_type.UnlockValueFunction {
+	group := GetConfigManager().GetCurrentConfigGroup()
+	if group == nil {
+		return nil
+	}
+
+	customIndex := group.GetCustomIndex()
+	if customIndex == nil || customIndex.UnlockIndex == nil {
+		return nil
+	}
+
+	valueList := customIndex.UnlockIndex[unlockType]
+	if valueList == nil {
+		return nil
+	}
+
+	// 使用二分查找找到对应的值
+	idx, isFind := sort.Find(len(valueList), func(i int) int {
+		if valueList[i].Value == value {
+			return 0
+		}
+		if valueList[i].Value < value {
+			return 1
+		}
+		return -1
+	})
+
+	if !isFind {
+		return nil
+	}
+
+	result := make([]custom_index_type.UnlockValueFunction, 0, 1)
+	if valueList[idx] != nil {
+		result = append(result, *valueList[idx])
 	}
 
 	return result

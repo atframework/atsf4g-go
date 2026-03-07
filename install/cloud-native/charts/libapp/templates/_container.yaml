@@ -39,10 +39,10 @@ lifecycle:
           {{- end }}
 volumeMounts:
 - name: config
-  mountPath: /etc/projecty/{{ include "libapp.name" . }}/cfg
+  mountPath: {{ .Values.volumeMounts.configMountPath | quote }}
   readOnly: true
 - name: log
-  mountPath: {{ default "/data/projecty/lobbysvr/log" .Values.volumeMounts.logMountPath | quote }}
+  mountPath: {{ .Values.volumeMounts.logMountPath | quote }}
 env:
 - name: ATAPP_NAME
   valueFrom:

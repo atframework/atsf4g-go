@@ -9,6 +9,7 @@ includes:
   robot: src/robot/Taskfile.yml
   inn-tools: .taskfiles/Taskfile.tools.yml
   component: src/component/Taskfile.yml
+  doc: doc/Taskfile.yml
 
 set: [errexit, pipefail]
 
@@ -299,6 +300,13 @@ tasks:
     silent: true
     dir: "{{.TASKFILE_DIR}}"
 
+  fast-[doc]-build:
+    desc: "Fast build document"
+    cmds:
+      - task: doc:build
+    silent: true
+    dir: "{{.TASKFILE_DIR}}"
+
   fast-[all]-build:
     desc: "Fast build all servers"
     cmds:
@@ -379,6 +387,20 @@ tasks:
         vars:
           PROJECT_ROOT: "{{.ROOT_DIR}}"
       - cd ./atframework/atframe-utils-go && go install ./protoc-gen-mutable
+      - task: try-install-go-mockery
+    silent: true
+
+  try-install-go-mockery:
+    desc: "Try install go mockery tool"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        if command -v mockery >/dev/null 2>&1; then
+          echo "mockery already installed"
+        else
+          echo "mockery not found, installing..."
+          go install github.com/vektra/mockery/v3@v3.6.1
+        fi
     silent: true
 # # 测试使用
 # prepare-xreloader:

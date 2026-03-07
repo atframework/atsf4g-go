@@ -1,4 +1,4 @@
-package lobbysvr_logic_customer
+package lobbysvr_logic_mall
 
 import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
@@ -17,4 +17,5 @@ type UserMallManager interface {
 	FetchData() *public_protocol_pbdesc.DUserMallData
 
 	GetProductCounter(productId int32) *public_protocol_common.DConditionCounterStorage
+	GetMallPurchaseSum(mallType public_protocol_common.EnMallType) int64
 }

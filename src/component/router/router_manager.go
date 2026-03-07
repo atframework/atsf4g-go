@@ -94,6 +94,23 @@ func (manager *RouterManager[T, PrivData]) Size() int {
 	return len(manager.caches)
 }
 
+// ForeachObject 遍历所有可写的对象（在线玩家）
+// 回调函数返回 false 时停止遍历
+func (manager *RouterManager[T, PrivData]) ForeachObject(fn func(obj T) bool) {
+	if manager == nil || fn == nil {
+		return
+	}
+	manager.cachesMu.RLock()
+	defer manager.cachesMu.RUnlock()
+	for _, obj := range manager.caches {
+		if !lu.IsNil(obj) && obj.IsWritable() {
+			if !fn(obj) {
+				return
+			}
+		}
+	}
+}
+
 func (manager *RouterManager[T, PrivData]) MutableCache(ctx cd.AwaitableContext, key RouterObjectKey, privData PrivData) (T, cd.RpcResult) {
 	guard := IoTaskGuard{}
 	defer guard.ResumeAwaitTask(ctx)

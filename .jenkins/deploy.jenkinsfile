@@ -13,6 +13,15 @@ pipeline {
             }
         }
 
+        stage('Build_BattleVerify_Lib') {
+            when {
+                expression { env.NODE_LABEL == 'linux' }
+            }
+            steps {
+                build job: 'Build_BattleVerify_Lib', wait: true
+            }
+        }
+
         stage('编译') {
             steps {
                 script {
@@ -30,9 +39,25 @@ pipeline {
                         def meta = new groovy.json.JsonSlurper().parseText(desc)
                         echo "Parsed child meta: image=${meta.package_name}"
                         env.PACKAGE_NAME = meta.package_name
+                        env.ARCHIVE_PATH = meta.archive_path
                     } else {
                         error "No description returned from child job."
                     }
+                }
+            }
+        }
+
+        stage('测试用例执行') {
+            steps {
+                script {
+                    // 触发下游构建并取得返回的 RunWrapper 对象
+                    def serverBuild = build job: 'Run_Test_Case',   
+                    parameters: [
+                        string(name: 'NODE_LABEL', value: params.NODE_LABEL),
+                        string(name: 'PACKAGE_NAME', value: env.PACKAGE_NAME),
+                        string(name: 'ARCHIVE_PATH', value: env.ARCHIVE_PATH),
+                      ],
+                      wait: false
                 }
             }
         }

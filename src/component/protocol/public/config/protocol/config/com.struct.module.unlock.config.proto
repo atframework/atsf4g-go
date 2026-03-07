@@ -13,6 +13,7 @@ import "protocol/extension/v3/xresloader.proto";
 
 import "protocol/common/com.struct.condition.common.proto";
 import "protocol/common/com.struct.unlock.common.proto";
+import "protocol/common/com.struct.item.common.proto";
 
 package proy.config;
 
@@ -29,6 +30,12 @@ message ExcelModuleUnlockType {
   bool global_forbid = 2;
   repeated DConditionRuleRangeTime daily_range_times = 3;
   repeated DConditionRuleRangeDatetime date_range_times = 4;
-
   repeated DFunctionUnlockCondition unlock_condition = 5;
+  string business_module_name = 6;
+  string module_icon = 7;
+  string module_name = 8;
+  string module_desc = 9;
+  bool ispopup = 10;
+  repeated DItemOffset rewards = 11;
+  int32 sort_id = 12;
 }

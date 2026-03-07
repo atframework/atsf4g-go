@@ -9,7 +9,7 @@ option cc_enable_arenas = true;
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
 
 import "google/protobuf/any.proto";
-
+import "google/protobuf/empty.proto";
 import "protocol/extension/v3/xresloader.proto";
 
 package proy;
@@ -56,10 +56,12 @@ enum EnItemVirtualItemType {
 
 enum EnItemFlowReasonMajorType {
   EN_ITEM_FLOW_REASON_MAJOR_INVALID = 0;
-  EN_ITEM_FLOW_REASON_MAJOR_USER = 1;          // 玩家基础逻辑
-  EN_ITEM_FLOW_REASON_MAJOR_GM = 2;            // GM 命令
-  EN_ITEM_FLOW_REASON_MAJOR_QUEST = 3;         // 任务/剧情
-  EN_ITEM_FLOW_REASON_MAJOR_MALL = 4;         // 商城
+  EN_ITEM_FLOW_REASON_MAJOR_USER = 1;            // 玩家基础逻辑
+  EN_ITEM_FLOW_REASON_MAJOR_GM = 2;              // GM 命令
+  EN_ITEM_FLOW_REASON_MAJOR_QUEST = 3;           // 任务/剧情
+  EN_ITEM_FLOW_REASON_MAJOR_MALL = 12;           // 商城
+  EN_ITEM_FLOW_REASON_MAJOR_MAIL = 14;           // 邮件
+  EN_ITEM_FLOW_REASON_MAJOR_MODULE_UNLOCK = 15;  // 模块解锁
 }
 
 enum EnItemFlowReasonMinorType {
@@ -79,8 +81,14 @@ enum EnItemFlowReasonMinorType {
   EN_ITEM_FLOW_REASON_MINOR_QUEST_REWARD = 3001;  // 任务奖励
 
   // Mall
-  EN_ITEM_FLOW_REASON_MINOR_MALL_PURCHASE_COST = 12001;  // 商城购买消耗
+  EN_ITEM_FLOW_REASON_MINOR_MALL_PURCHASE_COST = 12001;    // 商城购买消耗
   EN_ITEM_FLOW_REASON_MINOR_MALL_PURCHASE_REWARD = 12002;  // 商城购买奖励
+
+  // mail
+  EN_ITEM_FLOW_REASON_MINOR_MAIL_ATTACHMENTS = 14001;  // 邮件附件领取
+
+  // Module unlock
+  EN_ITEM_FLOW_REASON_MINOR_MODULE_REWARD = 15001;  // 模块解锁奖励
 }
 
 message DItemBasic {
@@ -131,7 +139,7 @@ message DItemAutoReward {
   repeated DItemBasic reward_items = 1;
 
   oneof reason_type {
-    uint32 user_level_up = 101;  // 用户升级
+    uint32 user_level_up = 101;  // 用户升级P
     int32 quest_id = 301;  // 任务id
   }
 }

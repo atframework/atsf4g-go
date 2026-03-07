@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common";
+
+import "protocol/extension/v3/xresloader.proto";
+import "google/protobuf/timestamp.proto";
+
+package proy;
+
+message DUserIDKey {
+  uint64 user_id = 1;
+  uint32 zone_id = 2;
+}

@@ -14,7 +14,7 @@ image:
   tag: latest
 
 volumeMounts:
-  configMountPath: /data/projecty/lobbysvr/cfg
+  configMountPath: /etc/projecty/lobbysvr/cfg
   logMountPath: /data/projecty/lobbysvr/log
 
 vector:
@@ -57,8 +57,16 @@ gateway:
   addresses_ip: 127.0.0.1
 
 httproute:
+  enabled: true
   port: 7001
   parentRefsName: project-y-tls-gateway
+
+ingress:
+  enabled: false
+  class: cilium
+  port: 7001
+  hostname: ingress.example.com
+  addresses_ip: 127.0.0.1
 
 service:
   type: ClusterIP

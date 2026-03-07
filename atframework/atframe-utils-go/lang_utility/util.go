@@ -27,6 +27,10 @@ func IsDeduplicateWithOut[T comparable](elem []T, witchOut T) bool {
 }
 
 func IsExist[T comparable](elem []T, target T) bool {
+	if elem == nil {
+		return false
+	}
+
 	for _, v := range elem {
 		if v == target {
 			return true

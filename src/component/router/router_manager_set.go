@@ -161,7 +161,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, autoSaveTask, &startData)
 		if err != nil {
 			set.GetApp().GetDefaultLogger().LogError("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
-		} else {
+		} else {	
 			set.autoSaveActionTask.Store(autoSaveTask)
 		}
 	} else {

@@ -35,6 +35,7 @@ message DModuleUnlocked {
   int32 module_id = 1;         // 模块id
   int64 unlock_timepoint = 2;  // 解锁的时间戳, 该字段大于0表示已经解锁
   bool global_forbid = 3;
+  bool is_received = 4;  // 是否已经领取过模块解锁奖励
 }
 
 message DUserModuleUnlockData {

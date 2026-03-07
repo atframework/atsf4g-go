@@ -1,0 +1,88 @@
+site_name: ATSF4G-GO 项目文档
+site_description: ATSF4G-GO 游戏服务器框架文档
+site_author: ATSF4G Team
+
+# Repository
+repo_name: atframework/atsf4g-go
+repo_url: https://github.com/atframework/atsf4g-go
+
+# Copyright
+copyright: Copyright &copy; 2024 ATSF4G Team
+
+# Configuration
+theme:
+  name: material
+  language: zh
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+# Plugins
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - tables
+  - pymdownx.highlight:
+      linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+
+# Extra CSS
+extra_css:
+  - stylesheets/extra.css
+
+# Extra JavaScript
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
+
+# Page tree
+nav:
+  - 首页: index.md
+  - 快速开始: getting-started/index.md
+  - 架构设计:
+      - architecture/index.md
+      - 整体架构: architecture/overview.md
+  - 可观测性: observability/index.md
+  - 常见问题: faq.md
+  - 更新日志: changelog.md
+  - 贡献指南: contributing.md

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -389,6 +390,124 @@ func pickTimestamp(value string) (*timestamppb.Timestamp, error) {
 	return timestamppb.New(t), nil
 }
 
+type enumAliasMapping struct {
+	origin map[string]protoreflect.EnumNumber
+	noCase map[string]protoreflect.EnumNumber
+}
+
+var (
+	enumAliasCache map[string]*enumAliasMapping
+	enumAliasLock  sync.RWMutex
+)
+
+func getEnumAliasMapping(enumDesc protoreflect.EnumDescriptor) *enumAliasMapping {
+	if enumDesc == nil {
+		return nil
+	}
+
+	enumAliasLock.RLock()
+	useRLock := true
+	defer func() {
+		if useRLock {
+			enumAliasLock.RUnlock()
+		} else {
+			enumAliasLock.Unlock()
+		}
+	}()
+
+	if enumAliasCache == nil {
+		enumAliasLock.RUnlock()
+		enumAliasLock.Lock()
+		useRLock = false
+		enumAliasCache = make(map[string]*enumAliasMapping)
+	}
+
+	enumName := string(enumDesc.FullName())
+	mapping, ok := enumAliasCache[enumName]
+	if ok && mapping != nil {
+		return mapping
+	}
+
+	mapping = &enumAliasMapping{
+		origin: make(map[string]protoreflect.EnumNumber, enumDesc.Values().Len()),
+		noCase: make(map[string]protoreflect.EnumNumber, enumDesc.Values().Len()),
+	}
+	for i := 0; i < enumDesc.Values().Len(); i++ {
+		valueDesc := enumDesc.Values().Get(i)
+
+		if enumExt := proto.GetExtension(valueDesc.Options(), atframe_protocol.E_ENUMVALUE).(*atframe_protocol.AtappConfigureEnumvalueOptions); enumExt != nil {
+			for _, alias := range enumExt.GetAliasName() {
+				if alias == "" {
+					continue
+				}
+
+				mapping.origin[alias] = valueDesc.Number()
+
+				if !enumExt.GetCaseSensitive() {
+					mapping.noCase[strings.ToLower(alias)] = valueDesc.Number()
+				}
+			}
+		}
+	}
+
+	if useRLock {
+		enumAliasLock.RUnlock()
+		enumAliasLock.Lock()
+		useRLock = false
+	}
+	enumAliasCache[enumName] = mapping
+
+	return mapping
+}
+
+func pickEnumIntValue(enumDesc protoreflect.EnumDescriptor, value int32) (protoreflect.EnumNumber, error) {
+	if enumDesc == nil {
+		return 0, fmt.Errorf("enumDesc is nil")
+	}
+
+	ret := enumDesc.Values().ByNumber(protoreflect.EnumNumber(value))
+	if ret == nil {
+		return 0, fmt.Errorf("enum value %d not found in enum %s", value, enumDesc.FullName())
+	}
+
+	return ret.Number(), nil
+}
+
+func pickEnumStringValue(enumDesc protoreflect.EnumDescriptor, value string) (protoreflect.EnumNumber, error) {
+	if enumDesc == nil {
+		return 0, fmt.Errorf("enumDesc is nil")
+	}
+
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, fmt.Errorf("enum value is empty for enum %s", enumDesc.FullName())
+	}
+
+	if v, err := strconv.ParseInt(value, 0, 32); err == nil {
+		return pickEnumIntValue(enumDesc, int32(v))
+	}
+
+	valueDesc := enumDesc.Values().ByName(protoreflect.Name(value))
+	if valueDesc != nil {
+		return valueDesc.Number(), nil
+	}
+
+	aliasMapping := getEnumAliasMapping(enumDesc)
+	if aliasMapping != nil {
+		if enumNumber, ok := aliasMapping.origin[value]; ok {
+			return enumNumber, nil
+		}
+
+		if len(aliasMapping.noCase) > 0 {
+			if enumNumber, ok := aliasMapping.noCase[strings.ToLower(value)]; ok {
+				return enumNumber, nil
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("enum value %s not found in enum %s", value, enumDesc.FullName())
+}
+
 // 定义字符映射常量
 const (
 	SPLITCHAR = 1 << iota
@@ -618,6 +737,8 @@ func parseStringToYamlData(stringValue string, fd protoreflect.FieldDescriptor, 
 			return float64(v), nil
 		}
 		return nil, fmt.Errorf("expected float64, got %s err %s", stringValue, err)
+	case protoreflect.EnumKind:
+		return pickEnumStringValue(fd.Enum(), stringValue)
 	}
 	return nil, fmt.Errorf("parseDefaultToYamlData unsupported field type: %v", fd.Kind())
 }
@@ -635,7 +756,7 @@ func convertToInt64(data interface{}) (int64, error) {
 	case reflect.Uint32:
 		return int64(reflect.ValueOf(data).Uint()), nil // 转换为 int64
 	case reflect.Uint64:
-		return int64(reflect.ValueOf(data).Uint()), nil // 转换为 int64'
+		return int64(reflect.ValueOf(data).Uint()), nil // 转换为 int64
 	case reflect.Bool:
 		if reflect.ValueOf(data).Bool() {
 			return 1, nil
@@ -862,6 +983,28 @@ func convertField(inputData interface{}, minData interface{}, maxData interface{
 			return protoreflect.ValueOfMessage(v.ProtoReflect()), nil
 		}
 		return protoreflect.Value{}, fmt.Errorf("expected Timestamp or Duration, got %T", inputData)
+
+	case protoreflect.EnumKind:
+		if v, ok := inputData.(protoreflect.EnumNumber); ok {
+			return protoreflect.ValueOfEnum(v), nil
+		}
+		if v, ok := inputData.(string); ok {
+			enumNumber, err := pickEnumStringValue(fd.Enum(), v)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfEnum(enumNumber), nil
+		}
+		v, err := convertToInt64(inputData)
+		if err != nil {
+			return protoreflect.Value{}, fmt.Errorf("can not convert %v to enum %s", inputData, fd.Enum().FullName())
+		}
+
+		enumNumber, err := pickEnumIntValue(fd.Enum(), int32(v))
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfEnum(enumNumber), nil
 	}
 
 	return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", fd.Kind())
@@ -1334,12 +1477,12 @@ func dumpYamlIntoMessageFieldItem(yamlData map[string]interface{}, dst proto.Mes
 
 			hasKey := dumpYamlIntoMessageFieldValue(expandedK, &newKey, fd.MapKey(), logger, loadOptions, dumpExistedSet,
 				fmt.Sprintf("%s%s.%d.key.", existedSetPrefix, fd.Name(), mapExistedKeyIndex))
-			hasValue := false
+			valueOk := false
 			if hasKey {
 				valueOk = dumpYamlIntoMessageFieldValue(expandedV, &newValue, fd.MapValue(), logger, loadOptions, dumpExistedSet,
 					fmt.Sprintf("%s%s.%d.value.", existedSetPrefix, fd.Name(), mapExistedKeyIndex))
 			}
-			if !hasKey || !hasValue {
+			if !hasKey || !valueOk {
 				continue
 			}
 			if !newKey.IsValid() || !newValue.IsValid() {

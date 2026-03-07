@@ -47,6 +47,9 @@ type User interface {
 	SetLastPingTime(time.Time)
 	SetHasGetInfo(bool)
 	RegisterMessageHandler(rpcName string, f func(*TaskActionUser, proto.Message, int32) error)
+
+	GetExtralData(key string) any
+	SetExtralData(key string, value any)
 }
 
 var createUserFn func(openId string, socketUrl string, logHandler func(format string, a ...any), enableActorLog bool) User

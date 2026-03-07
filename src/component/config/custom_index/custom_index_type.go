@@ -6,12 +6,14 @@ import (
 )
 
 type ExcelConfigCustomIndex struct {
-	ConstIndex        ExcelConfigConstIndex
-	UserLevelExpIndex ExcelConfigUserLevelExpIndex
-	RandomPoolIndex   map[int32]*ExcelConfigRandomPool
-	QuestSequence     []*public_protocol_config.Readonly_ExcelQuestList
-	UnlockIndex       map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID]interface{} // map[int32][]atframework_component_config.UnlockValueFunction
-	MallIndex         ExcelConfigMallIndex
+	ConstIndex           ExcelConfigConstIndex
+	UserLevelExpIndex    ExcelConfigUserLevelExpIndex
+	RandomPoolIndex      map[int32]*ExcelConfigRandomPool
+	QuestSequence        []*public_protocol_config.Readonly_ExcelQuestList
+	UnlockIndex          map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID][]*UnlockValueFunction
+	MallIndex            ExcelConfigMallIndex
+	MailGlobalMajorTypes []int32
+	MailUserMajorTypes   []int32
 }
 
 type ExcelConfigCustomIndexLastBuildTime struct {

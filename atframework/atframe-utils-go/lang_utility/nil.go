@@ -64,6 +64,10 @@ func IsNil(i interface{}) bool {
 	// Get the eface structure
 	ef := (*eface)(unsafe.Pointer(&i))
 
+	if ef.data == nil {
+		return true
+	}
+
 	// Get the kind from the type information
 	typ := (*rtype)(ef._type)
 	kind := typ.kind & kindMask
@@ -79,13 +83,9 @@ func IsNil(i interface{}) bool {
 		// But wait - for a pointer to nil, data itself is nil.
 		// For a pointer to non-nil, data IS the pointer value.
 		// Actually in eface, for pointer types, data IS the pointer value directly.
-		return ef.data == nil
+		return false
 
 	case kindSlice:
-		// For nil slice, data is nil
-		if ef.data == nil {
-			return true
-		}
 		// Slice is stored as sliceHeader, check if Data pointer is nil
 		header := (*sliceHeader)(ef.data)
 		return header.Data == nil
@@ -94,13 +94,10 @@ func IsNil(i interface{}) bool {
 		// For these types, the pointer value is stored directly in data
 		// nil map/chan/func => data is nil
 		// non-nil map/chan/func => data is the hmap/hchan/funcval pointer
-		return ef.data == nil
+		return false
 
 	case kindInterface:
 		// For nil interface value inside, data would be nil
-		if ef.data == nil {
-			return true
-		}
 		// Nested interface: check if the inner interface's data is nil
 		innerEface := (*eface)(ef.data)
 		return innerEface._type == nil

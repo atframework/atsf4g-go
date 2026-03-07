@@ -6,6 +6,8 @@ def setupBuildEnv() {
             export BUILD_VERSION="${BUILD_VERSION}"
             export CONFIG_VERSION="${CONFIG_VERSION}"
             export BUILD_MODE="${BUILD_MODE}"
+            export GIT_BRANCH="${GIT_BRANCH}"
+            export GOTRACEBACK=crash
         '''
     } else {
         return '''
@@ -13,6 +15,8 @@ def setupBuildEnv() {
             set "BUILD_VERSION=${BUILD_VERSION}"
             set "CONFIG_VERSION=${CONFIG_VERSION}"
             set "BUILD_MODE=${BUILD_MODE}"
+            set "GIT_BRANCH=${GIT_BRANCH}"
+            set "GOTRACEBACK=crash"
         '''
     }
 }
@@ -52,6 +56,7 @@ pipeline {
         choice(name: 'NODE_LABEL', choices: ['linux', 'windows'], description: '选择构建平台')
         string(name: 'BUILD_VERSION', defaultValue: 'v1.0.0', description: '构建版本号 (如: v1.0.0, v1.0.0-rc.1)')
         string(name: 'CONFIG_VERSION', defaultValue: 'v1.0.0', description: '配置版本号 (如: v1.0.0)')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: '服务器分支')
         choice(name: 'BUILD_MODE', choices: ['Release', 'Debug'], description: '构建模式')
     }
     
@@ -332,9 +337,9 @@ pipeline {
                         
                         # 项目是多模块结构,需要遍历所有 go.mod 目录
                         echo "Finding all Go modules..."
-                        find . -name go.mod -not -path "*/vendor/*" -not -path "*/.tools/*" -exec dirname {} \\; | sort -u | while read dir; do
-                            echo "Running go mod download in \\\$dir"
-                            (cd "\\\$dir" && go mod download) || echo "Warning: go mod download failed in \\\$dir"
+                        find . -name go.mod -not -path "*/vendor/*" -not -path "*/.tools/*" -exec dirname {} \\; | sort -u | while IFS= read -r dir; do
+                            echo "Running go mod download in \$dir"
+                            (cd "\$dir" && go mod download) || true
                         done
                         echo "✓ Go modules download completed"
                     """
@@ -422,11 +427,17 @@ PYEOF
                         sh """${setupBuildEnv()}
                             task tools:clean-generate-pb
                             task fast-build
+                            if [[ "${params.GIT_BRANCH}" == "main" ]] || [[ "${params.GIT_BRANCH}" == "origin/main" ]]; then
+                                task "fast-[doc]-build"
+                            fi
                         """
                     } else {
                         echo 'Using full build (installing tools)...'
                         sh """${setupBuildEnv()}
                             task build
+                            if [[ "${params.GIT_BRANCH}" == "main" ]] || [[ "${params.GIT_BRANCH}" == "origin/main" ]]; then
+                                task "fast-[doc]-build"
+                            fi
                         """
                     }
                 }
@@ -513,24 +524,34 @@ PYEOF
                     echo "开始打包构建产物..."
                     def sourceDir = "${env.WORKSPACE}/build/install"
                     def zipFile = "ProjectY_Server_${env.BUILD_NUMBER}.tar.gz"
+                    def docTarFile = "ProjectY_Server_Doc.tar.gz"
                     if (params.NODE_LABEL != 'linux') {
                         env.ARCHIVE_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/${params.NODE_LABEL}/${env.BUILD_TIME}_${env.BUILD_NUMBER}"
+                        env.DOCUMENT_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/Document"
                     } else
                     {
                         env.ARCHIVE_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/${params.NODE_LABEL}"
+                        env.DOCUMENT_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/Document"
                     }
                     sh """
                         tar -czvf "${zipFile}"  -C "${sourceDir}" .
+                        if [[ "${params.GIT_BRANCH}" == "main" ]] || [[ "${params.GIT_BRANCH}" == "origin/main" ]]; then
+                            tar -czvf "${docTarFile}" -C "${env.WORKSPACE}/doc/site" .
+                        fi
                     """
                     echo "打包完成: ${zipFile}"
 
                     echo "开始通过SCP传输文件到Linux服务器..."
                     
                     sh  """
-                        ssh -p 36000 -o StrictHostKeyChecking=no ${env.LINUX_USER}@${env.LINUX_IP} "mkdir -p ${env.ARCHIVE_PATH}"
+                        ssh -p 36000 -o StrictHostKeyChecking=no ${env.LINUX_USER}@${env.LINUX_IP} "mkdir -p ${env.ARCHIVE_PATH} ${env.DOCUMENT_PATH}"
                         scp -P 36000 -o StrictHostKeyChecking=no "${zipFile}" ${env.LINUX_USER}@${env.LINUX_IP}:${env.ARCHIVE_PATH}/
                         ssh -p 36000 -o StrictHostKeyChecking=no ${env.LINUX_USER}@${env.LINUX_IP} "find ${env.ARCHIVE_PATH} -mindepth 1 -maxdepth 1 -mtime +5 -exec rm -rf {} +"
                         ssh -p 36000 -o StrictHostKeyChecking=no ${env.LINUX_USER}@${env.LINUX_IP} 'count=\$(find '"${env.ARCHIVE_PATH}"' -mindepth 1 -maxdepth 1 -type d | wc -l); if [ \$count -gt 20 ]; then find '"${env.ARCHIVE_PATH}"' -mindepth 1 -maxdepth 1 -type d -printf ''%T@ %p\\n'' | sort -rn | tail -n +21 | cut -d'' '' -f2- | xargs -r rm -rf; fi'
+                        if [[ "${params.GIT_BRANCH}" == "main" ]] || [[ "${params.GIT_BRANCH}" == "origin/main" ]]; then
+                            scp -P 36000 -o StrictHostKeyChecking=no "${docTarFile}" ${env.LINUX_USER}@${env.LINUX_IP}:${env.DOCUMENT_PATH}/
+                            ssh -p 36000 -o StrictHostKeyChecking=no ${env.LINUX_USER}@${env.LINUX_IP} "cd ${env.DOCUMENT_PATH} && tar -xzvf ProjectY_Server_Doc.tar.gz"
+                        fi
                     """
                     // 传输包名给上游任务
                     echo "文件传输成功完成。"
@@ -544,7 +565,9 @@ PYEOF
                         """
                     }
 
-                    def meta = [package_name: "${zipFile}"]
+                    def meta = [package_name: "${zipFile}",
+                                archive_path: "${env.ARCHIVE_PATH}"
+                                ]
                     // 设置显示名与描述（描述用 JSON）
                     currentBuild.displayName = "package_data"
                     currentBuild.description = groovy.json.JsonOutput.toJson(meta)

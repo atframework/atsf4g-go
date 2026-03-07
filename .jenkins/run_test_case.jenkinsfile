@@ -1,0 +1,218 @@
+
+def cleanWorkspace() {
+    if (isUnix()) {
+        echo 'Cleaning workspace (Linux/Unix)...'
+        sh """
+            rm -rf "${WORKSPACE}/*"
+            echo "✓ Workspace cleaned"
+        """
+    } else {
+        echo 'Cleaning workspace (Windows)...'
+        powershell """
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '${WORKSPACE}/*'
+            Write-Host '✓ Workspace cleaned'
+        """
+    }
+}
+
+pipeline {
+    agent {
+        node {
+            label "${params.NODE_LABEL ?: 'linux'}"
+        }
+    }
+
+    parameters {
+        choice(name: 'NODE_LABEL', choices: ['linux', 'windows'], description: '选择测试构建平台')
+        string(name: 'PACKAGE_NAME', defaultValue: '', description: '包名称, 例如: ProjectY_Server_1.0.123.tar.gz')
+        string(name: 'ARCHIVE_PATH', defaultValue: '', description: '归档路径')
+    }
+
+    environment {
+        UNPACK_NAME = "${params.PACKAGE_NAME}".replace('.tar.gz', '')
+        DOWNLOAD_PATH = "${params.ARCHIVE_PATH}".replace('/data/archive/disk1/nextcloud/', 'https://download.m-oa.com/')
+        PATH = "$PATH:/opt/tools/bin/"
+    }
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                script {
+                    cleanWorkspace()
+                }
+            }
+        }
+        stage('init path') {
+            steps {
+                script {
+                    echo '根据 BuildPlatform 初始化 BasePath 等派生路径...'
+                    def RobotName = [
+                        'linux': 'robotd',
+                        'windows': 'robotd.exe',
+                    ]
+                    def ServerStartScript = [
+                        'linux': 'start_1.1.11.1.sh',
+                        'windows': 'start_1.1.11.1.bat',
+                    ]
+                    def ServerStopScript = [
+                        'linux': 'stop_1.1.11.1.sh',
+                        'windows': 'stop_1.1.11.1.bat',
+                    ]
+                    def ServerUpdateDependencyScript = [
+                        'linux': 'update_dependency.sh',
+                        'windows': 'update_dependency.bat',
+                    ]
+                    def ServerGenerateConfigScript = [
+                        'linux': 'generate_config.sh',
+                        'windows': 'generate_config.bat',
+                    ]
+                    
+                    // 根据平台设置路径分隔符
+                    def pathSeparator = params.NODE_LABEL == 'windows' ? '\\' : '/'
+                    env.BASE_PATH = "${WORKSPACE}${pathSeparator}${env.UNPACK_NAME}"
+                    env.SERVER_PATH = "${env.BASE_PATH}${pathSeparator}lobbysvr${pathSeparator}bin"
+                    env.ROBOT_PATH = "${env.BASE_PATH}${pathSeparator}robot${pathSeparator}bin"
+                    
+                    env.TestBin = RobotName[params.NODE_LABEL] ?: env.TestBin
+                    env.ServerStartScript = ServerStartScript[params.NODE_LABEL] ?: env.ServerStartScript
+                    env.ServerUpdateDependencyScript = ServerUpdateDependencyScript[params.NODE_LABEL] ?: env.ServerUpdateDependencyScript
+                    env.ServerGenerateConfigScript = ServerGenerateConfigScript[params.NODE_LABEL] ?: env.ServerGenerateConfigScript
+                    env.ServerStopScript = ServerStopScript[params.NODE_LABEL] ?: env.ServerStopScript
+                    
+                    echo "BASE_PATH: ${env.BASE_PATH}"
+                    echo "SERVER_PATH: ${env.SERVER_PATH}"
+                    echo "ROBOT_PATH: ${env.ROBOT_PATH}"
+                    echo "TestBin: ${env.TestBin}"
+                    echo "ServerStartScript: ${env.ServerStartScript}"
+                    echo "ServerUpdateDependencyScript: ${env.ServerUpdateDependencyScript}"
+                    echo "ServerGenerateConfigScript: ${env.ServerGenerateConfigScript}"
+                    echo "ServerStopScript: ${env.ServerStopScript}"
+                }
+            }
+        }
+
+        stage('download package') {
+            steps {
+                script {
+                    // Use escaped $ so Groovy does not interpolate shell variables
+                    sh """
+                        wget -O ${params.PACKAGE_NAME} "${env.DOWNLOAD_PATH}/${params.PACKAGE_NAME}"
+                        mkdir -p "${env.UNPACK_NAME}"
+                        tar -xzvf ${params.PACKAGE_NAME} -C "${env.UNPACK_NAME}/"
+                    """
+                }
+            }
+        }
+
+        stage('create config') {
+            steps {
+                script {
+                    dir("${env.BASE_PATH}"){
+
+                    // Use escaped $ so Groovy does not interpolate shell variables
+                    if (params.NODE_LABEL == 'linux') {
+                        sh """
+                            chmod 755 ${env.ServerUpdateDependencyScript}
+                            chmod 755 ${env.ServerGenerateConfigScript}
+                        """
+                    }
+
+                    sh """
+                        ./${env.ServerUpdateDependencyScript}
+                        ./${env.ServerGenerateConfigScript}
+                    """
+                    }
+                }
+            }
+        }
+
+        stage('start server') {
+            steps {
+                script {
+                    dir("${env.SERVER_PATH}"){
+                        if (params.NODE_LABEL == 'windows') {
+                            bat """
+                                start /B ${env.ServerStartScript}
+                            """
+                        } else {
+                            sh """
+                                chmod 755 ${env.ServerStartScript}
+                                nohup ./${env.ServerStartScript} > server.log 2>&1 &
+                                sleep 5
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('test') {
+            steps {
+                script {
+                    dir("${env.ROBOT_PATH}"){
+                    if (params.NODE_LABEL == 'linux') {
+                        sh """
+                            chmod 755 ${env.TestBin}
+                        """
+                    }
+                    sh """
+                        ./${env.TestBin} -case_file ../case_config/simple_test.conf
+                    """
+                    }
+                }
+            }
+        }
+
+        stage('stop server') {
+            steps {
+                script {
+                    dir("${env.SERVER_PATH}"){
+
+                    if (params.NODE_LABEL == 'linux') {
+                        sh """
+                            chmod 755 ${env.ServerStopScript}
+                        """
+                    }
+                    sh """
+                        ./${env.ServerStopScript}
+                    """
+                    }
+                }
+            }
+        }
+
+    }
+    post {
+        success {
+            echo '🎉 构建与部署成功完成！'
+        }
+        failure {
+            echo '❌ 测试过程失败，请检查日志排除故障。'
+             writeFile file: 'payload.json', text: """
+            {
+              "msg_type": "post",
+              "content": {
+                "post": {
+                  "zh_cn": {
+                    "title": "服务器${params.NODE_LABEL}测试失败",
+                    "content": [
+                      [
+                        {
+                          "tag": "text",
+                          "text": "构建号:${params.PACKAGE_NAME}"
+                        },
+                        {
+                          "tag": "a",
+                          "text": "构建链接",
+                          "href": "https://jenkins.m-oa.com:6023/job/ProjectY/job/Server/job/Run_Test_Case/${env.BUILD_NUMBER}/"
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+            """
+            sh 'curl -X POST -H "Content-Type: application/json" -d "@payload.json" https://open.feishu.cn/open-apis/bot/v2/hook/e3ccd86b-87f4-45a1-bad1-be7b9a4d70d3'
+        }
+    }
+}

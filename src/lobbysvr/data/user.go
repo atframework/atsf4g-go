@@ -2,6 +2,7 @@ package lobbysvr_data
 
 import (
 	"math"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -641,6 +642,10 @@ func (u *User) CleanupClientDirtyCache(ctx cd.RpcContext) {
 func (u *User) SendAllSyncData(ctx cd.RpcContext) error {
 	u.SyncClientDirtyCache(ctx)
 
+	for _, mgr := range u.moduleManagerMap {
+		mgr.SendAllSyncData(ctx)
+	}
+
 	u.CleanupClientDirtyCache(ctx)
 	return nil
 }
@@ -677,8 +682,10 @@ func (u *User) GetModuleManagerByName(name string) UserModuleManagerImpl {
 		return nil
 	}
 
-	for typeInst, mgr := range u.moduleManagerMap {
-		if typeInst.String() == name {
+	for _, mgr := range u.moduleManagerMap {
+		// 使用反射获取管理器的简单类型名字（不含包路径）
+		simpleName := reflect.TypeOf(mgr).Elem().Name()
+		if simpleName == name {
 			return mgr
 		}
 	}

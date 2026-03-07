@@ -5,6 +5,8 @@ package libatbus_channel_utility
 import (
 	"strconv"
 	"strings"
+
+	types "github.com/atframework/libatbus-go/types"
 )
 
 // ChannelAddress represents a parsed channel address with scheme, host, port and full address.
@@ -14,6 +16,24 @@ type ChannelAddress struct {
 	Host    string // Host part of the address
 	Port    int    // Port number (0 if not specified)
 }
+
+func (c *ChannelAddress) GetAddress() string {
+	return c.Address
+}
+
+func (c *ChannelAddress) GetScheme() string {
+	return c.Scheme
+}
+
+func (c *ChannelAddress) GetHost() string {
+	return c.Host
+}
+
+func (c *ChannelAddress) GetPort() int {
+	return c.Port
+}
+
+var _ types.ChannelAddress = (*ChannelAddress)(nil)
 
 // MakeAddress parses an address string and populates the ChannelAddress struct.
 // Returns true if parsing succeeded, false otherwise.

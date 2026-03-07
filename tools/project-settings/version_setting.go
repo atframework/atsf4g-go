@@ -6,5 +6,5 @@ func GetAtdtoolVersion() string {
 }
 
 func GetXresloaderVersion() string {
-	return "2.23.2"
+	return "2.23.4"
 }

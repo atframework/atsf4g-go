@@ -56,7 +56,8 @@ type AppModuleImpl interface {
 
 type noCopy struct{}
 
-type AppModuleBase struct {
+type 
+AppModuleBase struct {
 	_       noCopy
 	owner   AppImpl
 	actived bool

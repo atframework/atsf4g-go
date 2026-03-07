@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	config "github.com/atframework/atsf4g-go/component-config"
+	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
+	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
@@ -84,20 +86,32 @@ func (m *UserUnlockManager) RefreshLimitSecond(ctx cd.RpcContext) {
 	}
 	// 时间解锁
 	if ctx.GetNow().Unix() != m.lastCheckUnlockTime {
-		m.OnUserUnlockDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_UnlockTimepoint,
+		m.OnUserUnlockRangeDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_UnlockTimepoint,
 			m.lastCheckUnlockTime, ctx.GetNow().Unix())
 		m.lastCheckUnlockTime = ctx.GetNow().Unix()
 	}
 }
 
-// OnUserUnlockDataChange 根据条件变化触发解锁判定
-func (m *UserUnlockManager) OnUserUnlockDataChange(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, oldValue, newValue int64) {
-	if m == nil {
+func (m *UserUnlockManager) OnUserUnlockRangeDataChange(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, oldValue, newValue int64) {
+	valueFunctionIndex := config.GetUnlockDataRange(condType, oldValue, newValue)
+	if len(valueFunctionIndex) == 0 {
 		return
 	}
-	// 取索引区间数据
-	valueFunctionIndex := config.GetUnlockData(condType, oldValue, newValue)
+	m.OnUserUnlockDataChangeInner(ctx, condType, valueFunctionIndex)
+}
+
+func (m *UserUnlockManager) OnUserUnlockDataChange(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID, Value int64) {
+	valueFunctionIndex := config.GetUnlockData(condType, Value)
 	if len(valueFunctionIndex) == 0 {
+		return
+	}
+	m.OnUserUnlockDataChangeInner(ctx, condType, valueFunctionIndex)
+}
+
+// OnUserUnlockDataChange 根据条件变化触发解锁判定
+func (m *UserUnlockManager) OnUserUnlockDataChangeInner(ctx cd.RpcContext, condType public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID,
+	valueFunctionIndex []atframework_component_config_custom_index_type.UnlockValueFunction) {
+	if m == nil {
 		return
 	}
 	for _, value := range valueFunctionIndex {
@@ -146,6 +160,10 @@ func (m *UserUnlockManager) CheckFunctionUnlock(ctx cd.RpcContext, conditions []
 			result = m.CheckQuestConditnion(ctx, int32(cond.GetQuestReceived()), public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_RECEIVE)
 		case public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_Activate:
 			result = false
+		case public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_ItemHas:
+			result = m.CheckItemHas(ctx, int32(cond.GetItemHas()))
+		case public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_ModuleUnlocked:
+			result = m.CheckModuleUnlocked(ctx, int32(cond.GetModuleUnlocked()))
 		default:
 			ctx.LogError("unknown function unlock condition type: %d", cond.GetConditionTypeOneofCase())
 			return false
@@ -192,4 +210,25 @@ func (m *UserUnlockManager) CheckQuestConditnion(ctx cd.RpcContext, questID int3
 	}
 
 	return userQuestMgr.QueryQuestStatus(questID) == status
+}
+
+func (m *UserUnlockManager) CheckItemHas(ctx cd.RpcContext, itemID int32) bool {
+
+	stattistics := m.GetOwner().GetItemTypeStatistics(ctx, itemID)
+	if stattistics == nil {
+		return false
+	}
+	if itemID > 0 {
+		return true
+	}
+	return false
+}
+
+func (m *UserUnlockManager) CheckModuleUnlocked(ctx cd.RpcContext, moduleID int32) bool {
+	userModuleUnlockManager := data.UserGetModuleManager[logic_module_unlock.UserModuleUnlockManager](m.GetOwner())
+	if userModuleUnlockManager == nil {
+		return false
+	}
+
+	return userModuleUnlockManager.IsModuleUnlocked(moduleID)
 }

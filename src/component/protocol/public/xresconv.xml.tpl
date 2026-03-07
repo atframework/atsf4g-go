@@ -5,8 +5,8 @@
     <xresloader_path desc="xresloader地址，相对于当前xml的目录">{{.XRESCONV_EXE_PATH}}</xresloader_path>
 
     <proto desc="协议类型，-p选项">protobuf</proto>
-    <output_type desc="输出类型，-t选项，支持多个同时配置多种输出">bin</output_type>
-    <output_type desc="多种输出时可以额外定义某个节点的重命名规则" rename="/(?i)\.bytes$/\.json/">json</output_type>
+    <output_type desc="输出类型，-t选项，支持多个同时配置多种输出" class="server">bin</output_type>
+    <output_type desc="多种输出时可以额外定义某个节点的重命名规则" rename="/(?i)\.bytes$/\.json/" class="server">json</output_type>
     <!-- <output_type desc="可以通过指定class来限制输出的规则" rename="/(?i)\.bytes$/\.csv/" class="client" >ue-csv</output_type> -->
     <!-- output_type 里的class标签对应下面item里的class标签，均可配置多个，多个用空格隔开，任意一个class匹配都会启用这个输出 -->
     <proto_file desc="协议描述文件，-f选项">{{.XRESCONV_CONFIG_PB}}</proto_file>

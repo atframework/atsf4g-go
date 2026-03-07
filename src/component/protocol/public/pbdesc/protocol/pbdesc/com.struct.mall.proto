@@ -8,6 +8,8 @@ option cc_enable_arenas = true;
 
 option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
 
+import "protocol/common/com.struct.mall.common.proto";
+
 package proy;
 
 message DMallProductData {
@@ -16,10 +18,17 @@ message DMallProductData {
   int64 total_counter_storage_id = 11;
 }
 
+message DMallData {
+  EnMallType mall_type = 1;
+  int64 purchase_sum = 2;
+}
+
 message DUserMallData {
   repeated DMallProductData product_data = 1;
+  repeated DMallData mall_data = 2;
 }
 
 message DUserMallDirtyChg {
   repeated DMallProductData product_data = 1;
+  repeated DMallData mall_data = 2;
 }

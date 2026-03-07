@@ -17,6 +17,8 @@ type UserModuleManagerImpl interface {
 	// 每分钟刷新
 	RefreshLimitMinute(cd.RpcContext)
 
+	SendAllSyncData(ctx cd.RpcContext)
+
 	InitFromDB(cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 	DumpToDB(cd.RpcContext, *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult
 
@@ -101,6 +103,9 @@ func (m *UserModuleManagerBase) OnSaved(_ctx cd.RpcContext, _version uint64) {
 }
 
 func (m *UserModuleManagerBase) OnUpdateSession(_ctx cd.RpcContext, _from *uc.Session, _to *uc.Session) {
+}
+
+func (m *UserModuleManagerBase) SendAllSyncData(_ctx cd.RpcContext) {
 }
 
 func (m *UserModuleManagerBase) SyncClientDirtyCache() {

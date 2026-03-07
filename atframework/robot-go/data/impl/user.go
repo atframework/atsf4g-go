@@ -46,6 +46,8 @@ type User struct {
 	receiveHandlerCloseChan chan struct{}
 
 	messageHandler map[string]func(*user_data.TaskActionUser, proto.Message, int32) error
+
+	extralData map[string]any
 }
 
 type CmdAction struct {
@@ -464,4 +466,21 @@ func (user *User) SetHasGetInfo(d bool) {
 		return
 	}
 	user.HasGetInfo = d
+}
+
+func (user *User) GetExtralData(key string) any {
+	if user == nil {
+		return nil
+	}
+	return user.extralData[key]
+}
+
+func (user *User) SetExtralData(key string, value any) {
+	if user == nil {
+		return
+	}
+	if user.extralData == nil {
+		user.extralData = make(map[string]any)
+	}
+	user.extralData[key] = value
 }

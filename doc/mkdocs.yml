@@ -1,0 +1,173 @@
+site_name: ATSF4G-GO 项目文档
+site_description: ATSF4G-GO 游戏服务器框架文档
+site_author: ATSF4G Team
+site_url: https://atsf4g-go.readthedocs.io
+
+# Repository
+repo_name: atframework/atsf4g-go
+repo_url: https://github.com/atframework/atsf4g-go
+edit_uri: edit/main/doc/docs/
+
+# Copyright
+copyright: Copyright &copy; 2026 ATSF4G Team
+
+# Configuration
+theme:
+  name: material
+  language: zh
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: 切换到浅色模式
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: 切换到系统模式
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - header.autohide
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/gamepad-variant
+
+# Plugins
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+      separator: '[\s\-\.]+'
+  - tags
+  - git-revision-date-localized:
+      enable_creation_date: true
+      enable_git_follow: false
+      type: datetime
+      timezone: Asia/Shanghai
+      locale: zh
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+      cache_safe: true
+  - mermaid2
+  - excalidraw
+  - glightbox
+  - drawio
+
+# Extensions
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 4
+  - tables
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+      use_pygments: true
+      auto_title: true
+      linenums: true
+      linenums_style: pymdownx-inline
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.critic
+  - pymdownx.magiclink
+
+# Extra
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/atframework/atsf4g-go
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/atframework/atsf4g-go
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX  # 替换为您的 Google Analytics ID
+  generator: false
+
+# Extra CSS
+extra_css:
+  - stylesheets/extra.css
+
+# Extra JavaScript
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax/es5/tex-mml-chtml.js
+
+# Page tree
+nav:
+  - 首页: index.md
+  - 快速开始: getting-started/index.md
+  - 架构设计: architecture/index.md
+  - 协议文档: protocols/index.md
+  - 可观测性: observability/index.md
+  - 文档编写指南:
+      - writing-guide/index.md
+      - Draw.io 使用指南: writing-guide/drawio-guide.md
+      - Excalidraw 使用指南: writing-guide/excalidraw-guide.md
+  - 更新日志: changelog.md

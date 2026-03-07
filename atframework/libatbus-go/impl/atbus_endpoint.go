@@ -1,10 +1,24 @@
 package libatbus_impl
 
 import (
+	"sort"
+	"strings"
+	"time"
+
+	channel_utility "github.com/atframework/libatbus-go/channel/utility"
 	types "github.com/atframework/libatbus-go/types"
 )
 
 var _ types.Endpoint = (*Endpoint)(nil)
+
+type endpointStatistic struct {
+	FaultCount     uint64
+	UnfinishedPing uint64
+
+	PingDelay    time.Duration
+	LastPongTime time.Time
+	CreatedTime  time.Time
+}
 
 type Endpoint struct {
 	id       types.BusIdType

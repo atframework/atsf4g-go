@@ -1,0 +1,53 @@
+version: "3"
+
+includes:
+  tools: ../tools/Taskfile.yml
+  inn-tools: ../.taskfiles/Taskfile.tools.yml
+
+set: [errexit, pipefail]
+
+shopt: [globstar]
+
+vars:
+  # 跨平台 Python 相关变量
+  PYTHON_VENV_CMD:
+    sh: |
+      if [ "{{OS}}" = "windows" ]; then
+        echo "Scripts/python.exe"
+      else
+        echo "bin/python3"
+      fi
+
+tasks:
+  _install-deps:
+    desc: "Generate Python environment and dependencies"
+    dir: "{{.TASKFILE_DIR}}"
+    vars:
+      PROJECT_ROOT: "{{.PROJECT_ROOT}}"
+      PYTHON_BIN_PATH: '{{.PYTHON_BIN_PATH | default "python3"}}'
+    cmds:
+      - |
+        "{{.PYTHON_BIN_PATH}}" -m venv pyvenv
+        pyvenv/{{.PYTHON_VENV_CMD}} -m pip install -r requirements.txt
+    silent: false
+
+  generate-proto-docs:
+    desc: "Generate Markdown docs from .proto files into docs/protocols"
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - |
+        pyvenv/{{.PYTHON_VENV_CMD}} scripts/generate_proto_docs.py
+    silent: false
+
+  build:
+    desc: "Build Robot Server"
+    dir: "{{.TASKFILE_DIR}}"
+    vars:
+      PROJECT_ROOT: "{{.ROOT_DIR}}"
+      PYTHON_BIN_PATH: '{{.PYTHON_BIN_PATH  | default "python3" }}'
+    cmds:
+      - task: _install-deps
+      - task: generate-proto-docs
+      - |
+        pyvenv/{{.PYTHON_VENV_CMD}} -m mkdocs build
+    silent: false

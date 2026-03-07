@@ -14,7 +14,7 @@ validator:
   - name: "ExcelItemIdRange_RandomPool"
     description: "道具ID范围-随机池/礼包"
     rules:
-      - 350000-359999
+      - 350000-419999
 
   - name: "ExcelItemIdRange_Prop"
     description: "道具ID范围-碎片"
@@ -41,6 +41,11 @@ validator:
       - ExcelItemIdRange_Prop
       - ExcelItemIdRange_Quest
       - ExcelItemIdRange_MallProduct
+
+  - name: "ExcelUserLevel_level"
+    description: "User.xlsx|用户等级表|level 值校验"
+    rules:
+      - InTableColumn("User.xlsx", "用户等级表", 3, 2, "level")
 
   - name: "ExcelItem_ALL_item_id"
     description: "Item.xlsx|道具描述总表|item_id 值校验"
@@ -96,3 +101,10 @@ validator:
     description: "Mall.xlsx|商城商品表|product_id 值校验"
     rules:
       - InTableColumn("Mall.xlsx", "商城商品表", 3, 2, "product_id")
+      - InTableColumn("Mall.xlsx", "商城商品表-兑换", 3, 2, "product_id")
+
+
+  - name: "ExcelModule_id"
+    description: "ModuleUnlock.xlsx|模块解锁表|module_id 值校验"
+    rules:
+      - InTableColumn("ModuleUnlock.xlsx", "模块解锁表", 3, 2, "module_id")

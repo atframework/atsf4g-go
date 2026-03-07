@@ -1,0 +1,5 @@
+{{- if .Values.ingress.enabled -}}
+{{- template "libapp.ingress" (list . "lobbysvr.ingress") -}}
+{{- define "lobbysvr.ingress" -}}
+{{- end -}}
+{{- end -}}

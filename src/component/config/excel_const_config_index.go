@@ -31,7 +31,7 @@ func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *log.L
 		break
 	}
 
-	baseTimeSec := group.GetCustomIndex().GetConstIndex().GetTimezoneBaseTimestamp().Seconds
+	baseTimeSec := group.GetCustomIndex().GetConstIndex().GetTimezoneBaseTimestamp().GetSeconds()
 	logical_time.SetGlobalBaseTime(time.Unix(baseTimeSec, 0))
 	loadTimeOffsetConfig()
 	return nil

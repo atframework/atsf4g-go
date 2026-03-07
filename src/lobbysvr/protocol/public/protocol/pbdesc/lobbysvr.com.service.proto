@@ -18,6 +18,8 @@ import "protocol/pbdesc/lobbysvr.com.protocol.user.proto";
 import "protocol/pbdesc/lobbysvr.com.protocol.quest.proto";
 import "protocol/pbdesc/lobbysvr.com.protocol.activate.proto";
 import "protocol/pbdesc/lobbysvr.com.protocol.mall.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.mail.proto";
+import "protocol/pbdesc/lobbysvr.com.protocol.module.unlock.proto";
 
 package proy;
 
@@ -134,4 +136,52 @@ service LobbyClientService {
     };
   };
   /////////////////////////// mall /////////////////////////////
+  /////////////////////////// mail /////////////////////////////
+  rpc mail_get_all(CSMailGetAllReq) returns (SCMailGetAllRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mail"
+      api_name: "拉取邮件详情"
+    };
+  };
+  rpc mail_read(CSMailReadReq) returns (SCMailReadRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mail"
+      api_name: "读取邮件"
+    };
+  };
+  rpc mail_read_all(CSMailReadAllReq) returns (SCMailReadAllRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mail"
+      api_name: "全部已读邮件"
+    };
+  };
+  rpc mail_receive_attachments_all(CSMailReceiveAttachmentsAllReq) returns (SCMailReceiveAttachmentsAllRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mail"
+      api_name: "领取所有邮件附件"
+    };
+  };
+  rpc mail_receive_attachments(CSMailReceiveAttachmentsReq) returns (SCMailReceiveAttachmentsRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mail"
+      api_name: "领取邮件附件"
+    };
+  };
+  // Use stream request to disable waiting for response
+  rpc mail_change_sync(google.protobuf.Empty) returns (stream SCMailChangeSync) {
+    option (atframework.rpc_options) = {
+      module_name: "mail"
+      api_name: "Push mail change sync"
+    };
+  };
+  /////////////////////////// mail /////////////////////////////
+
+  /////////////////////////// module_unlock /////////////////////////////
+  rpc module_unlock_received_reward(CSModuleUnlockReceivedRewardReq) returns (SCModuleUnlockReceivedRewardRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "module_unlock"
+      api_name: "领取模块解锁奖励"
+    };
+  };
+  /////////////////////////// module_unlock /////////////////////////////
 }

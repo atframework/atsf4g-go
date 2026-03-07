@@ -19,6 +19,7 @@ import (
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
+	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 )
 
 func init() {
@@ -210,6 +211,10 @@ func (m *UserInventoryManager) GetOwner() *data.User {
 	return m.UserItemManagerBase.GetOwner()
 }
 
+func (m *UserInventoryManager) LoginInit(ctx cd.RpcContext) {
+	m.RefreshLimitSecond(ctx)
+}
+
 func (m *UserInventoryManager) InitFromDB(_ctx cd.RpcContext, dbUser *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {
 	invalidIds := make(map[int32]map[int64]struct{})
 
@@ -315,19 +320,21 @@ func (m *UserInventoryManager) RefreshLimitSecond(ctx cd.RpcContext) {
 
 func (m *UserInventoryManager) refreshLimitDaily(ctx cd.RpcContext) {
 	if !logic_time.IsSameDay(time.Unix(m.resetData.LastDailyResetTimepoint, 0), ctx.GetNow(), nil) {
-		m.resetItemByResetType(public_protocol_common.DItemResetData_EnResetTypeID_LastDailyResetTimepoint)
+		m.resetItemByResetType(ctx, public_protocol_common.DItemResetData_EnResetTypeID_LastDailyResetTimepoint)
 		m.resetData.LastDailyResetTimepoint = ctx.GetNow().Unix()
+		ctx.LogDebug("UserInventoryManager refresh daily reset item", "last_daily_reset_timepoint", m.resetData.LastDailyResetTimepoint)
 	}
 }
 
 func (m *UserInventoryManager) refreshLimitWeek(ctx cd.RpcContext) {
 	if !logic_time.IsSameWeek(time.Unix(m.resetData.LastWeeklyResetTimepoint, 0), ctx.GetNow(), nil) {
-		m.resetItemByResetType(public_protocol_common.DItemResetData_EnResetTypeID_LastWeeklyResetTimepoint)
+		m.resetItemByResetType(ctx, public_protocol_common.DItemResetData_EnResetTypeID_LastWeeklyResetTimepoint)
 		m.resetData.LastWeeklyResetTimepoint = ctx.GetNow().Unix()
+		ctx.LogDebug("UserInventoryManager refresh weekly reset item", "last_weekly_reset_timepoint", m.resetData.LastWeeklyResetTimepoint)
 	}
 }
 
-func (m *UserInventoryManager) resetItemByResetType(typeId public_protocol_common.DItemResetData_EnResetTypeID) {
+func (m *UserInventoryManager) resetItemByResetType(ctx cd.RpcContext, typeId public_protocol_common.DItemResetData_EnResetTypeID) {
 	resetCfgs := config.GetConfigManager().GetCurrentConfigGroup().GetExcelItemResetAllOfItemId()
 	if resetCfgs == nil {
 		return
@@ -339,6 +346,7 @@ func (m *UserInventoryManager) resetItemByResetType(typeId public_protocol_commo
 		if resetCfg.GetResetData().GetResetTypeOneofCase() != typeId {
 			continue
 		}
+		ctx.LogDebug("UserInventoryManager reset item by reset type", "reset_type_id", typeId, "item_id", resetCfg.GetItemId())
 		// 获取ItemID现在的数量 重置为0
 		m.resetItem(resetCfg.GetItemId())
 
@@ -412,11 +420,16 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 }
 
 func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []*data.ItemAddGuard, reason *data.ItemFlowReason) data.Result {
-
 	questMgr := data.UserGetModuleManager[logic_quest.UserQuestManager](m.GetOwner())
 	if questMgr == nil {
 		ctx.LogError("can not find user quest manager")
 	}
+
+	unlockMgr := data.UserGetModuleManager[logic_unlock.UserUnlockManager](m.GetOwner())
+	if unlockMgr == nil {
+		ctx.LogError("can not find user unlock manager")
+	}
+
 	for i := 0; i < len(itemOffset); i++ {
 		add := itemOffset[i]
 		if add == nil {
@@ -471,6 +484,9 @@ func (m *UserInventoryManager) AddItem(ctx cd.RpcContext, itemOffset []*data.Ite
 			)
 		}
 
+		if unlockMgr != nil {
+			unlockMgr.OnUserUnlockDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_ItemHas, int64(add.Item.GetItemBasic().GetTypeId()))
+		}
 		m.markItemDirty(typeId, groupGuid)
 	}
 

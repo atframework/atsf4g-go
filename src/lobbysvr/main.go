@@ -16,6 +16,7 @@ import (
 	uc "github.com/atframework/atsf4g-go/component-user_controller"
 	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
 	lobbysvr_app "github.com/atframework/atsf4g-go/service-lobbysvr/app"
+	logic_global_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail"
 )
 
 func main() {
@@ -49,6 +50,9 @@ func main() {
 
 	redisDispatcher := cd.CreateRedisMessageDispatcher(app)
 	atapp.AtappAddModule(app, redisDispatcher)
+
+	globalMailManager := logic_global_mail.CreateGlobalMailManager(app)
+	atapp.AtappAddModule(app, globalMailManager)
 
 	if err := lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc_d.WebsocketDispatcherFindSessionFromMessage); err != nil {
 		println("RegisterLobbyClientService fail: %s", err.Error())

@@ -2,7 +2,10 @@ package lobbysvr_logic_module_unlock
 
 import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+
+	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
 )
@@ -21,6 +24,8 @@ type UserModuleUnlockManager interface {
 
 	// 注册指定moduleId的解锁事件回调
 	RegisterModuleUnlockCallback(moduleId int32, callback ModuleUnlockCallback)
+
+	ReceviedReward(ctx cd.RpcContext, moduleId int32) (result cd.RpcResult, rewards []*public_protocol_common.DItemBasic)
 }
 
 // ModuleUnlockCallback 模块解锁事件回调

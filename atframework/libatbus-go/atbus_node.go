@@ -4,4 +4,8 @@ import (
 	types "github.com/atframework/libatbus-go/types"
 )
 
-type Node = types.Node
+type (
+	BusIdType     = types.BusIdType
+	NodeConfigure = types.NodeConfigure
+	Node          = types.Node
+)

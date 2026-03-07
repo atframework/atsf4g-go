@@ -59,10 +59,14 @@ func GetBuildInfo() BuildInfo {
 	return buildInfo
 }
 
+func (b BuildInfo) ToString() string {
+	return fmt.Sprintf("Version: %s,\n Branch: %s,\n Commit: %s,\n ConfigVersion: %s, Mode: %s, Time: %s",
+		b.Version, b.GitBranch, b.GitCommit, b.ConfigVersion, b.BuildMode, b.BuildTime)
+}
+
 // PrintBuildInfo 打印编译信息
 func PrintBuildInfo() {
-	fmt.Printf("Version: %s\n", buildInfo.Version)
-	fmt.Printf("BuildInfo: Branch:%s@%s ConfigVersion:%s Mode:%s Time:%s\n", buildInfo.GitBranch, buildInfo.GitCommit, buildInfo.ConfigVersion, buildInfo.BuildMode, buildInfo.BuildTime)
+	fmt.Printf("%s\n", buildInfo.ToString())
 }
 
 // RegisterInfoCommand 处理 --info 标志

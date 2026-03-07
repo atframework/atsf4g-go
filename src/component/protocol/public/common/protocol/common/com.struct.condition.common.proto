@@ -14,6 +14,7 @@ import "google/protobuf/duration.proto";
 import "protocol/extension/v3/xresloader.proto";
 import "protocol/common/com.struct.base.common.proto";
 import "protocol/common/com.struct.quest.common.proto";
+import "protocol/common/com.struct.mall.common.proto";
 
 package proy;
 
@@ -124,6 +125,12 @@ message DConditionRuleMallProductPurchaseCount {
   sint64 max_value = 3;
 }
 
+message DConditionRuleMallPurchaseCount {
+  EnMallType mall_type = 1;
+  sint64 min_value = 2;
+  sint64 max_value = 3;
+}
+
 // 功能性条件
 message DConditionRule {
   option (org.xresloader.msg_separator) = "@";
@@ -151,6 +158,11 @@ message DConditionRule {
     //     [(org.xresloader.field_alias) = "商城商品购买月数量"];
     DConditionRuleMallProductPurchaseCount mall_product_purchase_custom_counter = 1205
         [(org.xresloader.field_alias) = "商城商品购买自定义周期次数"];
+    DConditionRuleMallPurchaseCount mall_purchase_sum_counter = 1206
+        [(org.xresloader.field_alias) = "商城类型购买总数量"];
+    // 模块解锁
+    int32 module_unlock = 1401 [(org.xresloader.field_alias) = "模块解锁"];
+
   }
 }
 

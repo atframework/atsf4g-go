@@ -1,0 +1,180 @@
+/* Custom styles for ATSF4G-GO documentation */
+
+:root {
+  --md-primary-fg-color: #3f51b5;
+  --md-primary-fg-color--light: #5c6bc0;
+  --md-primary-fg-color--dark: #303f9f;
+  --md-accent-fg-color: #ff4081;
+}
+
+/* Improve code block styling */
+.highlight pre {
+  border-radius: 4px;
+  padding: 1em;
+}
+
+/* Better table styling */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+table th {
+  background-color: var(--md-primary-fg-color);
+  color: white;
+  font-weight: 600;
+  padding: 0.8em;
+}
+
+table td {
+  padding: 0.6em;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+  text-align: center;
+  margin: 2em 0;
+}
+
+/* Admonition custom colors */
+.md-typeset .admonition.note {
+  border-left-color: #448aff;
+}
+
+.md-typeset .admonition.tip {
+  border-left-color: #00c853;
+}
+
+.md-typeset .admonition.warning {
+  border-left-color: #ff9100;
+}
+
+.md-typeset .admonition.danger {
+  border-left-color: #ff1744;
+}
+
+/* Better spacing for lists */
+.md-typeset ul,
+.md-typeset ol {
+  margin: 1em 0;
+}
+
+.md-typeset li {
+  margin: 0.5em 0;
+}
+
+/* Code inline styling */
+.md-typeset code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-md-color-scheme="slate"] table td {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Improve navigation */
+.md-nav__item--active > .md-nav__link {
+  font-weight: 600;
+}
+
+/* Better footer */
+.md-footer-meta {
+  background-color: var(--md-primary-fg-color--dark);
+}
+
+/* Responsive images */
+.md-typeset img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 1em 0;
+}
+
+/* Tabs styling */
+.tabbed-set {
+  margin: 1em 0;
+}
+
+/* Search result highlighting */
+.md-search-result__article--document {
+  padding: 1em;
+}
+
+/* Better blockquote */
+.md-typeset blockquote {
+  border-left: 4px solid var(--md-primary-fg-color);
+  padding-left: 1em;
+  margin: 1em 0;
+  font-style: italic;
+}
+
+/* Keyboard key styling */
+.md-typeset kbd {
+  background-color: #fafafa;
+  border: 1px solid #d4d4d4;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+  color: #333;
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.85em;
+  line-height: 1;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+[data-md-color-scheme="slate"] .md-typeset kbd {
+  background-color: #2a2a2a;
+  border-color: #555;
+  color: #eee;
+}
+
+/* Task list styling */
+.md-typeset .task-list-item {
+  list-style-type: none;
+}
+
+.md-typeset .task-list-control {
+  margin-right: 0.5em;
+}
+
+/* Definition list styling */
+.md-typeset dl dt {
+  font-weight: 600;
+  margin-top: 1em;
+}
+
+.md-typeset dl dd {
+  margin-left: 2em;
+  margin-bottom: 1em;
+}
+
+/* Footnote styling */
+.md-typeset .footnote {
+  font-size: 0.9em;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Print styles */
+@media print {
+  .md-header,
+  .md-sidebar,
+  .md-footer {
+    display: none;
+  }
+
+  .md-content {
+    max-width: 100%;
+  }
+}

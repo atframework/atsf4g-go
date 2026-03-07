@@ -5,7 +5,7 @@ shopt: [globstar]
 vars:
   LintReportDir:
     sh: |
-        echo "build/lint_report"
+      echo "build/lint_report"
   # 定义需要进行 lint 检查的目录列表（数组格式）
   LintDirs:
     - src/lobbysvr
@@ -19,6 +19,7 @@ vars:
     - src/component/service_shared_collection
     - src/component/user_controller
     - atframework/libatapp-go
+    - atframework/libatbus-go
     - atframework/atframe-utils-go
 
 tasks:
@@ -39,7 +40,7 @@ tasks:
   ci:
     desc: "Run all CI tasks (lint, build, test)"
     deps:
-      - install-golangci-lint 
+      - install-golangci-lint
       - lint
     cmds:
       - echo "✅ All CI checks passed!"

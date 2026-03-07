@@ -1,0 +1,30 @@
+syntax = "proto3";
+// 任务相关协议定义
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+option cc_generic_services = true;
+
+option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
+
+import "protocol/pbdesc/com.struct.mail.proto";
+import "protocol/common/com.struct.item.common.proto";
+
+package proy;
+
+message CSModuleUnlockReceivedRewardReq {
+  repeated int32 unlock_modules = 1;  // 已经解锁的模块列表
+}
+
+message ModuleUnlockReceivedResult {
+  int32 module_id = 1;  // 模块id
+  int32 ret = 2;        // 领取结果, 0表示成功, 其他值表示失败原因
+  repeated DItemBasic reward_items = 3;
+}
+
+message SCModuleUnlockReceivedRewardRsp {
+  repeated ModuleUnlockReceivedResult results = 1;  // 每个模块的领取结果
+}

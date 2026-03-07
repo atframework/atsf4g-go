@@ -36,7 +36,7 @@ extend google.protobuf.FieldOptions {
 }
 
 message atapp_configure_enumvalue_options {
-  string alias_name = 1;
+  repeated string alias_name = 1;
   bool case_sensitive = 2;
 }
 
@@ -67,9 +67,8 @@ message atapp_gateway {
       [(atframework.atapp.protocol.CONFIGURE) = { enable_expression: true }];  // match all labels
 }
 
-message atbus_subnet_range {
-  uint64 id_prefix = 1;
-  uint32 mask_bits = 2;  // suffix
+enum ATAPP_ACCESS_DATA_ALGORITHM_TYPE {
+  ATAPP_ACCESS_DATA_ALGORITHM_HMAC_SHA256 = 0 [(ENUMVALUE) = { alias_name: "HMAC-SHA256" case_sensitive: false }];
 }
 
 enum ATAPP_CRYPTO_KDF_TYPE {
@@ -226,7 +225,6 @@ message atbus_configure {
   int32 backlog = 106 [(atapp.protocol.CONFIGURE) = { default_value: "256" }];
   uint64 access_token_max_number = 107;
   repeated string access_tokens = 108;
-  // repeated string        gateway                 = 109 [ deprecated = true ];
   repeated atapp_gateway gateways = 110;
   bool overwrite_listen_path = 111 [(atapp.protocol.CONFIGURE) = { default_value: "false" }];
 
@@ -249,6 +247,9 @@ message atbus_configure {
   uint64 receive_buffer_size = 303 [(atapp.protocol.CONFIGURE) = { size_mode: true }];
   uint64 send_buffer_size = 304 [(atapp.protocol.CONFIGURE) = { size_mode: true }];
   uint64 send_buffer_number = 305;
+
+  atbus_crypto crypto = 401;
+  atbus_compression compression = 402;
 }
 
 message atapp_timer {
@@ -434,13 +435,6 @@ message atapp_etcd_watcher {
   google.protobuf.Duration startup_random_delay_max = 105 [(atapp.protocol.CONFIGURE) = { default_value: "0s" }];
 }
 
-message atapp_etcd_report_alive {
-  bool by_id = 1 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
-  bool by_type = 2 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
-  bool by_name = 3 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
-  repeated string by_tag = 4;
-}
-
 message atapp_etcd {
   bool enable = 1;
   repeated string hosts = 2 [(atframework.atapp.protocol.CONFIGURE) = { enable_expression: true }];
@@ -453,7 +447,6 @@ message atapp_etcd {
   atapp_etcd_request request = 9;
   atapp_etcd_init init = 10;
   atapp_etcd_watcher watcher = 11;
-  atapp_etcd_report_alive report_alive = 12;
   atapp_etcd_log_extend log = 13;
 }
 
@@ -611,7 +604,6 @@ message atapp_discovery {
 
   uint64 atbus_protocol_version = 21;
   uint64 atbus_protocol_min_version = 22;
-  repeated atbus_subnet_range atbus_subnets = 23;
 
   // Just like in kubernetes
   atapp_metadata metadata = 61;

@@ -38,6 +38,14 @@ type UserRouterPrivateData struct {
 
 func (p *UserRouterPrivateData) RouterPrivateDataImpl() {}
 
+// GetUserImpl 获取用户实现对象
+func (p *UserRouterCache) GetUserImpl() UserImpl {
+	if p == nil {
+		return nil
+	}
+	return p.obj
+}
+
 func (p *UserRouterCache) LogValue() slog.Value {
 	return slog.StringValue(fmt.Sprintf("UserRouterCache Key %v", p.GetKey()))
 }

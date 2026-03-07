@@ -12,11 +12,13 @@ option go_package = "github.com/atframework/atsf4g-go/component-protocol-private
 import "protocol/common/com.struct.item.common.proto";
 import "protocol/common/com.struct.condition.common.proto";
 import "protocol/common/com.struct.quest.common.proto";
+import "protocol/common/com.struct.mall.common.proto";
 
 import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/com.struct.quest.proto";
 import "protocol/pbdesc/com.struct.module.unlock.proto";
 import "protocol/pbdesc/com.struct.mall.proto";
+import "protocol/pbdesc/com.struct.mail.proto";
 
 package proy;
 
@@ -26,11 +28,11 @@ message client_session_index {
 }
 
 message account_information {
-  uint32 account_type = 1;    // @see EnAccountTypeID
-  string access = 11;         // 可能有的属性（【上一次的】校验码）
-  DUserProfile profile = 31;  // 用户账号属性
-  uint32 channel_id = 36;     // 渠道号
-  uint32 version_type = 37;   // 上一次的登入版本类型 @EnVersionType
+  uint32 account_type = 1; // @see EnAccountTypeID
+  string access = 11; // 可能有的属性（【上一次的】校验码）
+  DUserProfile profile = 31; // 用户账号属性
+  uint32 channel_id = 36; // 渠道号
+  uint32 version_type = 37; // 上一次的登入版本类型 @EnVersionType
 }
 
 // 登入数据记录
@@ -43,13 +45,13 @@ message login_record {
 }
 
 message user_data {
-  uint32 user_level = 1;        // 玩家等级
-  int64 user_exp = 2;           // 玩家经验
-  uint64 session_sequence = 3;  // 玩家的全局递增发包序号
+  uint32 user_level = 1; // 玩家等级
+  int64 user_exp = 2; // 玩家经验
+  uint64 session_sequence = 3; // 玩家的全局递增发包序号
 }
 
 message user_options_data {
-  DUserOptions custom_options = 1;  // 用户自定义选项
+  DUserOptions custom_options = 1; // 用户自定义选项
 }
 
 message login_data {
@@ -62,17 +64,21 @@ message login_data {
   int64 business_logout_time = 33; // 逻辑登出时间
   int64 business_last_dump_db_time = 34; // 逻辑上次存库时间
 
-  login_record last_login_record = 42;  // 上次登入的信息
+  login_record last_login_record = 42; // 上次登入的信息
 
   // 统计数据
-  uint32 stat_login_total_times = 51;    // 总登入次数
-  uint32 stat_login_success_times = 52;  // 成功登入次数
-  uint32 stat_login_failed_times = 53;   // 失败登入次数
+  uint32 stat_login_total_times = 51; // 总登入次数
+  uint32 stat_login_success_times = 52; // 成功登入次数
+  uint32 stat_login_failed_times = 53; // 失败登入次数
 }
 
 message user_async_job_debug_message {
   string content = 1;
   string title = 2;
+}
+
+message user_async_job_mail_message {
+  DMailRecord mail_record = 1;
 }
 
 message user_async_jobs_data {
@@ -81,8 +87,8 @@ message user_async_jobs_data {
     string action_uuid = 2;
     int64 timeout = 3;
   }
-  repeated history_job_meta history = 1;  // 上一轮处理的UUID列表
-  int64 next_task_active_time = 2;        // 下一次异步任务的启动时间
+  repeated history_job_meta history = 1; // 上一轮处理的UUID列表
+  int64 next_task_active_time = 2; // 下一次异步任务的启动时间
 }
 
 message user_inventory_data {
@@ -107,7 +113,7 @@ message user_quest_progress_reset_entry {
 }
 
 message user_quest_progress_reset_data {
-  repeated user_quest_progress_reset_entry reset_entrys = 1;  // 之前的reset_index
+  repeated user_quest_progress_reset_entry reset_entrys = 1; // 之前的reset_index
   bool is_changed = 2;
 }
 
@@ -138,36 +144,31 @@ message user_quest_list_data {
 
   repeated int32 expired_quests = 4;
 
-  repeated quest_delete_cache delete_cache = 5;  // 任务删除缓存
+  repeated quest_delete_cache delete_cache = 5; // 任务删除缓存
 }
 
 // 用于manager存放数据，以及db存放数据
 message user_quest_data {
-  user_quest_list_data user_quest_list = 1;  // 玩家活动数据（客户端需要处理的数据）
-
-  // user_quest_progress_reset_data progress_reset_data = 11;
-  // user_quest_specific_end_timepoint_data specific_end_timepoint_data = 12;          //
-  // 已经解锁的有明确有效期的任务记录 map<int32, user_quest_season_progress_value> unlock_progress_value_by_type = 13;
-  // // 解锁条件类型->类型的值
+  user_quest_list_data user_quest_list = 1; // 玩家活动数据（客户端需要处理的数据）
 
   map<int32, EnQuestStatus> exist_quest_ids = 21;
 
-  // map<int32, quest_delete_cache> delete_cache = 22;  // 任务删除缓存
+  uint64 resource_version = 22;
 }
 
 message user_unlock_data {
-  int64 last_check_unlock_timepoint = 1;  // 上次解锁时间点
+  int64 last_check_unlock_timepoint = 1; // 上次解锁时间点
 }
 
 message user_module_unlock_data {
-  repeated DModuleUnlocked unlock_modules = 1;  // 已经解锁的模块列表
-  uint64 unlock_resource_version = 2;           // excel的版本号
+  repeated DModuleUnlocked unlock_modules = 1; // 已经解锁的模块列表
+  uint64 unlock_resource_version = 2; // excel的版本号
 
-  uint64 module_circular_version = 15;  // 模块轮替
+  uint64 module_circular_version = 15; // 模块轮替
 }
 
-message user_item_reset_data{
-  int64 last_daily_reset_timepoint = 1;  // 上次每日重置时间点
+message user_item_reset_data {
+  int64 last_daily_reset_timepoint = 1; // 上次每日重置时间点
   int64 last_weekly_reset_timepoint = 2; // 上次每周重置时间点
   int64 last_monthly_reset_timepoint = 3; // 上次每月重置时间点
 }
@@ -177,8 +178,14 @@ message user_mall_product_data {
   DConditionCounterStorage total_counter_storage_data = 11;
 }
 
-message user_mall_data{
+message user_mall_type_data {
+  EnMallType mall_type = 1;
+  int64 purchase_sum = 2;
+}
+
+message user_mall_data {
   repeated user_mall_product_data mall_data = 1;
+  repeated user_mall_type_data mall_type_data = 2;
 }
 
 message user_async_jobs_blob_data {
@@ -190,18 +197,36 @@ message user_async_jobs_blob_data {
   int32 left_retry_times = 3;
 
   oneof action {
-    user_async_job_debug_message debug_message = 101;  // 调试消息
+    user_async_job_debug_message debug_message = 101; // 调试消息
+    user_async_job_mail_message add_mail = 102; // 添加邮件
+    user_async_job_mail_message remove_mail = 103; // 移除邮件
   }
 }
 
 message user_async_jobs_cache_blob_data {
-  user_async_jobs_data async_jobs = 1;  // 异步任务缓存
+  user_async_jobs_data async_jobs = 1; // 异步任务缓存
 
   message retry_job_data {
     int32 job_type = 1;
     user_async_jobs_blob_data job_data = 2;
   };
   repeated retry_job_data retry_jobs = 11;
+}
+
+message database_mail_content_blob_data {
+  DMailContent mail_content = 1;
+}
+
+message database_global_mail_blob_data {
+  repeated DMailRecord mail_records = 1; // 邮件详情数据
+  repeated DMailRecord pending_remove_list = 2; // 待移除队列
+}
+
+
+message user_mail_data {
+  repeated DMailRecord mail_box = 1;
+  repeated DMailRecord pending_remove_list = 2;
+  repeated DMailRecord received_global_mails = 3;
 }
 
 message database_name_mapping_blob_data {

@@ -28,7 +28,7 @@ func (t *TaskActionQuestReceiveReward) Run(_ *component_dispatcher.DispatcherSta
 		return fmt.Errorf("user not found")
 	}
 
-	requesBody := t.GetRequestBody()
+	request_body := t.GetRequestBody()
 	response_body := t.MutableResponseBody()
 
 	manager := data.UserGetModuleManager[logic_quest.UserQuestManager](user)
@@ -37,12 +37,12 @@ func (t *TaskActionQuestReceiveReward) Run(_ *component_dispatcher.DispatcherSta
 		return fmt.Errorf("user quest manager not found")
 	}
 
-	if requesBody == nil {
+	if request_body == nil {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 		return fmt.Errorf("request body is nil")
 	}
 
-	questIDs := requesBody.GetQuestIds()
+	questIDs := request_body.GetQuestIds()
 	if len(questIDs) == 0 {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 		return fmt.Errorf("quest ids is empty")

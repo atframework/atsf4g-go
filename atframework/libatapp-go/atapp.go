@@ -247,7 +247,7 @@ func CreateAppInstance() AppImpl {
 	// 设置默认配置
 	ret.config.ExecutePath = os.Args[0]
 	ret.config.AppVersion = "1.0.0"
-	ret.config.BuildVersion = fmt.Sprintf("libatapp-go based atapp %s", ret.config.AppVersion)
+	ret.config.BuildVersion = fmt.Sprintf("libatapp-go based atapp %s %s", ret.config.AppVersion, GetBuildInfo().ToString())
 
 	runtime.SetFinalizer(ret, func(app *AppInstance) {
 		app.destroy()
@@ -1129,7 +1129,6 @@ func (app *AppInstance) setupOptions(arguments []string) error {
 	if app.flagSet.Lookup("version").Value.String() == "true" {
 		app.mode = AppModeInfo
 		println(app.GetBuildVersion())
-		PrintBuildInfo()
 		return nil
 	}
 

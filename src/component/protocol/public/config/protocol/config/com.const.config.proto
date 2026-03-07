@@ -12,6 +12,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 import "protocol/extension/xrescode_extensions_v3.proto";
+import "protocol/extension/v3/xresloader.proto";
 import "protocol/common/com.struct.base.common.proto";
 import "protocol/common/com.struct.item.common.proto";
 
@@ -61,9 +62,6 @@ message ExcelConstConfig {
   // 虚拟的字段，用于生成读表代码。没有实际作用
   int32 fake_key = 9999;
 
-  google.protobuf.Duration mail_default_expire = 1;
-  int32 mail_max_count_per_major_type = 2;
-  int32 global_mail_max_count_per_major_type = 3;
   string i18n_system_admin = 4;
   google.protobuf.Duration delete_quest_cache_time = 8;
   google.protobuf.Timestamp timezone_base_timestamp = 9;
@@ -77,4 +75,12 @@ message ExcelConstConfig {
   repeated DItemOffset rename_cost = 61 [(org.xresloader.field_separator) = ";"];  // 改名消耗
   UserTextConfig user_name_config = 62;                                            // 用户名配置
   UserTextConfig user_profile_card_config = 63;                                    // 名片配置
+  // 邮件相关
+  int32 global_mail_future_reserve_max_count_per_major_type = 201;  // 全局未来邮件最大数量
+  int32 global_mail_max_count_per_major_type = 202;                 // 全局邮件每个大类型最大数量
+  google.protobuf.Duration mail_default_expire = 203;               // 邮件默认过期时间
+  google.protobuf.Duration mail_time_tolerate = 205;                // 邮件时间容忍度，防止因时间误差导致的邮件丢失
+  int32 user_mail_future_reserve_max_count_per_major_type = 206;    // 玩家未来邮件最大数量
+  int32 user_mail_max_count_per_major_type = 207;                   // 玩家邮件每个大类型最大数量
+  google.protobuf.Duration mail_compact_delivery_time_max_offset = 208;
 }

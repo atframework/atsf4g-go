@@ -1,0 +1,28 @@
+{{- define "libapp.ingress.tpl" -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+
+  # name: 支持通过 .Values.ingress.name 覆盖，默认使用 fullname + -tls-ingress
+  name: {{ default (printf "%s-tls-ingress" (include "libapp.fullname" .))}}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "libapp.name" . }}
+    release: {{ .Release.Name }}
+spec:
+  ingressClassName: {{ default "alb" .Values.ingress.class }}
+  rules:
+  - host: {{ default (printf "%s.example.com" (include "libapp.fullname" .)) .Values.ingress.hostname | quote }}
+    http:
+      paths:
+      - path: /
+        backend:
+          service: 
+            name: http-1
+            port:
+              number: {{ default 443 .Values.ingress.port }}
+        pathType: Prefix
+{{- end -}}
+{{- define "libapp.ingress" -}}
+{{- template "libapp.util.merge" (append . "libapp.ingress.tpl") -}}
+{{- end -}}

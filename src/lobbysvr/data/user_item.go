@@ -155,19 +155,20 @@ func (u *User) UseItem(ctx cd.RpcContext, itemBasic *public_protocol_common.DIte
 	if row.GetUseAction().GetActionTypeOneofCase() == 0 {
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_ITEM_CANNOT_USE)
 	}
-	result := u.checkUseItem(ctx, itemBasic, row.GetUseAction(), useParam)
+	cloneItem := itemBasic.Clone()
+	result := u.checkUseItem(ctx, cloneItem, row.GetUseAction(), useParam)
 	if result.IsError() {
 		return nil, result
 	}
 
-	guard, result := u.CheckSubItem(ctx, []*public_protocol_common.DItemBasic{itemBasic})
+	guard, result := u.CheckSubItem(ctx, []*public_protocol_common.DItemBasic{cloneItem})
 	if result.IsError() {
 		return nil, result
 	}
 
 	u.SubItem(ctx, guard, reason)
 
-	return u.useItemInner(ctx, itemBasic, row.GetUseAction(), useParam, reason)
+	return u.useItemInner(ctx, cloneItem, row.GetUseAction(), useParam, reason)
 }
 
 func (u *User) checkUseItem(ctx cd.RpcContext, itemBasic *public_protocol_common.DItemBasic,

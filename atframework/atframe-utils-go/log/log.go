@@ -335,6 +335,18 @@ func NewLogger(handler slog.Handler, getTime GetTime) *Logger {
 	}
 }
 
+func (l *Logger) Enabled(ctx context.Context, level slog.Level) bool {
+	if lu.IsNil(ctx) {
+		ctx = context.Background()
+	}
+
+	if l == nil || l.logger == nil {
+		return slog.Default().Enabled(ctx, level)
+	}
+
+	return l.logger.Enabled(ctx, level)
+}
+
 func LogInner(sysnow time.Time, logger *slog.Logger, pc uintptr, ctx context.Context, level slog.Level, msg string, args ...any) {
 	if lu.IsNil(ctx) {
 		ctx = context.Background()

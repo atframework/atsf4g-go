@@ -10,9 +10,15 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
+	buffer "github.com/atframework/libatbus-go/buffer"
+	error_code "github.com/atframework/libatbus-go/error_code"
+	"github.com/atframework/libatbus-go/protocol"
+	types "github.com/atframework/libatbus-go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 // ============================================================================
@@ -22,27 +28,27 @@ import (
 func TestCryptoAlgorithmTypeString(t *testing.T) {
 	// Test: Verify all crypto algorithm types return correct string representations
 	cases := []struct {
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 		expected  string
 	}{
-		{CryptoAlgorithmNone, "NONE"},
-		{CryptoAlgorithmXXTEA, "XXTEA"},
-		{CryptoAlgorithmAES128CBC, "AES-128-CBC"},
-		{CryptoAlgorithmAES192CBC, "AES-192-CBC"},
-		{CryptoAlgorithmAES256CBC, "AES-256-CBC"},
-		{CryptoAlgorithmAES128GCM, "AES-128-GCM"},
-		{CryptoAlgorithmAES192GCM, "AES-192-GCM"},
-		{CryptoAlgorithmAES256GCM, "AES-256-GCM"},
-		{CryptoAlgorithmChacha20, "CHACHA20"},
-		{CryptoAlgorithmChacha20Poly1305, "CHACHA20-POLY1305"},
-		{CryptoAlgorithmXChacha20Poly1305, "XCHACHA20-POLY1305"},
-		{CryptoAlgorithmType(999), "UNKNOWN(999)"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, "NONE"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA, "XXTEA"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, "AES-128-CBC"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC, "AES-192-CBC"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, "AES-256-CBC"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, "AES-128-GCM"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, "AES-192-GCM"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, "AES-256-GCM"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20, "CHACHA20"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, "CHACHA20-POLY1305"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF, "XCHACHA20-POLY1305"},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE(999), "UNKNOWN(999)"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.expected, func(t *testing.T) {
 			// Act
-			result := tc.algorithm.String()
+			result := cryptoAlgorithmString(tc.algorithm)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -53,27 +59,27 @@ func TestCryptoAlgorithmTypeString(t *testing.T) {
 func TestCryptoAlgorithmTypeKeySize(t *testing.T) {
 	// Test: Verify key sizes for all crypto algorithms
 	cases := []struct {
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 		expected  int
 	}{
-		{CryptoAlgorithmNone, 0},
-		{CryptoAlgorithmXXTEA, 16},
-		{CryptoAlgorithmAES128CBC, 16},
-		{CryptoAlgorithmAES128GCM, 16},
-		{CryptoAlgorithmAES192CBC, 24},
-		{CryptoAlgorithmAES192GCM, 24},
-		{CryptoAlgorithmAES256CBC, 32},
-		{CryptoAlgorithmAES256GCM, 32},
-		{CryptoAlgorithmChacha20, 32},
-		{CryptoAlgorithmChacha20Poly1305, 32},
-		{CryptoAlgorithmXChacha20Poly1305, 32},
-		{CryptoAlgorithmType(999), 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC, 24},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, 24},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, 32},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, 32},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20, 32},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, 32},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF, 32},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE(999), 0},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.algorithm.String(), func(t *testing.T) {
 			// Act
-			result := tc.algorithm.KeySize()
+			result := cryptoAlgorithmKeySize(tc.algorithm)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -84,27 +90,27 @@ func TestCryptoAlgorithmTypeKeySize(t *testing.T) {
 func TestCryptoAlgorithmTypeIVSize(t *testing.T) {
 	// Test: Verify IV/nonce sizes for all crypto algorithms
 	cases := []struct {
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 		expected  int
 	}{
-		{CryptoAlgorithmNone, 0},
-		{CryptoAlgorithmXXTEA, 0},
-		{CryptoAlgorithmAES128CBC, 16},
-		{CryptoAlgorithmAES192CBC, 16},
-		{CryptoAlgorithmAES256CBC, 16},
-		{CryptoAlgorithmAES128GCM, 12},
-		{CryptoAlgorithmAES192GCM, 12},
-		{CryptoAlgorithmAES256GCM, 12},
-		{CryptoAlgorithmChacha20, 12},
-		{CryptoAlgorithmChacha20Poly1305, 12},
-		{CryptoAlgorithmXChacha20Poly1305, 24},
-		{CryptoAlgorithmType(999), 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA, 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, 12},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, 12},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, 12},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20, 12},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, 12},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF, 24},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE(999), 0},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.algorithm.String(), func(t *testing.T) {
 			// Act
-			result := tc.algorithm.IVSize()
+			result := cryptoAlgorithmIVSize(tc.algorithm)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -114,32 +120,32 @@ func TestCryptoAlgorithmTypeIVSize(t *testing.T) {
 
 func TestCryptoAlgorithmTypeIsAEAD(t *testing.T) {
 	// Test: Verify AEAD detection for all crypto algorithms
-	aeadAlgorithms := []CryptoAlgorithmType{
-		CryptoAlgorithmAES128GCM,
-		CryptoAlgorithmAES192GCM,
-		CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmChacha20Poly1305,
-		CryptoAlgorithmXChacha20Poly1305,
+	aeadAlgorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF,
 	}
 
-	nonAeadAlgorithms := []CryptoAlgorithmType{
-		CryptoAlgorithmNone,
-		CryptoAlgorithmXXTEA,
-		CryptoAlgorithmAES128CBC,
-		CryptoAlgorithmAES192CBC,
-		CryptoAlgorithmAES256CBC,
-		CryptoAlgorithmChacha20,
+	nonAeadAlgorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XXTEA,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20,
 	}
 
 	for _, alg := range aeadAlgorithms {
-		t.Run(alg.String()+"_IsAEAD", func(t *testing.T) {
-			assert.True(t, alg.IsAEAD())
+		t.Run(cryptoAlgorithmString(alg)+"_IsAEAD", func(t *testing.T) {
+			assert.True(t, cryptoAlgorithmIsAEAD(alg))
 		})
 	}
 
 	for _, alg := range nonAeadAlgorithms {
-		t.Run(alg.String()+"_NotAEAD", func(t *testing.T) {
-			assert.False(t, alg.IsAEAD())
+		t.Run(cryptoAlgorithmString(alg)+"_NotAEAD", func(t *testing.T) {
+			assert.False(t, cryptoAlgorithmIsAEAD(alg))
 		})
 	}
 }
@@ -147,22 +153,22 @@ func TestCryptoAlgorithmTypeIsAEAD(t *testing.T) {
 func TestCryptoAlgorithmTypeTagSize(t *testing.T) {
 	// Test: Verify tag sizes for AEAD algorithms
 	cases := []struct {
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 		expected  int
 	}{
-		{CryptoAlgorithmAES128GCM, 16},
-		{CryptoAlgorithmAES192GCM, 16},
-		{CryptoAlgorithmAES256GCM, 16},
-		{CryptoAlgorithmChacha20Poly1305, 16},
-		{CryptoAlgorithmXChacha20Poly1305, 16},
-		{CryptoAlgorithmNone, 0},
-		{CryptoAlgorithmAES128CBC, 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF, 16},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, 0},
+		{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, 0},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.algorithm.String(), func(t *testing.T) {
 			// Act
-			result := tc.algorithm.TagSize()
+			result := cryptoAlgorithmTagSize(tc.algorithm)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -177,21 +183,21 @@ func TestCryptoAlgorithmTypeTagSize(t *testing.T) {
 func TestKeyExchangeTypeString(t *testing.T) {
 	// Test: Verify all key exchange types return correct string representations
 	cases := []struct {
-		keyExchange KeyExchangeType
+		keyExchange protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE
 		expected    string
 	}{
-		{KeyExchangeNone, "NONE"},
-		{KeyExchangeX25519, "X25519"},
-		{KeyExchangeSecp256r1, "SECP256R1"},
-		{KeyExchangeSecp384r1, "SECP384R1"},
-		{KeyExchangeSecp521r1, "SECP521R1"},
-		{KeyExchangeType(999), "UNKNOWN(999)"},
+		{protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE, "NONE"},
+		{protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519, "X25519"},
+		{protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1, "SECP256R1"},
+		{protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP384R1, "SECP384R1"},
+		{protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP521R1, "SECP521R1"},
+		{protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE(999), "UNKNOWN(999)"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.expected, func(t *testing.T) {
 			// Act
-			result := tc.keyExchange.String()
+			result := keyExchangeString(tc.keyExchange)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -201,27 +207,27 @@ func TestKeyExchangeTypeString(t *testing.T) {
 
 func TestKeyExchangeTypeCurve(t *testing.T) {
 	// Test: Verify curve mapping for key exchange types
-	validKeyExchanges := []KeyExchangeType{
-		KeyExchangeX25519,
-		KeyExchangeSecp256r1,
-		KeyExchangeSecp384r1,
-		KeyExchangeSecp521r1,
+	validKeyExchanges := []protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE{
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP384R1,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP521R1,
 	}
 
 	for _, ke := range validKeyExchanges {
-		t.Run(ke.String()+"_HasCurve", func(t *testing.T) {
-			curve := ke.Curve()
+		t.Run(keyExchangeString(ke)+"_HasCurve", func(t *testing.T) {
+			curve := keyExchangeCurve(ke)
 			assert.NotNil(t, curve)
 		})
 	}
 
 	t.Run("None_NilCurve", func(t *testing.T) {
-		curve := KeyExchangeNone.Curve()
+		curve := keyExchangeCurve(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE)
 		assert.Nil(t, curve)
 	})
 
 	t.Run("Unknown_NilCurve", func(t *testing.T) {
-		curve := KeyExchangeType(999).Curve()
+		curve := keyExchangeCurve(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE(999))
 		assert.Nil(t, curve)
 	})
 }
@@ -233,17 +239,17 @@ func TestKeyExchangeTypeCurve(t *testing.T) {
 func TestKDFTypeString(t *testing.T) {
 	// Test: Verify KDF types return correct string representations
 	cases := []struct {
-		kdf      KDFType
+		kdf      protocol.ATBUS_CRYPTO_KDF_TYPE
 		expected string
 	}{
-		{KDFTypeHKDFSha256, "HKDF-SHA256"},
-		{KDFType(999), "UNKNOWN(999)"},
+		{protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256, "HKDF-SHA256"},
+		{protocol.ATBUS_CRYPTO_KDF_TYPE(999), "UNKNOWN(999)"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.expected, func(t *testing.T) {
 			// Act
-			result := tc.kdf.String()
+			result := kdfTypeString(tc.kdf)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -258,21 +264,21 @@ func TestKDFTypeString(t *testing.T) {
 func TestCompressionAlgorithmTypeString(t *testing.T) {
 	// Test: Verify all compression algorithm types return correct string representations
 	cases := []struct {
-		compression CompressionAlgorithmType
+		compression protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE
 		expected    string
 	}{
-		{CompressionNone, "NONE"},
-		{CompressionZstd, "ZSTD"},
-		{CompressionLZ4, "LZ4"},
-		{CompressionSnappy, "SNAPPY"},
-		{CompressionZlib, "ZLIB"},
-		{CompressionAlgorithmType(999), "UNKNOWN(999)"},
+		{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, "NONE"},
+		{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD, "ZSTD"},
+		{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_LZ4, "LZ4"},
+		{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_SNAPPY, "SNAPPY"},
+		{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, "ZLIB"},
+		{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(999), "UNKNOWN(999)"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.expected, func(t *testing.T) {
 			// Act
-			result := tc.compression.String()
+			result := compressionAlgorithmString(tc.compression)
 
 			// Assert
 			assert.Equal(t, tc.expected, result)
@@ -296,15 +302,15 @@ func TestNewCryptoSession(t *testing.T) {
 
 func TestCryptoSessionGenerateKeyPair(t *testing.T) {
 	// Test: Verify key pair generation for different key exchange types
-	keyExchanges := []KeyExchangeType{
-		KeyExchangeX25519,
-		KeyExchangeSecp256r1,
-		KeyExchangeSecp384r1,
-		KeyExchangeSecp521r1,
+	keyExchanges := []protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE{
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP384R1,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP521R1,
 	}
 
 	for _, ke := range keyExchanges {
-		t.Run(ke.String(), func(t *testing.T) {
+		t.Run(keyExchangeString(ke), func(t *testing.T) {
 			// Arrange
 			session := NewCryptoSession()
 
@@ -324,7 +330,7 @@ func TestCryptoSessionGenerateKeyPair(t *testing.T) {
 		session := NewCryptoSession()
 
 		// Act
-		err := session.GenerateKeyPair(KeyExchangeNone)
+		err := session.GenerateKeyPair(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE)
 
 		// Assert
 		assert.Error(t, err)
@@ -334,13 +340,13 @@ func TestCryptoSessionGenerateKeyPair(t *testing.T) {
 
 func TestCryptoSessionKeyExchange(t *testing.T) {
 	// Test: Verify full key exchange between two sessions
-	keyExchanges := []KeyExchangeType{
-		KeyExchangeX25519,
-		KeyExchangeSecp256r1,
+	keyExchanges := []protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE{
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519,
+		protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1,
 	}
 
 	for _, ke := range keyExchanges {
-		t.Run(ke.String(), func(t *testing.T) {
+		t.Run(keyExchangeString(ke), func(t *testing.T) {
 			// Arrange
 			session1 := NewCryptoSession()
 			session2 := NewCryptoSession()
@@ -365,21 +371,21 @@ func TestCryptoSessionKeyExchange(t *testing.T) {
 
 func TestCryptoSessionSetKey(t *testing.T) {
 	// Test: Verify SetKey for different algorithms
-	algorithms := []CryptoAlgorithmType{
-		CryptoAlgorithmNone,
-		CryptoAlgorithmAES128GCM,
-		CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmAES128CBC,
-		CryptoAlgorithmChacha20Poly1305,
-		CryptoAlgorithmXChacha20Poly1305,
+	algorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF,
 	}
 
 	for _, alg := range algorithms {
-		t.Run(alg.String(), func(t *testing.T) {
+		t.Run(cryptoAlgorithmString(alg), func(t *testing.T) {
 			// Arrange
 			session := NewCryptoSession()
-			key := make([]byte, alg.KeySize())
-			iv := make([]byte, alg.IVSize())
+			key := make([]byte, cryptoAlgorithmKeySize(alg))
+			iv := make([]byte, cryptoAlgorithmIVSize(alg))
 			_, _ = rand.Read(key)
 			_, _ = rand.Read(iv)
 
@@ -398,7 +404,7 @@ func TestCryptoSessionSetKey(t *testing.T) {
 		shortKey := make([]byte, 8) // Too short for AES-128
 
 		// Act
-		err := session.SetKey(shortKey, nil, CryptoAlgorithmAES128GCM)
+		err := session.SetKey(shortKey, nil, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM)
 
 		// Assert
 		assert.Error(t, err)
@@ -408,21 +414,21 @@ func TestCryptoSessionSetKey(t *testing.T) {
 
 func TestCryptoSessionEncryptDecryptAEAD(t *testing.T) {
 	// Test: Verify encrypt/decrypt roundtrip for AEAD algorithms
-	algorithms := []CryptoAlgorithmType{
-		CryptoAlgorithmAES128GCM,
-		CryptoAlgorithmAES256GCM,
-		CryptoAlgorithmChacha20Poly1305,
-		CryptoAlgorithmXChacha20Poly1305,
+	algorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF,
 	}
 
 	testData := []byte("Hello, World! This is a test message for encryption.")
 
 	for _, alg := range algorithms {
-		t.Run(alg.String(), func(t *testing.T) {
+		t.Run(cryptoAlgorithmString(alg), func(t *testing.T) {
 			// Arrange
 			session := NewCryptoSession()
-			key := make([]byte, alg.KeySize())
-			iv := make([]byte, alg.IVSize())
+			key := make([]byte, cryptoAlgorithmKeySize(alg))
+			iv := make([]byte, cryptoAlgorithmIVSize(alg))
 			_, _ = rand.Read(key)
 			_, _ = rand.Read(iv)
 			require.NoError(t, session.SetKey(key, iv, alg))
@@ -443,20 +449,20 @@ func TestCryptoSessionEncryptDecryptAEAD(t *testing.T) {
 
 func TestCryptoSessionEncryptDecryptCBC(t *testing.T) {
 	// Test: Verify encrypt/decrypt roundtrip for CBC algorithms
-	algorithms := []CryptoAlgorithmType{
-		CryptoAlgorithmAES128CBC,
-		CryptoAlgorithmAES192CBC,
-		CryptoAlgorithmAES256CBC,
+	algorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC,
 	}
 
 	testData := []byte("Hello, World! This is a test message for CBC encryption.")
 
 	for _, alg := range algorithms {
-		t.Run(alg.String(), func(t *testing.T) {
+		t.Run(cryptoAlgorithmString(alg), func(t *testing.T) {
 			// Arrange
 			session := NewCryptoSession()
-			key := make([]byte, alg.KeySize())
-			iv := make([]byte, alg.IVSize())
+			key := make([]byte, cryptoAlgorithmKeySize(alg))
+			iv := make([]byte, cryptoAlgorithmIVSize(alg))
 			_, _ = rand.Read(key)
 			_, _ = rand.Read(iv)
 			require.NoError(t, session.SetKey(key, iv, alg))
@@ -475,6 +481,47 @@ func TestCryptoSessionEncryptDecryptCBC(t *testing.T) {
 	}
 }
 
+func TestCryptoSessionEncryptDecryptCBCWithIV(t *testing.T) {
+	// Test: Verify CBC encrypt/decrypt with caller-provided IV
+	// Arrange
+	session := NewCryptoSession()
+	key := make([]byte, 16)
+	iv := make([]byte, 16)
+	_, _ = rand.Read(key)
+	_, _ = rand.Read(iv)
+	require.NoError(t, session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC))
+	plaintext := []byte("CBC with IV test payload")
+
+	// Act
+	encrypted, err := session.EncryptWithIV(plaintext, iv)
+	require.NoError(t, err)
+
+	decrypted, err := session.DecryptWithIV(encrypted, iv)
+	require.NoError(t, err)
+
+	// Assert
+	assert.Equal(t, plaintext, decrypted)
+}
+
+func TestCryptoSessionEncryptCBCWithIVInvalidSize(t *testing.T) {
+	// Test: Verify CBC encrypt fails with invalid IV size
+	// Arrange
+	session := NewCryptoSession()
+	key := make([]byte, 16)
+	iv := make([]byte, 16)
+	_, _ = rand.Read(key)
+	_, _ = rand.Read(iv)
+	require.NoError(t, session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC))
+	badIV := make([]byte, 8)
+
+	// Act
+	_, err := session.EncryptWithIV([]byte("payload"), badIV)
+
+	// Assert
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrCryptoInvalidIVSize))
+}
+
 func TestCryptoSessionEncryptEmptyData(t *testing.T) {
 	// Test: Verify handling of empty data
 	// Arrange
@@ -483,7 +530,7 @@ func TestCryptoSessionEncryptEmptyData(t *testing.T) {
 	iv := make([]byte, 12)
 	_, _ = rand.Read(key)
 	_, _ = rand.Read(iv)
-	require.NoError(t, session.SetKey(key, iv, CryptoAlgorithmAES256GCM))
+	require.NoError(t, session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
 
 	// Act
 	encrypted, err := session.Encrypt([]byte{})
@@ -501,7 +548,7 @@ func TestCryptoSessionDecryptInvalidData(t *testing.T) {
 	iv := make([]byte, 12)
 	_, _ = rand.Read(key)
 	_, _ = rand.Read(iv)
-	require.NoError(t, session.SetKey(key, iv, CryptoAlgorithmAES256GCM))
+	require.NoError(t, session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
 
 	// Act
 	_, err := session.Decrypt([]byte("invalid ciphertext"))
@@ -529,7 +576,7 @@ func TestCryptoSessionNoneAlgorithm(t *testing.T) {
 	// Test: Verify that NONE algorithm passes data through unchanged
 	// Arrange
 	session := NewCryptoSession()
-	require.NoError(t, session.SetKey(nil, nil, CryptoAlgorithmNone))
+	require.NoError(t, session.SetKey(nil, nil, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE))
 	testData := []byte("test data")
 
 	// Act
@@ -554,13 +601,19 @@ func TestNewCompressionSession(t *testing.T) {
 
 	// Assert
 	assert.NotNil(t, session)
-	assert.Equal(t, CompressionNone, session.GetAlgorithm())
+	assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, session.GetAlgorithm())
 }
 
 func TestCompressionSessionSetAlgorithm(t *testing.T) {
 	// Test: Verify setting compression algorithms
 	t.Run("SupportedAlgorithms", func(t *testing.T) {
-		supported := []CompressionAlgorithmType{CompressionNone, CompressionZlib}
+		supported := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_LZ4,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_SNAPPY,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+		}
 		for _, alg := range supported {
 			session := NewCompressionSession()
 			err := session.SetAlgorithm(alg)
@@ -569,20 +622,9 @@ func TestCompressionSessionSetAlgorithm(t *testing.T) {
 		}
 	})
 
-	t.Run("UnsupportedAlgorithms", func(t *testing.T) {
-		// These require external libraries
-		unsupported := []CompressionAlgorithmType{CompressionZstd, CompressionLZ4, CompressionSnappy}
-		for _, alg := range unsupported {
-			session := NewCompressionSession()
-			err := session.SetAlgorithm(alg)
-			assert.Error(t, err)
-			assert.True(t, errors.Is(err, ErrCompressionNotSupported))
-		}
-	})
-
 	t.Run("UnknownAlgorithm", func(t *testing.T) {
 		session := NewCompressionSession()
-		err := session.SetAlgorithm(CompressionAlgorithmType(999))
+		err := session.SetAlgorithm(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(999))
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, ErrCompressionNotSupported))
 	})
@@ -592,7 +634,7 @@ func TestCompressionSessionZlib(t *testing.T) {
 	// Test: Verify zlib compression and decompression
 	// Arrange
 	session := NewCompressionSession()
-	require.NoError(t, session.SetAlgorithm(CompressionZlib))
+	require.NoError(t, session.SetAlgorithm(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB))
 
 	// Test with compressible data (repeated pattern)
 	testData := bytes.Repeat([]byte("Hello, World! "), 100)
@@ -601,7 +643,7 @@ func TestCompressionSessionZlib(t *testing.T) {
 	compressed, err := session.Compress(testData)
 	require.NoError(t, err)
 
-	decompressed, err := session.Decompress(compressed)
+	decompressed, err := session.Decompress(compressed, len(testData))
 	require.NoError(t, err)
 
 	// Assert
@@ -617,7 +659,7 @@ func TestCompressionSessionNone(t *testing.T) {
 
 	// Act
 	compressed, err1 := session.Compress(testData)
-	decompressed, err2 := session.Decompress(testData)
+	decompressed, err2 := session.Decompress(testData, len(testData))
 
 	// Assert
 	require.NoError(t, err1)
@@ -630,11 +672,11 @@ func TestCompressionSessionEmptyData(t *testing.T) {
 	// Test: Verify handling of empty data
 	// Arrange
 	session := NewCompressionSession()
-	require.NoError(t, session.SetAlgorithm(CompressionZlib))
+	require.NoError(t, session.SetAlgorithm(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB))
 
 	// Act
 	compressed, err1 := session.Compress([]byte{})
-	decompressed, err2 := session.Decompress([]byte{})
+	decompressed, err2 := session.Decompress([]byte{}, 0)
 
 	// Assert
 	require.NoError(t, err1)
@@ -650,76 +692,82 @@ func TestCompressionSessionEmptyData(t *testing.T) {
 func TestNegotiateCompression(t *testing.T) {
 	// Test: Verify compression algorithm negotiation
 	t.Run("BothSupportZlib", func(t *testing.T) {
-		local := []CompressionAlgorithmType{CompressionZlib, CompressionNone}
-		remote := []CompressionAlgorithmType{CompressionZlib, CompressionNone}
+		local := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE}
+		remote := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE}
 		result := NegotiateCompression(local, remote)
-		assert.Equal(t, CompressionZlib, result)
+		assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, result)
 	})
 
 	t.Run("OnlyNoneCommon", func(t *testing.T) {
-		local := []CompressionAlgorithmType{CompressionZlib, CompressionNone}
-		remote := []CompressionAlgorithmType{CompressionZstd, CompressionNone}
+		local := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE}
+		remote := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE}
 		result := NegotiateCompression(local, remote)
-		assert.Equal(t, CompressionNone, result)
+		assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, result)
 	})
 
 	t.Run("NoCommon", func(t *testing.T) {
-		local := []CompressionAlgorithmType{CompressionZlib}
-		remote := []CompressionAlgorithmType{CompressionZstd}
+		local := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB}
+		remote := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD}
 		result := NegotiateCompression(local, remote)
-		assert.Equal(t, CompressionNone, result)
+		assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, result)
 	})
 }
 
 func TestNegotiateCryptoAlgorithm(t *testing.T) {
 	// Test: Verify crypto algorithm negotiation
 	t.Run("PreferAEAD", func(t *testing.T) {
-		local := []CryptoAlgorithmType{CryptoAlgorithmAES256GCM, CryptoAlgorithmAES256CBC}
-		remote := []CryptoAlgorithmType{CryptoAlgorithmAES256GCM, CryptoAlgorithmAES256CBC}
+		local := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC}
+		remote := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC}
 		result := NegotiateCryptoAlgorithm(local, remote)
-		assert.Equal(t, CryptoAlgorithmAES256GCM, result)
+		assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, result)
 	})
 
 	t.Run("FallbackToCBC", func(t *testing.T) {
-		local := []CryptoAlgorithmType{CryptoAlgorithmAES256CBC, CryptoAlgorithmNone}
-		remote := []CryptoAlgorithmType{CryptoAlgorithmAES256CBC, CryptoAlgorithmNone}
+		local := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE}
+		remote := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE}
 		result := NegotiateCryptoAlgorithm(local, remote)
-		assert.Equal(t, CryptoAlgorithmAES256CBC, result)
+		assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, result)
 	})
 
 	t.Run("NoCommon", func(t *testing.T) {
-		local := []CryptoAlgorithmType{CryptoAlgorithmAES256GCM}
-		remote := []CryptoAlgorithmType{CryptoAlgorithmChacha20Poly1305}
+		local := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM}
+		remote := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF}
 		result := NegotiateCryptoAlgorithm(local, remote)
-		assert.Equal(t, CryptoAlgorithmNone, result)
+		assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, result)
 	})
 }
 
 func TestNegotiateKeyExchange(t *testing.T) {
 	// Test: Verify key exchange negotiation
 	t.Run("SameType", func(t *testing.T) {
-		result := NegotiateKeyExchange(KeyExchangeX25519, KeyExchangeX25519)
-		assert.Equal(t, KeyExchangeX25519, result)
+		result := NegotiateKeyExchange(
+			protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519,
+			protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519,
+		)
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519, result)
 	})
 
 	t.Run("DifferentTypes", func(t *testing.T) {
-		result := NegotiateKeyExchange(KeyExchangeX25519, KeyExchangeSecp256r1)
-		assert.Equal(t, KeyExchangeNone, result)
+		result := NegotiateKeyExchange(
+			protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519,
+			protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1,
+		)
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE, result)
 	})
 }
 
 func TestNegotiateKDF(t *testing.T) {
 	// Test: Verify KDF negotiation
 	t.Run("BothSupportHKDF", func(t *testing.T) {
-		local := []KDFType{KDFTypeHKDFSha256}
-		remote := []KDFType{KDFTypeHKDFSha256}
+		local := []protocol.ATBUS_CRYPTO_KDF_TYPE{protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256}
+		remote := []protocol.ATBUS_CRYPTO_KDF_TYPE{protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256}
 		result := NegotiateKDF(local, remote)
-		assert.Equal(t, KDFTypeHKDFSha256, result)
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256, result)
 	})
 
 	t.Run("Empty_DefaultsToHKDF", func(t *testing.T) {
-		result := NegotiateKDF([]KDFType{}, []KDFType{})
-		assert.Equal(t, KDFTypeHKDFSha256, result)
+		result := NegotiateKDF([]protocol.ATBUS_CRYPTO_KDF_TYPE{}, []protocol.ATBUS_CRYPTO_KDF_TYPE{})
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256, result)
 	})
 }
 
@@ -730,7 +778,7 @@ func TestNegotiateKDF(t *testing.T) {
 func TestNewConnectionContext(t *testing.T) {
 	// Test: Verify new connection context is created with default settings
 	// Arrange & Act
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 
 	// Assert
 	assert.NotNil(t, ctx)
@@ -744,7 +792,7 @@ func TestNewConnectionContext(t *testing.T) {
 func TestConnectionContextClosingState(t *testing.T) {
 	// Test: Verify closing state management
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 
 	// Act & Assert
 	assert.False(t, ctx.IsClosing())
@@ -757,7 +805,7 @@ func TestConnectionContextClosingState(t *testing.T) {
 func TestConnectionContextSequence(t *testing.T) {
 	// Test: Verify sequence number generation
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 
 	// Act
 	seq1 := ctx.GetNextSequence()
@@ -773,28 +821,28 @@ func TestConnectionContextSequence(t *testing.T) {
 func TestConnectionContextSupportedAlgorithms(t *testing.T) {
 	// Test: Verify getting and setting supported algorithms
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 
 	// Act & Assert - Crypto algorithms
-	newCryptoAlgs := []CryptoAlgorithmType{CryptoAlgorithmAES256GCM}
+	newCryptoAlgs := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM}
 	ctx.SetSupportedCryptoAlgorithms(newCryptoAlgs)
 	assert.Equal(t, newCryptoAlgs, ctx.GetSupportedCryptoAlgorithms())
 
 	// Act & Assert - Compression algorithms
-	newCompAlgs := []CompressionAlgorithmType{CompressionZlib}
+	newCompAlgs := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB}
 	ctx.SetSupportedCompressionAlgorithms(newCompAlgs)
 	assert.Equal(t, newCompAlgs, ctx.GetSupportedCompressionAlgorithms())
 
 	// Act & Assert - Key exchange
-	ctx.SetSupportedKeyExchange(KeyExchangeSecp256r1)
-	assert.Equal(t, KeyExchangeSecp256r1, ctx.GetSupportedKeyExchange())
+	ctx.SetSupportedKeyExchange(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1, ctx.GetSupportedKeyExchange())
 }
 
 func TestConnectionContextHandshake(t *testing.T) {
 	// Test: Verify full handshake between two connection contexts
 	// Arrange
-	ctx1 := NewConnectionContext()
-	ctx2 := NewConnectionContext()
+	ctx1 := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	ctx2 := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 
 	// Act - Create handshake data on both sides
 	handshake1, err := ctx1.CreateHandshakeData()
@@ -821,7 +869,7 @@ func TestConnectionContextHandshake(t *testing.T) {
 func TestConnectionContextHandshakeWhenClosing(t *testing.T) {
 	// Test: Verify handshake fails when connection is closing
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 	ctx.SetClosing(true)
 
 	// Act
@@ -834,214 +882,269 @@ func TestConnectionContextHandshakeWhenClosing(t *testing.T) {
 func TestConnectionContextNegotiateCompression(t *testing.T) {
 	// Test: Verify compression negotiation with peer
 	// Arrange
-	ctx := NewConnectionContext()
-	peerAlgorithms := []CompressionAlgorithmType{CompressionZlib, CompressionNone}
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	// Set up local supported algorithms to include ZLIB
+	ctx.SetSupportedCompressionAlgorithms([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+		protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
+	})
+	peerAlgorithms := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE}
 
 	// Act
 	err := ctx.NegotiateCompressionWithPeer(peerAlgorithms)
 
 	// Assert
 	require.NoError(t, err)
-	assert.Equal(t, CompressionZlib, ctx.GetCompression().GetAlgorithm())
+	assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, ctx.GetCompression().GetAlgorithm())
 }
 
 // ============================================================================
-// Pack/Unpack Tests
+// PackMessage/UnpackMessage Tests
 // ============================================================================
 
-func TestConnectionContextPackUnpackWithoutCrypto(t *testing.T) {
+func TestConnectionContextPackUnpackMessageWithoutCrypto(t *testing.T) {
 	// Test: Verify pack/unpack without encryption
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 	testData := []byte("Hello, World!")
 
-	// Act
-	packed, err := ctx.Pack(testData, 1, 12345)
-	require.NoError(t, err)
+	msg := types.NewMessage()
+	msg.MutableHead().SourceBusId = 12345
+	msg.MutableHead().Sequence = 1
+	msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+		DataTransformReq: &protocol.ForwardData{
+			Content: testData,
+		},
+	}
 
-	unpacked, err := ctx.Unpack(packed)
-	require.NoError(t, err)
+	// Act
+	packed, errCode := ctx.PackMessage(msg, 3, 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+	unpacked := types.NewMessage()
+	errCode = ctx.UnpackMessage(unpacked, packed.UsedSpan(), 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
 
 	// Assert
-	assert.Equal(t, testData, unpacked)
+	assert.Equal(t, msg.GetHead().GetSourceBusId(), unpacked.GetHead().GetSourceBusId())
+	assert.Equal(t, msg.GetHead().GetSequence(), unpacked.GetHead().GetSequence())
+	assert.Equal(t, testData, unpacked.GetBody().GetDataTransformReq().GetContent())
 }
 
-func TestConnectionContextPackUnpackWithCrypto(t *testing.T) {
+func TestConnectionContextPackUnpackMessageWithCrypto(t *testing.T) {
 	// Test: Verify pack/unpack with encryption
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 	key := make([]byte, 32)
 	iv := make([]byte, 12)
 	_, _ = rand.Read(key)
 	_, _ = rand.Read(iv)
-	require.NoError(t, ctx.writeCrypto.SetKey(key, iv, CryptoAlgorithmAES256GCM))
-	require.NoError(t, ctx.readCrypto.SetKey(key, iv, CryptoAlgorithmAES256GCM))
+	require.NoError(t, ctx.writeCrypto.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
+	require.NoError(t, ctx.readCrypto.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
 
 	testData := []byte("Hello, World! This is encrypted data.")
 
-	// Act
-	packed, err := ctx.Pack(testData, 1, 12345)
-	require.NoError(t, err)
+	msg := types.NewMessage()
+	msg.MutableHead().SourceBusId = 12345
+	msg.MutableHead().Sequence = 1
+	msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+		DataTransformReq: &protocol.ForwardData{
+			Content: testData,
+		},
+	}
 
-	unpacked, err := ctx.Unpack(packed)
-	require.NoError(t, err)
+	// Act
+	packed, errCode := ctx.PackMessage(msg, 3, 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+	unpacked := types.NewMessage()
+	errCode = ctx.UnpackMessage(unpacked, packed.UsedSpan(), 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
 
 	// Assert
-	assert.Equal(t, testData, unpacked)
-	assert.Equal(t, int32(CryptoAlgorithmAES256GCM), packed.Header.CryptoAlgorithm)
+	assert.Equal(t, msg.GetHead().GetSourceBusId(), unpacked.GetHead().GetSourceBusId())
+	assert.Equal(t, testData, unpacked.GetBody().GetDataTransformReq().GetContent())
 }
 
-func TestConnectionContextPackUnpackWithCompression(t *testing.T) {
+func TestConnectionContextPackUnpackMessageWithCBCIVInHeader(t *testing.T) {
+	// Test: Verify CBC uses header IV and does not prefix IV in body
+	// Arrange
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	key := make([]byte, 16)
+	iv := make([]byte, 16)
+	_, _ = rand.Read(key)
+	_, _ = rand.Read(iv)
+	require.NoError(t, ctx.writeCrypto.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC))
+	require.NoError(t, ctx.readCrypto.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC))
+
+	testData := []byte("Hello, CBC encrypted data.")
+	msg := types.NewMessage()
+	msg.MutableHead().SourceBusId = 12345
+	msg.MutableHead().Sequence = 1
+	msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+		DataTransformReq: &protocol.ForwardData{
+			Content: testData,
+		},
+	}
+
+	// Act
+	packed, errCode := ctx.PackMessage(msg, 3, 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+	data := packed.UsedSpan()
+	headSize, headVintSize := buffer.ReadVint(data)
+	require.NotZero(t, headVintSize)
+
+	head := &protocol.MessageHead{}
+	err := proto.Unmarshal(data[headVintSize:headVintSize+int(headSize)], head)
+	require.NoError(t, err)
+
+	bodyBytes := data[headVintSize+int(headSize):]
+	originalBodyBytes, err := proto.Marshal(msg.GetBody())
+	require.NoError(t, err)
+
+	// Assert - header IV present and body length matches padded ciphertext size
+	require.NotNil(t, head.GetCrypto())
+	assert.Len(t, head.GetCrypto().GetIv(), 16)
+	blockSize := cryptoAlgorithmIVSize(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC)
+	expectedCipherLen := ((len(originalBodyBytes) / blockSize) + 1) * blockSize
+	assert.Equal(t, expectedCipherLen, len(bodyBytes))
+
+	// Assert - unpack succeeds and data matches
+	unpacked := types.NewMessage()
+	errCode = ctx.UnpackMessage(unpacked, data, 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+	assert.Equal(t, testData, unpacked.GetBody().GetDataTransformReq().GetContent())
+}
+
+func TestConnectionContextPackUnpackMessageWithCompression(t *testing.T) {
 	// Test: Verify pack/unpack with compression
 	// Arrange
-	ctx := NewConnectionContext()
-	require.NoError(t, ctx.compression.SetAlgorithm(CompressionZlib))
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	require.NoError(t, ctx.compression.SetAlgorithm(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB))
 
 	// Use compressible data
 	testData := bytes.Repeat([]byte("Hello, World! "), 100)
 
-	// Act
-	packed, err := ctx.Pack(testData, 1, 12345)
-	require.NoError(t, err)
+	msg := types.NewMessage()
+	msg.MutableHead().SourceBusId = 12345
+	msg.MutableHead().Sequence = 1
+	msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+		DataTransformReq: &protocol.ForwardData{
+			Content: testData,
+		},
+	}
 
-	unpacked, err := ctx.Unpack(packed)
-	require.NoError(t, err)
+	// Act
+	packed, errCode := ctx.PackMessage(msg, 3, 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+	require.NotNil(t, packed)
+
+	unpacked := types.NewMessage()
+	errCode = ctx.UnpackMessage(unpacked, packed.UsedSpan(), 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
 
 	// Assert
-	assert.Equal(t, testData, unpacked)
-	assert.Equal(t, int32(CompressionZlib), packed.Header.CompressionType)
+	assert.Equal(t, msg.GetHead().GetSourceBusId(), unpacked.GetHead().GetSourceBusId())
+	assert.Equal(t, testData, unpacked.GetBody().GetDataTransformReq().GetContent())
+	assert.NotNil(t, unpacked.GetHead().GetCompression())
 }
 
-func TestConnectionContextPackUnpackWithCryptoAndCompression(t *testing.T) {
+func TestConnectionContextPackUnpackMessageWithCryptoAndCompression(t *testing.T) {
 	// Test: Verify pack/unpack with both encryption and compression
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 	key := make([]byte, 32)
 	iv := make([]byte, 12)
 	_, _ = rand.Read(key)
 	_, _ = rand.Read(iv)
-	require.NoError(t, ctx.writeCrypto.SetKey(key, iv, CryptoAlgorithmAES256GCM))
-	require.NoError(t, ctx.readCrypto.SetKey(key, iv, CryptoAlgorithmAES256GCM))
-	require.NoError(t, ctx.compression.SetAlgorithm(CompressionZlib))
+	require.NoError(t, ctx.writeCrypto.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
+	require.NoError(t, ctx.readCrypto.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
+	require.NoError(t, ctx.compression.SetAlgorithm(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB))
 
 	// Use compressible data
 	testData := bytes.Repeat([]byte("Hello, World! "), 100)
 
-	// Act
-	packed, err := ctx.Pack(testData, 1, 12345)
-	require.NoError(t, err)
+	msg := types.NewMessage()
+	msg.MutableHead().SourceBusId = 12345
+	msg.MutableHead().Sequence = 1
+	msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+		DataTransformReq: &protocol.ForwardData{
+			Content: testData,
+		},
+	}
 
-	unpacked, err := ctx.Unpack(packed)
-	require.NoError(t, err)
+	// Act
+	packed, errCode := ctx.PackMessage(msg, 3, 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+	require.NotNil(t, packed)
+
+	unpacked := types.NewMessage()
+	errCode = ctx.UnpackMessage(unpacked, packed.UsedSpan(), 65536)
+	require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
 
 	// Assert
-	assert.Equal(t, testData, unpacked)
+	assert.Equal(t, msg.GetHead().GetSourceBusId(), unpacked.GetHead().GetSourceBusId())
+	assert.Equal(t, testData, unpacked.GetBody().GetDataTransformReq().GetContent())
+	assert.NotNil(t, unpacked.GetHead().GetCompression())
 }
 
-func TestConnectionContextPackWhenClosing(t *testing.T) {
+func TestConnectionContextPackMessageWhenClosing(t *testing.T) {
 	// Test: Verify pack fails when connection is closing
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 	ctx.SetClosing(true)
 
-	// Act
-	_, err := ctx.Pack([]byte("test"), 1, 12345)
-
-	// Assert
-	assert.Equal(t, ErrConnectionClosing, err)
-}
-
-func TestConnectionContextUnpackNilMessage(t *testing.T) {
-	// Test: Verify unpack fails with nil message
-	// Arrange
-	ctx := NewConnectionContext()
-
-	// Act
-	_, err := ctx.Unpack(nil)
-
-	// Assert
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, ErrUnpackFailed))
-}
-
-// ============================================================================
-// Encode/Decode PackedMessage Tests
-// ============================================================================
-
-func TestEncodeDecodePackedMessage(t *testing.T) {
-	// Test: Verify encode/decode roundtrip
-	// Arrange
-	msg := &PackedMessage{
-		Header: &MessageHeader{
-			Version:         3,
-			Type:            1,
-			ResultCode:      0,
-			Sequence:        12345,
-			SourceBusID:     67890,
-			CryptoAlgorithm: int32(CryptoAlgorithmAES256GCM),
-			CryptoIV:        []byte("random_iv_data"),
-			CryptoAAD:       []byte("additional_data"),
-			CompressionType: int32(CompressionZlib),
-			OriginalSize:    1000,
-			BodySize:        500,
+	msg := types.NewMessage()
+	msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+		DataTransformReq: &protocol.ForwardData{
+			Content: []byte("test"),
 		},
-		Body: []byte("This is the message body content"),
 	}
-	msg.Header.BodySize = uint64(len(msg.Body))
 
 	// Act
-	encoded, err := EncodePackedMessage(msg)
-	require.NoError(t, err)
-
-	decoded, err := DecodePackedMessage(encoded)
-	require.NoError(t, err)
+	_, errCode := ctx.PackMessage(msg, 3, 65536)
 
 	// Assert
-	assert.Equal(t, msg.Header.Version, decoded.Header.Version)
-	assert.Equal(t, msg.Header.Type, decoded.Header.Type)
-	assert.Equal(t, msg.Header.ResultCode, decoded.Header.ResultCode)
-	assert.Equal(t, msg.Header.Sequence, decoded.Header.Sequence)
-	assert.Equal(t, msg.Header.SourceBusID, decoded.Header.SourceBusID)
-	assert.Equal(t, msg.Header.CryptoAlgorithm, decoded.Header.CryptoAlgorithm)
-	assert.Equal(t, msg.Header.CryptoIV, decoded.Header.CryptoIV)
-	assert.Equal(t, msg.Header.CryptoAAD, decoded.Header.CryptoAAD)
-	assert.Equal(t, msg.Header.CompressionType, decoded.Header.CompressionType)
-	assert.Equal(t, msg.Header.OriginalSize, decoded.Header.OriginalSize)
-	assert.Equal(t, msg.Body, decoded.Body)
+	assert.Equal(t, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING, errCode)
 }
 
-func TestEncodePackedMessageNil(t *testing.T) {
-	// Test: Verify encode fails with nil message
+func TestConnectionContextUnpackMessageNilInput(t *testing.T) {
+	// Test: Verify unpack fails with nil input
+	// Arrange
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	msg := types.NewMessage()
+
 	// Act
-	_, err := EncodePackedMessage(nil)
+	errCode := ctx.UnpackMessage(msg, nil, 65536)
 
 	// Assert
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, ErrPackFailed))
+	assert.Equal(t, error_code.EN_ATBUS_ERR_PARAMS, errCode)
 }
 
-func TestDecodePackedMessageTooShort(t *testing.T) {
-	// Test: Verify decode fails with too short data
+func TestConnectionContextUnpackMessageEmptyInput(t *testing.T) {
+	// Test: Verify unpack fails with empty input
+	// Arrange
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	msg := types.NewMessage()
+
 	// Act
-	_, err := DecodePackedMessage([]byte{1, 2, 3})
+	errCode := ctx.UnpackMessage(msg, []byte{}, 65536)
 
 	// Assert
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, ErrUnpackFailed))
+	assert.Equal(t, error_code.EN_ATBUS_ERR_PARAMS, errCode)
 }
 
-func TestDecodePackedMessageIncompleteHeader(t *testing.T) {
-	// Test: Verify decode fails with incomplete header
-	// Arrange - Header length says 100 bytes but we only provide 10
-	data := make([]byte, 14)
-	data[0] = 100 // Header length (little endian)
+func TestConnectionContextUnpackMessageTooShort(t *testing.T) {
+	// Test: Verify unpack fails with too short data
+	// Arrange
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	msg := types.NewMessage()
 
 	// Act
-	_, err := DecodePackedMessage(data)
+	errCode := ctx.UnpackMessage(msg, []byte{1, 2, 3}, 65536)
 
-	// Assert
-	assert.Error(t, err)
-	assert.True(t, errors.Is(err, ErrUnpackFailed))
+	// Assert - returns EN_ATBUS_ERR_UNPACK when protobuf unmarshal fails
+	assert.Equal(t, error_code.EN_ATBUS_ERR_UNPACK, errCode)
 }
 
 // ============================================================================
@@ -1056,7 +1159,7 @@ func TestCryptoSessionConcurrentEncrypt(t *testing.T) {
 	iv := make([]byte, 12)
 	_, _ = rand.Read(key)
 	_, _ = rand.Read(iv)
-	require.NoError(t, session.SetKey(key, iv, CryptoAlgorithmAES256GCM))
+	require.NoError(t, session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM))
 
 	testData := []byte("Concurrent test data")
 	var wg sync.WaitGroup
@@ -1079,7 +1182,7 @@ func TestCryptoSessionConcurrentEncrypt(t *testing.T) {
 func TestConnectionContextConcurrentSequence(t *testing.T) {
 	// Test: Verify concurrent sequence number generation
 	// Arrange
-	ctx := NewConnectionContext()
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
 	var wg sync.WaitGroup
 	numGoroutines := 100
 	sequences := make([]uint64, numGoroutines)
@@ -1113,15 +1216,19 @@ func TestCryptoSessionDeriveKey(t *testing.T) {
 	sharedSecret := make([]byte, 32)
 	_, _ = rand.Read(sharedSecret)
 
-	require.NoError(t, session.GenerateKeyPair(KeyExchangeX25519))
+	require.NoError(t, session.GenerateKeyPair(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519))
 
 	// Act
-	err := session.DeriveKey(sharedSecret, CryptoAlgorithmAES256GCM, KDFTypeHKDFSha256)
+	err := session.DeriveKey(
+		sharedSecret,
+		protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256,
+	)
 
 	// Assert
 	require.NoError(t, err)
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES256GCM, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, session.Algorithm)
 	assert.Len(t, session.Key, 32)
 	assert.Len(t, session.IV, 12)
 }
@@ -1133,7 +1240,7 @@ func TestCryptoSessionDeriveKeyUnsupportedKDF(t *testing.T) {
 	sharedSecret := make([]byte, 32)
 
 	// Act
-	err := session.DeriveKey(sharedSecret, CryptoAlgorithmAES256GCM, KDFType(999))
+	err := session.DeriveKey(sharedSecret, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, protocol.ATBUS_CRYPTO_KDF_TYPE(999))
 
 	// Assert
 	assert.Error(t, err)
@@ -1168,35 +1275,39 @@ func TestCryptoSessionGetPublicKeyNil(t *testing.T) {
 	assert.Nil(t, pubKey)
 }
 
-func TestMessageHeaderFields(t *testing.T) {
-	// Test: Verify all MessageHeader fields are set correctly
+func TestMessageHeadFields(t *testing.T) {
+	// Test: Verify all MessageHead fields are set correctly
 	// Arrange
-	header := &MessageHeader{
-		Version:         3,
-		Type:            10,
-		ResultCode:      -1,
-		Sequence:        999,
-		SourceBusID:     12345678,
-		CryptoAlgorithm: int32(CryptoAlgorithmChacha20Poly1305),
-		CryptoIV:        []byte("test_iv"),
-		CryptoAAD:       []byte("test_aad"),
-		CompressionType: int32(CompressionZlib),
-		OriginalSize:    2000,
-		BodySize:        1000,
+	head := &protocol.MessageHead{
+		Version:     3,
+		Type:        10,
+		ResultCode:  -1,
+		Sequence:    999,
+		SourceBusId: 12345678,
+		Crypto: &protocol.MessageHeadCrypto{
+			Algorithm: protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF,
+			Iv:        []byte("test_iv"),
+			Aad:       []byte("test_aad"),
+		},
+		Compression: &protocol.MessageHeadCompression{
+			Type:         protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+			OriginalSize: 2000,
+		},
+		BodySize: 1000,
 	}
 
 	// Assert
-	assert.Equal(t, int32(3), header.Version)
-	assert.Equal(t, int32(10), header.Type)
-	assert.Equal(t, int32(-1), header.ResultCode)
-	assert.Equal(t, uint64(999), header.Sequence)
-	assert.Equal(t, uint64(12345678), header.SourceBusID)
-	assert.Equal(t, int32(CryptoAlgorithmChacha20Poly1305), header.CryptoAlgorithm)
-	assert.Equal(t, []byte("test_iv"), header.CryptoIV)
-	assert.Equal(t, []byte("test_aad"), header.CryptoAAD)
-	assert.Equal(t, int32(CompressionZlib), header.CompressionType)
-	assert.Equal(t, uint64(2000), header.OriginalSize)
-	assert.Equal(t, uint64(1000), header.BodySize)
+	assert.Equal(t, int32(3), head.Version)
+	assert.Equal(t, int32(10), head.Type)
+	assert.Equal(t, int32(-1), head.ResultCode)
+	assert.Equal(t, uint64(999), head.Sequence)
+	assert.Equal(t, uint64(12345678), head.SourceBusId)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, head.GetCrypto().GetAlgorithm())
+	assert.Equal(t, []byte("test_iv"), head.GetCrypto().GetIv())
+	assert.Equal(t, []byte("test_aad"), head.GetCrypto().GetAad())
+	assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, head.GetCompression().GetType())
+	assert.Equal(t, uint64(2000), head.GetCompression().GetOriginalSize())
+	assert.Equal(t, uint64(1000), head.BodySize)
 }
 
 // ============================================================================
@@ -1208,20 +1319,25 @@ func TestMessageHeaderFields(t *testing.T) {
 
 // crossLangTestMetadata represents the JSON metadata for cross-language test cases.
 type crossLangTestMetadata struct {
-	Name                string `json:"name"`
-	Description         string `json:"description"`
-	ProtocolVersion     int    `json:"protocol_version"`
-	BodyType            string `json:"body_type"`
-	BodyTypeCase        int    `json:"body_type_case"`
-	CryptoAlgorithm     string `json:"crypto_algorithm"`
-	CryptoAlgorithmType int    `json:"crypto_algorithm_type"`
-	KeyHex              string `json:"key_hex"`
-	KeySize             int    `json:"key_size"`
-	IVHex               string `json:"iv_hex"`
-	IVSize              int    `json:"iv_size"`
-	PackedSize          int    `json:"packed_size"`
-	PackedHex           string `json:"packed_hex"`
-	Expected            struct {
+	Name                     string `json:"name"`
+	Description              string `json:"description"`
+	ProtocolVersion          int    `json:"protocol_version"`
+	BodyType                 string `json:"body_type"`
+	BodyTypeCase             int    `json:"body_type_case"`
+	CompressionAlgorithm     string `json:"compression_algorithm"`
+	CompressionAlgorithmType int    `json:"compression_algorithm_type"`
+	CompressionOriginalSize  int    `json:"compression_original_size"`
+	CryptoAlgorithm          string `json:"crypto_algorithm"`
+	CryptoAlgorithmType      int    `json:"crypto_algorithm_type"`
+	KeyHex                   string `json:"key_hex"`
+	KeySize                  int    `json:"key_size"`
+	IVHex                    string `json:"iv_hex"`
+	IVSize                   int    `json:"iv_size"`
+	AADHex                   string `json:"aad_hex"`
+	AADSize                  int    `json:"aad_size"`
+	PackedSize               int    `json:"packed_size"`
+	PackedHex                string `json:"packed_hex"`
+	Expected                 struct {
 		From           uint64   `json:"from"`
 		To             uint64   `json:"to"`
 		Content        string   `json:"content"`
@@ -1263,36 +1379,43 @@ func loadCrossLangTestMetadata(t *testing.T, filename string) *crossLangTestMeta
 	return &metadata
 }
 
-// mapCryptoAlgorithmType maps C++ crypto algorithm type to Go type.
-// C++ uses different enum values than Go's internal representation.
-func mapCryptoAlgorithmType(cppType int) CryptoAlgorithmType {
-	// Map based on C++ enum values in libatbus_protocol.proto
-	switch cppType {
-	case 0:
-		return CryptoAlgorithmNone
-	case 1:
-		return CryptoAlgorithmXXTEA
-	case 11:
-		return CryptoAlgorithmAES128CBC
-	case 12:
-		return CryptoAlgorithmAES192CBC
-	case 13:
-		return CryptoAlgorithmAES256CBC
-	case 14:
-		return CryptoAlgorithmAES128GCM
-	case 15:
-		return CryptoAlgorithmAES192GCM
-	case 16:
-		return CryptoAlgorithmAES256GCM
-	case 31:
-		return CryptoAlgorithmChacha20
-	case 32:
-		return CryptoAlgorithmChacha20Poly1305
-	case 33:
-		return CryptoAlgorithmXChacha20Poly1305
-	default:
-		return CryptoAlgorithmNone
+func decodeHexField(t *testing.T, hexValue string, fieldName string) []byte {
+	t.Helper()
+	if hexValue == "" {
+		return nil
 	}
+	data, err := hex.DecodeString(hexValue)
+	require.NoError(t, err, "Failed to decode %s", fieldName)
+	return data
+}
+
+func parsePackedMessage(t *testing.T, packed []byte) (*protocol.MessageHead, []byte) {
+	t.Helper()
+	headSize, headVintSize := buffer.ReadVint(packed)
+	require.NotZero(t, headVintSize)
+	require.LessOrEqual(t, headVintSize+int(headSize), len(packed))
+
+	head := &protocol.MessageHead{}
+	err := proto.Unmarshal(packed[headVintSize:headVintSize+int(headSize)], head)
+	require.NoError(t, err)
+
+	bodyBytes := packed[headVintSize+int(headSize):]
+	return head, bodyBytes
+}
+
+func setupReadCryptoFromMetadata(t *testing.T, ctx *ConnectionContext, metadata *crossLangTestMetadata) {
+	t.Helper()
+	if metadata == nil || metadata.CryptoAlgorithmType == 0 {
+		return
+	}
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
+	alg := protocol.ATBUS_CRYPTO_ALGORITHM_TYPE(metadata.CryptoAlgorithmType)
+	if alg == protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE {
+		return
+	}
+	require.NoError(t, ctx.readCrypto.SetKey(key, iv, alg))
+	require.NoError(t, ctx.writeCrypto.SetKey(key, iv, alg))
 }
 
 // TestCrossLangEncryptDecryptAES128GCM verifies AES-128-GCM encryption/decryption
@@ -1302,28 +1425,27 @@ func TestCrossLangEncryptDecryptAES128GCM(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_aes_128_gcm_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
+	aad := decodeHexField(t, metadata.AADHex, "aad")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmAES128GCM)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES128GCM, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, session.Algorithm)
 	assert.Equal(t, key, session.Key)
 	assert.Equal(t, iv, session.IV)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV/AAD
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIVAndAAD(testData, iv, aad)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIVAndAAD(encrypted, iv, aad)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1336,26 +1458,25 @@ func TestCrossLangEncryptDecryptAES192GCM(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_aes_192_gcm_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
+	aad := decodeHexField(t, metadata.AADHex, "aad")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmAES192GCM)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES192GCM, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, session.Algorithm)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV/AAD
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIVAndAAD(testData, iv, aad)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIVAndAAD(encrypted, iv, aad)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1368,26 +1489,25 @@ func TestCrossLangEncryptDecryptAES256GCM(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_aes_256_gcm_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
+	aad := decodeHexField(t, metadata.AADHex, "aad")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmAES256GCM)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES256GCM, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, session.Algorithm)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV/AAD
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIVAndAAD(testData, iv, aad)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIVAndAAD(encrypted, iv, aad)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1400,26 +1520,24 @@ func TestCrossLangEncryptDecryptAES128CBC(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_aes_128_cbc_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmAES128CBC)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES128CBC, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, session.Algorithm)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIV(testData, iv)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIV(encrypted, iv)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1432,26 +1550,24 @@ func TestCrossLangEncryptDecryptAES192CBC(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_aes_192_cbc_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmAES192CBC)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES192CBC, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC, session.Algorithm)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIV(testData, iv)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIV(encrypted, iv)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1464,26 +1580,24 @@ func TestCrossLangEncryptDecryptAES256CBC(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_aes_256_cbc_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmAES256CBC)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmAES256CBC, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, session.Algorithm)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIV(testData, iv)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIV(encrypted, iv)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1496,26 +1610,25 @@ func TestCrossLangEncryptDecryptChaCha20Poly1305(t *testing.T) {
 	metadata := loadCrossLangTestMetadata(t, "enc_chacha20_poly1305_data_transform_req.json")
 
 	// Arrange - parse key and IV from metadata
-	key, err := hex.DecodeString(metadata.KeyHex)
-	require.NoError(t, err, "Failed to decode key")
-	iv, err := hex.DecodeString(metadata.IVHex)
-	require.NoError(t, err, "Failed to decode IV")
+	key := decodeHexField(t, metadata.KeyHex, "key")
+	iv := decodeHexField(t, metadata.IVHex, "iv")
+	aad := decodeHexField(t, metadata.AADHex, "aad")
 
 	// Setup crypto session
 	session := NewCryptoSession()
-	err = session.SetKey(key, iv, CryptoAlgorithmChacha20Poly1305)
+	err := session.SetKey(key, iv, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF)
 	require.NoError(t, err, "Failed to set key")
 
 	// Verify session is initialized correctly
 	assert.True(t, session.IsInitialized())
-	assert.Equal(t, CryptoAlgorithmChacha20Poly1305, session.Algorithm)
+	assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, session.Algorithm)
 
-	// Test encrypt/decrypt roundtrip
+	// Test encrypt/decrypt roundtrip with IV/AAD
 	testData := []byte("Hello, encrypted atbus!")
-	encrypted, err := session.Encrypt(testData)
+	encrypted, err := session.EncryptWithIVAndAAD(testData, iv, aad)
 	require.NoError(t, err)
 
-	decrypted, err := session.Decrypt(encrypted)
+	decrypted, err := session.DecryptWithIVAndAAD(encrypted, iv, aad)
 	require.NoError(t, err)
 
 	assert.Equal(t, testData, decrypted)
@@ -1525,40 +1638,34 @@ func TestCrossLangEncryptDecryptChaCha20Poly1305(t *testing.T) {
 // have correct key and IV sizes matching C++ test configurations.
 func TestCrossLangKeyParametersValidation(t *testing.T) {
 	testCases := []struct {
-		name          string
-		jsonFile      string
-		algorithm     CryptoAlgorithmType
-		expectedKey   int
-		expectedIV    int
+		name        string
+		jsonFile    string
+		algorithm   protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
+		expectedKey int
+		expectedIV  int
 	}{
-		{"AES-128-CBC", "enc_aes_128_cbc_data_transform_req.json", CryptoAlgorithmAES128CBC, 16, 16},
-		{"AES-192-CBC", "enc_aes_192_cbc_data_transform_req.json", CryptoAlgorithmAES192CBC, 24, 16},
-		{"AES-256-CBC", "enc_aes_256_cbc_data_transform_req.json", CryptoAlgorithmAES256CBC, 32, 16},
-		{"AES-128-GCM", "enc_aes_128_gcm_data_transform_req.json", CryptoAlgorithmAES128GCM, 16, 12},
-		{"AES-192-GCM", "enc_aes_192_gcm_data_transform_req.json", CryptoAlgorithmAES192GCM, 24, 12},
-		{"AES-256-GCM", "enc_aes_256_gcm_data_transform_req.json", CryptoAlgorithmAES256GCM, 32, 12},
-		{"ChaCha20-Poly1305", "enc_chacha20_poly1305_data_transform_req.json", CryptoAlgorithmChacha20Poly1305, 32, 12},
+		{"AES-128-CBC", "enc_aes_128_cbc_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, 16, 16},
+		{"AES-192-CBC", "enc_aes_192_cbc_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC, 24, 16},
+		{"AES-256-CBC", "enc_aes_256_cbc_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, 32, 16},
+		{"AES-128-GCM", "enc_aes_128_gcm_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, 16, 12},
+		{"AES-192-GCM", "enc_aes_192_gcm_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, 24, 12},
+		{"AES-256-GCM", "enc_aes_256_gcm_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, 32, 12},
+		{"ChaCha20-Poly1305", "enc_chacha20_poly1305_data_transform_req.json", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, 32, 12},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			metadata := loadCrossLangTestMetadata(t, tc.jsonFile)
 
-			// Verify key size matches
-			assert.Equal(t, tc.expectedKey, metadata.KeySize, "Key size mismatch for %s", tc.name)
-			assert.Equal(t, tc.expectedKey, tc.algorithm.KeySize(), "Algorithm key size mismatch for %s", tc.name)
-
-			// Verify IV size matches
-			assert.Equal(t, tc.expectedIV, metadata.IVSize, "IV size mismatch for %s", tc.name)
-			assert.Equal(t, tc.expectedIV, tc.algorithm.IVSize(), "Algorithm IV size mismatch for %s", tc.name)
-
-			// Verify key and IV can be decoded correctly
+			// Verify key and IV can be decoded correctly (no size validation)
 			key, err := hex.DecodeString(metadata.KeyHex)
 			require.NoError(t, err)
-			assert.Len(t, key, tc.expectedKey)
 
 			iv, err := hex.DecodeString(metadata.IVHex)
 			require.NoError(t, err)
+
+			// Assert key/IV sizes match expected test configuration
+			assert.Len(t, key, tc.expectedKey)
 			assert.Len(t, iv, tc.expectedIV)
 		})
 	}
@@ -1571,15 +1678,15 @@ func TestCrossLangAllEncryptedDataTransformReq(t *testing.T) {
 		name      string
 		jsonFile  string
 		bytesFile string
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 	}{
-		{"AES-128-CBC", "enc_aes_128_cbc_data_transform_req.json", "enc_aes_128_cbc_data_transform_req.bytes", CryptoAlgorithmAES128CBC},
-		{"AES-192-CBC", "enc_aes_192_cbc_data_transform_req.json", "enc_aes_192_cbc_data_transform_req.bytes", CryptoAlgorithmAES192CBC},
-		{"AES-256-CBC", "enc_aes_256_cbc_data_transform_req.json", "enc_aes_256_cbc_data_transform_req.bytes", CryptoAlgorithmAES256CBC},
-		{"AES-128-GCM", "enc_aes_128_gcm_data_transform_req.json", "enc_aes_128_gcm_data_transform_req.bytes", CryptoAlgorithmAES128GCM},
-		{"AES-192-GCM", "enc_aes_192_gcm_data_transform_req.json", "enc_aes_192_gcm_data_transform_req.bytes", CryptoAlgorithmAES192GCM},
-		{"AES-256-GCM", "enc_aes_256_gcm_data_transform_req.json", "enc_aes_256_gcm_data_transform_req.bytes", CryptoAlgorithmAES256GCM},
-		{"ChaCha20-Poly1305", "enc_chacha20_poly1305_data_transform_req.json", "enc_chacha20_poly1305_data_transform_req.bytes", CryptoAlgorithmChacha20Poly1305},
+		{"AES-128-CBC", "enc_aes_128_cbc_data_transform_req.json", "enc_aes_128_cbc_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC},
+		{"AES-192-CBC", "enc_aes_192_cbc_data_transform_req.json", "enc_aes_192_cbc_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC},
+		{"AES-256-CBC", "enc_aes_256_cbc_data_transform_req.json", "enc_aes_256_cbc_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC},
+		{"AES-128-GCM", "enc_aes_128_gcm_data_transform_req.json", "enc_aes_128_gcm_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM},
+		{"AES-192-GCM", "enc_aes_192_gcm_data_transform_req.json", "enc_aes_192_gcm_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM},
+		{"AES-256-GCM", "enc_aes_256_gcm_data_transform_req.json", "enc_aes_256_gcm_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM},
+		{"ChaCha20-Poly1305", "enc_chacha20_poly1305_data_transform_req.json", "enc_chacha20_poly1305_data_transform_req.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF},
 	}
 
 	for _, tc := range testCases {
@@ -1597,13 +1704,38 @@ func TestCrossLangAllEncryptedDataTransformReq(t *testing.T) {
 			assert.Equal(t, expectedBinary, binaryData, "Binary data should match packed_hex")
 
 			// Setup crypto session with test keys
-			key, err := hex.DecodeString(metadata.KeyHex)
-			require.NoError(t, err)
-			iv, err := hex.DecodeString(metadata.IVHex)
-			require.NoError(t, err)
+			key := decodeHexField(t, metadata.KeyHex, "key")
+			iv := decodeHexField(t, metadata.IVHex, "iv")
+			aad := decodeHexField(t, metadata.AADHex, "aad")
 
 			session := NewCryptoSession()
 			err = session.SetKey(key, iv, tc.algorithm)
+			require.NoError(t, err)
+
+			head, bodyBytes := parsePackedMessage(t, binaryData)
+			require.NotNil(t, head.GetCrypto())
+			assert.Equal(t, tc.algorithm, head.GetCrypto().GetAlgorithm())
+			headIV := head.GetCrypto().GetIv()
+			headAAD := head.GetCrypto().GetAad()
+			if len(iv) > 0 {
+				assert.Len(t, headIV, len(iv))
+				assert.Equal(t, iv, headIV)
+			}
+			if cryptoAlgorithmIsAEAD(tc.algorithm) && len(aad) > 0 {
+				assert.Len(t, headAAD, len(aad))
+				assert.Equal(t, aad, headAAD)
+			}
+
+			var decrypted []byte
+			if cryptoAlgorithmIsAEAD(tc.algorithm) {
+				decrypted, err = session.DecryptWithIVAndAAD(bodyBytes, iv, aad)
+			} else {
+				decrypted, err = session.DecryptWithIV(bodyBytes, iv)
+			}
+			require.NoError(t, err)
+
+			body := &protocol.MessageBody{}
+			err = proto.Unmarshal(decrypted, body)
 			require.NoError(t, err)
 
 			// Verify expected content
@@ -1611,6 +1743,23 @@ func TestCrossLangAllEncryptedDataTransformReq(t *testing.T) {
 			assert.Equal(t, uint64(0x123456789ABCDEF0), metadata.Expected.From)
 			assert.Equal(t, uint64(0x0FEDCBA987654321), metadata.Expected.To)
 			assert.Equal(t, uint32(1), metadata.Expected.Flags)
+			req := body.GetDataTransformReq()
+			require.NotNil(t, req)
+			assert.Equal(t, metadata.Expected.From, req.GetFrom())
+			assert.Equal(t, metadata.Expected.To, req.GetTo())
+			assert.Equal(t, metadata.Expected.Flags, req.GetFlags())
+			assert.Equal(t, []byte(metadata.Expected.Content), req.GetContent())
+
+			// Encrypt again with IV/AAD and compare ciphertext bytes
+			if cryptoAlgorithmIsAEAD(tc.algorithm) {
+				again, err := session.EncryptWithIVAndAAD(decrypted, iv, aad)
+				require.NoError(t, err)
+				assert.Equal(t, bodyBytes, again)
+			} else {
+				again, err := session.EncryptWithIV(decrypted, iv)
+				require.NoError(t, err)
+				assert.Equal(t, bodyBytes, again)
+			}
 		})
 	}
 }
@@ -1622,15 +1771,15 @@ func TestCrossLangAllEncryptedCustomCmd(t *testing.T) {
 		name      string
 		jsonFile  string
 		bytesFile string
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 	}{
-		{"AES-128-CBC", "enc_aes_128_cbc_custom_cmd.json", "enc_aes_128_cbc_custom_cmd.bytes", CryptoAlgorithmAES128CBC},
-		{"AES-192-CBC", "enc_aes_192_cbc_custom_cmd.json", "enc_aes_192_cbc_custom_cmd.bytes", CryptoAlgorithmAES192CBC},
-		{"AES-256-CBC", "enc_aes_256_cbc_custom_cmd.json", "enc_aes_256_cbc_custom_cmd.bytes", CryptoAlgorithmAES256CBC},
-		{"AES-128-GCM", "enc_aes_128_gcm_custom_cmd.json", "enc_aes_128_gcm_custom_cmd.bytes", CryptoAlgorithmAES128GCM},
-		{"AES-192-GCM", "enc_aes_192_gcm_custom_cmd.json", "enc_aes_192_gcm_custom_cmd.bytes", CryptoAlgorithmAES192GCM},
-		{"AES-256-GCM", "enc_aes_256_gcm_custom_cmd.json", "enc_aes_256_gcm_custom_cmd.bytes", CryptoAlgorithmAES256GCM},
-		{"ChaCha20-Poly1305", "enc_chacha20_poly1305_custom_cmd.json", "enc_chacha20_poly1305_custom_cmd.bytes", CryptoAlgorithmChacha20Poly1305},
+		{"AES-128-CBC", "enc_aes_128_cbc_custom_cmd.json", "enc_aes_128_cbc_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC},
+		{"AES-192-CBC", "enc_aes_192_cbc_custom_cmd.json", "enc_aes_192_cbc_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC},
+		{"AES-256-CBC", "enc_aes_256_cbc_custom_cmd.json", "enc_aes_256_cbc_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC},
+		{"AES-128-GCM", "enc_aes_128_gcm_custom_cmd.json", "enc_aes_128_gcm_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM},
+		{"AES-192-GCM", "enc_aes_192_gcm_custom_cmd.json", "enc_aes_192_gcm_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM},
+		{"AES-256-GCM", "enc_aes_256_gcm_custom_cmd.json", "enc_aes_256_gcm_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM},
+		{"ChaCha20-Poly1305", "enc_chacha20_poly1305_custom_cmd.json", "enc_chacha20_poly1305_custom_cmd.bytes", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF},
 	}
 
 	for _, tc := range testCases {
@@ -1648,18 +1797,247 @@ func TestCrossLangAllEncryptedCustomCmd(t *testing.T) {
 			assert.Equal(t, expectedBinary, binaryData, "Binary data should match packed_hex")
 
 			// Setup crypto session with test keys
-			key, err := hex.DecodeString(metadata.KeyHex)
-			require.NoError(t, err)
-			iv, err := hex.DecodeString(metadata.IVHex)
-			require.NoError(t, err)
+			key := decodeHexField(t, metadata.KeyHex, "key")
+			iv := decodeHexField(t, metadata.IVHex, "iv")
+			aad := decodeHexField(t, metadata.AADHex, "aad")
 
 			session := NewCryptoSession()
 			err = session.SetKey(key, iv, tc.algorithm)
 			require.NoError(t, err)
 
+			head, bodyBytes := parsePackedMessage(t, binaryData)
+			require.NotNil(t, head.GetCrypto())
+			assert.Equal(t, tc.algorithm, head.GetCrypto().GetAlgorithm())
+			assert.Equal(t, iv, head.GetCrypto().GetIv())
+			if cryptoAlgorithmIsAEAD(tc.algorithm) {
+				assert.Equal(t, aad, head.GetCrypto().GetAad())
+			}
+
+			var decrypted []byte
+			if cryptoAlgorithmIsAEAD(tc.algorithm) {
+				decrypted, err = session.DecryptWithIVAndAAD(bodyBytes, iv, aad)
+			} else {
+				decrypted, err = session.DecryptWithIV(bodyBytes, iv)
+			}
+			require.NoError(t, err)
+
+			body := &protocol.MessageBody{}
+			err = proto.Unmarshal(decrypted, body)
+			require.NoError(t, err)
+
 			// Verify expected commands
 			assert.Equal(t, []string{"cmd1", "arg1", "arg2"}, metadata.Expected.Commands)
 			assert.Equal(t, uint64(0xABCDEF0123456789), metadata.Expected.From)
+			req := body.GetCustomCommandReq()
+			require.NotNil(t, req)
+			assert.Equal(t, metadata.Expected.From, req.GetFrom())
+			require.Len(t, req.GetCommands(), len(metadata.Expected.Commands))
+			for i, cmd := range metadata.Expected.Commands {
+				assert.Equal(t, []byte(cmd), req.GetCommands()[i].GetArg())
+			}
+
+			// Encrypt again with IV/AAD and compare ciphertext bytes
+			if cryptoAlgorithmIsAEAD(tc.algorithm) {
+				again, err := session.EncryptWithIVAndAAD(decrypted, iv, aad)
+				require.NoError(t, err)
+				assert.Equal(t, bodyBytes, again)
+			} else {
+				again, err := session.EncryptWithIV(decrypted, iv)
+				require.NoError(t, err)
+				assert.Equal(t, bodyBytes, again)
+			}
+		})
+	}
+}
+
+// TestCrossLangCompressedDataTransformReq verifies compressed data_transform_req
+// test cases from C++ can be unpacked and decompressed in Go.
+func TestCrossLangCompressedDataTransformReq(t *testing.T) {
+	testCases := []struct {
+		name      string
+		jsonFile  string
+		bytesFile string
+	}{
+		{"ZSTD", "compress_zstd_data_transform_req.json", "compress_zstd_data_transform_req.bytes"},
+		{"LZ4", "compress_lz4_data_transform_req.json", "compress_lz4_data_transform_req.bytes"},
+		{"SNAPPY", "compress_snappy_data_transform_req.json", "compress_snappy_data_transform_req.bytes"},
+		{"ZLIB", "compress_zlib_data_transform_req.json", "compress_zlib_data_transform_req.bytes"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			metadata := loadCrossLangTestMetadata(t, tc.jsonFile)
+			binaryData := loadCrossLangTestData(t, tc.bytesFile)
+
+			head, _ := parsePackedMessage(t, binaryData)
+			require.NotNil(t, head.GetCompression())
+			assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType), head.GetCompression().GetType())
+			assert.Equal(t, uint64(metadata.CompressionOriginalSize), head.GetCompression().GetOriginalSize())
+			assert.NotEqual(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType))
+
+			ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+			assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, ctx.GetCryptoSelectAlgorithm())
+
+			unpacked := types.NewMessage()
+			errCode := ctx.UnpackMessage(unpacked, binaryData, 65536)
+			require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+			req := unpacked.GetBody().GetDataTransformReq()
+			require.NotNil(t, req)
+			if metadata.Expected.From != 0 {
+				assert.Equal(t, metadata.Expected.From, req.GetFrom())
+			}
+			if metadata.Expected.To != 0 {
+				assert.Equal(t, metadata.Expected.To, req.GetTo())
+			}
+			if metadata.Expected.ContentSize > 0 {
+				assert.Len(t, req.GetContent(), metadata.Expected.ContentSize)
+			} else {
+				assert.NotEmpty(t, req.GetContent())
+			}
+		})
+	}
+}
+
+// TestCrossLangCompressedCustomCmd verifies compressed custom_command_req
+// test cases from C++ can be unpacked and decompressed in Go.
+func TestCrossLangCompressedCustomCmd(t *testing.T) {
+	testCases := []struct {
+		name      string
+		jsonFile  string
+		bytesFile string
+	}{
+		{"ZSTD", "compress_zstd_custom_cmd.json", "compress_zstd_custom_cmd.bytes"},
+		{"LZ4", "compress_lz4_custom_cmd.json", "compress_lz4_custom_cmd.bytes"},
+		{"SNAPPY", "compress_snappy_custom_cmd.json", "compress_snappy_custom_cmd.bytes"},
+		{"ZLIB", "compress_zlib_custom_cmd.json", "compress_zlib_custom_cmd.bytes"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			metadata := loadCrossLangTestMetadata(t, tc.jsonFile)
+			binaryData := loadCrossLangTestData(t, tc.bytesFile)
+
+			head, _ := parsePackedMessage(t, binaryData)
+			require.NotNil(t, head.GetCompression())
+			assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType), head.GetCompression().GetType())
+			assert.Equal(t, uint64(metadata.CompressionOriginalSize), head.GetCompression().GetOriginalSize())
+			assert.NotEqual(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType))
+
+			ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+			assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, ctx.GetCryptoSelectAlgorithm())
+
+			unpacked := types.NewMessage()
+			errCode := ctx.UnpackMessage(unpacked, binaryData, 65536)
+			require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+			req := unpacked.GetBody().GetCustomCommandReq()
+			require.NotNil(t, req)
+			if metadata.Expected.From != 0 {
+				assert.Equal(t, metadata.Expected.From, req.GetFrom())
+			}
+			assert.NotEmpty(t, req.GetCommands())
+		})
+	}
+}
+
+// TestCrossLangCompressedEncryptedDataTransformReq verifies compressed+encrypted
+// data_transform_req test cases from C++ can be decrypted and decompressed in Go.
+func TestCrossLangCompressedEncryptedDataTransformReq(t *testing.T) {
+	testCases := []struct {
+		name      string
+		jsonFile  string
+		bytesFile string
+	}{
+		{"ZSTD_AES256_CBC", "enc_compress_zstd_aes_256_cbc_data_transform_req.json", "enc_compress_zstd_aes_256_cbc_data_transform_req.bytes"},
+		{"ZSTD_AES256_GCM", "enc_compress_zstd_aes_256_gcm_data_transform_req.json", "enc_compress_zstd_aes_256_gcm_data_transform_req.bytes"},
+		{"LZ4_AES256_CBC", "enc_compress_lz4_aes_256_cbc_data_transform_req.json", "enc_compress_lz4_aes_256_cbc_data_transform_req.bytes"},
+		{"LZ4_AES256_GCM", "enc_compress_lz4_aes_256_gcm_data_transform_req.json", "enc_compress_lz4_aes_256_gcm_data_transform_req.bytes"},
+		{"SNAPPY_AES256_CBC", "enc_compress_snappy_aes_256_cbc_data_transform_req.json", "enc_compress_snappy_aes_256_cbc_data_transform_req.bytes"},
+		{"SNAPPY_AES256_GCM", "enc_compress_snappy_aes_256_gcm_data_transform_req.json", "enc_compress_snappy_aes_256_gcm_data_transform_req.bytes"},
+		{"ZLIB_AES256_CBC", "enc_compress_zlib_aes_256_cbc_data_transform_req.json", "enc_compress_zlib_aes_256_cbc_data_transform_req.bytes"},
+		{"ZLIB_AES256_GCM", "enc_compress_zlib_aes_256_gcm_data_transform_req.json", "enc_compress_zlib_aes_256_gcm_data_transform_req.bytes"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			metadata := loadCrossLangTestMetadata(t, tc.jsonFile)
+			binaryData := loadCrossLangTestData(t, tc.bytesFile)
+
+			head, _ := parsePackedMessage(t, binaryData)
+			require.NotNil(t, head.GetCompression())
+			assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType), head.GetCompression().GetType())
+			assert.Equal(t, uint64(metadata.CompressionOriginalSize), head.GetCompression().GetOriginalSize())
+			require.NotNil(t, head.GetCrypto())
+			assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE(metadata.CryptoAlgorithmType), head.GetCrypto().GetAlgorithm())
+			assert.NotEqual(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType))
+
+			ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+			setupReadCryptoFromMetadata(t, ctx, metadata)
+			assert.NotEqual(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, ctx.GetCryptoSelectAlgorithm())
+
+			unpacked := types.NewMessage()
+			errCode := ctx.UnpackMessage(unpacked, binaryData, 65536)
+			require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+			req := unpacked.GetBody().GetDataTransformReq()
+			require.NotNil(t, req)
+			if metadata.Expected.From != 0 {
+				assert.Equal(t, metadata.Expected.From, req.GetFrom())
+			}
+			if metadata.Expected.To != 0 {
+				assert.Equal(t, metadata.Expected.To, req.GetTo())
+			}
+			assert.NotEmpty(t, req.GetContent())
+		})
+	}
+}
+
+// TestCrossLangCompressedEncryptedCustomCmd verifies compressed+encrypted
+// custom_command_req test cases from C++ can be decrypted and decompressed in Go.
+func TestCrossLangCompressedEncryptedCustomCmd(t *testing.T) {
+	testCases := []struct {
+		name      string
+		jsonFile  string
+		bytesFile string
+	}{
+		{"ZSTD_AES256_CBC", "enc_compress_zstd_aes_256_cbc_custom_cmd.json", "enc_compress_zstd_aes_256_cbc_custom_cmd.bytes"},
+		{"ZSTD_AES256_GCM", "enc_compress_zstd_aes_256_gcm_custom_cmd.json", "enc_compress_zstd_aes_256_gcm_custom_cmd.bytes"},
+		{"LZ4_AES256_CBC", "enc_compress_lz4_aes_256_cbc_custom_cmd.json", "enc_compress_lz4_aes_256_cbc_custom_cmd.bytes"},
+		{"LZ4_AES256_GCM", "enc_compress_lz4_aes_256_gcm_custom_cmd.json", "enc_compress_lz4_aes_256_gcm_custom_cmd.bytes"},
+		{"SNAPPY_AES256_CBC", "enc_compress_snappy_aes_256_cbc_custom_cmd.json", "enc_compress_snappy_aes_256_cbc_custom_cmd.bytes"},
+		{"SNAPPY_AES256_GCM", "enc_compress_snappy_aes_256_gcm_custom_cmd.json", "enc_compress_snappy_aes_256_gcm_custom_cmd.bytes"},
+		{"ZLIB_AES256_CBC", "enc_compress_zlib_aes_256_cbc_custom_cmd.json", "enc_compress_zlib_aes_256_cbc_custom_cmd.bytes"},
+		{"ZLIB_AES256_GCM", "enc_compress_zlib_aes_256_gcm_custom_cmd.json", "enc_compress_zlib_aes_256_gcm_custom_cmd.bytes"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			metadata := loadCrossLangTestMetadata(t, tc.jsonFile)
+			binaryData := loadCrossLangTestData(t, tc.bytesFile)
+
+			head, _ := parsePackedMessage(t, binaryData)
+			require.NotNil(t, head.GetCompression())
+			assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType), head.GetCompression().GetType())
+			assert.Equal(t, uint64(metadata.CompressionOriginalSize), head.GetCompression().GetOriginalSize())
+			require.NotNil(t, head.GetCrypto())
+			assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE(metadata.CryptoAlgorithmType), head.GetCrypto().GetAlgorithm())
+			assert.NotEqual(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE(metadata.CompressionAlgorithmType))
+
+			ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+			setupReadCryptoFromMetadata(t, ctx, metadata)
+			assert.NotEqual(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, ctx.GetCryptoSelectAlgorithm())
+
+			unpacked := types.NewMessage()
+			errCode := ctx.UnpackMessage(unpacked, binaryData, 65536)
+			require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+			req := unpacked.GetBody().GetCustomCommandReq()
+			require.NotNil(t, req)
+			if metadata.Expected.From != 0 {
+				assert.Equal(t, metadata.Expected.From, req.GetFrom())
+			}
+			assert.NotEmpty(t, req.GetCommands())
 		})
 	}
 }
@@ -1682,9 +2060,6 @@ func TestCrossLangNoEncryptionDataFiles(t *testing.T) {
 		{"custom_command_rsp", "no_enc_custom_command_rsp.json", "no_enc_custom_command_rsp.bytes", "custom_command_rsp"},
 		{"node_register_req", "no_enc_node_register_req.json", "no_enc_node_register_req.bytes", "node_register_req"},
 		{"node_register_rsp", "no_enc_node_register_rsp.json", "no_enc_node_register_rsp.bytes", "node_register_rsp"},
-		{"node_sync_req", "no_enc_node_sync_req.json", "no_enc_node_sync_req.bytes", "node_sync_req"},
-		{"node_sync_rsp", "no_enc_node_sync_rsp.json", "no_enc_node_sync_rsp.bytes", "node_sync_rsp"},
-		{"node_connect_sync", "no_enc_node_connect_sync.json", "no_enc_node_connect_sync.bytes", "node_connect_sync"},
 		{"data_transform_binary_content", "no_enc_data_transform_binary_content.json", "no_enc_data_transform_binary_content.bytes", "data_transform_req"},
 		{"data_transform_large_content", "no_enc_data_transform_large_content.json", "no_enc_data_transform_large_content.bytes", "data_transform_req"},
 		{"data_transform_utf8_content", "no_enc_data_transform_utf8_content.json", "no_enc_data_transform_utf8_content.bytes", "data_transform_req"},
@@ -1712,6 +2087,27 @@ func TestCrossLangNoEncryptionDataFiles(t *testing.T) {
 			expectedBinary, err := hex.DecodeString(metadata.PackedHex)
 			require.NoError(t, err)
 			assert.Equal(t, expectedBinary, binaryData, "Binary data should match packed_hex")
+
+			// Verify data_transform_rsp body when applicable
+			if tc.bodyType == "data_transform_rsp" {
+				head, bodyBytes := parsePackedMessage(t, binaryData)
+				assert.Nil(t, head.GetCrypto())
+				body := &protocol.MessageBody{}
+				err = proto.Unmarshal(bodyBytes, body)
+				require.NoError(t, err)
+				rsp := body.GetDataTransformRsp()
+				require.NotNil(t, rsp)
+				assert.Equal(t, metadata.Expected.From, rsp.GetFrom())
+				assert.Equal(t, metadata.Expected.To, rsp.GetTo())
+				assert.Equal(t, metadata.Expected.Flags, rsp.GetFlags())
+				if metadata.Expected.Content != "" {
+					assert.Equal(t, []byte(metadata.Expected.Content), rsp.GetContent())
+				} else if metadata.Expected.ContentHex != "" {
+					contentHex, decodeErr := hex.DecodeString(metadata.Expected.ContentHex)
+					require.NoError(t, decodeErr)
+					assert.Equal(t, contentHex, rsp.GetContent())
+				}
+			}
 		})
 	}
 }
@@ -1748,18 +2144,18 @@ func TestCrossLangCryptoSessionSetKeyWithAllAlgorithms(t *testing.T) {
 
 	testCases := []struct {
 		name      string
-		algorithm CryptoAlgorithmType
+		algorithm protocol.ATBUS_CRYPTO_ALGORITHM_TYPE
 		key       []byte
 		iv        []byte
 	}{
-		{"AES-128-CBC", CryptoAlgorithmAES128CBC, testKey128, testIV16},
-		{"AES-192-CBC", CryptoAlgorithmAES192CBC, testKey192, testIV16},
-		{"AES-256-CBC", CryptoAlgorithmAES256CBC, testKey256, testIV16},
-		{"AES-128-GCM", CryptoAlgorithmAES128GCM, testKey128, testIV12},
-		{"AES-192-GCM", CryptoAlgorithmAES192GCM, testKey192, testIV12},
-		{"AES-256-GCM", CryptoAlgorithmAES256GCM, testKey256, testIV12},
-		{"ChaCha20-Poly1305", CryptoAlgorithmChacha20Poly1305, testKey256, testIV12},
-		{"XChaCha20-Poly1305", CryptoAlgorithmXChacha20Poly1305, testKey256, testIV24},
+		{"AES-128-CBC", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_CBC, testKey128, testIV16},
+		{"AES-192-CBC", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_CBC, testKey192, testIV16},
+		{"AES-256-CBC", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_CBC, testKey256, testIV16},
+		{"AES-128-GCM", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_128_GCM, testKey128, testIV12},
+		{"AES-192-GCM", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_192_GCM, testKey192, testIV12},
+		{"AES-256-GCM", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, testKey256, testIV12},
+		{"ChaCha20-Poly1305", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, testKey256, testIV12},
+		{"XChaCha20-Poly1305", protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_XCHACHA20_POLY1305_IETF, testKey256, testIV24},
 	}
 
 	for _, tc := range testCases {
@@ -1768,17 +2164,17 @@ func TestCrossLangCryptoSessionSetKeyWithAllAlgorithms(t *testing.T) {
 
 			// Adjust key size if needed
 			key := tc.key
-			if len(key) < tc.algorithm.KeySize() {
+			if len(key) < cryptoAlgorithmKeySize(tc.algorithm) {
 				t.Skipf("Test key too short for %s", tc.name)
 			}
-			key = key[:tc.algorithm.KeySize()]
+			key = key[:cryptoAlgorithmKeySize(tc.algorithm)]
 
 			// Adjust IV size if needed
 			iv := tc.iv
-			if len(iv) < tc.algorithm.IVSize() {
+			if len(iv) < cryptoAlgorithmIVSize(tc.algorithm) {
 				t.Skipf("Test IV too short for %s", tc.name)
 			}
-			iv = iv[:tc.algorithm.IVSize()]
+			iv = iv[:cryptoAlgorithmIVSize(tc.algorithm)]
 
 			err := session.SetKey(key, iv, tc.algorithm)
 			require.NoError(t, err, "SetKey should succeed for %s", tc.name)
@@ -1838,3 +2234,505 @@ func TestCrossLangTestDataIntegrity(t *testing.T) {
 
 	t.Logf("Verified %d test files from index.json", len(index.TestFiles))
 }
+
+// ============================================================================
+// New Interface Method Tests
+// These tests verify the newly implemented interface methods that match
+// the C++ atbus::connection_context behavior.
+// ============================================================================
+
+func TestConnectionContextGetHandshakeStartTime(t *testing.T) {
+	// Test: Verify handshake start time is set correctly
+	t.Run("BeforeHandshake_ZeroTime", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act
+		startTime := ctx.GetHandshakeStartTime()
+
+		// Assert - Before handshake, time should be zero
+		assert.True(t, startTime.IsZero())
+	})
+
+	t.Run("AfterHandshakeGenerateSelfKey_TimeSet", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		beforeTime := time.Now()
+
+		// Act
+		errCode := ctx.HandshakeGenerateSelfKey(0)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		startTime := ctx.GetHandshakeStartTime()
+		assert.False(t, startTime.IsZero())
+		assert.True(t, startTime.After(beforeTime) || startTime.Equal(beforeTime))
+		assert.True(t, startTime.Before(time.Now()) || startTime.Equal(time.Now()))
+	})
+}
+
+func TestConnectionContextGetCryptoKeyExchangeAlgorithm(t *testing.T) {
+	// Test: Verify crypto key exchange algorithm is returned correctly
+	t.Run("DefaultKeyExchange", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act - before generating keys, it returns NONE
+		keyExchange := ctx.GetCryptoKeyExchangeAlgorithm()
+
+		// Assert
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_NONE, keyExchange)
+	})
+
+	t.Run("AfterGenerateKey_ReturnsConfigured", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetSupportedKeyExchange(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act
+		errCode := ctx.HandshakeGenerateSelfKey(0)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		keyExchange := ctx.GetCryptoKeyExchangeAlgorithm()
+
+		// Assert
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519, keyExchange)
+	})
+}
+
+func TestConnectionContextGetCryptoSelectKdfType(t *testing.T) {
+	// Test: Verify KDF type is returned correctly
+	// Arrange
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+	// Act
+	kdfType := ctx.GetCryptoSelectKdfType()
+
+	// Assert - Default should be HKDF-SHA256
+	assert.Equal(t, protocol.ATBUS_CRYPTO_KDF_TYPE_ATBUS_CRYPTO_KDF_HKDF_SHA256, kdfType)
+}
+
+func TestConnectionContextGetCryptoSelectAlgorithm(t *testing.T) {
+	// Test: Verify crypto algorithm is returned correctly
+	t.Run("BeforeSetup_ReturnsNone", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act
+		algorithm := ctx.GetCryptoSelectAlgorithm()
+
+		// Assert
+		assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, algorithm)
+	})
+
+	t.Run("AfterSetupCryptoWithKey_ReturnsConfigured", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		key := make([]byte, 32)
+		iv := make([]byte, 12)
+		_, _ = rand.Read(key)
+		_, _ = rand.Read(iv)
+
+		// Act
+		errCode := ctx.SetupCryptoWithKey(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, key, iv)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		algorithm := ctx.GetCryptoSelectAlgorithm()
+
+		// Assert
+		assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, algorithm)
+	})
+}
+
+func TestConnectionContextGetCompressSelectAlgorithm(t *testing.T) {
+	// Test: Verify compression algorithm is returned correctly
+	t.Run("Default_ReturnsNone", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act
+		algorithm := ctx.GetCompressSelectAlgorithm()
+
+		// Assert
+		assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE, algorithm)
+	})
+
+	t.Run("AfterNegotiate_ReturnsNegotiated", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetSupportedCompressionAlgorithms([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
+		})
+
+		// Act
+		err := ctx.NegotiateCompressionWithPeer([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+		})
+		require.NoError(t, err)
+		algorithm := ctx.GetCompressSelectAlgorithm()
+
+		// Assert
+		assert.Equal(t, protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB, algorithm)
+	})
+}
+
+func TestConnectionContextHandshakeGenerateSelfKey(t *testing.T) {
+	// Test: Verify handshake key generation
+	t.Run("ClientMode_PeerSequenceZero", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act
+		errCode := ctx.HandshakeGenerateSelfKey(0)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		assert.NotNil(t, ctx.handshakeCrypto.GetPublicKey())
+	})
+
+	t.Run("ServerMode_WithPeerSequence", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act
+		errCode := ctx.HandshakeGenerateSelfKey(12345)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		assert.NotNil(t, ctx.handshakeCrypto.GetPublicKey())
+	})
+
+	t.Run("WhenClosing_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetClosing(true)
+
+		// Act
+		errCode := ctx.HandshakeGenerateSelfKey(0)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING, errCode)
+	})
+}
+
+func TestConnectionContextHandshakeWriteSelfPublicKey(t *testing.T) {
+	// Test: Verify writing self public key to handshake data
+	t.Run("Success", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		errCode := ctx.HandshakeGenerateSelfKey(0)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+		selfPubKey := &protocol.CryptoHandshakeData{}
+		supportedAlgorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		}
+
+		// Act
+		errCode = ctx.HandshakeWriteSelfPublicKey(selfPubKey, supportedAlgorithms)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		assert.NotEmpty(t, selfPubKey.GetPublicKey())
+		assert.Equal(t, protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519, selfPubKey.GetType())
+		assert.Equal(t, supportedAlgorithms, selfPubKey.GetAlgorithms())
+	})
+
+	t.Run("NilSelfPubKey_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		errCode := ctx.HandshakeGenerateSelfKey(0)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+		// Act
+		errCode = ctx.HandshakeWriteSelfPublicKey(nil, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_PARAMS, errCode)
+	})
+
+	t.Run("BeforeKeyGeneration_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		selfPubKey := &protocol.CryptoHandshakeData{}
+
+		// Act
+		errCode := ctx.HandshakeWriteSelfPublicKey(selfPubKey, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_KEY_PAIR, errCode)
+	})
+
+	t.Run("WhenClosing_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetClosing(true)
+		selfPubKey := &protocol.CryptoHandshakeData{}
+
+		// Act
+		errCode := ctx.HandshakeWriteSelfPublicKey(selfPubKey, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING, errCode)
+	})
+}
+
+func TestConnectionContextHandshakeReadPeerKey(t *testing.T) {
+	// Test: Verify full handshake flow with read peer key
+	t.Run("FullHandshake", func(t *testing.T) {
+		// Arrange - Two contexts simulating client and server
+		client := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		server := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Generate keys on both sides
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, client.HandshakeGenerateSelfKey(0))
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, server.HandshakeGenerateSelfKey(123))
+
+		// Prepare handshake data
+		clientPubKey := &protocol.CryptoHandshakeData{}
+		serverPubKey := &protocol.CryptoHandshakeData{}
+		supportedAlgorithms := []protocol.ATBUS_CRYPTO_ALGORITHM_TYPE{
+			protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM,
+		}
+
+		// Write public keys
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, client.HandshakeWriteSelfPublicKey(clientPubKey, supportedAlgorithms))
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, server.HandshakeWriteSelfPublicKey(serverPubKey, supportedAlgorithms))
+
+		// Act - Read peer keys
+		clientErrCode := client.HandshakeReadPeerKey(serverPubKey, supportedAlgorithms)
+		serverErrCode := server.HandshakeReadPeerKey(clientPubKey, supportedAlgorithms)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, clientErrCode)
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, serverErrCode)
+		assert.True(t, client.IsHandshakeDone())
+		assert.True(t, server.IsHandshakeDone())
+
+		// Verify both have the same crypto algorithm
+		assert.Equal(t, client.GetCryptoSelectAlgorithm(), server.GetCryptoSelectAlgorithm())
+	})
+
+	t.Run("NilPeerPubKey_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, ctx.HandshakeGenerateSelfKey(0))
+
+		// Act
+		errCode := ctx.HandshakeReadPeerKey(nil, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_PARAMS, errCode)
+	})
+
+	t.Run("KeyExchangeMismatch_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetSupportedKeyExchange(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, ctx.HandshakeGenerateSelfKey(0))
+
+		peerPubKey := &protocol.CryptoHandshakeData{
+			Type: protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_SECP256R1,
+		}
+
+		// Act
+		errCode := ctx.HandshakeReadPeerKey(peerPubKey, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_READ_PEER_KEY, errCode)
+	})
+
+	t.Run("WhenClosing_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetClosing(true)
+		peerPubKey := &protocol.CryptoHandshakeData{}
+
+		// Act
+		errCode := ctx.HandshakeReadPeerKey(peerPubKey, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING, errCode)
+	})
+}
+
+func TestConnectionContextUpdateCompressionAlgorithm(t *testing.T) {
+	// Test: Verify compression algorithm update
+	t.Run("UpdateAlgorithms", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		newAlgorithms := []protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
+		}
+
+		// Act
+		errCode := ctx.UpdateCompressionAlgorithm(newAlgorithms)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		assert.Equal(t, newAlgorithms, ctx.GetSupportedCompressionAlgorithms())
+	})
+
+	t.Run("WhenClosing_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetClosing(true)
+
+		// Act
+		errCode := ctx.UpdateCompressionAlgorithm(nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING, errCode)
+	})
+}
+
+func TestConnectionContextIsCompressionAlgorithmSupported(t *testing.T) {
+	// Test: Verify compression algorithm support check
+	t.Run("SupportedAlgorithm", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetSupportedCompressionAlgorithms([]protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE{
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB,
+			protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE,
+		})
+
+		// Act & Assert
+		assert.True(t, ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB))
+		assert.True(t, ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_NONE))
+	})
+
+	t.Run("AdapterSupportedAlgorithms", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+
+		// Act & Assert
+		assert.True(t, ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZSTD))
+		assert.True(t, ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_LZ4))
+		assert.True(t, ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_SNAPPY))
+		assert.True(t, ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB))
+	})
+}
+
+func TestConnectionContextSetupCryptoWithKey(t *testing.T) {
+	// Test: Verify direct crypto setup with key
+	t.Run("AES256GCM", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		key := make([]byte, 32)
+		iv := make([]byte, 12)
+		_, _ = rand.Read(key)
+		_, _ = rand.Read(iv)
+
+		// Act
+		errCode := ctx.SetupCryptoWithKey(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, key, iv)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		assert.True(t, ctx.IsHandshakeDone())
+		assert.Equal(t, protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, ctx.GetCryptoSelectAlgorithm())
+	})
+
+	t.Run("ChaCha20Poly1305", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		key := make([]byte, 32)
+		iv := make([]byte, 12)
+		_, _ = rand.Read(key)
+		_, _ = rand.Read(iv)
+
+		// Act
+		errCode := ctx.SetupCryptoWithKey(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_CHACHA20_POLY1305_IETF, key, iv)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+		assert.True(t, ctx.IsHandshakeDone())
+	})
+
+	t.Run("InvalidKeySize_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		shortKey := make([]byte, 8) // Too short for AES-256-GCM
+		iv := make([]byte, 12)
+
+		// Act
+		errCode := ctx.SetupCryptoWithKey(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, shortKey, iv)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CRYPTO_HANDSHAKE_MAKE_SECRET, errCode)
+	})
+
+	t.Run("WhenClosing_ReturnsError", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		ctx.SetClosing(true)
+
+		// Act
+		errCode := ctx.SetupCryptoWithKey(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_NONE, nil, nil)
+
+		// Assert
+		assert.Equal(t, error_code.EN_ATBUS_ERR_CHANNEL_CLOSING, errCode)
+	})
+
+	t.Run("PackUnpackWithSetupKey", func(t *testing.T) {
+		// Arrange
+		ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+		key := make([]byte, 32)
+		iv := make([]byte, 12)
+		_, _ = rand.Read(key)
+		_, _ = rand.Read(iv)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS,
+			ctx.SetupCryptoWithKey(protocol.ATBUS_CRYPTO_ALGORITHM_TYPE_ATBUS_CRYPTO_ALGORITHM_AES_256_GCM, key, iv))
+
+		testData := []byte("Test data for encryption with SetupCryptoWithKey")
+		msg := types.NewMessage()
+		msg.MutableHead().SourceBusId = 12345
+		msg.MutableHead().Sequence = 1
+		msg.MutableBody().MessageType = &protocol.MessageBody_DataTransformReq{
+			DataTransformReq: &protocol.ForwardData{
+				Content: testData,
+			},
+		}
+
+		// Act
+		packed, errCode := ctx.PackMessage(msg, 3, 65536)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+		unpacked := types.NewMessage()
+		errCode = ctx.UnpackMessage(unpacked, packed.UsedSpan(), 65536)
+		require.Equal(t, error_code.EN_ATBUS_ERR_SUCCESS, errCode)
+
+		// Assert
+		assert.Equal(t, testData, unpacked.GetBody().GetDataTransformReq().GetContent())
+	})
+}
+
+func TestConnectionContextConcurrentHandshake(t *testing.T) {
+	// Test: Verify concurrent safety during handshake operations
+	// Arrange
+	ctx := NewConnectionContext(protocol.ATBUS_CRYPTO_KEY_EXCHANGE_TYPE_ATBUS_CRYPTO_KEY_EXCHANGE_X25519)
+	var wg sync.WaitGroup
+	numGoroutines := 10
+
+	// Act - Multiple goroutines trying to get handshake info concurrently
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = ctx.GetHandshakeStartTime()
+			_ = ctx.GetCryptoKeyExchangeAlgorithm()
+			_ = ctx.GetCryptoSelectKdfType()
+			_ = ctx.GetCryptoSelectAlgorithm()
+			_ = ctx.GetCompressSelectAlgorithm()
+			_ = ctx.IsCompressionAlgorithmSupported(protocol.ATBUS_COMPRESSION_ALGORITHM_TYPE_ATBUS_COMPRESSION_ALGORITHM_ZLIB)
+		}()
+	}
+	wg.Wait()
+
+	// Assert - No race conditions or panics
+}
+
+// Uncovered scenarios:
+// - Compression raw-level overrides: not exposed in current Go connection context API.
+// - Corrupted compressed payloads for each algorithm: covered indirectly via invalid-size checks, but
+//   not exhaustively enumerated per algorithm to avoid excessive test data.
+// - XXTEA compression+encryption: XXTEA encryption is not implemented in Go yet.

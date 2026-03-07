@@ -37,6 +37,11 @@ func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup, logger *log.L
 		return
 	}
 
+	err = InitExcelMailConfigIndex(group)
+	if err != nil {
+		return
+	}
+
 	return
 }
 

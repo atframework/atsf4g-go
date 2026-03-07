@@ -1,0 +1,9 @@
+title: ATSF4G-GO 文档
+nav:
+  - 首页: index.md
+  - 快速开始: getting-started
+  - 架构设计: architecture
+  - 可观测性: observability
+  - 常见问题: faq.md
+  - 更新日志: changelog.md
+  - 贡献指南: contributing.md

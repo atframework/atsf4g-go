@@ -28,6 +28,7 @@
     <tree id="quest" name="任务"></tree>
     <tree id="unlock" name="模块解锁"></tree>
     <tree id="mall" name="商城"></tree>
+    <tree id="mail" name="邮件"></tree>
   </category>
 
   <list>
@@ -109,8 +110,14 @@
     </item>
     <item name="商城商品表" cat="mall" class="client server">
       <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Mall.xlsx|商城商品表|3,1</scheme>
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Mall.xlsx|商城商品表-兑换|3,1</scheme>
       <scheme name="ProtoName" desc="协议名">proy.config.ExcelMallProduct</scheme>
       <scheme name="OutputFile" desc="输出文件名">mall_product.bytes</scheme>
+    </item>
+    <item name="邮件模板" cat="mail" class="client server">
+      <scheme name="DataSource" desc="数据源(文件名|表名|数据起始行号,数据起始列号)">Mail.xlsx|邮件模板表|3,1</scheme>
+      <scheme name="ProtoName" desc="协议名">proy.config.ExcelMailTemplate</scheme>
+      <scheme name="OutputFile" desc="输出文件名">mail_template.bytes</scheme>
     </item>
   </list>
 </root>

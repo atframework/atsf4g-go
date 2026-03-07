@@ -100,6 +100,12 @@ func (m *UserModuleUnlockManager) LoginInit(ctx cd.RpcContext) {
 
 func (m *UserModuleUnlockManager) Rebuild(ctx cd.RpcContext) {
 
+	if m.unlockResourceVersion == config.GetConfigManager().GetCurrentConfigGroup().GetExcelModuleUnlockTypeHashCodeVersion() {
+		return
+	}
+
+	m.unlockResourceVersion = config.GetConfigManager().GetCurrentConfigGroup().GetExcelModuleUnlockTypeHashCodeVersion()
+
 	rows := config.GetConfigManager().GetCurrentConfigGroup().GetExcelModuleUnlockTypeAllOfModuleId()
 	if rows == nil {
 		return
@@ -122,6 +128,16 @@ func (m *UserModuleUnlockManager) Rebuild(ctx cd.RpcContext) {
 		}
 		if unlocked {
 			m.moduleUnlockInner(ctx, row.GetModuleId())
+		} else {
+			moduleId := row.GetModuleId()
+			mod := m.idToModule[moduleId]
+			if mod == nil {
+				mod = &public_protocol_pbdesc.DModuleUnlocked{
+					ModuleId:        moduleId,
+					UnlockTimepoint: 0,
+				}
+				m.idToModule[moduleId] = mod
+			}
 		}
 	}
 }
@@ -231,6 +247,12 @@ func (m *UserModuleUnlockManager) moduleUnlockInner(ctx cd.RpcContext, moduleId 
 	mod.UnlockTimepoint = ctx.GetNow().Unix()
 	m.addModuleUnlockDirty(ctx, mod)
 
+	// 触发解锁
+	unlockMgr := data.UserGetModuleManager[logic_unlock.UserUnlockManager](m.GetOwner())
+	if unlockMgr != nil {
+		unlockMgr.OnUserUnlockDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_ModuleUnlocked, int64(moduleId))
+	}
+
 	// 触发该moduleId的解锁回调
 	if callback, exists := m.unlockCallbacks[moduleId]; exists && callback != nil {
 		callback(ctx)
@@ -282,4 +304,70 @@ func (m *UserModuleUnlockManager) registerModuleUnlockDirtyHandle() {
 			m.clearModuleUnlockDirtyData(ctx)
 		},
 	)
+}
+
+func (m *UserModuleUnlockManager) ReceviedReward(ctx cd.RpcContext, moduleId int32) (result cd.RpcResult, rewards []*public_protocol_common.DItemBasic) {
+	mod := m.idToModule[moduleId]
+	if mod == nil {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MODULE_NOT_FOUND), nil
+	}
+
+	if mod.GetUnlockTimepoint() <= 0 {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MODULE_NOT_UNLOCKED), nil
+	}
+
+	if mod.GetIsReceived() == true {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MODULE_REWARD_ALREADY_RECEIVED), nil
+	}
+	rewardCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelModuleUnlockTypeByModuleId(moduleId)
+	if rewardCfg == nil || len(rewardCfg.GetRewards()) == 0 {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MODULE_REWARD_NOT_FOUND), nil
+	}
+
+	rewardItemInsts, result := m.GetOwner().GenerateMultipleItemInstancesFromCfgOffset(ctx, rewardCfg.GetRewards(), false)
+	if result.IsError() {
+		ctx.LogError("generate module reward items failed",
+			"module_id", moduleId,
+			"error", result.GetStandardError(),
+			"response_code", result.GetResponseCode(),
+		)
+		return result, nil
+	}
+
+	addGuards, result := m.GetOwner().CheckAddItem(ctx, rewardItemInsts)
+	if result.IsError() {
+		ctx.LogError("check add module reward failed",
+			"module_id", moduleId,
+			"error", result.GetStandardError(),
+			"response_code", result.GetResponseCode(),
+		)
+		return result, nil
+	}
+
+	itemFlowReason := &data.ItemFlowReason{
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_MODULE_UNLOCK),
+		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_MODULE_REWARD),
+		Parameter:   int64(moduleId),
+	}
+
+	mod.IsReceived = true
+	m.idToModule[moduleId] = mod
+	m.addModuleUnlockDirty(ctx, mod)
+
+	result = m.GetOwner().AddItem(ctx, addGuards, itemFlowReason)
+	if !result.IsOK() {
+		ctx.LogError("add module reward items failed",
+			"module_id", moduleId,
+			"error", result.GetStandardError(),
+			"response_code", result.GetResponseCode(),
+		)
+		return result, nil
+	}
+
+	rewardBasic := make([]*public_protocol_common.DItemBasic, 0, len(addGuards))
+	for _, addGuard := range addGuards {
+		rewardBasic = append(rewardBasic, addGuard.Item.GetItemBasic())
+	}
+
+	return cd.CreateRpcResultOk(), rewardBasic
 }

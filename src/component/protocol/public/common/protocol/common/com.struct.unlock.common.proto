@@ -39,6 +39,10 @@ message DFunctionUnlockCondition {
     int64 quest_finish = 4 [(org.xresloader.field_alias) = "任务完成", (org.xresloader.validator) = "ExcelQuest_id"];
     int64 quest_received = 5 [(org.xresloader.field_alias) = "任务领取", (org.xresloader.validator) = "ExcelQuest_id"];
     bool activate = 6 [(org.xresloader.field_alias) = "主动激活"];
+    int32 item_has = 7
+        [(org.xresloader.field_alias) = "拥有道具", (org.xresloader.validator) = "ExcelItem_ALL_item_id"];
+    int32 module_unlocked = 8
+        [(org.xresloader.field_alias) = "模块解锁", (org.xresloader.validator) = "ExcelModule_id"];
   }
 }
 

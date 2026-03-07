@@ -30,6 +30,7 @@ message ExcelMall {
   string name = 2;
   repeated int32 mall_sheet_ids = 3 [(org.xresloader.validator) = "ExcelMallSheet_mall_sheet_id"];
   DConditionBasicLimit unlock_condition = 4;
+  bool is_show = 5 [(org.xresloader.field_tag) = "client_only"];
 }
 
 message ExcelMallSheet {
@@ -43,8 +44,11 @@ message ExcelMallSheet {
 
   int32 mall_sheet_id = 1 [(org.xresloader.field_unique_tag) = "mall_sheet_id"];
   string name = 2;
+  repeated int32 cost_id = 3;
+  string nochecked_tab_icon = 4;
+  string checked_tab_icon = 5;
+  string mallbg_icon = 6;
 }
-
 message ExcelMallProduct {
   option (xrescode.loader) = {
     file_path: "mall_product.bytes"
@@ -66,6 +70,7 @@ message ExcelMallProduct {
   repeated DItemOffset product_items = 6;
   repeated DItemOffset purchase_cost = 7;
 
+  DConditionBasicLimit visible_condition = 10;
   DConditionBasicLimit unlock_condition = 11;
   DConditionBasicLimit purchase_condition = 12;
   // 总次数限制

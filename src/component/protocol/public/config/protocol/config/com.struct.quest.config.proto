@@ -17,6 +17,8 @@ import "protocol/common/com.struct.quest.common.proto";
 import "protocol/common/com.struct.condition.common.proto";
 import "protocol/common/com.struct.unlock.common.proto";
 import "protocol/common/com.struct.redirect.common.proto";
+import "protocol/common/com.struct.base.common.proto";
+import "protocol/common/com.struct.mall.common.proto";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -55,6 +57,8 @@ message ExcelQuestList {
 
   DRedirect redirect = 51;            // 任务重定向
   int32 complete_plot_group_id = 52;  // 任务完成后触发的剧情组ID
+
+  int32 progress_minus = 53;  // 进度减去值
 }
 
 message DQuestSpecificAvailableTimePeriod {
@@ -93,6 +97,8 @@ message DQuestConditionProgress {
     bool player_level_reach = 103 [(org.xresloader.field_alias) = "达到店铺等级"];
     int32 item_has = 105
         [(org.xresloader.field_alias) = "拥有道具", (org.xresloader.validator) = "ExcelItem_ALL_item_id"];
+    int32 purchase_specified_product_accumulative = 134 [(org.xresloader.field_alias) = "购买过指定商品"];
+    EnMallType purchase_specified_mall_accumulative = 135 [(org.xresloader.field_alias) = "购买过指定商城"];
   }
 }
 

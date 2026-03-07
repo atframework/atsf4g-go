@@ -1,6 +1,7 @@
 version: "3"
 includes:
   atframe-utils: ../atframework/atframe-utils-go/Taskfile.yml
+  libatbus-go: ../atframework/libatbus-go/Taskfile.yml
   libatapp-go: ../atframework/libatapp-go/Taskfile.yml
   component: ../src/component/Taskfile.yml
   3rdparty: ../third_party/Taskfile.yml
@@ -206,6 +207,10 @@ tasks:
       - task: 3rdparty:xresloader-gen
         vars:
           PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+      - task: libatbus-go:generate-protocol
+        vars:
+          PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
+          PROJECT_ROOT: "{{.PROJECT_ROOT}}"
       - task: libatapp-go:generate-protocol
         vars:
           PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
