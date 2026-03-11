@@ -32,11 +32,20 @@ func (l *RedisLog) Printf(ctx context.Context, format string, v ...interface{}) 
 	l.app.GetLogger(1).LogInner(l.app.GetSysNow(), log.GetCaller(1), ctx, slog.LevelInfo, fmt.Sprintf(format, v...))
 }
 
+type RedisClientWrapper interface {
+	redis.HashCmdable
+	redis.ScriptingFunctionsCmdable
+	redis.SortedSetCmdable
+	redis.GenericCmdable
+	Close() error
+	ScriptLoad(ctx context.Context, script string) *redis.StringCmd
+}
+
 type RedisMessageDispatcher struct {
 	DispatcherBase
 	log RedisLog
 
-	redisInstance *redis.ClusterClient
+	redisInstance RedisClientWrapper
 	sequence      atomic.Uint64
 	recordPrefix  string
 	casLuaSHA     string
@@ -171,11 +180,21 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 	d.DispatcherBase.GetLogger().LogInfo("Redis Prefix", "Prefix", d.recordPrefix)
 
 	redis.SetLogger(&d.log)
-	d.redisInstance = redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:    redisCfg.GetAddrs(),
-		Password: redisCfg.GetPassword(),
-		PoolSize: int(redisCfg.GetPoolSize()),
-	})
+	if redisCfg.GetClusterMode() {
+		d.GetLogger().LogInfo("Init Redis Cluster Client")
+		d.redisInstance = redis.NewClusterClient(&redis.ClusterOptions{
+			Addrs:    redisCfg.GetAddrs(),
+			Password: redisCfg.GetPassword(),
+			PoolSize: int(redisCfg.GetPoolSize()),
+		})
+	} else {
+		d.GetLogger().LogInfo("Init Redis Client")
+		d.redisInstance = redis.NewClient(&redis.Options{
+			Addr:     redisCfg.GetAddrs()[0],
+			Password: redisCfg.GetPassword(),
+			PoolSize: int(redisCfg.GetPoolSize()),
+		})
+	}
 
 	if d.redisInstance == nil {
 		d.DispatcherBase.GetLogger().LogError("Create Redis Cluster Client Failed")
@@ -208,7 +227,7 @@ func (d *RedisMessageDispatcher) Cleanup() {
 	d.redisInstance = nil
 }
 
-func (d *RedisMessageDispatcher) GetRedisInstance() *redis.ClusterClient {
+func (d *RedisMessageDispatcher) GetRedisInstance() RedisClientWrapper {
 	if d == nil {
 		return nil
 	}

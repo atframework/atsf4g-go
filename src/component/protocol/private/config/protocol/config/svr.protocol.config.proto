@@ -41,6 +41,7 @@ message logic_redis_cfg {
   int32 pool_size = 3 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "100" min_value: "50" }];
   string record_prefix = 4;
   bool random_prefix = 5;
+  bool cluster_mode = 6 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "true" }];
 }
 
 message webserver_cfg {

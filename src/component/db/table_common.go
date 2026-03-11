@@ -8,7 +8,6 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
-	"github.com/redis/go-redis/v9"
 )
 
 // ============================================================================
@@ -32,7 +31,7 @@ const (
 )
 
 func TableDel(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 ) (retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -100,7 +99,7 @@ func TableDel(ctx cd.AwaitableContext, index string, tableName string,
 // TableExpire 对指定 key 设置过期时间（秒级 TTL）
 // condition: 条件选项 NX/XX/GT/LT
 func TableExpire(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	expiration time.Duration,
 	condition ExpireConditionOption,
 ) (success bool, retResult cd.RpcResult) {
@@ -193,7 +192,7 @@ func TableExpire(ctx cd.AwaitableContext, index string, tableName string,
 
 // TableExpireAt 对指定 key 设置过期时间点（绝对时间戳）
 func TableExpireAt(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	expireAt time.Time,
 ) (success bool, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()

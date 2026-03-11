@@ -58,7 +58,7 @@ type ZAddIncrResult struct {
 // existence: NX/XX 选项
 // comparison: GT/LT 选项
 func SortedSetZAdd(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	members []SortedSetMember,
 	existence ZAddExistenceOption,
 	comparison ZAddComparisonOption,
@@ -161,7 +161,7 @@ func SortedSetZAdd(ctx cd.AwaitableContext, index string, tableName string,
 
 // SortedSetZAddIncr 向有序集合执行 ZADD INCR 操作（仅支持单个成员）
 func SortedSetZAddIncr(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	member SortedSetMember,
 ) (result ZAddIncrResult, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
@@ -257,7 +257,7 @@ type SortedSetRangeMember struct {
 // SortedSetZRangeByRank 使用默认模式（BYRANK）查询有序集合，固定带 WITHSCORES
 // start/stop 为 rank 范围（0-based，支持负数）
 func SortedSetZRangeByRank(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	start int64, stop int64, rev bool,
 ) (members []SortedSetRangeMember, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
@@ -384,7 +384,7 @@ func (b SortedSetScoreBound) String() string {
 // offset 跳过多少
 // count 返回多少
 func SortedSetZRangeByScore(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	min SortedSetScoreBound, max SortedSetScoreBound, offset int64, count int64, rev bool,
 ) (members []SortedSetRangeMember, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
@@ -489,7 +489,7 @@ type SortedSetZRankResult struct {
 // SortedSetZRank 获取成员的排名和分数（ZRANK WITHSCORES）
 // rev=true 时使用 ZREVRANK
 func SortedSetZRank(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	member string, rev bool,
 ) (result SortedSetZRankResult, found bool, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()

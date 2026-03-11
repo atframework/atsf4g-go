@@ -9,12 +9,11 @@ import (
 	cd "github.com/atframework/atsf4g-go/component-dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
-	"github.com/redis/go-redis/v9"
 	"google.golang.org/protobuf/proto"
 )
 
 func HashTableLoadListAll(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper, messageCreate func() proto.Message,
 ) (indexMessage []pu.RedisListIndexMessage, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -118,7 +117,7 @@ func HashTableLoadListAll(ctx cd.AwaitableContext, index string, tableName strin
 }
 
 func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, messageCreate func() proto.Message, listIndex []uint64,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper, messageCreate func() proto.Message, listIndex []uint64,
 ) (indexMessage []pu.RedisListIndexMessage, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -232,7 +231,7 @@ func HashTableLoadListIndex(ctx cd.AwaitableContext, index string, tableName str
 }
 
 func HashTableDelListIndex(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient, listIndex []uint64,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper, listIndex []uint64,
 ) (retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -309,7 +308,7 @@ func HashTableDelListIndex(ctx cd.AwaitableContext, index string, tableName stri
 }
 
 func HashTableUpdateList(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	table proto.Message, listIndex uint64) (retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
@@ -376,7 +375,7 @@ func HashTableUpdateList(ctx cd.AwaitableContext, index string, tableName string
 }
 
 func HashTableAddList(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance *redis.ClusterClient,
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
 	table proto.Message, maxListLen uint32,
 ) (retResult cd.RpcResult, newListIndex uint64) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
