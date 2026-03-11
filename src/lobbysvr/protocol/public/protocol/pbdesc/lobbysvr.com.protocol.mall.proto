@@ -22,10 +22,7 @@ message DMallPurchaseData {
 }
 
 message CSMallPurchaseReq {
-  int32 product_id = 1;
-  int32 purchase_priority = 2;
-  repeated DItemBasic expect_cost_items = 3;
-  repeated DMallPurchaseData reqs = 11;
+  repeated DMallPurchaseData reqs = 1;
 }
 
 message SCMallPurchaseRsp {
