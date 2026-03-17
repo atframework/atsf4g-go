@@ -18,9 +18,6 @@ vars:
     - src/component/router
     - src/component/service_shared_collection
     - src/component/user_controller
-    - atframework/libatapp-go
-    - atframework/libatbus-go
-    - atframework/atframe-utils-go
 
 tasks:
   install-golangci-lint:

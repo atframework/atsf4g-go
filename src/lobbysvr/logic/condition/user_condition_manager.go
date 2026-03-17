@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 

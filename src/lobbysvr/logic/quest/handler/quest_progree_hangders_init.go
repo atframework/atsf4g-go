@@ -1,9 +1,9 @@
 package lobbysvr_logic_quest_handler
 
 import (
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 )
 

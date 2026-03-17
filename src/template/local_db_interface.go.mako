@@ -15,9 +15,9 @@ import (
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
     "google.golang.org/protobuf/proto"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
 	"github.com/atframework/libatapp-go"
 )

@@ -5,12 +5,12 @@ import (
 	"log/slog"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
-	db "github.com/atframework/atsf4g-go/component-db"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component-router"
+	config "github.com/atframework/atsf4g-go/component/config"
+	db "github.com/atframework/atsf4g-go/component/db"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/component/router"
 	libatapp "github.com/atframework/libatapp-go"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )

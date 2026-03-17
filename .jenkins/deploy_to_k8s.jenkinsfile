@@ -189,6 +189,14 @@ pipeline {
                             {
                               "tag": "text",
                               "text": "版本: ${env.CHART_DIR}\\n区服: ${env.PATH_VALUE}"
+                            },
+                            {
+                              "tag": "at",
+                              "user_id": "ou_2fc27c47ac7121375cbe0c82efd2faee"
+                            },
+                            {
+                              "tag": "at",
+                              "user_id": "ou_2898e1ee15fe08d1138f0b7871d11df2"
                             }
                           ]
                         ]

@@ -15,24 +15,27 @@ type ActorExecutorStatus int8
 const (
 	ActorExecutorStatusFree ActorExecutorStatus = iota // 0
 	ActorExecutorStatusPending
+	ActorExecutorStatusRunning
 )
 
 type ActorExecutor struct {
 	currentRunningAction lu.AtomicInterface[TaskActionImpl]
 	currentRunningLock   sync.Mutex
 
-	actionStatus   ActorExecutorStatus
-	actionLock     sync.Mutex
-	pendingActions list.List
+	actionRunnerCounter uint64
+	actionStatus        ActorExecutorStatus
+	actionLock          sync.Mutex
+	pendingActions      list.List
 
 	Instance log.LogAttr
 }
 
 func CreateActorExecutor(actorInstance log.LogAttr) *ActorExecutor {
 	return &ActorExecutor{
-		actionStatus:   ActorExecutorStatusFree,
-		pendingActions: list.List{},
-		Instance:       actorInstance,
+		actionRunnerCounter: 0,
+		actionStatus:        ActorExecutorStatusFree,
+		pendingActions:      list.List{},
+		Instance:            actorInstance,
 	}
 }
 
@@ -95,6 +98,10 @@ func (actor *ActorExecutor) CheckActorExecutor(ctx RpcContext) bool {
 }
 
 func (actor *ActorExecutor) TryTakeCurrentRunningAction(action TaskActionImpl) bool {
+	if actor == nil {
+		return false
+	}
+
 	if lu.IsNil(action) {
 		return false
 	}

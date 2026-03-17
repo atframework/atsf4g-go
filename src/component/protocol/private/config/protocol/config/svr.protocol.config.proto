@@ -6,7 +6,7 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config";
+option go_package = "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config";
 
 package proy.config;
 
@@ -216,7 +216,8 @@ message logic_excel_cfg {
 
 message logic_mail_cfg {
   // 邮件压缩淘汰时最大相对于发送时间的差值
-  google.protobuf.Duration compact_delivery_time_max_offset = 1 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "30d" }];
+  google.protobuf.Duration compact_delivery_time_max_offset = 1
+      [(atframework.atapp.protocol.CONFIGURE) = { default_value: "30d" }];
 
   // 用户邮件的可用类型
   repeated string user_mail_major_types = 11;
@@ -259,5 +260,28 @@ message logic_section_cfg {
   logic_mail_cfg mail = 113;
 }
 
+message logic_auth_argon2_cfg {
+  uint32 memory = 1
+      [(atframework.atapp.protocol.CONFIGURE) = { default_value: "64KB" min_value: "8KB" size_mode: true }];
+  uint32 iterations = 2 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "3" min_value: "1" }];
+  uint32 parallelism = 3 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "2" min_value: "1" }];
+  uint32 salt_length = 4
+      [(atframework.atapp.protocol.CONFIGURE) = { default_value: "16B" min_value: "8B" size_mode: true }];
+  uint32 key_length = 5
+      [(atframework.atapp.protocol.CONFIGURE) = { default_value: "32B" min_value: "16B" size_mode: true }];
+}
+
+message logic_auth_cfg {
+  bool allow_no_auth = 1;
+  logic_auth_argon2_cfg argon2 = 2;
+  google.protobuf.Duration weak_token_timeout = 3 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "14d" }];
+  uint32 weak_token_max_count = 4 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "10" min_value: "1" }];
+}
+
 message lobby_server_cfg {
+  bool enable_gm = 1;
+  repeated string gm_white_list = 2;
+  bool enable_battle_validation = 11;
+
+  logic_auth_cfg auth = 21;
 }

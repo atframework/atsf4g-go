@@ -9,18 +9,18 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	mail_util "github.com/atframework/atsf4g-go/component/mail"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	global_mail_action "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/action"
 	global_mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/data"
 	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
-	mail_util "github.com/atframework/atsf4g-go/component-mail"
 )
 
 // GlobalMailManager 全局邮件管理器实现
@@ -147,7 +147,7 @@ func (m *GlobalMailManager) TryToStartAsyncJobs() {
 		m.globalMailSyncTask.Store(globalMailSyncTask)
 	}
 
-	m.GetApp().GetDefaultLogger().LogInfo("GlobalMailManager", "try to start async jobs")
+	m.GetApp().GetDefaultLogger().LogInfo("GlobalMailManager try to start async jobs")
 
 	// 启动随机一下下一轮时间，以便错峰负载
 	interval := global_mail_data.EN_CL_MAIL_GLOBAL_JOBS_TASK_INTERVAL

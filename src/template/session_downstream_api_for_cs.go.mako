@@ -20,9 +20,9 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
-	ppe "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	ppe "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 
 	sp "${protocol_go_module}"
 )

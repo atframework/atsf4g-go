@@ -3,9 +3,9 @@ package atframework_component_config
 import (
 	"fmt"
 
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 )
 
 func initExcelMallConfigIndex(group *generate_config.ConfigGroup) error {

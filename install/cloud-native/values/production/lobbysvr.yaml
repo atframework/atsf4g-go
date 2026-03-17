@@ -1,0 +1,50 @@
+image:
+  repository: u8sdk-acr-docker-image-registry.cn-shanghai.cr.aliyuncs.com/u8sdk/project-y
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: latest
+  secrets:
+
+volumeMounts:
+  configMountPath: /etc/projecty/lobbysvr/cfg
+  logMountPath: /data/projecty/lobbysvr/log
+
+vector:
+  enabled: false
+
+persistence:
+  cbs:
+    enabled: true
+    storageClass: alicloud-disk-essd
+    volumes:
+      - name: log
+        storage: 20Gi
+        accessMode: ReadWriteOnce
+
+httproute:
+  enabled: false
+
+ingress:
+  enabled: true
+  class: cilium
+  port: 7001
+  hostname: ingress.example.com
+  addresses_ip: 127.0.0.1
+  parentRefsName: pry-production-lobbysvr
+
+service:
+  type: ClusterIP
+  port: 7001
+  targetPort: 7001
+  protocol: TCP
+
+podSecurityContext:
+  fsGroup: 999
+
+lobbysvr:
+  enable_gm: false
+  gm_white_list:
+    - 2233445
+  enable_battle_validation: false
+  auth:
+    allow_no_auth: false

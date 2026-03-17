@@ -1,7 +1,7 @@
 package atframework_component_config
 
 import (
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
 )
 
 func initExcelUserExpLevelConfigIndex(group *generate_config.ConfigGroup) error {

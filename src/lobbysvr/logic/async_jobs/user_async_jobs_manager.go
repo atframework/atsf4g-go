@@ -4,8 +4,8 @@
 package lobbysvr_logic_async_jobs
 
 import (
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 )
 

@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component-router"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/component/router"
 	libatapp "github.com/atframework/libatapp-go"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 )
 
 type CreateUserCallback func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl

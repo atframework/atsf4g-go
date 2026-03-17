@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 )
 
 const defultQuestIndexRefreshInterval = 7 * 24 * 3600

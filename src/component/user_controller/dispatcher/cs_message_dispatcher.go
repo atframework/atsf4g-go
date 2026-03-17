@@ -9,12 +9,12 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
-	uc_act "github.com/atframework/atsf4g-go/component-user_controller/action"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
+	uc_act "github.com/atframework/atsf4g-go/component/user_controller/action"
 )
 
 type SessionNetworkWebsocketHandle struct {

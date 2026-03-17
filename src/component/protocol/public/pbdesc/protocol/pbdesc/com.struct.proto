@@ -6,8 +6,9 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
+option go_package = "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc";
 
+import "google/protobuf/timestamp.proto";
 import "protocol/pbdesc/com.const.proto";
 
 package proy;
@@ -57,6 +58,32 @@ message DUpdateData {
   int32 result = 1;
   int32 version = 2;
   string url = 3;
+}
+
+message DClientAuthAccessPassword {
+  // password_hash = HEX(SHA256(密码)).tolower()
+  string password_hash = 1;
+
+  // 弱密钥，下次登入可以用这个密钥，每次登入会变
+  string weak_token = 2;
+}
+
+message DClientAuthAccessData {
+  oneof type {
+    DClientAuthAccessPassword password = 1;
+  }
+}
+
+message DClientAuthWeakPassword {
+  // 弱密钥，下次登入可以用这个密钥，每次登入会变
+  string weak_token = 1;
+  google.protobuf.Timestamp expired_timepoint = 2;
+}
+
+message DClientAuthWeakData {
+  oneof type {
+    DClientAuthWeakPassword password = 1;
+  }
 }
 
 // 更新信息

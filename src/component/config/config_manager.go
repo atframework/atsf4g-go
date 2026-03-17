@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -45,11 +45,22 @@ func (configManagerInst *ConfigManager) SetServerConfigureLoadFunc(serverConfigu
 }
 
 func GetServerConfig[T any](configGroup *generate_config.ConfigGroup) T {
+	var zero T
 	if configGroup == nil {
-		var zero T
 		return zero
 	}
-	return configGroup.GetServerConfig().(T)
+
+	raw := configGroup.GetServerConfig()
+	if raw == nil {
+		return zero
+	}
+
+	ret, ok := raw.(T)
+	if !ok {
+		return zero
+	}
+
+	return ret
 }
 
 func (configManagerInst *ConfigManager) GetLogger() *log.Logger {

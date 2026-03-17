@@ -6,18 +6,19 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	private_protocol_common "github.com/atframework/atsf4g-go/component-protocol-private/common/protocol/common"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	private_protocol_common "github.com/atframework/atsf4g-go/component/protocol/private/common/protocol/common"
+	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	config "github.com/atframework/atsf4g-go/component-config"
-	db "github.com/atframework/atsf4g-go/component-db"
+	config "github.com/atframework/atsf4g-go/component/config"
+	db "github.com/atframework/atsf4g-go/component/db"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
@@ -399,9 +400,28 @@ func (m *UserBasicManager) GetAttributesCacheVersion() int64 {
 	return 0
 }
 
+var userBasicGetGmWhiteList map[string]struct{}
+
+func UserBasicGetGmWhiteList() map[string]struct{} {
+	if userBasicGetGmWhiteList == nil {
+		userBasicGetGmWhiteList = make(map[string]struct{})
+	}
+	return userBasicGetGmWhiteList
+}
+
 func (m *UserBasicManager) AllowGMCmd() bool {
-	// TODO : 增加权限系统，目前先全部允许
-	return true
+	lobbySvrCfg := config.GetServerConfig[*private_protocol_config.Readonly_LobbyServerCfg](config.GetConfigManager().GetCurrentConfigGroup())
+	if lobbySvrCfg == nil {
+		return false
+	}
+
+	if lobbySvrCfg.GetEnableGm() {
+		return true
+	}
+
+	// 白名单额外允许
+	_, existed := UserBasicGetGmWhiteList()[m.GetOwner().GetOpenId()]
+	return existed
 }
 
 func (m *UserBasicManager) GetUserClientOptions() *public_protocol_pbdesc.DUserOptions {

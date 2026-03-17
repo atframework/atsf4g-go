@@ -12,12 +12,14 @@ image:
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: latest
+  secrets: harbor-regcred
 
 volumeMounts:
   configMountPath: /etc/projecty/lobbysvr/cfg
   logMountPath: /data/projecty/lobbysvr/log
 
 vector:
+  enabled: true
   log_path: /data/projecty/lobbysvr/log
   image:
     repository: harbor.m-oa.com:6023/vector/vector:latest
@@ -37,9 +39,6 @@ vector:
     - "task_name"
     - "zone_id"
     - "response_code"
-
-imagePullSecrets:
-  - name: harbor-regcred
 
 persistence:
   cbs:
@@ -81,5 +80,29 @@ webserver:
   port: 7001
 
 # websocket:
-  # websocket 路径片段 实际路径为 /<deployment_environment>/daily/ws/v1
-  # path: daily 
+# websocket 路径片段 实际路径为 /<deployment_environment>/daily/ws/v1
+# path: daily
+
+lobbysvr:
+  # 是否启用GM功能
+  enable_gm: true
+  # GM功能白名单，在enable_gm为false时,以白名单账户允许GM
+  gm_white_list: []
+  # 是否启用战斗验证功能
+  enable_battle_validation: false
+  # 认证配置
+  auth:
+    allow_no_auth: true
+    weak_token_timeout: 14d
+    weak_token_max_count: 10
+    argon2:
+      # argon2内存参数，单位KB，默认64MB
+      memory: 65536
+      # argon2迭代次数，默认3
+      iterations: 3
+      # argon2并行度，默认2
+      parallelism: 2
+      # argon2盐值长度，单位KB，默认16B
+      salt_length: 16
+      # argon2密钥长度，单位KB，默认32B
+      key_length: 32

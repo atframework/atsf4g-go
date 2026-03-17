@@ -7,11 +7,11 @@ import (
 	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
-	db "github.com/atframework/atsf4g-go/component-db"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	db "github.com/atframework/atsf4g-go/component/db"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 type uniqueIDKey struct {
@@ -71,7 +71,8 @@ func getUniqueIDPool(key uniqueIDKey) *uniqueIDPool {
 func GenerateGlobalUniqueID(ctx cd.AwaitableContext,
 	majorType private_protocol_pbdesc.EnGlobalUUIDMajorType,
 	minorType private_protocol_pbdesc.EnGlobalUUIDMinorType,
-	pathType private_protocol_pbdesc.EnGlobalUUIDPatchType) (uuid uint64, result cd.RpcResult) {
+	pathType private_protocol_pbdesc.EnGlobalUUIDPatchType,
+) (uuid uint64, result cd.RpcResult) {
 	pool := getUniqueIDPool(uniqueIDKey{majorType: uint32(majorType), minorType: uint32(minorType), pathType: uint32(pathType)})
 	bitsOff := bitsOffForMajor(majorType)
 	bitsRange := uint64(1) << bitsOff
@@ -93,15 +94,29 @@ func GenerateGlobalUniqueID(ctx cd.AwaitableContext,
 		pool.mu.Lock()
 		if !lu.IsNil(pool.ioTask) && !pool.ioTask.IsExiting() && pool.ioTask != currentTask {
 			// 等待当前任务完成IO
+			resumeElement := &struct {
+				ele *list.Element
+			}{
+				ele: nil,
+			}
 			cd.YieldTaskAction(ctx, currentTask, &cd.DispatcherAwaitOptions{
 				Type:     uint64(uintptr(unsafe.Pointer(pool))),
 				Sequence: currentTask.GetTaskId(),
 				Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
-			}, func() cd.RpcResult {
-				pool.awaitIOTaskList.PushBack(currentTask)
-				return cd.CreateRpcResultOk()
-			}, func() {
-				pool.mu.Unlock()
+			}, &cd.YieldTaskHookSet{
+				PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+					resumeElement.ele = pool.awaitIOTaskList.PushBack(currentTask)
+					return cd.CreateRpcResultOk()
+				},
+				PreYieldCleanup: func(_ cd.RpcContext) {
+					pool.mu.Unlock()
+				},
+				PostYield: func(ctx cd.RpcContext, _resume *cd.DispatcherResumeData, result cd.RpcResult) cd.RpcResult {
+					if resumeElement.ele != nil {
+						pool.awaitIOTaskList.Remove(resumeElement.ele)
+					}
+					return result
+				},
 			})
 			continue
 		}
@@ -173,10 +188,9 @@ const (
 
 var shortUUIDEncoderInstance = &shortUUIDEncoder{}
 
-
 func (e *shortUUIDEncoder) encodeValue(val uint64) string {
 	if val == 0 {
-		return string(shortUUIDKeys[1]) 
+		return string(shortUUIDKeys[1])
 	}
 
 	buf := make([]byte, 14)

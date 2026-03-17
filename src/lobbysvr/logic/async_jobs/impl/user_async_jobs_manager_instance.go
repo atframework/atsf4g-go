@@ -4,8 +4,8 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"

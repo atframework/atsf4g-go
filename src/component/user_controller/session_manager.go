@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

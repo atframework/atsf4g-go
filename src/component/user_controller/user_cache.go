@@ -7,13 +7,13 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
-	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
-	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	router "github.com/atframework/atsf4g-go/component-router"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	router "github.com/atframework/atsf4g-go/component/router"
 )
 
 const (

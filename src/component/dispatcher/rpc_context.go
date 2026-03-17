@@ -6,7 +6,7 @@ import (
 	"time"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
+	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

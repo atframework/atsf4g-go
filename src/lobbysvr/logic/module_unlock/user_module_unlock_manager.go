@@ -1,10 +1,10 @@
 package lobbysvr_logic_module_unlock
 
 import (
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"

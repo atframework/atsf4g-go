@@ -5,8 +5,8 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 )
 
@@ -46,20 +46,32 @@ func TableDel(ctx cd.AwaitableContext, index string, tableName string,
 		return
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("TableDel Del Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index)
-			_, redisError := instance.Del(ctx.GetContext(), index).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("TableDel Del Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("TableDel Del Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index)
+				_, redisError := instance.Del(ctx.GetContext(), index).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("TableDel Del Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("TableDel Del Parse Success", "TableName", tableName, "Seq", awaitOption.Sequence)
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load failed resume error", "TableName", tableName,
@@ -67,26 +79,16 @@ func TableDel(ctx cd.AwaitableContext, index string, tableName string,
 					)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("TableDel Del Parse Success", "TableName", tableName, "Seq", awaitOption.Sequence)
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load failed resume error", "TableName", tableName,
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -120,59 +122,61 @@ func TableExpire(ctx cd.AwaitableContext, index string, tableName string,
 		Success bool
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("TableExpire Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "expiration", expiration, "condition", condition)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("TableExpire Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "expiration", expiration, "condition", condition)
 
-			var cmdResult bool
-			var redisError error
-			switch condition {
-			case ExpireConditionNX:
-				cmdResult, redisError = instance.ExpireNX(ctx.GetContext(), index, expiration).Result()
-			case ExpireConditionXX:
-				cmdResult, redisError = instance.ExpireXX(ctx.GetContext(), index, expiration).Result()
-			case ExpireConditionGT:
-				cmdResult, redisError = instance.ExpireGT(ctx.GetContext(), index, expiration).Result()
-			case ExpireConditionLT:
-				cmdResult, redisError = instance.ExpireLT(ctx.GetContext(), index, expiration).Result()
-			default:
-				cmdResult, redisError = instance.Expire(ctx.GetContext(), index, expiration).Result()
-			}
+				var cmdResult bool
+				var redisError error
+				switch condition {
+				case ExpireConditionNX:
+					cmdResult, redisError = instance.ExpireNX(ctx.GetContext(), index, expiration).Result()
+				case ExpireConditionXX:
+					cmdResult, redisError = instance.ExpireXX(ctx.GetContext(), index, expiration).Result()
+				case ExpireConditionGT:
+					cmdResult, redisError = instance.ExpireGT(ctx.GetContext(), index, expiration).Result()
+				case ExpireConditionLT:
+					cmdResult, redisError = instance.ExpireLT(ctx.GetContext(), index, expiration).Result()
+				default:
+					cmdResult, redisError = instance.Expire(ctx.GetContext(), index, expiration).Result()
+				}
 
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("TableExpire Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("TableExpire Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("expire failed resume error", "TableName", tableName, "err", resumeError)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("TableExpire Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "success", cmdResult)
+				resumeData.PrivateData = &innerPrivateData{Success: cmdResult}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("expire failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("TableExpire Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "success", cmdResult)
-			resumeData.PrivateData = &innerPrivateData{Success: cmdResult}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("expire failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -212,46 +216,48 @@ func TableExpireAt(ctx cd.AwaitableContext, index string, tableName string,
 		Success bool
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("TableExpireAt Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "expireAt", expireAt)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("TableExpireAt Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "expireAt", expireAt)
 
-			cmdResult, redisError := instance.ExpireAt(ctx.GetContext(), index, expireAt).Result()
+				cmdResult, redisError := instance.ExpireAt(ctx.GetContext(), index, expireAt).Result()
 
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("TableExpireAt Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("TableExpireAt Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("expireat failed resume error", "TableName", tableName, "err", resumeError)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("TableExpireAt Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "success", cmdResult)
+				resumeData.PrivateData = &innerPrivateData{Success: cmdResult}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("expireat failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("TableExpireAt Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "success", cmdResult)
-			resumeData.PrivateData = &innerPrivateData{Success: cmdResult}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("expireat failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}

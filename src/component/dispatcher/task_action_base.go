@@ -11,9 +11,19 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	log "github.com/atframework/atframe-utils-go/log"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
+
+var taskActionCallbackIdAllocator atomic.Uint64
+
+func allocTaskActionCallbackHandle() TaskActionCallbackHandle {
+	ret := taskActionCallbackIdAllocator.Add(1)
+	for ret == 0 {
+		ret = taskActionCallbackIdAllocator.Add(1)
+	}
+	return TaskActionCallbackHandle(ret)
+}
 
 type TaskActionBase struct {
 	impl   TaskActionImpl
@@ -38,8 +48,8 @@ type TaskActionBase struct {
 		Channel *chan TaskActionAwaitChannelData
 	}
 
-	initCallbackLock sync.Mutex
-	onFinishCallback []func(RpcContext)
+	callbackLock     sync.Mutex
+	onFinishCallback map[TaskActionCallbackHandle]func(RpcContext)
 	callbackFinish   bool
 }
 
@@ -64,6 +74,7 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeo
 			Option:  nil,
 			Channel: nil,
 		},
+		onFinishCallback: make(map[TaskActionCallbackHandle]func(RpcContext)),
 	}
 	ret.status.Store(int32(TaskActionStatusCreated))
 	return
@@ -250,12 +261,19 @@ func (t *TaskActionBase) OnCleanup() {
 		close(*t.currentAwaiting.Channel)
 		t.currentAwaiting.Channel = nil
 	}
-	t.initCallbackLock.Lock()
-	for _, v := range t.onFinishCallback {
+
+	t.callbackLock.Lock()
+	t.callbackFinish = true
+	if len(t.onFinishCallback) == 0 {
+		t.callbackLock.Unlock()
+		return
+	}
+	callbacks := t.onFinishCallback
+	t.onFinishCallback = make(map[TaskActionCallbackHandle]func(RpcContext))
+	t.callbackLock.Unlock()
+	for _, v := range callbacks {
 		v(t.GetRpcContext())
 	}
-	t.callbackFinish = true
-	t.initCallbackLock.Unlock()
 }
 
 func (t *TaskActionBase) GetTraceInheritOption() *TraceInheritOption {
@@ -401,15 +419,38 @@ func (t *TaskActionBase) TryKillAwait(killData *RpcResult) error {
 	return err
 }
 
-func (t *TaskActionBase) InitFinishCallback(callback func(RpcContext)) {
-	t.initCallbackLock.Lock()
+func (t *TaskActionBase) AddFinishCallback(callback func(RpcContext)) TaskActionCallbackHandle {
+	if t == nil {
+		return 0
+	}
+
+	handle := allocTaskActionCallbackHandle()
+	t.callbackLock.Lock()
 	if t.callbackFinish {
+		t.callbackLock.Unlock()
 		// 直接调用
 		callback(t.GetRpcContext())
-	} else {
-		t.onFinishCallback = append(t.onFinishCallback, callback)
+		return handle
 	}
-	t.initCallbackLock.Unlock()
+	t.onFinishCallback[handle] = callback
+	t.callbackLock.Unlock()
+	return handle
+}
+
+func (t *TaskActionBase) RemoveFinishCallback(handle TaskActionCallbackHandle) func(RpcContext) {
+	if t == nil {
+		return nil
+	}
+
+	t.callbackLock.Lock()
+	ret, ok := t.onFinishCallback[handle]
+	if ok {
+		delete(t.onFinishCallback, handle)
+		t.callbackLock.Unlock()
+		return ret
+	}
+	t.callbackLock.Unlock()
+	return nil
 }
 
 // ====================== 业务日志接口 =========================

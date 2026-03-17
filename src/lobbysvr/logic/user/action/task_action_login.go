@@ -7,20 +7,20 @@ import (
 	"log/slog"
 	"strconv"
 
-	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
-	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 
-	config "github.com/atframework/atsf4g-go/component-config"
+	config "github.com/atframework/atsf4g-go/component/config"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	db "github.com/atframework/atsf4g-go/component-db"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	router "github.com/atframework/atsf4g-go/component-router"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	db "github.com/atframework/atsf4g-go/component/db"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	router "github.com/atframework/atsf4g-go/component/router"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 )
 
@@ -104,8 +104,7 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 
 	// 如果正在登出则要等登出结束重新获取
 	if user != nil && user.IsWriteable() {
-		t.GetRpcContext().LogInfo("user is logging out, await logout io task", "zone_id", zoneId, "user_id", userId)
-		result := t.awaitLogoutIoTask(t.GetAwaitableContext(), user)
+		result := t.awaitLogoutTask(t.GetAwaitableContext(), user)
 		if result.IsError() {
 			result.LogError(t.GetRpcContext(), "await logout io task failed", "zone_id", zoneId, "user_id", userId)
 			if result.GetResponseCode() < 0 {
@@ -165,6 +164,12 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 				result.LogWarn(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
 			}
 			return nil
+		}
+	}
+
+	if loginTb == nil {
+		loginTb = &private_protocol_pbdesc.DatabaseTableLoginLock{
+			UserId: userId,
 		}
 	}
 
@@ -230,6 +235,9 @@ func (t *TaskActionLogin) checkExistedUser(user *data.User) bool {
 		return true
 	}
 
+	// 如果这边有 ActorExecuto 则尝试锁
+	user.GetActorExecutor().TryTakeCurrentRunningAction(t)
+
 	if !user.TryLockLoginTask(t.GetTaskId()) {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OTHER_DEVICE)
 		t.GetRpcContext().LogWarn("user is logining in another task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId(), "login_task_id", user.GetLoginTaskId())
@@ -259,6 +267,8 @@ func (t *TaskActionLogin) replaceSession(ctx cd.RpcContext, user *data.User, ses
 		return false
 	}
 
+	t.GetRpcContext().LogInfo("user is already online, replace session", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
+
 	// 先解锁旧的Session
 	oldSession := user.GetUserSession()
 	user.BindSession(t.GetRpcContext(), session)
@@ -269,7 +279,7 @@ func (t *TaskActionLogin) replaceSession(ctx cd.RpcContext, user *data.User, ses
 	return true
 }
 
-func (t *TaskActionLogin) awaitLogoutIoTask(ctx cd.AwaitableContext, user *data.User) cd.RpcResult {
+func (t *TaskActionLogin) awaitLogoutTask(ctx cd.AwaitableContext, user *data.User) cd.RpcResult {
 	cache := uc.GetUserRouterManager(ctx.GetApp()).GetCache(router.RouterObjectKey{
 		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
 		ZoneID:   user.GetZoneId(),
@@ -279,6 +289,7 @@ func (t *TaskActionLogin) awaitLogoutIoTask(ctx cd.AwaitableContext, user *data.
 		return cd.CreateRpcResultOk()
 	}
 	if cache.CheckFlag(router.FlagRemovingObject) && cache.IsIORunning() {
+		t.GetRpcContext().LogInfo("user is logging out, await logout io task", "zone_id", user.GetZoneId(), "user_id", user.GetUserId())
 		return cache.AwaitIOTask(ctx)
 	}
 	return cd.CreateRpcResultOk()

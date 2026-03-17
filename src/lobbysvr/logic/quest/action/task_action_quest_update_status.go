@@ -5,8 +5,8 @@ package lobbysvr_logic_quest_action
 import (
 	"fmt"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
@@ -41,7 +41,7 @@ func (t *TaskActionQuestUpdateStatus) Run(_startData *component_dispatcher.Dispa
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM))
 		return fmt.Errorf("request body is nil")
 	}
-	
+
 	manager.ClientQueryQuestUpdateStatus(t.GetRpcContext())
 
 	return nil

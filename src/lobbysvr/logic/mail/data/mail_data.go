@@ -5,8 +5,8 @@ import (
 	"sort"
 	"time"
 
-	mail_utils "github.com/atframework/atsf4g-go/component-mail"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	mail_utils "github.com/atframework/atsf4g-go/component/mail"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 // 邮件相关常量

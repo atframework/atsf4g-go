@@ -6,9 +6,9 @@ import (
 	"runtime"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 type RouterObjectKey struct {
@@ -359,7 +359,7 @@ func (obj *RouterObjectBase) AwaitIOTask(ctx cd.AwaitableContext) cd.RpcResult {
 			Type:     obj.key.ObjectID,
 			Sequence: ctx.GetAction().GetTaskId(),
 			Timeout:  config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration(),
-		}, nil, nil)
+		}, nil)
 		obj.awaitIOTaskList.Remove(e)
 	}
 

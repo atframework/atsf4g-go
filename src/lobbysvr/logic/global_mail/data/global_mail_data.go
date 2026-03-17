@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
 )
 

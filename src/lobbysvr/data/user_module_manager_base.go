@@ -2,10 +2,10 @@ package lobbysvr_data
 
 import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 )
 
 type UserModuleManagerImpl interface {

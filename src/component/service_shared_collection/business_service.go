@@ -1,12 +1,12 @@
 package atframework_component_service_shared_collection
 
 import (
-	config "github.com/atframework/atsf4g-go/component-config"
+	config "github.com/atframework/atsf4g-go/component/config"
 	libatapp "github.com/atframework/libatapp-go"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	operation_support_system "github.com/atframework/atsf4g-go/component-operation-support-system"
-	router "github.com/atframework/atsf4g-go/component-router"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	router "github.com/atframework/atsf4g-go/component/router"
 )
 
 func CreateServiceApplication() libatapp.AppImpl {

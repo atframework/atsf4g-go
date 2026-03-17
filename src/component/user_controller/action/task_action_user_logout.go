@@ -5,12 +5,12 @@ import (
 
 	"time"
 
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 )
 
 type TaskActionUserLogout struct {
@@ -25,6 +25,12 @@ func (t *TaskActionUserLogout) Name() string {
 }
 
 func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
+	if t.user.GetSession() != nil && t.user.GetSession() != t.session {
+		t.LogInfo("TaskActionUserLogout Run but session not match, maybe user already relogin, just ignore", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
+			"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
+		return nil
+	}
+
 	t.LogInfo("TaskActionUserLogout Run", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
 		"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
 

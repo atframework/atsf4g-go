@@ -9,9 +9,9 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -161,7 +161,7 @@ func (set *RouterManagerSet) Tick(parent context.Context) bool {
 		err := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp()).StartTaskAction(ctx, autoSaveTask, &startData)
 		if err != nil {
 			set.GetApp().GetDefaultLogger().LogError("TaskActionAutoSaveObjects StartTaskAction failed", "error", err)
-		} else {	
+		} else {
 			set.autoSaveActionTask.Store(autoSaveTask)
 		}
 	} else {

@@ -1,8 +1,8 @@
 package lobbysvr_logic_global_mail
 
 import (
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	global_mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/data"
 	impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/impl"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"

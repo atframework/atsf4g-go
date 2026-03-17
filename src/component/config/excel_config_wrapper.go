@@ -2,7 +2,7 @@ package atframework_component_config
 
 import (
 	log "github.com/atframework/atframe-utils-go/log"
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
 )
 
 func ExcelConfigCallbackOnLoad(group *generate_config.ConfigGroup, logger *log.Logger) (err error) {

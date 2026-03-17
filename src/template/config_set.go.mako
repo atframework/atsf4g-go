@@ -22,7 +22,7 @@ import (
 <% break %>
 	% endif
 % endfor
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 	xresloader_pb_header "github.com/xresloader/xresloader/protocol/config"
 	"google.golang.org/protobuf/proto"
 )

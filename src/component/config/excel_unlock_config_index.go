@@ -4,10 +4,10 @@ import (
 	"sort"
 	"time"
 
-	custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
+	custom_index_type "github.com/atframework/atsf4g-go/component/config/custom_index"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 )
 
 // UnlockRow 统一抽象可参与解锁索引的配置行

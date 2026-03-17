@@ -6,8 +6,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 	"google.golang.org/protobuf/proto"
 )
@@ -66,6 +66,7 @@ func HashTableBatchLoad(ctx cd.AwaitableContext, index []string, tableName strin
 			runnnigTask = runnnigTask[:0]
 		}
 	}
+	
 	retResult = cd.AwaitTasks(ctx, runnnigTask)
 	if retResult.IsError() {
 		ctx.LogError("HashTableBatchLoad AwaitTasks failed", "err", retResult.GetErrorString())
@@ -94,20 +95,61 @@ func HashTableLoad(ctx cd.AwaitableContext, index string, tableName string,
 		CASVersion uint64
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoad HGetAll Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index)
-			result, redisError := instance.HGetAll(ctx.GetContext(), index).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTableLoad HGetAll Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableLoad HGetAll Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index)
+				result, redisError := instance.HGetAll(ctx.GetContext(), index).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTableLoad HGetAll Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return redisError
+				}
+				if len(result) == 0 {
+					ctx.GetApp().GetLogger(2).LogInfo("HashTableLoad HGetAll Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
+					resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+					}
+					return resumeError
+				}
+				pbResult := messageCreate()
+				casVersion, err := pu.RedisKVMapToPB(result, pbResult)
+				if err != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTableLoad HGetAll Parese Failed", "TableName", tableName, "Seq", awaitOption.Sequence, "Raw", result)
+					resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return err
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableLoad HGetAll Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Proto", pbResult)
+				resumeData.PrivateData = &innerPrivateData{
+					Table:      pbResult,
+					CASVersion: casVersion,
+				}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load failed resume error", "TableName", tableName,
@@ -115,55 +157,16 @@ func HashTableLoad(ctx cd.AwaitableContext, index string, tableName string,
 					)
 					return resumeError
 				}
-				return redisError
-			}
-			if len(result) == 0 {
-				ctx.GetApp().GetLogger(2).LogInfo("HashTableLoad HGetAll Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
-				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load failed resume error", "TableName", tableName,
-						"err", resumeError,
-					)
-				}
-				return resumeError
-			}
-			pbResult := messageCreate()
-			casVersion, err := pu.RedisKVMapToPB(result, pbResult)
+				return nil
+			}, nil, nil)
 			if err != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTableLoad HGetAll Parese Failed", "TableName", tableName, "Seq", awaitOption.Sequence, "Raw", result)
-				resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load failed resume error", "TableName", tableName,
-						"err", resumeError,
-					)
-					return resumeError
-				}
-				return err
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableLoad HGetAll Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Proto", pbResult)
-			resumeData.PrivateData = &innerPrivateData{
-				Table:      pbResult,
-				CASVersion: casVersion,
-			}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load failed resume error", "TableName", tableName,
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -258,20 +261,71 @@ func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
 		CASVersion uint64
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index)
-			result, redisError := instance.HMGet(ctx.GetContext(), index, partlyGetField...).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTablePartlyGet HMGet Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index)
+				result, redisError := instance.HMGet(ctx.GetContext(), index, partlyGetField...).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTablePartlyGet HMGet Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return redisError
+				}
+				if len(result) == 0 {
+					ctx.GetApp().GetLogger(2).LogInfo("HashTablePartlyGet HMGet Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
+					resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+					}
+					return resumeError
+				}
+				pbResult := messageCreate()
+				casVersion, recordExist, err := pu.RedisSliceKVMapToPB(partlyGetField, result, pbResult)
+				if err != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTablePartlyGet HMGet Parese Failed", "TableName", tableName, "Seq", awaitOption.Sequence, "Raw", result)
+					resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return err
+				} else if !recordExist {
+					ctx.GetApp().GetLogger(2).LogInfo("HashTablePartlyGet HMGet Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
+					resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+					}
+					return resumeError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Proto", pbResult)
+				resumeData.PrivateData = &innerPrivateData{
+					Table:      pbResult,
+					CASVersion: casVersion,
+				}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load failed resume error", "TableName", tableName,
@@ -279,65 +333,16 @@ func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
 					)
 					return resumeError
 				}
-				return redisError
-			}
-			if len(result) == 0 {
-				ctx.GetApp().GetLogger(2).LogInfo("HashTablePartlyGet HMGet Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
-				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load failed resume error", "TableName", tableName,
-						"err", resumeError,
-					)
-				}
-				return resumeError
-			}
-			pbResult := messageCreate()
-			casVersion, recordExist, err := pu.RedisSliceKVMapToPB(partlyGetField, result, pbResult)
+				return nil
+			}, nil, nil)
 			if err != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTablePartlyGet HMGet Parese Failed", "TableName", tableName, "Seq", awaitOption.Sequence, "Raw", result)
-				resumeData.Result = cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BAD_PACKAGE)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load failed resume error", "TableName", tableName,
-						"err", resumeError,
-					)
-					return resumeError
-				}
-				return err
-			} else if !recordExist {
-				ctx.GetApp().GetLogger(2).LogInfo("HashTablePartlyGet HMGet Record Not Found", "TableName", tableName, "Seq", awaitOption.Sequence)
-				resumeData.Result = cd.CreateRpcResultError(fmt.Errorf("record not found"), public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND)
-				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-				if resumeError != nil {
-					ctx.LogError("load failed resume error", "TableName", tableName,
-						"err", resumeError,
-					)
-				}
-				return resumeError
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTablePartlyGet HMGet Parse Success", "Seq", awaitOption.Sequence, "TableName", tableName, "Proto", pbResult)
-			resumeData.PrivateData = &innerPrivateData{
-				Table:      pbResult,
-				CASVersion: casVersion,
-			}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load failed resume error", "TableName", tableName,
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -356,7 +361,8 @@ func HashTablePartlyGet(ctx cd.AwaitableContext, index string, tableName string,
 
 func HashTableUpdate(ctx cd.AwaitableContext, index string, tableName string,
 	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper,
-	table proto.Message) (retResult cd.RpcResult) {
+	table proto.Message,
+) (retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
 	if lu.IsNil(currentAction) {
@@ -372,20 +378,32 @@ func HashTableUpdate(ctx cd.AwaitableContext, index string, tableName string,
 
 	redisData := pu.PBMapToRedisKV(table, nil, false)
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdate HSet Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "data", table)
-			redisError := instance.HSet(ctx.GetContext(), index, redisData).Err()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTableUpdate HSet Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdate HSet Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "data", table)
+				redisError := instance.HSet(ctx.GetContext(), index, redisData).Err()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTableUpdate HSet Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdate HSet Recv", "TableName", tableName, "Seq", awaitOption.Sequence)
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load failed resume error", "TableName", tableName,
@@ -393,26 +411,16 @@ func HashTableUpdate(ctx cd.AwaitableContext, index string, tableName string,
 					)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdate HSet Recv", "TableName", tableName, "Seq", awaitOption.Sequence)
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load failed resume error", "TableName", tableName,
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -445,59 +453,61 @@ func HashTableUpdateCAS(ctx cd.AwaitableContext, index string, tableName string,
 	OldCASVersion := *currentCASVersion
 	redisData := pu.PBMapToRedisKV(table, &OldCASVersion, forceUpdate)
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateCAS EvalSha Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "currentCASVersion", OldCASVersion, "data", table)
-			cmdResult, redisError := instance.EvalSha(ctx.GetContext(), dispatcher.GetCASLuaSHA(), []string{index}, redisData).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			var realVersion uint64
-			if redisError == nil {
-				switch val := cmdResult.(type) {
-				case string:
-					realVersion, redisError = strconv.ParseUint(val, 10, 64)
-				case []byte:
-					realVersion, redisError = strconv.ParseUint(string(val), 10, 64)
-				default:
-					redisError = fmt.Errorf("unsupport cmd result")
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateCAS EvalSha Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "currentCASVersion", OldCASVersion, "data", table)
+				cmdResult, redisError := instance.EvalSha(ctx.GetContext(), dispatcher.GetCASLuaSHA(), []string{index}, redisData).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
 				}
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTableUpdateCAS EvalSha Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "currentCASVersion", *currentCASVersion, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				var realVersion uint64
+				if redisError == nil {
+					switch val := cmdResult.(type) {
+					case string:
+						realVersion, redisError = strconv.ParseUint(val, 10, 64)
+					case []byte:
+						realVersion, redisError = strconv.ParseUint(string(val), 10, 64)
+					default:
+						redisError = fmt.Errorf("unsupport cmd result")
+					}
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTableUpdateCAS EvalSha Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "currentCASVersion", *currentCASVersion, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateCAS EvalSha Recv", "TableName", tableName, "Seq", awaitOption.Sequence, "realVersion", realVersion)
+				resumeData.PrivateData = &realVersion
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
-					ctx.LogError("load failed resume error", "TableName", tableName,
+					ctx.LogError("load  failed resume error", "TableName", tableName,
 						"err", resumeError,
 					)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableUpdateCAS EvalSha Recv", "TableName", tableName, "Seq", awaitOption.Sequence, "realVersion", realVersion)
-			resumeData.PrivateData = &realVersion
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load  failed resume error", "TableName", tableName,
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -521,7 +531,8 @@ func HashTableUpdateCAS(ctx cd.AwaitableContext, index string, tableName string,
 }
 
 func HashTableAtomicInc(ctx cd.AwaitableContext, index string, tableName string,
-	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper, incField string, incValue uint64) (newValue uint64, retResult cd.RpcResult) {
+	dispatcher *cd.RedisMessageDispatcher, instance cd.RedisClientWrapper, incField string, incValue uint64,
+) (newValue uint64, retResult cd.RpcResult) {
 	awaitOption := dispatcher.CreateDispatcherAwaitOptions()
 	currentAction := ctx.GetAction()
 	if lu.IsNil(currentAction) {
@@ -535,26 +546,39 @@ func HashTableAtomicInc(ctx cd.AwaitableContext, index string, tableName string,
 		return
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableAtomicInc HIncrBy Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "field", incField, "incValue", incValue)
-			cmdResult, redisError := instance.HIncrBy(ctx.GetContext(), index, incField, int64(incValue)).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError == nil {
-				newValue = uint64(cmdResult)
-				if cmdResult < 0 {
-					redisError = fmt.Errorf("negative result for unsigned inc field")
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableAtomicInc HIncrBy Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "field", incField, "incValue", incValue)
+				cmdResult, redisError := instance.HIncrBy(ctx.GetContext(), index, incField, int64(incValue)).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
 				}
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("HashTableAtomicInc HIncrBy Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				if redisError == nil {
+					newValue = uint64(cmdResult)
+					if cmdResult < 0 {
+						redisError = fmt.Errorf("negative result for unsigned inc field")
+					}
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("HashTableAtomicInc HIncrBy Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("load failed resume error", "TableName", tableName,
+							"err", resumeError,
+						)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("HashTableAtomicInc HIncrBy Recv", "TableName", tableName, "Seq", awaitOption.Sequence, "AutoIncId", newValue)
+				resumeData.PrivateData = &newValue
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("load failed resume error", "TableName", tableName,
@@ -562,27 +586,16 @@ func HashTableAtomicInc(ctx cd.AwaitableContext, index string, tableName string,
 					)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("HashTableAtomicInc HIncrBy Recv", "TableName", tableName, "Seq", awaitOption.Sequence, "AutoIncId", newValue)
-			resumeData.PrivateData = &newValue
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("load failed resume error", "TableName", tableName,
-					"err", resumeError,
-				)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}

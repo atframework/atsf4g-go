@@ -6,7 +6,6 @@ includes:
   build-prepare: .taskfiles/Taskfile.build.prepare.yml
   tools: tools/Taskfile.yml
   lobbysvr: src/lobbysvr/Taskfile.yml
-  robot: src/robot/Taskfile.yml
   inn-tools: .taskfiles/Taskfile.tools.yml
   component: src/component/Taskfile.yml
   doc: doc/Taskfile.yml
@@ -108,28 +107,12 @@ tasks:
           PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
     silent: true
 
-  inner_build-module:robot:
-    internal: true
-    desc: "构建 robot 模块"
-    vars:
-      PYTHON_BIN_PATH:
-        sh: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}/build_setting{{.EXE_EXT}} get python -settings-file {{.ENV_BUILD_TARGET_DIR}}/build-settings.json"
-    cmds:
-      - echo -e  "\033[34;1m Start Building Robot module... \033[0m "
-      - task: robot:build
-        vars:
-          PROJECT_ROOT: "{{.ROOT_DIR}}"
-          BUILD_TOOLS_INSTALL_DIR: "{{.ROOT_DIR}}/{{.ENV_BUILD_TOOLS_INSTALL_DIR}}"
-          PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
-    silent: true
-
   inner_build-module:all:
     internal: true
     desc: "构建所有模块"
     cmds:
       - echo -e "\033[34;1m Start Building all modules...  \033[0m"
       - task: inner_build-module:lobbysvr
-      - task: inner_build-module:robot
       - echo -e "\033[34;1m Building all modules... End \033[0m"
     silent: true
 
@@ -224,18 +207,7 @@ tasks:
         mkdir -p "{{.ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
         mkdir -p "{{.ENV_PROJECT_RESOURCE_TARGET_EXCEL_PATH}}"
         mkdir -p "{{.ENV_BUILD_TARGET_GEN_DIR}}"
-      # - task: clean-dir
-      #   vars:
-      #     TARGET_DIR: "{{.ROOT_DIR}}/{{ .ENV_PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
       - git submodule update --init --recursive
-      # # hard task , generate now is append mode , need clean old files first
-      # - cmd: |
-      #     if [ -f "{{.ENV_BUILD_TARGET_GEN_DIR}}/generate-for-pb.yaml" ]; then
-      #       rm -f "{{.ENV_BUILD_TARGET_GEN_DIR}}/generate-for-pb.yaml"
-      #     fi
-      #   platforms: [linux, darwin]
-      # - cmd: powershell -NoProfile -Command "if (Test-Path '{{.ENV_BUILD_TARGET_GEN_DIR}}\generate-for-pb.yaml') { Remove-Item -Path '{{.ENV_BUILD_TARGET_GEN_DIR}}\generate-for-pb.yaml' -Force }"
-      #   platforms: [windows]
 
       - task: build-prepare:gen-code-by-resloader
         vars:
@@ -290,13 +262,6 @@ tasks:
     desc: "Fast build lobby server only"
     cmds:
       - task: fast-build:lobbysvr
-    silent: true
-    dir: "{{.TASKFILE_DIR}}"
-
-  fast-[robot]-build:
-    desc: "Fast build robot server only"
-    cmds:
-      - task: fast-build:robot
     silent: true
     dir: "{{.TASKFILE_DIR}}"
 
@@ -386,7 +351,6 @@ tasks:
       - task: build-prepare:atframe-utils:install-other-tools
         vars:
           PROJECT_ROOT: "{{.ROOT_DIR}}"
-      - cd ./atframework/atframe-utils-go && go install ./protoc-gen-mutable
       - task: try-install-go-mockery
     silent: true
 

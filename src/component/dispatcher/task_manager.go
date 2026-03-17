@@ -11,8 +11,8 @@ import (
 	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -76,19 +76,19 @@ func (t *TaskManager) AllocTaskId() uint64 {
 
 func (t *TaskManager) InsertTaskAction(ctx RpcContext, action TaskActionImpl) {
 	t.taskActionIdMap.Store(action.GetTaskId(), action)
+	var timer *time.Timer = nil
 	if action.GetTaskTimeout() != 0 {
-		timer := time.AfterFunc(action.GetTaskTimeout(), func() {
+		timer = time.AfterFunc(action.GetTaskTimeout(), func() {
+			timer = nil
 			result := CreateRpcResultError(context.DeadlineExceeded, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
 			KillTaskAction(ctx, action, &result)
 		})
-		if timer != nil {
-			action.InitFinishCallback(func(childCtx RpcContext) {
-				timer.Stop()
-			})
-		}
 	}
-	action.InitFinishCallback(func(childCtx RpcContext) {
+	action.AddFinishCallback(func(childCtx RpcContext) {
 		t.taskActionIdMap.Delete(action.GetTaskId())
+		if timer != nil {
+			timer.Stop()
+		}
 	})
 }
 
@@ -181,24 +181,71 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 	}, nil, nil)
 }
 
+type (
+	// Yield前回调
+	YieldTaskHookPreYieldAction func(RpcContext) RpcResult
+	// Yield前回调后，Yield前清理接口
+	YieldTaskHookPreYieldCleanupAction func(RpcContext)
+	// Yield返回后回调
+	YieldTaskHookPostYieldAction func(ctx RpcContext, resume *DispatcherResumeData, result RpcResult) RpcResult
+)
+
+type YieldTaskHookSet struct {
+	PreYield        YieldTaskHookPreYieldAction
+	PreYieldCleanup YieldTaskHookPreYieldCleanupAction
+	PostYield       YieldTaskHookPostYieldAction
+}
+
+func (h *YieldTaskHookSet) CallPreYield(ctx RpcContext) RpcResult {
+	if h == nil {
+		return CreateRpcResultOk()
+	}
+
+	if h.PreYield == nil {
+		return CreateRpcResultOk()
+	}
+
+	return h.PreYield(ctx)
+}
+
+func (h *YieldTaskHookSet) CallPreYieldCleanup(ctx RpcContext) {
+	if h == nil {
+		return
+	}
+
+	if h.PreYieldCleanup == nil {
+		return
+	}
+
+	h.PreYieldCleanup(ctx)
+}
+
+func (h *YieldTaskHookSet) CallPostYield(ctx RpcContext, resume *DispatcherResumeData, result RpcResult) RpcResult {
+	if h == nil {
+		return result
+	}
+
+	if h.PostYield == nil {
+		return result
+	}
+
+	return h.PostYield(ctx, resume, result)
+}
+
 // beforeYield 是在确认让出任务之前调用的函数，允许在让出之前执行一些操作。
 // beforeYieldEnsureCall 是一个确保调用的函数，如果检查正常会在任beforeYield之后调用，如果不能进入Yield也会调用
-func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, beforeYield BeforeYieldAction, beforeYieldEnsureCall BeforeYieldEnsureCallAction) (*DispatcherResumeData, RpcResult) {
+func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *DispatcherAwaitOptions, hooks *YieldTaskHookSet) (*DispatcherResumeData, RpcResult) {
 	currentTask := ctx.GetAction()
 	if lu.IsNil(currentTask) {
 		ctx.LogError("should in task")
-		if beforeYieldEnsureCall != nil {
-			beforeYieldEnsureCall()
-		}
+		hooks.CallPreYieldCleanup(ctx)
 		return nil, CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_RPC_NO_TASK)
 	}
 
 	// 已经超时或者被Killed，不允许再切出
 	if currentTask.IsExiting() {
 		ctx.LogError("current task already Exiting")
-		if beforeYieldEnsureCall != nil {
-			beforeYieldEnsureCall()
-		}
+		hooks.CallPreYieldCleanup(ctx)
 		return nil, CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_TIMEOUT)
 	}
 
@@ -206,33 +253,28 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 	awaitChannel, err := action.TrySetupAwait(awaitOptions)
 	if err != nil || awaitChannel == nil {
 		ctx.LogError("task YieldTaskAction TrySetupAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-		if beforeYieldEnsureCall != nil {
-			beforeYieldEnsureCall()
-		}
+		hooks.CallPreYieldCleanup(ctx)
 		return nil, CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
-	if beforeYield != nil {
-		result := beforeYield()
-		if beforeYieldEnsureCall != nil {
-			beforeYieldEnsureCall()
+	result := hooks.CallPreYield(ctx)
+	if result.IsError() {
+		// 释放等待逻辑 继续执行
+		err := action.TryFinishAwait(&DispatcherResumeData{
+			Message: &DispatcherRawMessage{
+				Type: awaitOptions.Type,
+			},
+			Sequence:          awaitOptions.Sequence,
+			Result:            result,
+			MessageRpcContext: ctx,
+		}, false)
+		if err != nil {
+			ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
 		}
-		if result.IsError() {
-			// 释放等待逻辑 继续执行
-			err := action.TryFinishAwait(&DispatcherResumeData{
-				Message: &DispatcherRawMessage{
-					Type: awaitOptions.Type,
-				},
-				Sequence: awaitOptions.Sequence,
-			}, false)
-			if err != nil {
-				ctx.LogError("task ResumeTaskAction TryFinishAwait failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-			}
-			return nil, result
-		}
-	} else if beforeYieldEnsureCall != nil {
-		beforeYieldEnsureCall()
+		hooks.CallPreYieldCleanup(ctx)
+		return nil, result
 	}
+	hooks.CallPreYieldCleanup(ctx)
 
 	actor := action.GetActorExecutor()
 	if actor != nil {
@@ -279,14 +321,17 @@ func YieldTaskAction(ctx AwaitableContext, action TaskActionImpl, awaitOptions *
 	if !ok {
 		// Channel was closed unexpectedly
 		ctx.LogError("task YieldTaskAction await channel closed unexpectedly", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()))
-		return nil, CreateRpcResultError(errors.New("await channel closed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		result = hooks.CallPostYield(ctx, awaitResult.resume, CreateRpcResultError(errors.New("await channel closed"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
+		return nil, result
 	}
 
 	if lu.IsNil(awaitResult.killed) {
-		return awaitResult.resume, CreateRpcResultOk()
+		result = hooks.CallPostYield(ctx, awaitResult.resume, CreateRpcResultOk())
+		return awaitResult.resume, result
 	}
 
-	return awaitResult.resume, *awaitResult.killed
+	result = hooks.CallPostYield(ctx, awaitResult.resume, *awaitResult.killed)
+	return awaitResult.resume, result
 }
 
 func ResumeTaskAction(ctx RpcContext, action TaskActionImpl, resumeData *DispatcherResumeData) error {
@@ -363,7 +408,7 @@ func Wait(ctx AwaitableContext, waitTime time.Duration) RpcResult {
 		Sequence:     currentTask.GetTaskId(),
 		Timeout:      waitTime,
 		TimeoutAllow: true,
-	}, nil, nil)
+	}, nil)
 	return result
 }
 
@@ -382,24 +427,36 @@ func AwaitTask(ctx AwaitableContext, waitingTask TaskActionImpl) RpcResult {
 		return CreateRpcResultOk()
 	}
 
+	handleSet := &struct {
+		handle TaskActionCallbackHandle
+	}{
+		handle: 0,
+	}
+
 	_, result := YieldTaskAction(ctx, currentTask, &DispatcherAwaitOptions{
 		Type:     uint64(uintptr(unsafe.Pointer(&currentTask))),
 		Sequence: waitingTask.GetTaskId(),
-	}, func() RpcResult {
-		waitingTask.InitFinishCallback(func(childCtx RpcContext) {
-			err := ResumeTaskAction(childCtx, currentTask, &DispatcherResumeData{
-				Message: &DispatcherRawMessage{
-					Type: uint64(uintptr(unsafe.Pointer(&currentTask))),
-				},
-				Sequence:    waitingTask.GetTaskId(),
-				PrivateData: nil,
+	}, &YieldTaskHookSet{
+		PreYield: func(ctx RpcContext) RpcResult {
+			handleSet.handle = waitingTask.AddFinishCallback(func(childCtx RpcContext) {
+				err := ResumeTaskAction(childCtx, currentTask, &DispatcherResumeData{
+					Message: &DispatcherRawMessage{
+						Type: uint64(uintptr(unsafe.Pointer(&currentTask))),
+					},
+					Sequence:    waitingTask.GetTaskId(),
+					PrivateData: nil,
+				})
+				if err != nil {
+					childCtx.LogError("ResumeTaskAction Failed", "err", err)
+				}
 			})
-			if err != nil {
-				childCtx.LogError("ResumeTaskAction Failed", "err", err)
-			}
-		})
-		return CreateRpcResultOk()
-	}, nil)
+			return CreateRpcResultOk()
+		},
+		PostYield: func(ctx RpcContext, _resume *DispatcherResumeData, result RpcResult) RpcResult {
+			waitingTask.RemoveFinishCallback(handleSet.handle)
+			return result
+		},
+	})
 	return result
 }
 

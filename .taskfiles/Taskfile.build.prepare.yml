@@ -182,17 +182,6 @@ tasks:
         echo "✅ Python Version: $PYTHON_VERSION environment OK!"
     silent: true
 
-  # _prepare-resloader:
-  #   desc: "Prepare xresloader tool"
-  #   cmds:
-  #     - task: 3rdparty:xresloader-install
-  #       vars:
-  #         PROJECT_ROOT: "{{.PROJECT_ROOT}}"
-  #         ENV_BUILD_TOOLS_DOWNLOAD_DIR: "{{.ENV_BUILD_TOOLS_DOWNLOAD_DIR}}"
-  #         ENV_BUILD_TARGET_DIR: "{{.ENV_BUILD_TARGET_DIR}}"
-  #         EXE_EXT: "{{.EXE_EXT}}"
-  #   silent: true
-
   _prepare-other-tools:
     desc: "Prepare other build tools"
     cmds:

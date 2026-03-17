@@ -45,8 +45,10 @@ message SCLoginUpdateRsp {
 
 message CSLoginAuthReq {
   string open_id = 1;
-  DAccountData account = 2;      // 平台信息
-  EnSystemID system_id = 3;      // 系统id，ios or android
+  DAccountData account = 2;             // 平台信息
+  EnSystemID system_id = 3;             // 系统id，ios or android
+  DClientAuthAccessData auth_data = 4;  // 认证数据
+
   string package_version = 11;   // 包版本
   string resource_version = 12;  // 资源版本
   string protocol_version = 13;  // 协议版本
@@ -59,8 +61,9 @@ message SCLoginAuthRsp {
   // repeated 表示有多个备选 。域名|IP + 端口, 类似下面的形式：10.164.1.54:8002
   // or dd.qq.com:8080
   repeated string login_address = 2;
-  DClientUpdateCfg update_info = 3;  // 更新信息
-  uint32 version_type = 4;           // 版本类型 @EnVersionType
+  DClientUpdateCfg update_info = 3;   // 更新信息
+  uint32 version_type = 4;            // 版本类型 @EnVersionType
+  DClientAuthWeakData auth_weak = 5;  // 弱认证信息
 
   string open_id = 21;    // 最终open_id
   uint64 user_id = 22;    // 玩家数字ID

@@ -3,11 +3,11 @@ package lobbysvr_logic_unlock_internal
 import (
 	"fmt"
 
-	config "github.com/atframework/atsf4g-go/component-config"
-	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	config "github.com/atframework/atsf4g-go/component/config"
+	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component/config/custom_index"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 

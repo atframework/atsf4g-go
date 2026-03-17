@@ -5,11 +5,11 @@ import (
 	"math/rand/v2"
 	"sort"
 
-	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component-config/custom_index"
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component/config/custom_index"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 // ---------------- 接口 ----------------

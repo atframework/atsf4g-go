@@ -4,15 +4,15 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	mail_util "github.com/atframework/atsf4g-go/component-mail"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	mail_util "github.com/atframework/atsf4g-go/component/mail"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 	"google.golang.org/protobuf/proto"
 
-	config "github.com/atframework/atsf4g-go/component-config"
+	config "github.com/atframework/atsf4g-go/component/config"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_global_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail"
@@ -578,7 +578,6 @@ func (m *UserMailManager) SendAllSyncData(ctx cd.RpcContext) {
 		}
 		hasData = true
 		syncData.Mails = append(syncData.Mails, record)
-		break
 	}
 
 	// 新邮件处理
@@ -979,7 +978,8 @@ func (m *UserMailManager) MergeGlobalMails(ctx cd.RpcContext) (cd.RpcResult, int
 				}
 				ok := conditionMgr.CheckRules(ctx, readOnlyRuls, logic_condition.CreateEmptyRuleCheckerRuntime())
 				if !ok.IsOK() {
-					return ok, ret
+					ctx.LogDebug("CheckRules failed", "user_id", m.GetOwner().GetUserId(), "mail_id", mail.MailData.Record.GetMailId(), "error", ok.GetStandardError())
+					continue
 				}
 			}
 			m.AddGlobalMail(ctx, mail.MailData.Record, mail.MailData.Content)

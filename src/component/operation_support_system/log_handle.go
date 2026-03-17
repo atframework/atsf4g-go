@@ -7,9 +7,9 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	log "github.com/atframework/atframe-utils-go/log"
-	config "github.com/atframework/atsf4g-go/component-config"
-	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
-	private_protocol_log "github.com/atframework/atsf4g-go/component-protocol-private/log/protocol/log"
+	config "github.com/atframework/atsf4g-go/component/config"
+	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	libatapp "github.com/atframework/libatapp-go"
 	"google.golang.org/protobuf/encoding/protojson"
 )

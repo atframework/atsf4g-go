@@ -2,21 +2,23 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"github.com/atframework/libatapp-go"
 	atapp "github.com/atframework/libatapp-go"
 
-	ssc "github.com/atframework/atsf4g-go/component-service_shared_collection"
+	ssc "github.com/atframework/atsf4g-go/component/service_shared_collection"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	config "github.com/atframework/atsf4g-go/component-config"
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
-	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
+	config "github.com/atframework/atsf4g-go/component/config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
+	uc_d "github.com/atframework/atsf4g-go/component/user_controller/dispatcher"
 	lobbysvr_app "github.com/atframework/atsf4g-go/service-lobbysvr/app"
 	logic_global_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail"
+	logic_user_impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/impl"
 )
 
 func main() {
@@ -34,6 +36,12 @@ func main() {
 		if err != nil {
 			callback.GetLogger().LogError("Load config failed", "error", err)
 			return nil, err
+		}
+
+		gmWhiteList := logic_user_impl.UserBasicGetGmWhiteList()
+		clear(gmWhiteList)
+		for _, gm := range serverConfig.GetGmWhiteList() {
+			gmWhiteList[strings.TrimSpace(gm)] = struct{}{}
 		}
 		return serverConfig.ToReadonly(), nil
 	})

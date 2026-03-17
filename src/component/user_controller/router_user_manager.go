@@ -2,9 +2,9 @@ package atframework_component_user_controller
 
 import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component-router"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/component/router"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

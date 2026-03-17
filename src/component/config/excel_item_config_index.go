@@ -1,7 +1,7 @@
 package atframework_component_config
 
 import (
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 )
 
 func MapToArrayItemOffset(

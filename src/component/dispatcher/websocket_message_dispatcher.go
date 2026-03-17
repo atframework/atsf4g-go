@@ -11,9 +11,9 @@ import (
 
 	libatapp "github.com/atframework/libatapp-go"
 
-	private_protocol_config "github.com/atframework/atsf4g-go/component-protocol-private/config/protocol/config"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
@@ -374,6 +374,15 @@ func (d *WebSocketMessageDispatcher) handleSessionIO(session *WebSocketSession) 
 					d.closeSession(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
 					break
 				}
+				// 优先发送完消息再关闭连接
+				select {
+				case writeMessage, ok := <-session.sendQueue:
+					if ok {
+						d.writeMessageToConnection(session, writeMessage)
+					}
+				default:
+					break
+				}
 				d.closeSession(d.CreateRpcContext(), session, closeParam.closeCode, closeParam.text)
 				break
 			}
@@ -399,6 +408,15 @@ func (d *WebSocketMessageDispatcher) handleSessionIO(session *WebSocketSession) 
 			case closeParam, ok := <-session.sendQueueClose:
 				if !ok {
 					d.closeSession(d.CreateRpcContext(), session, websocket.CloseGoingAway, "Session closing")
+					break
+				}
+				// 优先发送完消息再关闭连接
+				select {
+				case writeMessage, ok := <-session.sendQueue:
+					if ok {
+						d.writeMessageToConnection(session, writeMessage)
+					}
+				default:
 					break
 				}
 				d.closeSession(d.CreateRpcContext(), session, closeParam.closeCode, closeParam.text)

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
+	config "github.com/atframework/atsf4g-go/component/config"
 	"github.com/atframework/libatapp-go"
 )
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 	"github.com/redis/go-redis/v9"
 )
@@ -87,61 +87,63 @@ func SortedSetZAdd(ctx cd.AwaitableContext, index string, tableName string,
 
 	type innerPrivateData struct{}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAdd Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "memberCount", len(members))
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAdd Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "memberCount", len(members))
 
-			args := redis.ZAddArgs{
-				Members: redisMembers,
-			}
-			switch existence {
-			case ZAddExistenceNX:
-				args.NX = true
-			case ZAddExistenceXX:
-				args.XX = true
-			}
-			switch comparison {
-			case ZAddComparisonGT:
-				args.GT = true
-			case ZAddComparisonLT:
-				args.LT = true
-			}
+				args := redis.ZAddArgs{
+					Members: redisMembers,
+				}
+				switch existence {
+				case ZAddExistenceNX:
+					args.NX = true
+				case ZAddExistenceXX:
+					args.XX = true
+				}
+				switch comparison {
+				case ZAddComparisonGT:
+					args.GT = true
+				case ZAddComparisonLT:
+					args.LT = true
+				}
 
-			cmdResult, redisError := instance.ZAddArgs(ctx.GetContext(), index, args).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("SortedSetZAdd Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				cmdResult, redisError := instance.ZAddArgs(ctx.GetContext(), index, args).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("SortedSetZAdd Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("zadd failed resume error", "TableName", tableName, "err", resumeError)
+						return resumeError
+					}
+					return redisError
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAdd Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "changed", cmdResult)
+				resumeData.PrivateData = &innerPrivateData{}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("zadd failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAdd Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "changed", cmdResult)
-			resumeData.PrivateData = &innerPrivateData{}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("zadd failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -182,50 +184,52 @@ func SortedSetZAddIncr(ctx cd.AwaitableContext, index string, tableName string,
 		Exists   bool
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAddIncr Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "member", member.Member, "score", member.Score)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAddIncr Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "member", member.Member, "score", member.Score)
 
-			args := redis.ZAddArgs{
-				Members: []redis.Z{{Score: member.Score, Member: member.Member}},
-			}
+				args := redis.ZAddArgs{
+					Members: []redis.Z{{Score: member.Score, Member: member.Member}},
+				}
 
-			cmdResult, redisError := instance.ZAddArgsIncr(ctx.GetContext(), index, args).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil && redisError != redis.Nil {
-				ctx.GetApp().GetLogger(2).LogError("SortedSetZAddIncr Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				cmdResult, redisError := instance.ZAddArgsIncr(ctx.GetContext(), index, args).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil && redisError != redis.Nil {
+					ctx.GetApp().GetLogger(2).LogError("SortedSetZAddIncr Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("zadd incr failed resume error", "TableName", tableName, "err", resumeError)
+						return resumeError
+					}
+					return redisError
+				}
+				exists := redisError != redis.Nil
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAddIncr Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "newScore", cmdResult, "exists", exists)
+				resumeData.PrivateData = &innerPrivateData{NewScore: cmdResult, Exists: exists}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("zadd incr failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			exists := redisError != redis.Nil
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZAddIncr Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "newScore", cmdResult, "exists", exists)
-			resumeData.PrivateData = &innerPrivateData{NewScore: cmdResult, Exists: exists}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("zadd incr failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -277,58 +281,60 @@ func SortedSetZRangeByRank(ctx cd.AwaitableContext, index string, tableName stri
 		Members []SortedSetRangeMember
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByRank Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "start", start, "stop", stop, "rev", rev)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByRank Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "start", start, "stop", stop, "rev", rev)
 
-			args := redis.ZRangeArgs{
-				Key:   index,
-				Start: start,
-				Stop:  stop,
-				Rev:   rev,
-			}
-			cmdResult, redisError := instance.ZRangeArgsWithScores(ctx.GetContext(), args).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("SortedSetZRangeByRank Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				args := redis.ZRangeArgs{
+					Key:   index,
+					Start: start,
+					Stop:  stop,
+					Rev:   rev,
+				}
+				cmdResult, redisError := instance.ZRangeArgsWithScores(ctx.GetContext(), args).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("SortedSetZRangeByRank Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("zrange by rank failed resume error", "TableName", tableName, "err", resumeError)
+						return resumeError
+					}
+					return redisError
+				}
+				resultMembers := make([]SortedSetRangeMember, 0, len(cmdResult))
+				for _, z := range cmdResult {
+					resultMembers = append(resultMembers, SortedSetRangeMember{
+						Member: fmt.Sprintf("%v", z.Member),
+						Score:  z.Score,
+					})
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByRank Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "count", len(resultMembers))
+				resumeData.PrivateData = &innerPrivateData{Members: resultMembers}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("zrange by rank failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			resultMembers := make([]SortedSetRangeMember, 0, len(cmdResult))
-			for _, z := range cmdResult {
-				resultMembers = append(resultMembers, SortedSetRangeMember{
-					Member: fmt.Sprintf("%v", z.Member),
-					Score:  z.Score,
-				})
-			}
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByRank Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "count", len(resultMembers))
-			resumeData.PrivateData = &innerPrivateData{Members: resultMembers}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("zrange by rank failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -404,61 +410,63 @@ func SortedSetZRangeByScore(ctx cd.AwaitableContext, index string, tableName str
 		Members []SortedSetRangeMember
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByScore Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "min", min.String(), "max", max.String(), "offset", offset, "count", count, "rev", rev)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByScore Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "min", min.String(), "max", max.String(), "offset", offset, "count", count, "rev", rev)
 
-			args := redis.ZRangeArgs{
-				Key:     index,
-				Start:   min.String(),
-				Stop:    max.String(),
-				ByScore: true,
-				Rev:     rev,
-				Offset:  offset,
-				Count:   count,
-			}
-			cmdResult, redisError := instance.ZRangeArgsWithScores(ctx.GetContext(), args).Result()
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
-			if redisError != nil {
-				ctx.GetApp().GetLogger(2).LogError("SortedSetZRangeByScore Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				args := redis.ZRangeArgs{
+					Key:     index,
+					Start:   min.String(),
+					Stop:    max.String(),
+					ByScore: true,
+					Rev:     rev,
+					Offset:  offset,
+					Count:   count,
+				}
+				cmdResult, redisError := instance.ZRangeArgsWithScores(ctx.GetContext(), args).Result()
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
+				if redisError != nil {
+					ctx.GetApp().GetLogger(2).LogError("SortedSetZRangeByScore Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+					if resumeError != nil {
+						ctx.LogError("zrange by score failed resume error", "TableName", tableName, "err", resumeError)
+						return resumeError
+					}
+					return redisError
+				}
+				resultMembers := make([]SortedSetRangeMember, 0, len(cmdResult))
+				for _, z := range cmdResult {
+					resultMembers = append(resultMembers, SortedSetRangeMember{
+						Member: fmt.Sprintf("%v", z.Member),
+						Score:  z.Score,
+					})
+				}
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByScore Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "count", len(resultMembers))
+				resumeData.PrivateData = &innerPrivateData{Members: resultMembers}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("zrange by score failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			resultMembers := make([]SortedSetRangeMember, 0, len(cmdResult))
-			for _, z := range cmdResult {
-				resultMembers = append(resultMembers, SortedSetRangeMember{
-					Member: fmt.Sprintf("%v", z.Member),
-					Score:  z.Score,
-				})
-			}
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRangeByScore Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "count", len(resultMembers))
-			resumeData.PrivateData = &innerPrivateData{Members: resultMembers}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("zrange by score failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}
@@ -511,69 +519,71 @@ func SortedSetZRank(ctx cd.AwaitableContext, index string, tableName string,
 		Found bool
 	}
 
-	pushActionFunc := func() cd.RpcResult {
-		err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRank Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "member", member, "rev", rev)
+	hooks := &cd.YieldTaskHookSet{
+		PreYield: func(ctx cd.RpcContext) cd.RpcResult {
+			err := ctx.GetApp().PushAction(func(app_action *libatapp.AppActionData) error {
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRank Send", "TableName", tableName, "Seq", awaitOption.Sequence, "index", index, "member", member, "rev", rev)
 
-			var rankResult *redis.RankWithScoreCmd
-			if rev {
-				rankResult = instance.ZRevRankWithScore(ctx.GetContext(), index, member)
-			} else {
-				rankResult = instance.ZRankWithScore(ctx.GetContext(), index, member)
-			}
+				var rankResult *redis.RankWithScoreCmd
+				if rev {
+					rankResult = instance.ZRevRankWithScore(ctx.GetContext(), index, member)
+				} else {
+					rankResult = instance.ZRankWithScore(ctx.GetContext(), index, member)
+				}
 
-			resumeData := &cd.DispatcherResumeData{
-				Message: &cd.DispatcherRawMessage{
-					Type: awaitOption.Type,
-				},
-				Sequence:    awaitOption.Sequence,
-				PrivateData: nil,
-			}
+				resumeData := &cd.DispatcherResumeData{
+					Message: &cd.DispatcherRawMessage{
+						Type: awaitOption.Type,
+					},
+					Sequence:    awaitOption.Sequence,
+					PrivateData: nil,
+				}
 
-			rankWithScore, redisError := rankResult.Result()
-			if redisError != nil {
-				if redisError == redis.Nil {
-					// 成员不存在，不算错误
-					ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRank Member Not Found", "TableName", tableName, "Seq", awaitOption.Sequence, "member", member)
-					resumeData.PrivateData = &innerPrivateData{Found: false}
-					resumeData.Result = cd.CreateRpcResultOk()
+				rankWithScore, redisError := rankResult.Result()
+				if redisError != nil {
+					if redisError == redis.Nil {
+						// 成员不存在，不算错误
+						ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRank Member Not Found", "TableName", tableName, "Seq", awaitOption.Sequence, "member", member)
+						resumeData.PrivateData = &innerPrivateData{Found: false}
+						resumeData.Result = cd.CreateRpcResultOk()
+						resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
+						if resumeError != nil {
+							ctx.LogError("zrank failed resume error", "TableName", tableName, "err", resumeError)
+							return resumeError
+						}
+						return nil
+					}
+					ctx.GetApp().GetLogger(2).LogError("SortedSetZRank Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
+					resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 					resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 					if resumeError != nil {
 						ctx.LogError("zrank failed resume error", "TableName", tableName, "err", resumeError)
 						return resumeError
 					}
-					return nil
+					return redisError
 				}
-				ctx.GetApp().GetLogger(2).LogError("SortedSetZRank Recv Error", "TableName", tableName, "Seq", awaitOption.Sequence, "redisError", redisError)
-				resumeData.Result = cd.CreateRpcResultError(redisError, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+				ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRank Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "rank", rankWithScore.Rank, "score", rankWithScore.Score)
+				resumeData.PrivateData = &innerPrivateData{
+					Rank:  rankWithScore.Rank,
+					Score: rankWithScore.Score,
+					Found: true,
+				}
+				resumeData.Result = cd.CreateRpcResultOk()
 				resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
 				if resumeError != nil {
 					ctx.LogError("zrank failed resume error", "TableName", tableName, "err", resumeError)
 					return resumeError
 				}
-				return redisError
+				return nil
+			}, nil, nil)
+			if err != nil {
+				return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 			}
-			ctx.GetApp().GetLogger(2).LogDebug("SortedSetZRank Recv Success", "TableName", tableName, "Seq", awaitOption.Sequence, "rank", rankWithScore.Rank, "score", rankWithScore.Score)
-			resumeData.PrivateData = &innerPrivateData{
-				Rank:  rankWithScore.Rank,
-				Score: rankWithScore.Score,
-				Found: true,
-			}
-			resumeData.Result = cd.CreateRpcResultOk()
-			resumeError := cd.ResumeTaskAction(ctx, currentAction, resumeData)
-			if resumeError != nil {
-				ctx.LogError("zrank failed resume error", "TableName", tableName, "err", resumeError)
-				return resumeError
-			}
-			return nil
-		}, nil, nil)
-		if err != nil {
-			return cd.CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		}
-		return cd.CreateRpcResultOk()
+			return cd.CreateRpcResultOk()
+		},
 	}
 	var resumeData *cd.DispatcherResumeData
-	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, pushActionFunc, nil)
+	resumeData, retResult = cd.YieldTaskAction(ctx, currentAction, awaitOption, hooks)
 	if retResult.IsError() {
 		return
 	}

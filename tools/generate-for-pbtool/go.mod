@@ -1,4 +1,4 @@
-module github.com/atframework/atsf4g-go/tools/generate-for-pb
+module github.com/atframework/atsf4g-go/tools/generate-for-pbtool
 
 go 1.25.1
 

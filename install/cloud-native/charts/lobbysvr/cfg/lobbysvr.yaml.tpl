@@ -15,3 +15,4 @@ lobbysvr:
     {{- else }}
     path: "/ws/v1"
     {{- end }}
+  {{- toYaml .Values.lobbysvr | trim | nindent 2 }}

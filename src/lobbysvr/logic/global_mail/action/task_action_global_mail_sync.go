@@ -3,13 +3,11 @@ package lobbysvr_logic_global_mail_action
 import (
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	atframework_component_config "github.com/atframework/atsf4g-go/component-config"
-	db "github.com/atframework/atsf4g-go/component-db"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	atframework_component_config "github.com/atframework/atsf4g-go/component/config"
+	db "github.com/atframework/atsf4g-go/component/db"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	global_mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/data"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
 )
@@ -170,7 +168,7 @@ func (t *TaskActionGlobalMailSyncObjects) fetchMailContents() int {
 				}
 				jobData := mailContent.GetJobData()
 				if jobData != nil {
-					proto.Merge(mailData.Content, jobData.GetMailContent())
+					mailData.Content = jobData.GetMailContent().Clone()
 				}
 				record.FetchErrorCount = 0
 

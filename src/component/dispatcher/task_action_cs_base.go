@@ -12,9 +12,9 @@ import (
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	config "github.com/atframework/atsf4g-go/component-config"
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

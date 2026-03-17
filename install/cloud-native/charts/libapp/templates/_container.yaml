@@ -15,6 +15,7 @@ livenessProbe:
         set -x
         /entrypoint.sh health_check
   periodSeconds: 3
+  timeoutSeconds: 5
 startupProbe:
   exec:
     command:
@@ -24,6 +25,7 @@ startupProbe:
         set -ex
         /entrypoint.sh health_check
   failureThreshold: 18
+  timeoutSeconds: 5
 lifecycle:
   preStop:
     exec:
@@ -107,7 +109,7 @@ env:
 {{- end -}}
 
 {{- define "libapp.vector.container.tpl" -}}
-{{- if and .Values.vector (default true .Values.vector.enabled) }}
+{{- if and .Values.vector (default false .Values.vector.enabled) }}
 name: vector
 image: "{{ .Values.vector.image.repository }}"
 imagePullPolicy: {{ .Values.vector.image.pullPolicy }}

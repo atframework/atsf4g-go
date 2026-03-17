@@ -3,6 +3,10 @@
 package lobbysvr_logic_user_action
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,25 +15,26 @@ import (
 	"strings"
 	"time"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	db "github.com/atframework/atsf4g-go/component-db"
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	db "github.com/atframework/atsf4g-go/component/db"
+	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
-	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
-	mail_component "github.com/atframework/atsf4g-go/component-mail"
+	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
+	mail_component "github.com/atframework/atsf4g-go/component/mail"
 	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
+	user_auth "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/auth"
 )
 
 type TaskActionUserSendGmCommand struct {
@@ -133,6 +138,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "send-global-mail", "", "Send global mail", (*TaskActionUserSendGmCommand).runGMCmdSendGlobalMail)
 	registerGmCommandHandle(callbacks, "delete-user-mail", "", "Delete user mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteUserMail)
 	registerGmCommandHandle(callbacks, "delete-global-mail", "", "Delete global mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteGlobalMail)
+	registerGmCommandHandle(callbacks, "generate-account-password", "[openid...]", "Generate password", (*TaskActionUserSendGmCommand).runGMCmdGeneratePassword)
 	return callbacks
 }
 
@@ -799,4 +805,64 @@ func (t *TaskActionUserSendGmCommand) runGMCmdDeleteGlobalMail(ctx component_dis
 	}
 
 	return []string{""}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdGeneratePassword(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("invalid arguments for generate-account-password [openid...]")
+	}
+
+	ret := []string{}
+	zoneId := user.GetZoneId()
+
+	for i := 0; i < len(args); i++ {
+		openid := strings.TrimSpace(args[i])
+		if openid == "" {
+			continue
+		}
+
+		userId, err := strconv.ParseUint(openid, 10, 64)
+		if err != nil {
+			ret = append(ret, fmt.Sprintf("openid: %s is not a valid user_id", openid))
+			ctx.LogWarn("generate account password but invalid openid", "index", i, "open_id", openid, "error", err)
+			continue
+		}
+
+		pwd := make([]byte, 12)
+		if _, err := rand.Read(pwd); err != nil {
+			ctx.LogError("generate account password but rand error", "index", i, "open_id", openid, "error", err)
+			break
+		}
+		pwdStr := base64.RawStdEncoding.EncodeToString(pwd)
+		pwdStr = strings.ReplaceAll(pwdStr, "+", ".")
+		pwdStr = strings.ReplaceAll(pwdStr, "/", "-")
+		pwdHash := sha256.Sum256([]byte(pwdStr))
+		pwdStore, err := user_auth.GeneratePasswordHash(ctx, strings.ToLower(
+			hex.EncodeToString(pwdHash[:]),
+		))
+		if err != nil {
+			ctx.LogError("generate account password but GeneratePasswordHash failed", "index", i, "open_id", openid, "error", err)
+			break
+		}
+
+		authTable, result := db.DatabaseTableAccessLoadWithZoneIdUserId(ctx, zoneId, userId)
+		if result.IsError() && result.GetResponseCode() != int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
+			result.LogError(ctx, "generate account password but load DB failed", "index", i, "open_id", openid)
+			break
+		}
+
+		authTable.ZoneId = zoneId
+		authTable.UserId = userId
+		authTable.AccessSecret = pwdStore
+
+		result = db.DatabaseTableAccessUpdateZoneIdUserId(ctx, authTable)
+		if result.IsError() {
+			result.LogError(ctx, "generate account password but save DB failed", "index", i, "open_id", openid)
+			break
+		}
+
+		ret = append(ret, fmt.Sprintf("openid: %s, password: %s", openid, pwdStr))
+	}
+
+	return ret, nil
 }

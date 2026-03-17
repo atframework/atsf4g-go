@@ -6,18 +6,21 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	config "github.com/atframework/atsf4g-go/component-config"
-	db "github.com/atframework/atsf4g-go/component-db"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	db "github.com/atframework/atsf4g-go/component/db"
+	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
+	"github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
+	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	user_auth "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/auth"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 )
 
 type TaskActionLoginAuth struct {
@@ -62,16 +65,52 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		}
 	}()
 
+	lobbySvrCfg := config.GetServerConfig[*private_protocol_config.Readonly_LobbyServerCfg](config.GetConfigManager().GetCurrentConfigGroup())
+	if lobbySvrCfg == nil {
+		t.LogError("Lobby server config is nil")
+	}
+
 	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetAwaitableContext(), zoneId, userId)
 	accessSecret := ""
 	if authTable != nil {
 		accessSecret = authTable.GetAccessSecret()
 	}
-	if accessSecret != "" && accessSecret != "*" && accessSecret != request_body.GetAccount().GetAccess() {
-		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
-		t.GetRpcContext().LogWarn("user already login", "zone_id", zoneId, "user_id", userId)
-		return nil
+
+	// TODO: 临时的密码验证算法
+	requestPasswordHash := request_body.GetAuthData().GetPassword().GetPasswordHash()
+	requestPasswordWeakToken := request_body.GetAuthData().GetPassword().GetWeakToken()
+	if !lobbySvrCfg.GetAuth().GetAllowNoAuth() {
+		if requestPasswordHash == "" && requestPasswordWeakToken == "" {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+			t.GetRpcContext().LogWarn("user login requires password", "zone_id", zoneId, "user_id", userId)
+			return nil
+		}
+
+		checkPassed := false
+		if requestPasswordWeakToken != "" {
+			checkPassed = user_auth.HasPasswordWeakToken(t.GetRpcContext(), requestPasswordWeakToken, authTable.GetWeakData())
+		}
+		if !checkPassed && requestPasswordHash != "" && accessSecret != "" {
+			checkPassed, err = user_auth.VerifyPassword(requestPasswordHash, accessSecret)
+			if err != nil {
+				t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+				t.GetRpcContext().LogWarn("verify password failed", "zone_id", zoneId, "user_id", userId, "error", err)
+			}
+		}
+
+		if !checkPassed {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+			t.GetRpcContext().LogWarn("user password auth failed", "zone_id", zoneId, "user_id", userId)
+			return nil
+		}
 	}
+
+	// TODO: 临时移除老的外部平台认证流程
+	// if accessSecret != "" && accessSecret != "*" && accessSecret != request_body.GetAccount().GetAccess() {
+	//  t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+	// 	t.GetRpcContext().LogWarn("user already login", "zone_id", zoneId, "user_id", userId)
+	// 	return nil
+	// }
 
 	uuid, err := uuid.NewRandom()
 	if err != nil {
@@ -80,18 +119,31 @@ func (t *TaskActionLoginAuth) Run(_startData *component_dispatcher.DispatcherSta
 		return nil
 	}
 	loginCode := strings.Replace(uuid.String(), "-", "", -1)
-
-	if accessSecret == "" {
-		accessSecret = "*"
+	if authTable == nil {
+		authTable = &pbdesc.DatabaseTableAccess{
+			ZoneId:       zoneId,
+			UserId:       userId,
+			AccessSecret: accessSecret,
+			LoginCode:    loginCode,
+		}
 	}
+	authTable.LoginCode = loginCode
 
-	table := private_protocol_pbdesc.DatabaseTableAccess{
-		ZoneId:       zoneId,
-		UserId:       userId,
-		AccessSecret: accessSecret,
-		LoginCode:    loginCode,
+	if !lobbySvrCfg.GetAuth().GetAllowNoAuth() {
+		weakToken := strings.Replace(uuid.String(), "-", "", -1)
+		weakTokenExpireTime := t.GetNow().Add(lobbySvrCfg.GetAuth().GetWeakTokenTimeout().AsDuration())
+		user_auth.AddWeakToken(t.GetRpcContext(), weakToken, weakTokenExpireTime, authTable.MutableWeakData())
+
+		response_body.AuthWeak = &public_protocol_pbdesc.DClientAuthWeakData{
+			Type: &public_protocol_pbdesc.DClientAuthWeakData_Password{
+				Password: &public_protocol_pbdesc.DClientAuthWeakPassword{
+					WeakToken:        weakToken,
+					ExpiredTimepoint: timestamppb.New(weakTokenExpireTime),
+				},
+			},
+		}
 	}
-	rpcErr := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetAwaitableContext(), &table)
+	rpcErr := db.DatabaseTableAccessUpdateZoneIdUserId(t.GetAwaitableContext(), authTable)
 	if rpcErr.IsError() {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 		t.GetRpcContext().LogWarn("update login code failed", "zone_id", zoneId, "user_id", userId, "error", rpcErr)

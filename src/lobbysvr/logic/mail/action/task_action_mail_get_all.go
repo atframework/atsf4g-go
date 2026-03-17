@@ -6,10 +6,10 @@ package lobbysvr_logic_mail_action
 import (
 	"fmt"
 
-	config "github.com/atframework/atsf4g-go/component-config"
-	component_dispatcher "github.com/atframework/atsf4g-go/component-dispatcher"
-	mail "github.com/atframework/atsf4g-go/component-mail"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
+	mail "github.com/atframework/atsf4g-go/component/mail"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"

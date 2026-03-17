@@ -67,7 +67,7 @@ func PathSetup() error {
 	projectGenDir := GetProjectGenDir()
 	projectToolsDir := GetProjectToolsDir()
 	xresloaderPath := path.Join(projectBaseDir, "third_party", "xresloader")
-	generateForPbPath := path.Join(projectToolsDir, "generate-for-pb")
+	generateForPbPath := path.Join(projectToolsDir, "generate-for-pbtool")
 	pythonBinPath, err := GetPythonPath()
 	if err != nil {
 		FmtColorFprintRed(os.Stderr, "Get Python Path Failed: %v", err)

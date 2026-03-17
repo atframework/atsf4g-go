@@ -5,3 +5,12 @@
 [submodule "third_party/xresloader/xresconv-cli"]
 	path = third_party/xresloader/xresconv-cli
 	url = https://github.com/owent/xresconv-cli
+[submodule "atframework/atframe-utils-go"]
+	path = atframework/atframe-utils-go
+	url = https://github.com/atframework/atframe-utils-go.git
+[submodule "atframework/libatapp-go"]
+	path = atframework/libatapp-go
+	url = https://github.com/atframework/libatapp-go.git
+[submodule "atframework/libatbus-go"]
+	path = atframework/libatbus-go
+	url = https://github.com/atframework/libatbus-go.git

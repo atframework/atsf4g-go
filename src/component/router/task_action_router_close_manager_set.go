@@ -4,8 +4,8 @@ import (
 	"sync/atomic"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component-config"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 )
 
 type TaskActionRouterCloseManagerSet struct {

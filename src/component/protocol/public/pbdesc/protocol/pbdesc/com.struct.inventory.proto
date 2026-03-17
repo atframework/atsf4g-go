@@ -6,6 +6,6 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc";
+option go_package = "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc";
 
 package proy;

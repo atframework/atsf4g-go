@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"strings"
 
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
-	public_protocol_common "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 )
 
 func getEnumValueByName(enumName string) (int32, bool) {

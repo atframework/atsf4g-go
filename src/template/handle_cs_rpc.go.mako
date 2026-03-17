@@ -14,8 +14,8 @@ package ${ service_go_package_prefix }${ os.path.dirname(output_render_path).rep
 import (
 	"fmt"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	uc_d "github.com/atframework/atsf4g-go/component-user_controller/dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	uc_d "github.com/atframework/atsf4g-go/component/user_controller/dispatcher"
 
 	sp "${protocol_go_module}"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"

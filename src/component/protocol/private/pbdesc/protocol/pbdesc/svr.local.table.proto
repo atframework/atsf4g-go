@@ -6,15 +6,20 @@ option optimize_for = SPEED;
 // --cpp_out=lite:,--cpp_out=
 option cc_enable_arenas = true;
 
-option go_package = "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc";
+option go_package = "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
+import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/svr.struct.proto";
 import "protocol/extension/svr.database.extension.proto";
 
 package proy;
+
+message database_auth_weak_data {
+  repeated DClientAuthWeakData token_list = 1;  // 弱认证token列表
+}
 
 message database_table_access {
   // clang-format off
@@ -29,8 +34,12 @@ message database_table_access {
   // clang-format on
   uint64 user_id = 1;
   uint32 zone_id = 2;
+
+  // 密码认证方式中，这个是
   string access_secret = 3;
   string login_code = 4;
+
+  database_auth_weak_data weak_data = 11;  // 弱认证token列表
 }
 
 message database_table_login_lock {
@@ -45,14 +54,14 @@ message database_table_login_lock {
   };
   // clang-format on
   uint64 user_id = 1;
-  uint64 router_server_id = 2; // 路由系统 - 登入进程id
-  uint64 router_version = 3; // 路由系统 - 登入进程变更版本号
+  uint64 router_server_id = 2;  // 路由系统 - 登入进程id
+  uint64 router_version = 3;    // 路由系统 - 登入进程变更版本号
 
-  uint32 login_zone_id = 11; // 登入区服ID
-  int64 login_expired = 12; // 登入进程过期时间（时间戳）
-  string login_code = 13; // 认证码
+  uint32 login_zone_id = 11;  // 登入区服ID
+  int64 login_expired = 12;   // 登入进程过期时间（时间戳）
+  string login_code = 13;     // 认证码
   // 限制登入信息
-  int64 ban_time = 14; // 封号期限
+  int64 ban_time = 14;  // 封号期限
 
   // 资源冲突检测
   uint64 expect_table_user_db_version = 21;
@@ -85,19 +94,19 @@ message database_table_user {
   uint32 zone_id = 3;
 
   // BasicInfo
-  login_data login_data = 11; // 登入数据
-  account_information account_data = 12; // 账号信息
-  user_data user_data = 13; // 玩家基础数据
-  uint64 data_version = 14; // 数据版本号
+  login_data login_data = 11;             // 登入数据
+  account_information account_data = 12;  // 账号信息
+  user_data user_data = 13;               // 玩家基础数据
+  uint64 data_version = 14;               // 数据版本号
   // BasicInfo
 
   // 以下是服务器内部数据
   // 异步任务缓存
   user_async_jobs_cache_blob_data async_job_blob_data = 101;
-  bool create_init = 103; // 是否已经执行过创建初始化
+  bool create_init = 103;  // 是否已经执行过创建初始化
 
   // 业务逻辑数据
-  user_options_data options_data = 200; // 玩家选项
+  user_options_data options_data = 200;  // 玩家选项
   user_inventory_data inventory_data = 201;
   user_quest_data quest_data = 208;
   user_condition_data condition_data = 209;
@@ -138,7 +147,7 @@ message database_table_user_async_jobs {
     }
   };
   // clang-format on
-  int32 job_type = 1; // 任务类型
+  int32 job_type = 1;  // 任务类型
   uint64 user_id = 2;
   uint32 zone_id = 3;
   user_async_jobs_blob_data job_data = 11;
@@ -146,24 +155,15 @@ message database_table_user_async_jobs {
 
 message database_table_mail_content {
   option (atframework.database_table) = {
-    index: {
-      name: "mail_content"
-      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      key_fields: "mail_id"
-    }
+    index: { name: "mail_content" type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV key_fields: "mail_id" }
   };
-  int64 mail_id = 1; // 邮件id
+  int64 mail_id = 1;  // 邮件id
   database_mail_content_blob_data job_data = 11;
 }
 
 message database_table_global_mail {
   option (atframework.database_table) = {
-    index: {
-      name: "global_mail"
-      type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      key_fields: "zone_id"
-      key_fields: "major_type"
-    }
+    index: { name: "global_mail" type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV key_fields: "zone_id" key_fields: "major_type" }
   };
   uint32 zone_id = 1;
   int32 major_type = 2;
@@ -187,7 +187,6 @@ message database_table_name_mapping {
   database_name_mapping_blob_data mapping_data = 11;
 }
 
-
 message table_user_async_jobs {
   // clang-format off
   option (atframework.database_table) = {
@@ -201,7 +200,7 @@ message table_user_async_jobs {
     }
   };
   // clang-format on
-  int32 job_type = 1; // 任务类型
+  int32 job_type = 1;  // 任务类型
   uint64 user_id = 2;
   uint32 zone_id = 3;
 
@@ -221,6 +220,4 @@ message database_table_rank {
   uint32 id = 1;
   uint32 type = 2;
   uint32 version = 3;
-
-  uint32 score = 4;
 }

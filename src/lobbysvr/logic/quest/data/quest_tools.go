@@ -1,7 +1,7 @@
 package lobbysvr_logic_quest_data
 
 import (
-	public_protocol_config "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
+	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 )
 
 func GetProgressCfgParam1Value(progressCfg *public_protocol_config.Readonly_DQuestConditionProgress) int32 {

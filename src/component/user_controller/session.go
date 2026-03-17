@@ -5,11 +5,12 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	log "github.com/atframework/atframe-utils-go/log"
+	"github.com/gorilla/websocket"
 
-	config "github.com/atframework/atsf4g-go/component-config"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
-	public_protocol_extension "github.com/atframework/atsf4g-go/component-protocol-public/extension/protocol/extension"
+	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 )
 
 type SessionNetworkHandleImpl interface {
@@ -74,10 +75,11 @@ func (s *Session) GetKey() *SessionKey {
 	return &s.key
 }
 
-func (s *Session) Close(ctx cd.RpcContext, reason int32, reasonMessage string) {
+func (s *Session) Close(ctx cd.RpcContext, _ int32, reasonMessage string) {
 	if !s.networkClosed {
 		s.networkClosed = true
-		s.networkHandle.Close(ctx, reason, reasonMessage)
+		// 不能用自定义的Code，必须使用websocket标准的Code
+		s.networkHandle.Close(ctx, websocket.CloseGoingAway, reasonMessage)
 	}
 
 	// 解绑User

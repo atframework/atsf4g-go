@@ -3,13 +3,13 @@ package lobbysvr_data
 import (
 	"slices"
 
-	ppc "github.com/atframework/atsf4g-go/component-protocol-public/common/protocol/common"
-	ppcfg "github.com/atframework/atsf4g-go/component-protocol-public/config/protocol/config"
-	ppp "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	ppc "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	ppcfg "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
+	ppp "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	cc "github.com/atframework/atsf4g-go/component-config"
+	cc "github.com/atframework/atsf4g-go/component/config"
 
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 )
 
 type ItemFlowReason struct {

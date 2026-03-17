@@ -8,9 +8,9 @@ import (
 	"time"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	generate_config "github.com/atframework/atsf4g-go/component-config/generate_config"
+	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
 
-	logical_time "github.com/atframework/atsf4g-go/component-logical_time"
+	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
 )
 
 func initExcelConstConfigIndex(group *generate_config.ConfigGroup, logger *log.Logger) error {

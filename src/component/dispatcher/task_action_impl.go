@@ -7,8 +7,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
-	config "github.com/atframework/atsf4g-go/component-config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/component/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
@@ -17,10 +17,10 @@ type TaskActionAwaitChannelData struct {
 	killed *RpcResult
 }
 
-type BeforeYieldAction func() RpcResult
-type BeforeYieldEnsureCallAction func()
-
-type TaskActionStatus int32
+type (
+	TaskActionStatus         int32
+	TaskActionCallbackHandle uint64
+)
 
 const (
 	TaskActionStatusInvalid TaskActionStatus = 0
@@ -91,13 +91,15 @@ type TaskActionImpl interface {
 	TryKillAwait(killData *RpcResult) error
 	TryKill(killData *RpcResult) error
 
-	InitFinishCallback(callback func(RpcContext))
+	AddFinishCallback(callback func(RpcContext)) TaskActionCallbackHandle
+	RemoveFinishCallback(handle TaskActionCallbackHandle) func(RpcContext)
 }
 
 func popRunActorActions(app_action *libatapp.AppActionData) error {
 	cb_actor := app_action.PrivateData.(*ActorExecutor)
 	cb_actor.actionLock.Lock()
-	cb_actor.actionStatus = ActorExecutorStatusFree
+
+	cb_actor.actionRunnerCounter++
 
 	max_loop_count := int(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetActorMaxLoopCount())
 
@@ -128,13 +130,21 @@ func popRunActorActions(app_action *libatapp.AppActionData) error {
 		}
 	}
 
+	cb_actor.actionRunnerCounter--
+
 	// 如果还有待执行任务，继续执行，切换到pending状态，重新插入队列
 	if cb_actor.pendingActions.Len() == 0 {
-		cb_actor.actionStatus = ActorExecutorStatusFree
+		if cb_actor.actionRunnerCounter <= 0 {
+			cb_actor.actionStatus = ActorExecutorStatusFree
+		}
 		cb_actor.actionLock.Unlock() // 手动释放 放置Panic时覆盖堆栈
 		return nil
 	} else {
-		cb_actor.actionStatus = ActorExecutorStatusPending
+		if cb_actor.actionRunnerCounter <= 0 {
+			cb_actor.actionStatus = ActorExecutorStatusPending
+		} else {
+			cb_actor.actionStatus = ActorExecutorStatusRunning
+		}
 		err := app_action.App.PushAction(popRunActorActions, nil, cb_actor)
 		if err != nil {
 			cb_actor.actionStatus = ActorExecutorStatusFree
@@ -169,15 +179,18 @@ func appendActorTaskAction(app libatapp.AppImpl, actor *ActorExecutor, action Ta
 		})
 	}
 
-	// 如果不在待执行队列中，插入待执行队列
-	if pendingLen > 0 && actor.actionStatus == ActorExecutorStatusFree {
-		actor.actionStatus = ActorExecutorStatusPending
-		err := app.PushAction(popRunActorActions, nil, actor)
-		if err != nil {
-			actor.actionStatus = ActorExecutorStatusFree
-			app.GetDefaultLogger().LogError("Push actor task action failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
-			return err
+	// 总是要插入待执行队列，否则并发会有问题
+	if actor.actionStatus == ActorExecutorStatusFree {
+		if actor.actionRunnerCounter > 0 {
+			actor.actionStatus = ActorExecutorStatusRunning
+		} else {
+			actor.actionStatus = ActorExecutorStatusPending
 		}
+	}
+	err := app.PushAction(popRunActorActions, nil, actor)
+	if err != nil {
+		app.GetDefaultLogger().LogError("Push actor task action failed", slog.String("task_name", action.Name()), slog.Uint64("task_id", action.GetTaskId()), slog.Any("error", err))
+		return err
 	}
 	return nil
 }

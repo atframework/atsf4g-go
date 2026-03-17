@@ -6,7 +6,7 @@ package lobbysvr_logic_async_jobs_data
 import (
 	"time"
 
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-private/pbdesc/protocol/pbdesc"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 )
 
 // HistoryItem 历史任务记录项

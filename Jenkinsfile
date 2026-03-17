@@ -425,18 +425,20 @@ PYEOF
                     if (env.USE_FAST_BUILD == 'true') {
                         echo 'Using fast-build (tools already exist)...'
                         sh """${setupBuildEnv()}
+                            git submodule update --init -f || git submodule update --init -f || git submodule update --init -f
                             task tools:clean-generate-pb
-                            task fast-build
+                            task --verbose fast-build
                             if [[ "${params.GIT_BRANCH}" == "main" ]] || [[ "${params.GIT_BRANCH}" == "origin/main" ]]; then
-                                task "fast-[doc]-build"
+                                task --verbose "fast-[doc]-build"
                             fi
                         """
                     } else {
                         echo 'Using full build (installing tools)...'
                         sh """${setupBuildEnv()}
-                            task build
+                            git submodule update --init -f || git submodule update --init -f || git submodule update --init -f
+                            task --verbose build
                             if [[ "${params.GIT_BRANCH}" == "main" ]] || [[ "${params.GIT_BRANCH}" == "origin/main" ]]; then
-                                task "fast-[doc]-build"
+                                task --verbose "fast-[doc]-build"
                             fi
                         """
                     }

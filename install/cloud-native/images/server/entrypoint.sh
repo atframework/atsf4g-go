@@ -7,7 +7,7 @@ RUNCMD_PARAM=""
 ENVS=()
 PROJECT_ROOT_DIR="/data/projecty"
 WORKDIR="${PROJECT_ROOT_DIR}/${SERVER_TYPE_NAME}/bin"
-PID_FILE="${SERVER_TYPE_NAME}.pid"
+PID_FILE="${WORKDIR}/${SERVER_TYPE_NAME}.pid"
 INSTANCE_ENV_FILE="/opt/projecty/${SERVER_TYPE_NAME}/instance_env"
 
 function usage() {
@@ -189,14 +189,13 @@ fi
 # enter workspace
 cd ${WORKDIR}
 
-# prepare dynamic libary
-if [[ -e "${PROJECT_ROOT_DIR}/tools/script/prepare-dependency-dll.sh" ]] && [[ -e "${WORKDIR}/package-version.txt" ]]; then
-  CURRENT_PREPARE_PACKAGE_SHOR_SHA="$(cat "${WORKDIR}/package-version.txt" | grep vcs_short_sha | awk '{print $NF}')"
-  find "${PROJECT_ROOT_DIR}/tools/script" -mindepth 1 -maxdepth 1 -name "prepare-package.*.lock" | grep -v -F "${CURRENT_PREPARE_PACKAGE_SHOR_SHA}" | xargs -r rm -f
-  flock -x -w 20 "${PROJECT_ROOT_DIR}/tools/script/prepare-package.${CURRENT_PREPARE_PACKAGE_SHOR_SHA}.lock" bash "${PROJECT_ROOT_DIR}/tools/script/prepare-dependency-dll.sh" "${PROJECT_ROOT_DIR}" "${CURRENT_PREPARE_PACKAGE_SHOR_SHA}"
-fi
-
 if [[ "${COMMAND}" == "start" ]]; then
+  # prepare dynamic libary (only needed on start, not health_check/stop/reload)
+  if [[ -e "${PROJECT_ROOT_DIR}/tools/script/prepare-dependency-dll.sh" ]] && [[ -e "${WORKDIR}/package-version.txt" ]]; then
+    CURRENT_PREPARE_PACKAGE_SHOR_SHA="$(cat "${WORKDIR}/package-version.txt" | grep vcs_short_sha | awk '{print $NF}')"
+    find "${PROJECT_ROOT_DIR}/tools/script" -mindepth 1 -maxdepth 1 -name "prepare-package.*.lock" | grep -v -F "${CURRENT_PREPARE_PACKAGE_SHOR_SHA}" | xargs -r rm -f
+    flock -x -w 20 "${PROJECT_ROOT_DIR}/tools/script/prepare-package.${CURRENT_PREPARE_PACKAGE_SHOR_SHA}.lock" bash "${PROJECT_ROOT_DIR}/tools/script/prepare-dependency-dll.sh" "${PROJECT_ROOT_DIR}" "${CURRENT_PREPARE_PACKAGE_SHOR_SHA}"
+  fi
   check_server_running ${PID_FILE}
   if [[ $? -eq 0 ]]; then
     echo "$(date "+%Y/%m/%d %H:%M:%S") [ERROR] server already started!!!"
@@ -248,24 +247,8 @@ elif [[ "${COMMAND}" == "stop" ]]; then
   END_TIME=$(($BEGIN_TIME+$TIMEOUT))
   echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] received stop command, timeout seconds(${TIMEOUT})"
 
-  # prestop
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -p "${PID_FILE}" -c ../cfg/${SERVER_TYPE_NAME}.yaml run prestop
-  if [[ $? -eq 0 ]]; then
-    echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] run server prestop command success"
-    while [[ $(date '+%s') -lt $END_TIME ]]; do
-        sleep 1
-        PRESTOP_STATUS=$(${WORKDIR}/${SERVER_TYPE_NAME}d -p "${PID_FILE}" -c ../cfg/${SERVER_TYPE_NAME}.yaml run prestop_check | grep "server prestop success" | wc -l)
-        if [[ "${PRESTOP_STATUS}" -ge 1 ]]; then
-            echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] prestop server done"
-            break
-        fi
-    done
-  else
-    echo "$(date "+%Y/%m/%d %H:%M:%S") [ERROR] run prestop command failed!!!"
-  fi
-
   # stop server
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -p "${PID_FILE}" -c ../cfg/${SERVER_TYPE_NAME}.yaml stop
+  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml stop
 
   # wait server stop finished
   check_server_running ${PID_FILE}
@@ -283,7 +266,7 @@ elif [[ "${COMMAND}" == "reload" ]]; then
   fi
   
   # reload server
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -p "${PID_FILE}" -c ../cfg/${SERVER_TYPE_NAME}.yaml reload
+  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml reload
   echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] server reload done, ret[$?]"
 elif [[ "${COMMAND}" == "kill" ]]; then
   echo "$(date "+%Y/%m/%d %H:%M:%S") [WARN] try force stop server"
@@ -317,7 +300,7 @@ elif [[ "${COMMAND}" == "kill" ]]; then
 
   stop_watch_configmap
 elif [[ "${COMMAND}" == "runcmd" ]]; then
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -p "${PID_FILE}" -c ../cfg/${SERVER_TYPE_NAME}.yaml run ${RUNCMD_PARAM}
+  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml run ${RUNCMD_PARAM}
   echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] server runcmd done, ret[$?]"
 elif [[ "${COMMAND}" == "health_check" ]]; then
   check_server_running ${PID_FILE}

@@ -5,11 +5,11 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	db "github.com/atframework/atsf4g-go/component-db"
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component-protocol-public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component-router"
-	uc "github.com/atframework/atsf4g-go/component-user_controller"
+	db "github.com/atframework/atsf4g-go/component/db"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/component/router"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
 )

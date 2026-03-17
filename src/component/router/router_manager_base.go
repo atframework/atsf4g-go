@@ -1,7 +1,7 @@
 package atframework_component_router
 
 import (
-	cd "github.com/atframework/atsf4g-go/component-dispatcher"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 )
 
 type RouterManagerBase struct {
