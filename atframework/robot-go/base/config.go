@@ -1,3 +1,0 @@
-package atsf4g_go_robot_protocol_base
-
-var SocketUrl string
