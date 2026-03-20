@@ -98,6 +98,27 @@ func (um *UserManager) Remove(ctx cd.AwaitableContext, zoneID uint32, userID uin
 	}
 }
 
+func (um *UserManager) Save(ctx cd.AwaitableContext, checkUser UserImpl) cd.RpcResult {
+	if lu.IsNil(checkUser) {
+		return cd.CreateRpcResultError(fmt.Errorf("user is nil"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+	}
+	cache := GetUserRouterManager(um.GetApp()).GetCache(router.RouterObjectKey{
+		TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+		ZoneID:   checkUser.GetZoneId(),
+		ObjectID: checkUser.GetUserId(),
+	})
+	if lu.IsNil(cache) {
+		return cd.CreateRpcResultError(fmt.Errorf("user cache not exists"), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
+	}
+	if !cache.IsWritable() {
+		return cd.CreateRpcResultError(fmt.Errorf("user cache not writable"), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_WRITABLE)
+	}
+	if cache.GetUserImpl() != checkUser {
+		return cd.CreateRpcResultError(fmt.Errorf("user mismatch"), public_protocol_pbdesc.EnErrorCode_EN_ERR_ROUTER_NOT_FOUND)
+	}
+	return cache.Save(ctx)
+}
+
 func UserManagerFindUserAs[T UserImpl](ctx cd.RpcContext, app libatapp.AppImpl, zoneID uint32, userID uint64) T {
 	um := libatapp.AtappGetModule[*UserManager](app)
 

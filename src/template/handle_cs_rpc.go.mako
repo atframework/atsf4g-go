@@ -16,6 +16,7 @@ import (
 
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	uc_d "github.com/atframework/atsf4g-go/component/user_controller/dispatcher"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 
 	sp "${protocol_go_module}"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -57,9 +58,9 @@ func RegisterLobbyClientService(
 %>\
 	uc_d.RegisterCSMessageAction(
 		rd, findSessionFn, svc, "${ rpc.get_full_name() }",
-		func(ctx cd.RpcContext, rd cd.DispatcherImpl, session cd.TaskActionCSSession, method protoreflect.MethodDescriptor) cd.TaskActionImpl {
+		func(ctx cd.RpcContext, rd cd.DispatcherImpl, session uc.SessionImpl, method protoreflect.MethodDescriptor) cd.TaskActionImpl {
 			return &${sub_module_name}.TaskAction${ rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL) }{
-				TaskActionCSBase: cd.CreateCSTaskActionBase[*sp.${ rpc.get_request().get_name() }, *sp.${ rpc.get_response().get_name() }](
+				TaskActionCSBase: uc.CreateCSTaskActionBase[*sp.${ rpc.get_request().get_name() }, *sp.${ rpc.get_response().get_name() }](
 					ctx, rd, session, method, &sp.${ rpc.get_request().get_name() }{}, func() *sp.${ rpc.get_response().get_name() } {
 						return &sp.${ rpc.get_response().get_name() }{}
 					})}

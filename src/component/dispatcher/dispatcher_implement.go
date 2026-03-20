@@ -64,7 +64,7 @@ type taskActionCreatorData struct {
 	service protoreflect.ServiceDescriptor
 	method  protoreflect.MethodDescriptor
 	creator TaskActionCreator
-	options *public_protocol_extension.DispatcherOptions
+	options *DispatcherOptions
 }
 
 type DispatcherBase struct {
@@ -211,6 +211,7 @@ func (dispatcher *DispatcherBase) CreateTask(startData *DispatcherStartData) (Ta
 	if !ok || lu.IsNil(creator.creator) {
 		return nil, fmt.Errorf("CreateTask rpc %s not registered", rpcFullName)
 	}
+	startData.Option = creator.options
 
 	return creator.creator(dispatcher.impl, startData)
 }
@@ -239,9 +240,9 @@ func (dispatcher *DispatcherBase) RegisterAction(serviceDescriptor protoreflect.
 
 	methodOpts := methodDescriptor.Options().(*descriptorpb.MethodOptions)
 
-	var options *public_protocol_extension.DispatcherOptions = nil
+	options := &DispatcherOptions{}
 	if proto.HasExtension(methodOpts, public_protocol_extension.E_RpcOptions) {
-		options = proto.GetExtension(methodOpts, public_protocol_extension.E_RpcOptions).(*public_protocol_extension.DispatcherOptions)
+		options.Option = proto.GetExtension(methodOpts, public_protocol_extension.E_RpcOptions).(*public_protocol_extension.DispatcherOptions)
 	}
 
 	dispatcher.registeredCreator[string(methodDescriptor.FullName())] = taskActionCreatorData{

@@ -16,6 +16,7 @@ import (
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	user_auth "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/auth"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
@@ -24,7 +25,7 @@ import (
 )
 
 type TaskActionLoginAuth struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSLoginAuthReq, *service_protocol.SCLoginAuthRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSLoginAuthReq, *service_protocol.SCLoginAuthRsp]
 }
 
 func (t *TaskActionLoginAuth) Name() string {

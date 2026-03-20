@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
@@ -22,7 +23,7 @@ import (
 )
 
 type TaskActionUserGetInfo struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSUserGetInfoReq, *service_protocol.SCUserGetInfoRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSUserGetInfoReq, *service_protocol.SCUserGetInfoRsp]
 }
 
 func (t *TaskActionUserGetInfo) Name() string {

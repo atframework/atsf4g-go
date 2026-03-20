@@ -1,4 +1,4 @@
-package atframework_component_dispatcher
+package atframework_component_user_controller
 
 import (
 	"fmt"
@@ -13,48 +13,18 @@ import (
 
 	log "github.com/atframework/atframe-utils-go/log"
 	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/component/router"
 	libatapp "github.com/atframework/libatapp-go"
 )
 
-type TaskActionCSSession interface {
-	GetSessionId() uint64
-	GetSessionNodeId() uint64
-	AllocSessionSequence() uint64
-
-	GetActorLogWriter() log.LogWriter
-
-	GetUser() TaskActionCSUser
-	BindUser(ctx RpcContext, user TaskActionCSUser)
-
-	GetDispatcher() DispatcherImpl
-	SendMessage(*public_protocol_extension.CSMsg) error
-
-	IsEnableActorLog() bool
-	InsertPendingActorLog(string)
-	FlushPendingActorLog(log.LogWriter)
-}
-
-type TaskActionCSUser interface {
-	GetUserId() uint64
-	GetZoneId() uint32
-	GetOpenId() string
-
-	GetSession() TaskActionCSSession
-	GetActorExecutor() *ActorExecutor
-
-	OnSendResponse(ctx RpcContext) error
-
-	// 每次执行任务前刷新
-	RefreshLimit(RpcContext, time.Time)
-}
-
 type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] struct {
-	TaskActionBase
+	cd.TaskActionBase
 
-	session TaskActionCSSession
-	user    TaskActionCSUser
+	session SessionImpl
+	user    UserImpl
 
 	rpcDescriptor   protoreflect.MethodDescriptor
 	requestHead     *public_protocol_extension.CSMsgHead
@@ -64,28 +34,28 @@ type TaskActionCSBase[RequestType proto.Message, ResponseType proto.Message] str
 }
 
 func CreateCSTaskAction(
-	ctx RpcContext,
-	rd DispatcherImpl,
-	session TaskActionCSSession,
+	ctx cd.RpcContext,
+	rd cd.DispatcherImpl,
+	session SessionImpl,
 	rpcDescriptor protoreflect.MethodDescriptor,
-	createFn func(RpcContext, DispatcherImpl, TaskActionCSSession, protoreflect.MethodDescriptor) TaskActionImpl,
-) TaskActionImpl {
+	createFn func(cd.RpcContext, cd.DispatcherImpl, SessionImpl, protoreflect.MethodDescriptor) cd.TaskActionImpl,
+) cd.TaskActionImpl {
 	ret := createFn(ctx, rd, session, rpcDescriptor)
 	ret.SetImplementation(ret)
-	libatapp.AtappGetModule[*TaskManager](rd.GetApp()).InsertTaskAction(ctx, ret)
+	libatapp.AtappGetModule[*cd.TaskManager](rd.GetApp()).InsertTaskAction(ctx, ret)
 	return ret
 }
 
 func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Message](
-	ctx RpcContext,
-	rd DispatcherImpl,
-	session TaskActionCSSession,
+	ctx cd.RpcContext,
+	rd cd.DispatcherImpl,
+	session SessionImpl,
 	rpcDescriptor protoreflect.MethodDescriptor,
 	zeroRequest RequestType,
 	responseFactory func() ResponseType,
 ) TaskActionCSBase[RequestType, ResponseType] {
-	var user TaskActionCSUser = nil
-	var actor *ActorExecutor = nil
+	var user UserImpl = nil
+	var actor *cd.ActorExecutor = nil
 	if !lu.IsNil(session) {
 		user = session.GetUser()
 	}
@@ -94,7 +64,7 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 
 	return TaskActionCSBase[RequestType, ResponseType]{
-		TaskActionBase:  CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
+		TaskActionBase:  cd.CreateTaskActionBase(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetCsmsg().GetTimeout().AsDuration()),
 		session:         session,
 		user:            user,
 		rpcDescriptor:   rpcDescriptor,
@@ -104,7 +74,7 @@ func CreateCSTaskActionBase[RequestType proto.Message, ResponseType proto.Messag
 	}
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSUser) {
+func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user UserImpl) {
 	if lu.IsNil(user) {
 		t.user = nil
 		return
@@ -113,7 +83,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SetUser(user TaskActionCSU
 	t.user = user
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() TaskActionCSUser {
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() UserImpl {
 	if lu.IsNil(t.user) {
 		if !lu.IsNil(t.session) {
 			t.user = t.session.GetUser()
@@ -127,11 +97,11 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetUser() TaskActionCSUser
 	return t.user
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) GetSession() TaskActionCSSession {
+func (t *TaskActionCSBase[RequestType, ResponseType]) GetSession() SessionImpl {
 	return t.session
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) SetSession(session TaskActionCSSession) {
+func (t *TaskActionCSBase[RequestType, ResponseType]) SetSession(session SessionImpl) {
 	if lu.IsNil(session) {
 		if !lu.IsNil(t.session) {
 			if t.user == t.session.GetUser() {
@@ -187,7 +157,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) GetActorLogWriter() log.Lo
 }
 
 func CreateCSMessage(responseCode int32, timestamp time.Time, clientSequence uint64,
-	rd DispatcherImpl, session TaskActionCSSession,
+	rd cd.DispatcherImpl, session SessionImpl,
 	rpcType interface{}, body proto.Message,
 ) (*public_protocol_extension.CSMsg, error) {
 	responseMsg := &public_protocol_extension.CSMsg{
@@ -305,7 +275,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 				"response_code", t.GetResponseCode(),
 				"error", err.Error())
 
-			t.GetDispatcher().OnSendMessageFailed(t.GetRpcContext(), &DispatcherRawMessage{
+			t.GetDispatcher().OnSendMessageFailed(t.GetRpcContext(), &cd.DispatcherRawMessage{
 				Type:     t.GetDispatcher().GetInstanceIdent(),
 				Instance: responseMsg,
 			}, responseMsg.Head.ServerSequence, err)
@@ -317,7 +287,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) SendResponse() error {
 }
 
 func (t *TaskActionCSBase[RequestType, ResponseType]) CheckPermission() (int32, error) {
-	if !t.impl.AllowNoActor() && lu.IsNil(t.GetUser()) {
+	if !t.GetImpl().AllowNoActor() && lu.IsNil(t.GetUser()) {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_LOGIN), nil
 	}
 
@@ -336,7 +306,7 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) OnSendResponse() {
 	}
 }
 
-func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *DispatcherStartData) error {
+func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *cd.DispatcherStartData) error {
 	t.PrepareHookRun(startData)
 
 	csMsg, ok := startData.Message.Instance.(*public_protocol_extension.CSMsg)
@@ -379,7 +349,111 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *Dispatc
 		user.RefreshLimit(t.GetRpcContext(), t.GetNow())
 	}
 
+	managerSet := libatapp.AtappGetModule[*router.RouterManagerSet](t.GetAwaitableContext().GetApp())
+	userRouterManager := managerSet.GetManager(uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER)).(*UserRouterManager)
+	var routerCache *UserRouterCache
+	if !lu.IsNil(user) {
+		userRouterManager = managerSet.GetManager(uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER)).(*UserRouterManager)
+		routerCache = userRouterManager.GetCache(router.RouterObjectKey{
+			TypeID:   uint32(public_protocol_pbdesc.EnRouterObjectType_EN_ROT_PLAYER),
+			ZoneID:   user.GetZoneId(),
+			ObjectID: user.GetUserId(),
+		})
+		if routerCache != nil && (!routerCache.IsWritable() || routerCache.GetUserImpl() != user) {
+			routerCache = nil
+		}
+	}
+
+	// 限频
+	var dispatcherOption *public_protocol_extension.DispatcherOptions = nil
+	if startData.Option != nil && startData.Option.Option != nil {
+		dispatcherOption = startData.Option.Option
+	}
+	for {
+		if dispatcherOption == nil || lu.IsNil(user) {
+			break
+		}
+
+		if dispatcherOption.GetDisable() {
+			t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_CS_PROTOCOL_FREQUENCY_LIMIT))
+			return nil
+		}
+
+		if dispatcherOption.GetFrequencyLimit().GetFrequencyLimitMs() <= 0 ||
+			dispatcherOption.GetFrequencyLimit().GetFrequencyLimitCount() <= 0 {
+			break
+		}
+
+		frequencyLimitMs := dispatcherOption.GetFrequencyLimit().GetFrequencyLimitMs()
+		frequencyLimitCount := dispatcherOption.GetFrequencyLimit().GetFrequencyLimitCount()
+		frequencyLimitData := user.GetCSProtocolFrequencyLimit()
+		rpcName := t.GetImpl().Name()
+		currentTime := t.GetNow().UnixMilli()
+
+		ring := frequencyLimitData[rpcName]
+		if ring == nil {
+			ring = &CSProtocolFrequencyRingBuffer{
+				timestamps: make([]int64, frequencyLimitCount),
+			}
+			frequencyLimitData[rpcName] = ring
+		}
+
+		if ring.count < frequencyLimitCount {
+			// 未满，写入 (index + count) % cap 位置
+			pos := (ring.index + ring.count) % frequencyLimitCount
+			ring.timestamps[pos] = currentTime
+			ring.count++
+			break
+		}
+
+		// 已满，index 指向最老的记录
+		oldestTime := ring.timestamps[ring.index]
+		if currentTime-oldestTime < 0 {
+			// 时间回退，重置
+			ring.timestamps[0] = currentTime
+			ring.index = 0
+			ring.count = 1
+		} else if currentTime-oldestTime >= int64(frequencyLimitMs) {
+			// 窗口已过期，覆盖最老记录并移动 index
+			ring.timestamps[ring.index] = currentTime
+			ring.index = (ring.index + 1) % frequencyLimitCount
+		} else {
+			t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_CS_PROTOCOL_FREQUENCY_LIMIT))
+			return nil
+		}
+
+		break
+	}
+
 	err := t.TaskActionBase.HookRun(startData)
+
+	for {
+		if dispatcherOption == nil {
+			break
+		}
+		if !dispatcherOption.GetMarkFastSave() && !dispatcherOption.GetMarkWaitSave() {
+			break
+		}
+		user = t.GetUser()
+		if lu.IsNil(user) || routerCache == nil {
+			break
+		}
+		user.RefreshLimit(t.GetRpcContext(), t.GetNow())
+		if dispatcherOption.GetMarkWaitSave() {
+			// 等待保存
+			result := libatapp.AtappGetModule[*UserManager](t.GetAwaitableContext().GetApp()).Save(t.GetAwaitableContext(), user)
+			if result.IsError() {
+				t.GetDispatcher().GetLogger().LogError("Failed to save user data",
+					"session_id", t.session.GetSessionId(),
+					"error", result)
+				return fmt.Errorf("failed to save user data: %v", result)
+			}
+		} else {
+			// 快速保存
+			managerSet.MarkFastSave(t.GetAwaitableContext(), userRouterManager, routerCache)
+		}
+		break
+	}
 
 	return err
 }

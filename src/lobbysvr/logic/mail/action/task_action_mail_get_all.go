@@ -10,6 +10,7 @@ import (
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
 	mail "github.com/atframework/atsf4g-go/component/mail"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
@@ -17,7 +18,7 @@ import (
 )
 
 type TaskActionMailGetAll struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSMailGetAllReq, *service_protocol.SCMailGetAllRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSMailGetAllReq, *service_protocol.SCMailGetAllRsp]
 }
 
 func (t *TaskActionMailGetAll) Name() string {

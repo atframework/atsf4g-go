@@ -80,6 +80,10 @@ func CreateTaskActionBase(rd DispatcherImpl, actorExecutor *ActorExecutor, timeo
 	return
 }
 
+func (t *TaskActionBase) GetImpl() TaskActionImpl {
+	return t.impl
+}
+
 func (t *TaskActionBase) GetTaskId() uint64 {
 	return t.taskId
 }

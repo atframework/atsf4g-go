@@ -20,8 +20,19 @@ const (
 	UserDataCurrentVersion uint64 = 1
 )
 
+type UserBaseImpl interface {
+	GetUserId() uint64
+	GetZoneId() uint32
+	GetOpenId() string
+
+	GetSession() SessionImpl
+	OnSendResponse(ctx cd.RpcContext) error
+	RefreshLimit(cd.RpcContext, time.Time)
+	GetCSProtocolFrequencyLimit() map[string]*CSProtocolFrequencyRingBuffer
+}
+
 type UserImpl interface {
-	cd.TaskActionCSUser
+	UserBaseImpl
 
 	CanBeWriteable() bool
 	IsWriteable() bool
@@ -62,6 +73,13 @@ type UserImpl interface {
 
 func init() {
 	var _ UserImpl = (*UserCache)(nil)
+}
+
+// CSProtocolFrequencyRingBuffer 环形缓冲区，用于 CS 协议限频的滑动窗口
+type CSProtocolFrequencyRingBuffer struct {
+	timestamps []int64 // 固定长度，容量等于 frequencyLimitCount
+	index      int32   // 指向最老记录的位置
+	count      int32   // 当前有效记录数
 }
 
 type UserDirtyWrapper[T any] struct {
@@ -122,6 +140,8 @@ type UserCache struct {
 
 	loginLockCASVersion uint64
 	userCASVersion      uint64
+
+	csProtocolFrequencyLimit map[string]*CSProtocolFrequencyRingBuffer
 }
 
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
@@ -192,7 +212,7 @@ func (u *UserCache) CanBeWriteable() bool {
 	return false
 }
 
-func (u *UserCache) GetSession() cd.TaskActionCSSession {
+func (u *UserCache) GetSession() SessionImpl {
 	if u == nil {
 		return nil
 	}
@@ -306,6 +326,18 @@ func (u *UserCache) IsWriteable() bool {
 }
 
 func (u *UserCache) RefreshLimit(_ctx cd.RpcContext, _now time.Time) {
+}
+
+func (u *UserCache) GetCSProtocolFrequencyLimit() map[string]*CSProtocolFrequencyRingBuffer {
+	if u == nil {
+		return nil
+	}
+
+	if u.csProtocolFrequencyLimit == nil {
+		u.csProtocolFrequencyLimit = make(map[string]*CSProtocolFrequencyRingBuffer)
+	}
+
+	return u.csProtocolFrequencyLimit
 }
 
 func (u *UserCache) InitFromDB(_ctx cd.RpcContext, srcTb *private_protocol_pbdesc.DatabaseTableUser) cd.RpcResult {

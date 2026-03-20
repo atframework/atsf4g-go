@@ -21,20 +21,21 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	uc "github.com/atframework/atsf4g-go/component/user_controller"
 
 	ppe "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 
 	sp "${protocol_go_module}"
 )
 
-func sendMessage(responseCode int32, session cd.TaskActionCSSession,
+func sendMessage(responseCode int32, session uc.SessionImpl,
 	rd cd.DispatcherImpl, now time.Time,
 	rpcType interface{}, body proto.Message,
 ) error {
 	if lu.IsNil(session) {
 		return fmt.Errorf("session is nil")
 	}
-	msg, err := cd.CreateCSMessage(responseCode, now, 0,
+	msg, err := uc.CreateCSMessage(responseCode, now, 0,
 		rd, session,
 		rpcType, body)
 	if err != nil {
@@ -67,7 +68,7 @@ if rpc.get_request_descriptor().full_name != "google.protobuf.Empty":
 
 rpc_name = rpc.get_identify_name(rpc.get_name(), PbConvertRule.CONVERT_NAME_CAMEL_CAMEL)
 %>
-func Send${rpc_name}(session cd.TaskActionCSSession, body *sp.${rpc.get_response().get_name()}, responseCode int32) error {
+func Send${rpc_name}(session uc.SessionImpl, body *sp.${rpc.get_response().get_name()}, responseCode int32) error {
 	if lu.IsNil(session) || body == nil {
 		return fmt.Errorf("session or message body is nil")
 	}

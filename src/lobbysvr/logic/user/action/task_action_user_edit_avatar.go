@@ -7,13 +7,14 @@ import (
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskActionUserEditAvatar struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSUserEditAvatarReq, *service_protocol.SCUserEditAvatarRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSUserEditAvatarReq, *service_protocol.SCUserEditAvatarRsp]
 }
 
 func (t *TaskActionUserEditAvatar) Name() string {

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
 )
 
 type DispatcherOptions struct {
-	// TODO: 使用协议里的结构
+	Option *public_protocol_extension.DispatcherOptions
 }
 
 type DispatcherRawMessage struct {
@@ -28,7 +30,7 @@ type DispatcherStartData struct {
 	Message     *DispatcherRawMessage
 	PrivateData interface{}
 
-	// TODO: options
+	Option            *DispatcherOptions
 	MessageRpcContext AwaitableContext
 }
 

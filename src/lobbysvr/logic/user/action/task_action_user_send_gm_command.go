@@ -23,6 +23,7 @@ import (
 	db "github.com/atframework/atsf4g-go/component/db"
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
 	uc "github.com/atframework/atsf4g-go/component/user_controller"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -38,7 +39,7 @@ import (
 )
 
 type TaskActionUserSendGmCommand struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSUserGMCommandReq, *service_protocol.SCUserGMCommandRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSUserGMCommandReq, *service_protocol.SCUserGMCommandRsp]
 }
 
 func (t *TaskActionUserSendGmCommand) Name() string {

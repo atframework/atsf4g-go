@@ -14,12 +14,13 @@ import (
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskAction${ rpc_camel_name } struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.${ rpc.get_request().get_name() }, *service_protocol.${ rpc.get_response().get_name() }]
+	user_controller.TaskActionCSBase[*service_protocol.${ rpc.get_request().get_name() }, *service_protocol.${ rpc.get_response().get_name() }]
 }
 
 func (t *TaskAction${ rpc_camel_name }) Name() string {

@@ -28,9 +28,23 @@ type SessionKey struct {
 }
 
 type SessionImpl interface {
-	cd.TaskActionCSSession
-
+	GetSessionId() uint64
+	GetSessionNodeId() uint64
 	GetKey() *SessionKey
+
+	AllocSessionSequence() uint64
+
+	GetActorLogWriter() log.LogWriter
+
+	GetUser() UserImpl
+	BindUser(ctx cd.RpcContext, user UserImpl)
+
+	GetDispatcher() cd.DispatcherImpl
+	SendMessage(*public_protocol_extension.CSMsg) error
+
+	IsEnableActorLog() bool
+	InsertPendingActorLog(string)
+	FlushPendingActorLog(log.LogWriter)
 }
 
 type Session struct {
@@ -126,7 +140,7 @@ func (s *Session) AllocSessionSequence() uint64 {
 	return s.sessionSequenceAllocator
 }
 
-func (s *Session) GetUser() cd.TaskActionCSUser {
+func (s *Session) GetUser() UserImpl {
 	if s.user == nil {
 		return nil
 	}
@@ -134,7 +148,7 @@ func (s *Session) GetUser() cd.TaskActionCSUser {
 	return s.user
 }
 
-func (s *Session) BindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
+func (s *Session) BindUser(ctx cd.RpcContext, bindUser UserImpl) {
 	if s.user == bindUser {
 		return
 	}
@@ -184,7 +198,7 @@ func (s *Session) BindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
 	}
 }
 
-func (s *Session) UnbindUser(ctx cd.RpcContext, bindUser cd.TaskActionCSUser) {
+func (s *Session) UnbindUser(ctx cd.RpcContext, bindUser UserImpl) {
 	if !lu.IsNil(bindUser) && s.user != bindUser {
 		return
 	}

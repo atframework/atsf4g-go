@@ -7,6 +7,7 @@ import (
 
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type TaskActionUserRename struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSUserRenameReq, *service_protocol.SCUserRenameRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSUserRenameReq, *service_protocol.SCUserRenameRsp]
 }
 
 func (t *TaskActionUserRename) Name() string {

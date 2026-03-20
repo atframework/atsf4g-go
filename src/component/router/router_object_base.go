@@ -121,6 +121,8 @@ type RouterObjectBaseImpl interface {
 	InternalPullObject(ctx cd.AwaitableContext, guard *IoTaskGuard, privateData RouterPrivateData) cd.RpcResult
 	InternalSaveObject(ctx cd.AwaitableContext, guard *IoTaskGuard, privateData RouterPrivateData) cd.RpcResult
 
+	Save(ctx cd.AwaitableContext) cd.RpcResult
+
 	// 定时器相关
 	AllocTimerSequence() uint64
 	CheckTimerSequence(seq uint64) bool
@@ -561,6 +563,12 @@ func (obj *RouterObjectBase) InternalSaveObject(ctx cd.AwaitableContext, guard *
 	// 刷新保存时间
 	obj.RefreshSaveTime(ctx)
 	return cd.CreateRpcResultOk()
+}
+
+func (obj *RouterObjectBase) Save(ctx cd.AwaitableContext) cd.RpcResult {
+	guard := IoTaskGuard{}
+	defer guard.ResumeAwaitTask(ctx)
+	return obj.InternalSaveObject(ctx, &guard, nil)
 }
 
 func (obj *RouterObjectBase) PushActorAction(ctx cd.RpcContext, name string, f func(childCtx cd.AwaitableContext, obj RouterObjectImpl)) {

@@ -194,6 +194,8 @@ enum EnErrorCode {
                                [(error_code.description) = "名字长度无效"];
   EN_ERR_NAME_DUPLICATE = -127
                           [(error_code.description) = "名字重复"];
+  EN_ERR_CS_PROTOCOL_FREQUENCY_LIMIT = -128
+                                       [(error_code.description) = "协议调用频率限制"];
   // router
   EN_ERR_ROUTER_NOT_WRITABLE = -151
                                [(error_code.description) = "路由不可写"];

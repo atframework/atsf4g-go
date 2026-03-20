@@ -9,6 +9,7 @@ import (
 	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
 	"github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 
@@ -19,7 +20,7 @@ import (
 )
 
 type TaskActionAccessUpdate struct {
-	component_dispatcher.TaskActionCSBase[*service_protocol.CSAccessUpdateReq, *service_protocol.SCAccessUpdateRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSAccessUpdateReq, *service_protocol.SCAccessUpdateRsp]
 }
 
 func (t *TaskActionAccessUpdate) Name() string {

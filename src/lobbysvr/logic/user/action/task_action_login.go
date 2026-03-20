@@ -11,6 +11,7 @@ import (
 	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 
@@ -25,7 +26,7 @@ import (
 )
 
 type TaskActionLogin struct {
-	cd.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
+	user_controller.TaskActionCSBase[*service_protocol.CSLoginReq, *service_protocol.SCLoginRsp]
 
 	isNewPlayer bool
 }
