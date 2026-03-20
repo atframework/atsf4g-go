@@ -121,7 +121,6 @@ func (configManagerInst *ConfigManager) reloadImpl(resultChan chan error) error 
 
 	configManagerInst.loadingConfigGroup = newConfigGroup
 	configManagerInst.reloadFinish.Store(true)
-	configManagerInst.init = true
 	return nil
 }
 
@@ -134,6 +133,7 @@ func (configManagerInst *ConfigManager) loadImpl(loadConfigGroup *generate_confi
 		return err
 	}
 	configManagerInst.GetLogger().LogInfo("Excel Loading End")
+	configManagerInst.init = true
 	return nil
 }
 
