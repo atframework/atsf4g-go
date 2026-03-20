@@ -140,6 +140,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "delete-user-mail", "", "Delete user mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteUserMail)
 	registerGmCommandHandle(callbacks, "delete-global-mail", "", "Delete global mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteGlobalMail)
 	registerGmCommandHandle(callbacks, "generate-account-password", "[openid...]", "Generate password", (*TaskActionUserSendGmCommand).runGMCmdGeneratePassword)
+	registerGmCommandHandle(callbacks, "wait-ms", "<milliseconds>", "Wait for specified milliseconds", (*TaskActionUserSendGmCommand).runGMCmdWaitMs)
 	return callbacks
 }
 
@@ -866,4 +867,18 @@ func (t *TaskActionUserSendGmCommand) runGMCmdGeneratePassword(ctx component_dis
 	}
 
 	return ret, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdWaitMs(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("invalid arguments for wait ms [ms]")
+	}
+
+	ms, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+	}
+
+	cd.Wait(ctx, time.Duration(ms)*time.Millisecond)
+	return nil, nil
 }

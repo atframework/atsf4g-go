@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	config "github.com/atframework/atsf4g-go/component/config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -354,16 +355,19 @@ func KillTaskAction(ctx RpcContext, action TaskActionImpl, killData *RpcResult) 
 }
 
 func AsyncInvoke(ctx RpcContext, name string, actor *ActorExecutor, invoke func(childCtx AwaitableContext) RpcResult) TaskActionImpl {
+	return AsyncInvokeWithTimeout(ctx, name, actor, invoke, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetNomsg().GetTimeout().AsDuration())
+}
+
+func AsyncInvokeWithTimeout(ctx RpcContext, name string, actor *ActorExecutor, invoke func(childCtx AwaitableContext) RpcResult, timeout time.Duration) TaskActionImpl {
 	rd := libatapp.AtappGetModule[*NoMessageDispatcher](ctx.GetApp())
-	childTask, startData := CreateNoMessageTaskAction(rd, rd.CreateRpcContext(), actor, func(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) *taskActionAsyncInvoke {
+	childTask, startData := CreateNoMessageTaskActionWithTimeout(rd, rd.CreateRpcContext(), actor, func(rd DispatcherImpl, actor *ActorExecutor, subTimeout time.Duration) *taskActionAsyncInvoke {
 		ta := &taskActionAsyncInvoke{
-			TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, timeout),
+			TaskActionNoMessageBase: CreateNoMessageTaskActionBase(rd, actor, subTimeout),
 			name:                    name,
 			callable:                invoke,
 		}
 		return ta
-	},
-	)
+	}, timeout)
 
 	if err := libatapp.AtappGetModule[*TaskManager](ctx.GetApp()).StartTaskAction(ctx, childTask, &startData); err != nil {
 		ctx.LogError("AsyncInvoke StartTaskAction failed", slog.String("task_name", childTask.Name()), slog.Any("error", err))

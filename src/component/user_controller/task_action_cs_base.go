@@ -425,7 +425,13 @@ func (t *TaskActionCSBase[RequestType, ResponseType]) HookRun(startData *cd.Disp
 		break
 	}
 
+	if !lu.IsNil(user) {
+		user.OnCsTaskActionStart(t.GetAwaitableContext(), t.GetTaskId())
+	}
 	err := t.TaskActionBase.HookRun(startData)
+	if !lu.IsNil(user) {
+		user.OnCsTaskActionEnd(t.GetAwaitableContext(), t.GetTaskId())
+	}
 
 	for {
 		if dispatcherOption == nil {

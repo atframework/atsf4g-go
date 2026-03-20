@@ -693,6 +693,10 @@ func (u *User) GetModuleManagerByName(name string) UserModuleManagerImpl {
 	return nil
 }
 
+func (u *User) AwaitBeforeLogout(ctx cd.AwaitableContext) cd.RpcResult {
+	return u.AwaitTaskLock(ctx)
+}
+
 func UserGetModuleManager[ManagerType UserModuleManagerImpl](u *User) ManagerType {
 	if u == nil {
 		var zero ManagerType

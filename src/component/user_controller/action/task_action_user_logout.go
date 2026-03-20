@@ -38,7 +38,16 @@ func (t *TaskActionUserLogout) Run(_startData *cd.DispatcherStartData) error {
 	libatapp.AtappGetModule[*uc.SessionManager](t.GetRpcContext().GetApp()).
 		RemoveSession(t.GetRpcContext(), t.session.GetKey(), int32(public_protocol_pbdesc.EnCloseReasonType_EN_CRT_RESET_BY_PEER), "closed by client")
 
-	// TODO: 等待当前任务执行完毕
+	// 等待当前任务执行完毕
+	t.user.AwaitBeforeLogout(t.GetAwaitableContext())
+
+	// 再次判断session是否匹配，避免等待过程中用户重新登录导致session变化
+	if t.user.GetSession() != nil && t.user.GetSession() != t.session {
+		t.LogInfo("TaskActionUserLogout Run but session not match, maybe user already relogin, just ignore", "zone_id", t.user.GetZoneId(), "user_id", t.user.GetUserId(),
+			"session_id", t.session.GetKey().SessionId, "session_node_id", t.session.GetKey().NodeId)
+		return nil
+	}
+
 	libatapp.AtappGetModule[*uc.UserManager](t.GetAwaitableContext().GetApp()).Remove(t.GetAwaitableContext(), t.user.GetZoneId(), t.user.GetUserId(), t.user, false)
 	return nil
 }

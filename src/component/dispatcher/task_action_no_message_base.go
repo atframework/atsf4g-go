@@ -17,13 +17,14 @@ func (t *TaskActionNoMessageBase) AllowNoActor() bool {
 	return true
 }
 
-func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
+func CreateNoMessageTaskActionWithTimeout[TaskActionType TaskActionImpl](
 	rd DispatcherImpl,
 	ctx RpcContext,
 	actor *ActorExecutor,
 	createFn func(DispatcherImpl, *ActorExecutor, time.Duration) TaskActionType,
+	timeout time.Duration,
 ) (TaskActionType, DispatcherStartData) {
-	ta := createFn(rd, actor, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetNomsg().GetTimeout().AsDuration())
+	ta := createFn(rd, actor, timeout)
 	ta.SetImplementation(ta)
 	awaitableContext := rd.CreateAwaitableContext()
 	if !lu.IsNil(ctx) && ctx.GetContext() != nil {
@@ -39,6 +40,15 @@ func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
 		PrivateData:       nil,
 		MessageRpcContext: awaitableContext,
 	}
+}
+
+func CreateNoMessageTaskAction[TaskActionType TaskActionImpl](
+	rd DispatcherImpl,
+	ctx RpcContext,
+	actor *ActorExecutor,
+	createFn func(DispatcherImpl, *ActorExecutor, time.Duration) TaskActionType,
+) (TaskActionType, DispatcherStartData) {
+	return CreateNoMessageTaskActionWithTimeout(rd, ctx, actor, createFn, config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetTask().GetNomsg().GetTimeout().AsDuration())
 }
 
 func CreateNoMessageTaskActionBase(rd DispatcherImpl, actor *ActorExecutor, timeout time.Duration) TaskActionNoMessageBase {

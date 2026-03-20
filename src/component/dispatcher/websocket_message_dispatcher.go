@@ -447,7 +447,7 @@ func (d *WebSocketMessageDispatcher) WriteMessage(session *WebSocketSession, mes
 	if session.sentCloseMessage.Load() {
 		// session is closing, do not send more messages
 		d.GetApp().GetDefaultLogger().LogWarn("Attempted to send message on closing session", "session_id", session.SessionId)
-		return fmt.Errorf("session is closing")
+		return nil
 	}
 
 	select {

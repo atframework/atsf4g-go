@@ -6,6 +6,7 @@ import (
 	"time"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	libatapp "github.com/atframework/libatapp-go"
 
 	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
 	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
@@ -69,6 +70,10 @@ type UserImpl interface {
 	SetLoginLockCASVersion(CASVersion uint64)
 
 	SendUserOssLog(ctx cd.RpcContext, ossLog *private_protocol_log.OperationSupportSystemLog)
+
+	OnCsTaskActionStart(ctx cd.RpcContext, taskId uint64)
+	OnCsTaskActionEnd(ctx cd.RpcContext, taskId uint64)
+	AwaitBeforeLogout(ctx cd.AwaitableContext) cd.RpcResult
 }
 
 func init() {
@@ -142,14 +147,16 @@ type UserCache struct {
 	userCASVersion      uint64
 
 	csProtocolFrequencyLimit map[string]*CSProtocolFrequencyRingBuffer
+	runningCsTask            map[uint64]struct{}
 }
 
 func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
 	// 由路由系统创建可能没有OpenId
 	cache = UserCache{
-		zoneId: zoneId,
-		userId: userId,
-		openId: openId,
+		zoneId:        zoneId,
+		userId:        userId,
+		openId:        openId,
+		runningCsTask: make(map[uint64]struct{}),
 	}
 	cache.actorExecutor = actorExecutor
 	cache.actorExecutor.Instance = &cache
@@ -610,4 +617,45 @@ func (u *UserCache) SendUserOssLog(ctx cd.RpcContext, ossLog *private_protocol_l
 	ossLog.MutableBasic().UserId = u.GetUserId()
 	ossLog.MutableBasic().ZoneId = u.GetZoneId()
 	operation_support_system.SendOssLog(ctx.GetApp(), ossLog)
+}
+
+func (u *UserCache) OnCsTaskActionStart(ctx cd.RpcContext, taskId uint64) {
+	u.runningCsTask[taskId] = struct{}{}
+	ctx.LogDebug("CS Task Action Add into runningCsTask", slog.Uint64("task_id", taskId))
+}
+
+func (u *UserCache) OnCsTaskActionEnd(ctx cd.RpcContext, taskId uint64) {
+	delete(u.runningCsTask, taskId)
+	ctx.LogDebug("CS Task Action End Delete from runningCsTask", slog.Uint64("task_id", taskId))
+}
+
+func (u *UserCache) AwaitTaskLock(ctx cd.AwaitableContext) cd.RpcResult {
+	if len(u.runningCsTask) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	taskManager := libatapp.AtappGetModule[*cd.TaskManager](ctx.GetApp())
+	runningTask := make([]cd.TaskActionImpl, 0, len(u.runningCsTask))
+	for taskId := range u.runningCsTask {
+		taskAction := taskManager.GetTaskActionById(taskId)
+		if lu.IsNil(taskAction) || taskAction.IsExiting() || ctx.GetAction().GetTaskId() == taskId {
+			continue
+		}
+		runningTask = append(runningTask, taskAction)
+	}
+	if len(runningTask) == 0 {
+		return cd.CreateRpcResultOk()
+	}
+
+	ctx.LogInfo("Awaiting CS Task Action to complete before logout", slog.Int("running_task_count", len(runningTask)))
+	invokeTask := cd.AsyncInvokeWithTimeout(ctx, "AwaitTaskLock", u.GetActorExecutor(), func(subCtx cd.AwaitableContext) cd.RpcResult {
+		cd.AwaitTasks(subCtx, runningTask)
+		return cd.CreateRpcResultOk()
+	}, 2*time.Second)
+
+	return cd.AwaitTask(ctx, invokeTask)
+}
+
+func (u *UserCache) AwaitBeforeLogout(ctx cd.AwaitableContext) cd.RpcResult {
+	return u.AwaitTaskLock(ctx)
 }

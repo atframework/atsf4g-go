@@ -305,7 +305,7 @@ func (t *TaskActionBase) trySetAwait(awaitOptions *DispatcherAwaitOptions) error
 	if actor != nil {
 		currentAction := actor.getCurrentRunningAction()
 		if currentAction != nil && currentAction != t.impl {
-			return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, action is running in actor, can not await", t.impl.Name(), t.impl.GetTaskId())
+			return fmt.Errorf("task %s, %d TrySetupAwait awaitOptions failed, id: %d action is running in actor, can not await", t.impl.Name(), t.impl.GetTaskId(), currentAction.GetTaskId())
 		}
 	}
 
