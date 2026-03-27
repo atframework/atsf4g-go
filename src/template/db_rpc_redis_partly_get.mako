@@ -4,6 +4,7 @@
     index_type = index_meta["index_type"]
     batch_redis_key_call = index_meta["batch_redis_key_call"]
     key_fields = index_meta["key_fields"]
+    all_fields = index_meta["all_fields"]
     args_redis_key_call = index_meta["args_redis_key_call"]
     cas_enabled = index_meta["cas_enabled"]
 %>
@@ -34,7 +35,11 @@ func ${message_name}LoadWith${index_meta["index_key_name"]}PartlyGet${partly_fie
 		"${field["raw_name"]}",
 % endfor
 % for field_name in partly_get.fields:
+% if field_name not in all_fields:
+		!Error: field_name ${field_name} in partly_get.fields is not in fields
+% else:
 		"${field_name}",
+% endif
 % endfor
 	}
 	var message proto.Message

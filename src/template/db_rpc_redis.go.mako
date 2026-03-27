@@ -18,6 +18,7 @@ import sys
     key_fields = []
     # index_type: "kv" / "kl" / "sorted_set"
     index_type = "kv"
+    all_fields = []
     if index.type == index_type_enum.values_by_name["EN_ATFRAMEWORK_DB_INDEX_TYPE_KL"].descriptor.number:
         index_type = "kl"
     if "EN_ATFRAMEWORK_DB_INDEX_TYPE_SORTED_SET" in index_type_enum.values_by_name and \
@@ -36,6 +37,8 @@ import sys
             "ident": ident,
             "go_type": field.get_go_type(),
         })
+    for field in message.fields:
+        all_fields.append(field.get_name())
 
     redis_key_func_name = message_name + "RedisKeyWith" + index_key_name
     args_redis_key_call = (
@@ -78,6 +81,7 @@ import sys
         "cas_enabled": index.enable_cas,
         "max_list_length": index.max_list_length,
         "atomic_inc_fields": atomic_inc_fields,
+        "all_fields": all_fields,
     }
 %>
 ## ========== 所有类型共用：RedisKey 生成 + Expire + ExpireAt ==========
