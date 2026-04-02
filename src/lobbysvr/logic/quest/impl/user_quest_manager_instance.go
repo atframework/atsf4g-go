@@ -1140,13 +1140,14 @@ func (m *UserQuestManager) ReceivedQuestsReward(ctx cd.RpcContext, questIDs []in
 				QuestId:     qid,
 				RewardItems: rewarditem,
 			})
+		} else {
+			return rewards, ok
 		}
 
 	}
 	// TODO  这里如何返回需要和客户端商议
 	return rewards, cd.CreateRpcResultOk()
 }
-
 func (m *UserQuestManager) ReceivedQuestReward(ctx cd.RpcContext, questID int32, autoReceived bool) (rewards []*public_protocol_common.DItemBasic, result cd.RpcResult) {
 	// 任务是否存在
 	questCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelQuestListById(questID)
@@ -1171,6 +1172,37 @@ func (m *UserQuestManager) ReceivedQuestReward(ctx cd.RpcContext, questID int32,
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
+	// 检查checkitem
+	questReward := questCfg.GetRewards()
+
+	if questReward == nil || len(questReward.GetItems()) == 0 {
+		ctx.LogDebug("quest has no reward items, skip reward granting",
+			"quest_id", questID,
+		)
+		return nil, cd.CreateRpcResultOk()
+	}
+
+	rewardOffsets := questReward.GetItems()
+	rewardItemInsts, result := m.GetOwner().GenerateMultipleItemInstancesFromCfgOffset(ctx, rewardOffsets, false)
+	if result.IsError() {
+		ctx.LogError("generate quest reward items failed",
+			"quest_id", questID,
+			"error", result.GetStandardError(),
+			"response_code", result.GetResponseCode(),
+		)
+		return nil, result
+	}
+
+	addGuards, result := m.GetOwner().CheckAddItem(ctx, rewardItemInsts)
+	if result.IsError() {
+		ctx.LogError("check add quest reward failed",
+			"quest_id", questID,
+			"error", result.GetStandardError(),
+			"response_code", result.GetResponseCode(),
+		)
+		return nil, result
+	}
+
 	delete(m.quests.CompletedQuests, questID)
 
 	// 插入到已领取任务队列
@@ -1181,10 +1213,34 @@ func (m *UserQuestManager) ReceivedQuestReward(ctx cd.RpcContext, questID int32,
 	// 任务状态已领取
 	m.existQuestIDs[questID] = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_RECEIVE
 
-	questReward := questCfg.GetRewards()
-
 	// 发放奖励
-	rewards, result = m.grantQuestReward(ctx, questID, questReward)
+
+	itemFlowReason := &data.ItemFlowReason{
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_QUEST),
+		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_QUEST_REWARD),
+		Parameter:   int64(questID),
+	}
+
+	result = m.GetOwner().AddItem(ctx, addGuards, itemFlowReason)
+	if !result.IsOK() {
+		ctx.LogError("add quest reward items failed",
+			"quest_id", questID,
+			"error", result.GetStandardError(),
+			"response_code", result.GetResponseCode(),
+		)
+		return nil, result
+	}
+
+	ctx.LogInfo("quest reward items granted successfully",
+		"quest_id", questID,
+		"item_count", len(addGuards),
+	)
+
+	rewards = make([]*public_protocol_common.DItemBasic, 0, len(addGuards))
+	for _, itemInst := range addGuards {
+		rewards = append(rewards, itemInst.Item.GetItemBasic())
+	}
+
 	m.addDirtyQuestData(ctx, questData)
 
 	m.questDataLog(ctx, questData, int(public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE),
