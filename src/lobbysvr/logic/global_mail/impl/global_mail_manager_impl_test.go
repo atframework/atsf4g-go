@@ -1,9 +1,12 @@
 package lobbysvr_logic_global_mail_impl
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 	"time"
 
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
@@ -12,6 +15,51 @@ import (
 	"github.com/atframework/libatapp-go"
 	"github.com/stretchr/testify/assert"
 )
+
+// ==================== Mock RpcContext ====================
+
+// testRpcContext 用于测试的模拟 RpcContext
+type testRpcContext struct {
+	now time.Time
+	app libatapp.AppImpl
+}
+
+func newTestRpcContext(app libatapp.AppImpl) *testRpcContext {
+	return &testRpcContext{
+		now: time.Now(),
+		app: app,
+	}
+}
+
+func newTestRpcContextWithNow(app libatapp.AppImpl, now time.Time) *testRpcContext {
+	return &testRpcContext{
+		now: now,
+		app: app,
+	}
+}
+
+func (m *testRpcContext) GetNow() time.Time                                          { return m.now }
+func (m *testRpcContext) GetSysNow() time.Time                                       { return m.now }
+func (m *testRpcContext) GetApp() libatapp.AppImpl                                   { return m.app }
+func (m *testRpcContext) GetAction() cd.TaskActionImpl                               { return nil }
+func (m *testRpcContext) BindAction(_ cd.TaskActionImpl)                             {}
+func (m *testRpcContext) GetContext() context.Context                                { return context.Background() }
+func (m *testRpcContext) GetCancelFn() context.CancelFunc                            { return nil }
+func (m *testRpcContext) SetContext(_ context.Context)                               {}
+func (m *testRpcContext) SetCancelFn(_ context.CancelFunc)                           {}
+func (m *testRpcContext) SetContextCancelFn(_ context.Context, _ context.CancelFunc) {}
+
+func (m *testRpcContext) LogWithLevelContextWithCaller(_ uintptr, _ context.Context, _ slog.Level, _ string, _ ...any) {
+}
+func (m *testRpcContext) LogWithLevelWithCaller(_ uintptr, _ slog.Level, _ string, _ ...any) {}
+func (m *testRpcContext) LogErrorContext(_ context.Context, _ string, _ ...any)              {}
+func (m *testRpcContext) LogError(_ string, _ ...any)                                        {}
+func (m *testRpcContext) LogWarnContext(_ context.Context, _ string, _ ...any)               {}
+func (m *testRpcContext) LogWarn(_ string, _ ...any)                                         {}
+func (m *testRpcContext) LogInfoContext(_ context.Context, _ string, _ ...any)               {}
+func (m *testRpcContext) LogInfo(_ string, _ ...any)                                         {}
+func (m *testRpcContext) LogDebugContext(_ context.Context, _ string, _ ...any)              {}
+func (m *testRpcContext) LogDebug(_ string, _ ...any)                                        {}
 
 // ==================== 辅助函数 ====================
 
@@ -35,7 +83,7 @@ func newTestGlobalMailManager() *GlobalMailManager {
 func newTestGlobalMailRecord(mailId int64, majorType int32) *public_protocol_pbdesc.DMailRecord {
 	now := time.Now().Unix()
 	return &public_protocol_pbdesc.DMailRecord{
-		
+
 		MailId:       mailId,
 		MajorType:    majorType,
 		MinorType:    1,
@@ -87,10 +135,11 @@ func newFutureGlobalMailRecord(mailId int64, majorType int32, startTime int64) *
 func TestAddGlobalMailSuccess(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
 
 	// Act
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.Equal(t, int32(0), ret, "should return 0 for success")
@@ -101,7 +150,7 @@ func TestAddGlobalMailSuccess(t *testing.T) {
 
 	mailBox := mgr.GetMailBoxByType(1, 1)
 	assert.NotNil(t, mailBox, "mailbox should exist for zone_id=1, major_type=1")
-	assert.Equal(t, 1, len(mailBox.Mails), "mailbox should have 1 mail")
+	assert.Equal(t, 1, mailBox.Len(), "mailbox should have 1 mail")
 }
 
 // TestAddGlobalMailInvalidParamZeroMailId 测试 mail_id=0 时添加失败
@@ -109,10 +158,11 @@ func TestAddGlobalMailSuccess(t *testing.T) {
 func TestAddGlobalMailInvalidParamZeroMailId(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(0, 1)
 
 	// Act
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.Equal(t, int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM), ret,
@@ -124,10 +174,11 @@ func TestAddGlobalMailInvalidParamZeroMailId(t *testing.T) {
 func TestAddGlobalMailInvalidParamZeroMajorType(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 0)
 
 	// Act
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.Equal(t, int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM), ret,
@@ -139,13 +190,14 @@ func TestAddGlobalMailInvalidParamZeroMajorType(t *testing.T) {
 func TestAddGlobalMailDuplicate(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record1 := newTestGlobalMailRecord(1001, 1)
 	record2 := newTestGlobalMailRecord(1001, 1)
 	record2.MinorType = 2
 
 	// Act
-	ret1 := mgr.AddGlobalMail(1, record1)
-	ret2 := mgr.AddGlobalMail(1, record2)
+	ret1 := mgr.AddGlobalMail(ctx, 1, record1)
+	ret2 := mgr.AddGlobalMail(ctx, 1, record2)
 
 	// Assert
 	assert.Equal(t, int32(0), ret1, "first add should succeed")
@@ -160,6 +212,7 @@ func TestAddGlobalMailDuplicate(t *testing.T) {
 func TestAddGlobalMailInPendingRemove(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
 	mgr.pendingToRemove[1001] = &global_mail_data.GlobalMailRecordEntry{
 		ZoneId: 1,
@@ -167,7 +220,7 @@ func TestAddGlobalMailInPendingRemove(t *testing.T) {
 	}
 
 	// Act
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.Equal(t, int32(0), ret, "should return 0 for ignored (in pending remove)")
@@ -179,10 +232,11 @@ func TestAddGlobalMailInPendingRemove(t *testing.T) {
 func TestAddGlobalMailExpired(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newExpiredGlobalMailRecord(1001, 1)
 
 	// Act
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.Equal(t, int32(0), ret, "expired mail should return 0")
@@ -195,11 +249,12 @@ func TestAddGlobalMailExpired(t *testing.T) {
 func TestAddGlobalMailFuture(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	futureStart := time.Now().Unix() + 86400
 	record := newFutureGlobalMailRecord(1001, 1, futureStart)
 
 	// Act
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.Equal(t, int32(0), ret, "future mail should be added successfully")
@@ -216,18 +271,19 @@ func TestAddGlobalMailFuture(t *testing.T) {
 func TestAddGlobalMailMultipleZones(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record1 := newTestGlobalMailRecord(1001, 1)
 	record2 := newTestGlobalMailRecord(1002, 1)
 
 	// Act
-	mgr.AddGlobalMail(1, record1) // zone 1
-	mgr.AddGlobalMail(2, record2) // zone 2
+	mgr.AddGlobalMail(ctx, 1, record1) // zone 1
+	mgr.AddGlobalMail(ctx, 2, record2) // zone 2
 
 	// Assert
 	assert.NotNil(t, mgr.GetMailBoxByType(1, 1), "zone 1 mailbox should exist")
 	assert.NotNil(t, mgr.GetMailBoxByType(2, 1), "zone 2 mailbox should exist")
-	assert.Equal(t, 1, len(mgr.GetMailBoxByType(1, 1).Mails))
-	assert.Equal(t, 1, len(mgr.GetMailBoxByType(2, 1).Mails))
+	assert.Equal(t, 1, mgr.GetMailBoxByType(1, 1).Len())
+	assert.Equal(t, 1, mgr.GetMailBoxByType(2, 1).Len())
 }
 
 // TestAddGlobalMailWithContentNotLoaded 测试添加无内容的全服邮件应加入 unloaded 索引
@@ -235,10 +291,11 @@ func TestAddGlobalMailMultipleZones(t *testing.T) {
 func TestAddGlobalMailWithContentNotLoaded(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
 
 	// Act
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// Assert
 	_, exists := mgr.mailUnloadedIndex[1001]
@@ -252,14 +309,15 @@ func TestAddGlobalMailWithContentNotLoaded(t *testing.T) {
 func TestUpdateGlobalMailSuccess(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	updateRecord := newTestGlobalMailRecord(1001, 1)
 	updateRecord.MinorType = 99
 
 	// Act
-	ok := mgr.UpdateGlobalMail(1, updateRecord)
+	ok := mgr.UpdateGlobalMail(ctx, 1, updateRecord)
 
 	// Assert
 	assert.True(t, ok, "update should succeed for existing mail")
@@ -272,11 +330,12 @@ func TestUpdateGlobalMailSuccess(t *testing.T) {
 func TestUpdateGlobalMailNotFound(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	record := newTestGlobalMailRecord(9999, 1)
 
 	// Act
-	ok := mgr.UpdateGlobalMail(1, record)
+	ok := mgr.UpdateGlobalMail(ctx, 1, record)
 
 	// Assert
 	assert.False(t, ok, "update should return false for non-existent mail")
@@ -287,13 +346,14 @@ func TestUpdateGlobalMailNotFound(t *testing.T) {
 func TestUpdateGlobalMailInvalidParam(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	record1 := newTestGlobalMailRecord(0, 1) // mail_id=0
 	record2 := newTestGlobalMailRecord(1, 0) // major_type=0
 
 	// Act & Assert
-	assert.False(t, mgr.UpdateGlobalMail(1, record1), "should fail for mail_id=0")
-	assert.False(t, mgr.UpdateGlobalMail(1, record2), "should fail for major_type=0")
+	assert.False(t, mgr.UpdateGlobalMail(ctx, 1, record1), "should fail for mail_id=0")
+	assert.False(t, mgr.UpdateGlobalMail(ctx, 1, record2), "should fail for major_type=0")
 }
 
 // TestUpdateGlobalMailInPendingRemove 测试更新在移除队列中的邮件
@@ -301,16 +361,17 @@ func TestUpdateGlobalMailInvalidParam(t *testing.T) {
 func TestUpdateGlobalMailInPendingRemove(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// 移除邮件使其进入 pendingToRemove
-	mgr.RemoveGlobalMail(1001)
+	mgr.RemoveGlobalMail(ctx, 1001)
 
 	updateRecord := newTestGlobalMailRecord(1001, 1)
 
 	// Act
-	ok := mgr.UpdateGlobalMail(1, updateRecord)
+	ok := mgr.UpdateGlobalMail(ctx, 1, updateRecord)
 
 	// Assert
 	assert.False(t, ok, "should not update mail in pending remove list")
@@ -321,14 +382,15 @@ func TestUpdateGlobalMailInPendingRemove(t *testing.T) {
 func TestUpdateGlobalMailExpiredTriggersRemove(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// 更新为过期
 	expiredRecord := newExpiredGlobalMailRecord(1001, 1)
 
 	// Act
-	ok := mgr.UpdateGlobalMail(1, expiredRecord)
+	ok := mgr.UpdateGlobalMail(ctx, 1, expiredRecord)
 
 	// Assert
 	assert.True(t, ok, "update should return true")
@@ -341,16 +403,17 @@ func TestUpdateGlobalMailExpiredTriggersRemove(t *testing.T) {
 func TestUpdateGlobalMailStatusChange(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
 	record.Status = 0
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 	mgr.forceUsersReload = false
 
 	updateRecord := newTestGlobalMailRecord(1001, 1)
 	updateRecord.Status = int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ)
 
 	// Act
-	mgr.UpdateGlobalMail(1, updateRecord)
+	mgr.UpdateGlobalMail(ctx, 1, updateRecord)
 
 	// Assert
 	assert.True(t, mgr.forceUsersReload, "should force users reload when status changes")
@@ -363,11 +426,12 @@ func TestUpdateGlobalMailStatusChange(t *testing.T) {
 func TestRemoveGlobalMailSuccess(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// Act
-	mgr.RemoveGlobalMail(1001)
+	mgr.RemoveGlobalMail(ctx, 1001)
 
 	// Assert
 	assert.Nil(t, mgr.GetMailRaw(1001), "mail should not exist in index after removal")
@@ -380,9 +444,10 @@ func TestRemoveGlobalMailSuccess(t *testing.T) {
 func TestRemoveGlobalMailNotFound(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	// Act - 不应 panic
-	mgr.RemoveGlobalMail(9999)
+	mgr.RemoveGlobalMail(ctx, 9999)
 
 	// Assert
 	assert.Equal(t, 0, len(mgr.pendingToRemove), "pending remove should be empty")
@@ -393,11 +458,12 @@ func TestRemoveGlobalMailNotFound(t *testing.T) {
 func TestRemoveGlobalMailStatusAndPendingQueue(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// Act
-	mgr.RemoveGlobalMail(1001)
+	mgr.RemoveGlobalMail(ctx, 1001)
 
 	// Assert
 	pendingEntry := mgr.pendingToRemove[1001]
@@ -414,14 +480,15 @@ func TestRemoveGlobalMailStatusAndPendingQueue(t *testing.T) {
 func TestRemoveGlobalMailCleansTypeIndex(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// 验证前置
 	assert.NotNil(t, mgr.GetMailBoxByType(1, 1))
 
 	// Act
-	mgr.RemoveGlobalMail(1001)
+	mgr.RemoveGlobalMail(ctx, 1001)
 
 	// Assert - 删除唯一的邮件后 mailbox 应被清理
 	assert.Nil(t, mgr.GetMailBoxByType(1, 1), "mailbox should be cleaned up after removing last mail")
@@ -432,16 +499,17 @@ func TestRemoveGlobalMailCleansTypeIndex(t *testing.T) {
 func TestRemoveGlobalMailMultiple(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	for i := int64(1); i <= 5; i++ {
 		record := newTestGlobalMailRecord(i, 1)
-		mgr.AddGlobalMail(1, record)
+		mgr.AddGlobalMail(ctx, 1, record)
 	}
 	assert.Equal(t, 5, len(mgr.GetAllGlobalMails()))
 
 	// Act
-	mgr.RemoveGlobalMail(1)
-	mgr.RemoveGlobalMail(3)
-	mgr.RemoveGlobalMail(5)
+	mgr.RemoveGlobalMail(ctx, 1)
+	mgr.RemoveGlobalMail(ctx, 3)
+	mgr.RemoveGlobalMail(ctx, 5)
 
 	// Assert
 	assert.Equal(t, 2, len(mgr.GetAllGlobalMails()), "should have 2 remaining mails")
@@ -460,8 +528,9 @@ func TestRemoveGlobalMailMultiple(t *testing.T) {
 func TestGetMailRawFound(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// Act
 	mail := mgr.GetMailRaw(1001)
@@ -489,15 +558,16 @@ func TestGetMailRawNotFound(t *testing.T) {
 func TestGetMailBoxByTypeFound(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 5)
-	mgr.AddGlobalMail(2, record)
+	mgr.AddGlobalMail(ctx, 2, record)
 
 	// Act
 	mailBox := mgr.GetMailBoxByType(2, 5)
 
 	// Assert
 	assert.NotNil(t, mailBox, "should return mailbox")
-	assert.Equal(t, 1, len(mailBox.Mails))
+	assert.Equal(t, 1, mailBox.Len())
 }
 
 // TestGetMailBoxByTypeNotFound 测试获取不存在的类型邮箱
@@ -516,9 +586,10 @@ func TestGetMailBoxByTypeNotFound(t *testing.T) {
 func TestGetAllGlobalMails(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	for i := int64(1); i <= 3; i++ {
 		record := newTestGlobalMailRecord(i, 1)
-		mgr.AddGlobalMail(1, record)
+		mgr.AddGlobalMail(ctx, 1, record)
 	}
 
 	// Act
@@ -535,6 +606,7 @@ func TestGetAllGlobalMails(t *testing.T) {
 func TestUpdateGlobalMailRecordSuccess(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	dst := &public_protocol_pbdesc.DMailRecord{
 		MailId:    1001,
 		MajorType: 1,
@@ -552,7 +624,7 @@ func TestUpdateGlobalMailRecordSuccess(t *testing.T) {
 	}
 
 	// Act
-	mgr.UpdateGlobalMailRecord(dst, src)
+	mgr.UpdateGlobalMailRecord(ctx, dst, src)
 
 	// Assert
 	assert.Equal(t, int64(1001), dst.GetMailId())
@@ -570,11 +642,12 @@ func TestUpdateGlobalMailRecordSuccess(t *testing.T) {
 func TestUpdateGlobalMailRecordNilParams(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	// Act & Assert - 不应 panic
-	mgr.UpdateGlobalMailRecord(nil, &public_protocol_pbdesc.DMailRecord{})
-	mgr.UpdateGlobalMailRecord(&public_protocol_pbdesc.DMailRecord{}, nil)
-	mgr.UpdateGlobalMailRecord(nil, nil)
+	mgr.UpdateGlobalMailRecord(ctx, nil, &public_protocol_pbdesc.DMailRecord{})
+	mgr.UpdateGlobalMailRecord(ctx, &public_protocol_pbdesc.DMailRecord{}, nil)
+	mgr.UpdateGlobalMailRecord(ctx, nil, nil)
 }
 
 // TestUpdateGlobalMailRecordStatusMerge 测试状态字段 OR 合并
@@ -582,6 +655,7 @@ func TestUpdateGlobalMailRecordNilParams(t *testing.T) {
 func TestUpdateGlobalMailRecordStatusMerge(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	dst := &public_protocol_pbdesc.DMailRecord{
 		Status: int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ),
 	}
@@ -592,7 +666,7 @@ func TestUpdateGlobalMailRecordStatusMerge(t *testing.T) {
 	}
 
 	// Act
-	mgr.UpdateGlobalMailRecord(dst, src)
+	mgr.UpdateGlobalMailRecord(ctx, dst, src)
 
 	// Assert
 	assert.NotEqual(t, 0, dst.GetStatus()&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ),
@@ -664,8 +738,9 @@ func TestIsHistoryRemoveableInPendingRemove(t *testing.T) {
 func TestIsHistoryRemoveableStillInMailbox(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	// Act & Assert
 	assert.False(t, mgr.IsHistoryRemoveable(record),
@@ -694,9 +769,10 @@ func TestIsHistoryRemoveableAfterLeakTimeout(t *testing.T) {
 func TestIsRecordRemoveableNil(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	// Act & Assert
-	assert.True(t, mgr.IsRecordRemoveable(nil), "nil record should be removeable")
+	assert.True(t, mgr.IsRecordRemoveable(ctx, nil), "nil record should be removeable")
 }
 
 // TestIsRecordRemoveableNonGlobal 测试非全服邮件不应可移除
@@ -704,6 +780,7 @@ func TestIsRecordRemoveableNil(t *testing.T) {
 func TestIsRecordRemoveableNonGlobal(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := &public_protocol_pbdesc.DMailRecord{
 		MailId:       1001,
 		MajorType:    1,
@@ -711,7 +788,7 @@ func TestIsRecordRemoveableNonGlobal(t *testing.T) {
 	}
 
 	// Act & Assert
-	assert.False(t, mgr.IsRecordRemoveable(record), "non-global mail should not be removeable by global manager")
+	assert.False(t, mgr.IsRecordRemoveable(ctx, record), "non-global mail should not be removeable by global manager")
 }
 
 // TestIsRecordRemoveableInPendingRemove 测试在待删除列表中的邮件可移除
@@ -719,6 +796,7 @@ func TestIsRecordRemoveableNonGlobal(t *testing.T) {
 func TestIsRecordRemoveableInPendingRemove(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
 	mgr.pendingToRemove[1001] = &global_mail_data.GlobalMailRecordEntry{
 		ZoneId: 1,
@@ -726,7 +804,7 @@ func TestIsRecordRemoveableInPendingRemove(t *testing.T) {
 	}
 
 	// Act & Assert
-	assert.True(t, mgr.IsRecordRemoveable(record),
+	assert.True(t, mgr.IsRecordRemoveable(ctx, record),
 		"mail in pending remove should be removeable")
 }
 
@@ -736,6 +814,7 @@ func TestIsRecordRemoveableExpired(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
 	now := time.Now().Unix()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := &public_protocol_pbdesc.DMailRecord{
 		MailId:       1001,
 		MajorType:    1,
@@ -745,7 +824,7 @@ func TestIsRecordRemoveableExpired(t *testing.T) {
 	}
 
 	// Act & Assert
-	assert.True(t, mgr.IsRecordRemoveable(record),
+	assert.True(t, mgr.IsRecordRemoveable(ctx, record),
 		"mail past expired+tolerate time should be removeable")
 }
 
@@ -754,10 +833,11 @@ func TestIsRecordRemoveableExpired(t *testing.T) {
 func TestIsRecordRemoveableNotExpired(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1) // 正常有效期
 
 	// Act & Assert
-	assert.False(t, mgr.IsRecordRemoveable(record),
+	assert.False(t, mgr.IsRecordRemoveable(ctx, record),
 		"valid mail should not be removeable")
 }
 
@@ -768,6 +848,7 @@ func TestIsRecordRemoveableNotExpired(t *testing.T) {
 func TestUpdateFromDBAddNew(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	blobData := &private_protocol_pbdesc.DatabaseGlobalMailBlobData{
 		MailRecords: []*public_protocol_pbdesc.DMailRecord{
 			newTestGlobalMailRecord(1001, 1),
@@ -776,7 +857,7 @@ func TestUpdateFromDBAddNew(t *testing.T) {
 	}
 
 	// Act
-	ret := mgr.UpdateFromDB(1, 1, blobData, false)
+	ret := mgr.UpdateFromDB(ctx, 1, 1, blobData, false)
 
 	// Assert
 	assert.False(t, ret, "should return false when no rewrite needed")
@@ -789,8 +870,9 @@ func TestUpdateFromDBAddNew(t *testing.T) {
 func TestUpdateFromDBUpdateExisting(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	updateRecord := newTestGlobalMailRecord(1001, 1)
 	updateRecord.MinorType = 99
@@ -799,7 +881,7 @@ func TestUpdateFromDBUpdateExisting(t *testing.T) {
 	}
 
 	// Act
-	mgr.UpdateFromDB(1, 1, blobData, false)
+	mgr.UpdateFromDB(ctx, 1, 1, blobData, false)
 
 	// Assert
 	assert.Equal(t, 1, len(mgr.GetAllGlobalMails()), "should still have 1 mail")
@@ -810,10 +892,11 @@ func TestUpdateFromDBUpdateExisting(t *testing.T) {
 func TestUpdateFromDBRemoveInvalid(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record1 := newTestGlobalMailRecord(1001, 1)
 	record2 := newTestGlobalMailRecord(1002, 1)
-	mgr.AddGlobalMail(1, record1)
-	mgr.AddGlobalMail(1, record2)
+	mgr.AddGlobalMail(ctx, 1, record1)
+	mgr.AddGlobalMail(ctx, 1, record2)
 
 	// 数据库只有 1001
 	blobData := &private_protocol_pbdesc.DatabaseGlobalMailBlobData{
@@ -823,7 +906,7 @@ func TestUpdateFromDBRemoveInvalid(t *testing.T) {
 	}
 
 	// Act
-	mgr.UpdateFromDB(1, 1, blobData, false)
+	mgr.UpdateFromDB(ctx, 1, 1, blobData, false)
 
 	// Assert
 	assert.NotNil(t, mgr.GetMailRaw(1001), "mail 1001 should still exist")
@@ -835,13 +918,14 @@ func TestUpdateFromDBRemoveInvalid(t *testing.T) {
 func TestUpdateFromDBRewriteMode(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	expiredRecord := newExpiredGlobalMailRecord(1001, 1)
 	blobData := &private_protocol_pbdesc.DatabaseGlobalMailBlobData{
 		MailRecords: []*public_protocol_pbdesc.DMailRecord{expiredRecord},
 	}
 
 	// Act
-	ret := mgr.UpdateFromDB(1, 1, blobData, true)
+	ret := mgr.UpdateFromDB(ctx, 1, 1, blobData, true)
 
 	// Assert
 	assert.True(t, ret, "should return true when rewrite is needed for expired mails")
@@ -852,6 +936,7 @@ func TestUpdateFromDBRewriteMode(t *testing.T) {
 func TestUpdateFromDBPendingRemoveList(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	pendingRecord := newTestGlobalMailRecord(2001, 1)
 	blobData := &private_protocol_pbdesc.DatabaseGlobalMailBlobData{
 		MailRecords: []*public_protocol_pbdesc.DMailRecord{
@@ -861,7 +946,7 @@ func TestUpdateFromDBPendingRemoveList(t *testing.T) {
 	}
 
 	// Act
-	mgr.UpdateFromDB(1, 1, blobData, false)
+	mgr.UpdateFromDB(ctx, 1, 1, blobData, false)
 
 	// Assert
 	assert.NotNil(t, mgr.GetMailRaw(1001), "mail 1001 should be added")
@@ -876,8 +961,9 @@ func TestUpdateFromDBPendingRemoveList(t *testing.T) {
 func TestSetMailContentLoaded(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 
 	assert.Contains(t, mgr.mailUnloadedIndex, int64(1001))
 
@@ -954,13 +1040,14 @@ func TestPendingToRemoveContents(t *testing.T) {
 func TestFetchAllUnloadedMails(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record1 := newTestGlobalMailRecord(1001, 1)
 	record2 := newTestGlobalMailRecord(1002, 1)
-	mgr.AddGlobalMail(1, record1)
-	mgr.AddGlobalMail(1, record2)
+	mgr.AddGlobalMail(ctx, 1, record1)
+	mgr.AddGlobalMail(ctx, 1, record2)
 
 	// Act
-	unloaded := mgr.FetchAllUnloadedMails()
+	unloaded := mgr.FetchAllUnloadedMails(ctx)
 
 	// Assert
 	assert.Equal(t, 2, len(unloaded), "should return 2 unloaded mail IDs")
@@ -971,12 +1058,13 @@ func TestFetchAllUnloadedMails(t *testing.T) {
 func TestFetchAllUnloadedMailsAfterLoad(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 	record := newTestGlobalMailRecord(1001, 1)
-	mgr.AddGlobalMail(1, record)
+	mgr.AddGlobalMail(ctx, 1, record)
 	mgr.SetMailContentLoaded(1001)
 
 	// Act
-	unloaded := mgr.FetchAllUnloadedMails()
+	unloaded := mgr.FetchAllUnloadedMails(ctx)
 
 	// Assert
 	assert.Equal(t, 0, len(unloaded), "should return empty after content loaded")
@@ -1017,27 +1105,28 @@ func TestGlobalMailManagerName(t *testing.T) {
 func TestAddUpdateRemoveWorkflow(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	// Step 1: 添加邮件
 	record := newTestGlobalMailRecord(1001, 1)
-	ret := mgr.AddGlobalMail(1, record)
+	ret := mgr.AddGlobalMail(ctx, 1, record)
 	assert.Equal(t, int32(0), ret)
 	assert.NotNil(t, mgr.GetMailRaw(1001))
 
 	// Step 2: 更新邮件
 	updateRecord := newTestGlobalMailRecord(1001, 1)
 	updateRecord.MinorType = 99
-	ok := mgr.UpdateGlobalMail(1, updateRecord)
+	ok := mgr.UpdateGlobalMail(ctx, 1, updateRecord)
 	assert.True(t, ok, "update should succeed")
 
 	// Step 3: 移除邮件
-	mgr.RemoveGlobalMail(1001)
+	mgr.RemoveGlobalMail(ctx, 1001)
 	assert.Nil(t, mgr.GetMailRaw(1001), "mail should be removed")
 	assert.Contains(t, mgr.pendingToRemove, int64(1001), "should be in pending remove")
 
 	// Step 4: 验证不能再添加已移除的邮件
 	addRecord := newTestGlobalMailRecord(1001, 1)
-	ret = mgr.AddGlobalMail(1, addRecord)
+	ret = mgr.AddGlobalMail(ctx, 1, addRecord)
 	assert.Equal(t, int32(0), ret, "should return 0 for ignored mail")
 	assert.Nil(t, mgr.GetMailRaw(1001), "removed mail should not be re-added")
 }
@@ -1047,12 +1136,13 @@ func TestAddUpdateRemoveWorkflow(t *testing.T) {
 func TestMultipleZonesAndTypesManagement(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	// 添加不同 zone 和类型的邮件
-	mgr.AddGlobalMail(1, newTestGlobalMailRecord(1001, 1))
-	mgr.AddGlobalMail(1, newTestGlobalMailRecord(1002, 2))
-	mgr.AddGlobalMail(2, newTestGlobalMailRecord(1003, 1))
-	mgr.AddGlobalMail(2, newTestGlobalMailRecord(1004, 3))
+	mgr.AddGlobalMail(ctx, 1, newTestGlobalMailRecord(1001, 1))
+	mgr.AddGlobalMail(ctx, 1, newTestGlobalMailRecord(1002, 2))
+	mgr.AddGlobalMail(ctx, 2, newTestGlobalMailRecord(1003, 1))
+	mgr.AddGlobalMail(ctx, 2, newTestGlobalMailRecord(1004, 3))
 
 	// Assert
 	assert.Equal(t, 4, len(mgr.GetAllGlobalMails()))
@@ -1064,7 +1154,7 @@ func TestMultipleZonesAndTypesManagement(t *testing.T) {
 	assert.Nil(t, mgr.GetMailBoxByType(2, 2), "zone 2 should not have major_type 2")
 
 	// 移除 zone1 的 major_type 1 邮件
-	mgr.RemoveGlobalMail(1001)
+	mgr.RemoveGlobalMail(ctx, 1001)
 	assert.Nil(t, mgr.GetMailBoxByType(1, 1), "zone 1 major_type 1 should be empty")
 	assert.NotNil(t, mgr.GetMailBoxByType(1, 2), "zone 1 major_type 2 should still exist")
 }
@@ -1074,6 +1164,7 @@ func TestMultipleZonesAndTypesManagement(t *testing.T) {
 func TestUpdateFromDBThenRemoveSyncIntegration(t *testing.T) {
 	// Arrange
 	mgr := newTestGlobalMailManager()
+	ctx := newTestRpcContext(mgr.GetApp())
 
 	// 第一次从 DB 加载
 	blobData := &private_protocol_pbdesc.DatabaseGlobalMailBlobData{
@@ -1083,11 +1174,11 @@ func TestUpdateFromDBThenRemoveSyncIntegration(t *testing.T) {
 			newTestGlobalMailRecord(1003, 1),
 		},
 	}
-	mgr.UpdateFromDB(1, 1, blobData, false)
+	mgr.UpdateFromDB(ctx, 1, 1, blobData, false)
 	assert.Equal(t, 3, len(mgr.GetAllGlobalMails()))
 
 	// 手动移除一封
-	mgr.RemoveGlobalMail(1002)
+	mgr.RemoveGlobalMail(ctx, 1002)
 	assert.Equal(t, 2, len(mgr.GetAllGlobalMails()))
 
 	// 第二次从 DB 加载（DB 中仍有 1001、1003，新增 1004）
@@ -1098,7 +1189,7 @@ func TestUpdateFromDBThenRemoveSyncIntegration(t *testing.T) {
 			newTestGlobalMailRecord(1004, 1),
 		},
 	}
-	mgr.UpdateFromDB(1, 1, blobData2, false)
+	mgr.UpdateFromDB(ctx, 1, 1, blobData2, false)
 
 	// Assert
 	assert.NotNil(t, mgr.GetMailRaw(1001), "mail 1001 should exist")

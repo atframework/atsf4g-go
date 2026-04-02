@@ -4,8 +4,6 @@
 package atframework_component_mail
 
 import (
-	"time"
-
 	config "github.com/atframework/atsf4g-go/component/config"
 	db "github.com/atframework/atsf4g-go/component/db"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
@@ -38,7 +36,7 @@ func compactMails(_ctx cd.AwaitableContext, dbData *private_protocol_pbdesc.Data
 		return
 	}
 
-	now := time.Now().Unix()
+	now := _ctx.GetNow().Unix()
 	futureReserveCount := constIndex.GetGlobalMailFutureReserveMaxCountPerMajorType()
 	futureMailCount := int32(0)
 	for _, record := range dbData.GetMailRecords() {
@@ -83,7 +81,7 @@ func compactMails(_ctx cd.AwaitableContext, dbData *private_protocol_pbdesc.Data
 		// 首先移除可历史删除的邮件
 		for i := 0; i < len(dbData.GetMailRecords()); i++ {
 			record := dbData.GetMailRecords()[i]
-			if MailIsHistoryRemovable(record) {
+			if MailIsHistoryRemovable(now, record) {
 				dirtyRecord := &public_protocol_pbdesc.DMailRecord{}
 				proto.Merge(dirtyRecord, record)
 				dirtyRecord.Status = dirtyRecord.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_REMOVED)
@@ -173,7 +171,7 @@ func AddGlobalMail(
 	mail.Channel = channel
 	mail.ChannelParam = channelParam
 
-	now := time.Now().Unix()
+	now := ctx.GetNow().Unix()
 
 	if mail.Reason == nil {
 		mail.Reason = &public_protocol_pbdesc.DMailFlowReason{}
@@ -260,17 +258,19 @@ func AddGlobalMail(
 		}
 
 		mailRecord := &public_protocol_pbdesc.DMailRecord{
-			MailId:             mail.GetMailId(),
-			MajorType:          mail.GetMajorType(),
-			MinorType:          mail.GetMinorType(),
-			Status:             int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_NONE),
-			DeliveryTime:       mail.GetDeliveryTime(),
-			StartTime:          mail.GetStartTime(),
-			ShowTime:           mail.GetShowTime(),
-			ExpiredTime:        mail.GetExpiredTime(),
-			RemoveTime:         mail.GetRemoveTime(),
-			ResolveExpiredTime: mail.GetResolveExpiredTime(),
-			IsGlobalMail:       true,
+			MailId:               mail.GetMailId(),
+			MajorType:            mail.GetMajorType(),
+			MinorType:            mail.GetMinorType(),
+			Status:               int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_NONE),
+			DeliveryTime:         mail.GetDeliveryTime(),
+			StartTime:            mail.GetStartTime(),
+			ShowTime:             mail.GetShowTime(),
+			ExpiredTime:          mail.GetExpiredTime(),
+			RemoveTime:           mail.GetRemoveTime(),
+			ResolveExpiredTime:   mail.GetResolveExpiredTime(),
+			AfterReadExpiredTime: mail.GetAfterReadExpiredTime(),
+			IsGlobalMail:         true,
+			HasAttachments:       len(mail.GetAttachmentsOffset()) > 0,
 		}
 		dbTable.JobData.MailRecords = append(dbTable.GetJobData().GetMailRecords(), mailRecord)
 
@@ -371,7 +371,7 @@ func RemoveGlobalMail(
 			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 		}
 
-		now := time.Now().Unix()
+		now := ctx.GetNow().Unix()
 		dirtyRecord := &public_protocol_pbdesc.DMailRecord{}
 		proto.Merge(dirtyRecord, dbData.GetMailRecords()[selectedIdx])
 		dirtyRecord.Status = dirtyRecord.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_REMOVED)
@@ -432,7 +432,7 @@ func AddGlobalMailWithTemplate(
 	mail := &public_protocol_pbdesc.DMailContent{}
 
 	// render mail title and content
-	ret := MailRenderTemplate(MailTemplateId, mail, Sender, itemOffset, Extensions)
+	ret := MailRenderTemplate(ctx.GetNow().Unix(), MailTemplateId, mail, Sender, itemOffset, Extensions)
 	if ret.IsError() {
 		ctx.LogError("mail_render_template failed for global mail",
 			"mail_template_id", MailTemplateId,

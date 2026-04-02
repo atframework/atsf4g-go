@@ -4,6 +4,7 @@ package lobbysvr_logic_mail_action
 
 import (
 	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
+	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
@@ -40,11 +41,13 @@ func (t *TaskActionMailReceiveAttachments) Run(_startData *component_dispatcher.
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
 		return nil
 	}
-	result := mailMgr.WaitForAsyncTask(t.GetRpcContext())
+	result := mailMgr.WaitForAsyncTask(t.GetAwaitableContext())
 	if result.GetResponseCode() != 0 {
 		t.GetRpcContext().LogError("TaskActionMailGetAll WaitForAsyncTask failed, code:", result.GetResponseCode())
 		return nil
 	}
+
+	receivedItemReset := map[int32]int64{}
 
 	for _, mailId := range requestBody.MailIds {
 		result := &public_protocol_pbdesc.DMailOperationResult{}
@@ -54,8 +57,20 @@ func (t *TaskActionMailReceiveAttachments) Run(_startData *component_dispatcher.
 			if rpcResult.ResponseCode != 0 {
 				t.SetResponseCode(rpcResult.ResponseCode)
 			}
+			t.LogError("received mail failed, mail id:", result.Record.GetMailId())
+			continue
 		}
-		responseBody.Mails = append(responseBody.Mails, result)
+		for _, itemOffset := range result.GetAttachments() {
+			receivedItemReset[itemOffset.GetTypeId()] += itemOffset.GetCount()
+		}
 	}
+
+	for typeID, count := range receivedItemReset {
+		responseBody.ReceivedItems = append(responseBody.ReceivedItems, &public_protocol_common.DItemOffset{
+			TypeId: typeID,
+			Count:  count,
+		})
+	}
+
 	return nil
 }

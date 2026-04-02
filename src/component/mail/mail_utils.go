@@ -15,8 +15,8 @@ import (
 )
 
 // MailIsExpired 检查邮件是否过期
-func MailIsExpired(expiredTime int64) bool {
-	return expiredTime > 0 && time.Now().Unix() >= expiredTime
+func MailIsExpired(now int64, expiredTime int64) bool {
+	return expiredTime > 0 && now >= expiredTime
 }
 
 // MailIsRemoved 检查邮件是否被标记为移除
@@ -28,23 +28,22 @@ func MailIsRemoved(record *public_protocol_pbdesc.DMailRecord) bool {
 }
 
 // MailIsExpiredOrRemoved 检查邮件是否过期或被移除
-func MailIsExpiredOrRemoved(record *public_protocol_pbdesc.DMailRecord) bool {
+func MailIsExpiredOrRemoved(now int64, record *public_protocol_pbdesc.DMailRecord) bool {
 	if record == nil {
 		return true
 	}
-	return MailIsRemoved(record) || MailIsExpired(record.GetExpiredTime())
+	return MailIsRemoved(record) || MailIsExpired(now, record.GetExpiredTime())
 }
 
 // MailIsHistoryRemovable 检查邮件是否可历史移除（过期且超过移除时间）
-func MailIsHistoryRemovable(record *public_protocol_pbdesc.DMailRecord) bool {
+func MailIsHistoryRemovable(now int64, record *public_protocol_pbdesc.DMailRecord) bool {
 	if record == nil {
 		return true
 	}
-	now := time.Now().Unix()
 	if record.GetRemoveTime() > 0 && now >= record.GetRemoveTime() {
 		return true
 	}
-	return MailIsExpiredOrRemoved(record)
+	return MailIsExpiredOrRemoved(now, record)
 }
 
 // MailPaddingDayTime 邮件时间填充到整天结束
@@ -64,6 +63,7 @@ type MailRenderExtension map[string]string
 // @param itemOffset 道具偏移（可为nil）
 // @param extensions 扩展信息（可为nil），存入MailTemplateExtensions
 func MailRenderTemplate(
+	now int64,
 	mailTemplateId int32,
 	mail *public_protocol_pbdesc.DMailContent,
 	sender *public_protocol_pbdesc.DMailUserInfo,
@@ -131,9 +131,10 @@ func MailRenderTemplate(
 	}
 
 	if mail.GetExpiredTime() <= 0 && templateConfig.GetExpiredDurationS() > 0 {
-		now := time.Now().Unix()
 		mail.ExpiredTime = now + int64(templateConfig.GetExpiredDurationS())
 	}
+
+	mail.AfterReadExpiredTime = int64(templateConfig.GetAfterReadExpiredDurationS())
 
 	return cd.CreateRpcResultOk()
 }
@@ -188,7 +189,7 @@ func Int64ToStr(n int64) string {
 
 // MailIsValidRecord 检查邮件记录是否有效
 // 返回0表示有效，否则返回错误码
-func MailIsValidRecord(record *public_protocol_pbdesc.DMailRecord) int32 {
+func MailIsValidRecord(now int64, record *public_protocol_pbdesc.DMailRecord) int32 {
 	if record == nil || record.GetMailId() == 0 {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 	}
@@ -207,7 +208,6 @@ func MailIsValidRecord(record *public_protocol_pbdesc.DMailRecord) int32 {
 		}
 	}
 
-	now := time.Now().Unix()
 	if now > 0 && now > record.GetExpiredTime()+timeTolerate {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_EXPIRED)
 	}
@@ -221,7 +221,7 @@ func MailIsValidRecord(record *public_protocol_pbdesc.DMailRecord) int32 {
 
 // MailIsValidContent 检查邮件内容是否有效
 // 返回0表示有效，否则返回错误码
-func MailIsValidContent(content *public_protocol_pbdesc.DMailContent, expiredTime int64) int32 {
+func MailIsValidContent(now int64, content *public_protocol_pbdesc.DMailContent, expiredTime int64) int32 {
 	if content == nil || content.GetMailId() == 0 {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 	}
@@ -240,7 +240,6 @@ func MailIsValidContent(content *public_protocol_pbdesc.DMailContent, expiredTim
 		}
 	}
 
-	now := time.Now().Unix()
 	if now > 0 && now > expiredTime+timeTolerate {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_EXPIRED)
 	}
@@ -257,7 +256,7 @@ func MailIsValidContent(content *public_protocol_pbdesc.DMailContent, expiredTim
 }
 
 // MailIsExpiredOrRemovedContent 检查邮件内容是否过期或被移除
-func MailIsExpiredOrRemovedContent(content *public_protocol_pbdesc.DMailContent) bool {
+func MailIsExpiredOrRemovedContent(now int64, content *public_protocol_pbdesc.DMailContent) bool {
 	if content == nil || content.GetMailId() == 0 {
 		return true
 	}
@@ -275,7 +274,6 @@ func MailIsExpiredOrRemovedContent(content *public_protocol_pbdesc.DMailContent)
 		}
 	}
 
-	now := time.Now().Unix()
 	if now > 0 && now > content.GetExpiredTime()+timeTolerate {
 		return true
 	}
@@ -288,7 +286,7 @@ func MailIsExpiredOrRemovedContent(content *public_protocol_pbdesc.DMailContent)
 }
 
 // MailIsRemovedContent 检查邮件内容是否被移除
-func MailIsRemovedContent(content *public_protocol_pbdesc.DMailContent) bool {
+func MailIsRemovedContent(now int64, content *public_protocol_pbdesc.DMailContent) bool {
 	if content == nil || content.GetMailId() == 0 {
 		return true
 	}
@@ -306,7 +304,6 @@ func MailIsRemovedContent(content *public_protocol_pbdesc.DMailContent) bool {
 		}
 	}
 
-	now := time.Now().Unix()
 	if now > 0 && now > content.GetRemoveTime()+timeTolerate {
 		return true
 	}
@@ -319,7 +316,7 @@ func MailIsRemovedContent(content *public_protocol_pbdesc.DMailContent) bool {
 }
 
 // MailIsHistoryRemovableContent 检查邮件内容是否可历史移除
-func MailIsHistoryRemovableContent(content *public_protocol_pbdesc.DMailContent) bool {
+func MailIsHistoryRemovableContent(now int64, content *public_protocol_pbdesc.DMailContent) bool {
 	if content == nil || content.GetMailId() == 0 {
 		return true
 	}
@@ -337,7 +334,6 @@ func MailIsHistoryRemovableContent(content *public_protocol_pbdesc.DMailContent)
 		}
 	}
 
-	now := time.Now().Unix()
 	maxTime := content.GetExpiredTime()
 	if content.GetRemoveTime() > maxTime {
 		maxTime = content.GetRemoveTime()
@@ -368,6 +364,7 @@ func MailMergeContentAndRecord(out *public_protocol_pbdesc.DMailContent,
 	out.ShowTime = record.GetShowTime()
 	out.ExpiredTime = record.GetExpiredTime()
 	out.ResolveExpiredTime = record.GetResolveExpiredTime()
+	out.AfterReadExpiredTime = record.GetAfterReadExpiredTime()
 
 	removeTime := record.GetExpiredTime()
 	if record.GetRemoveTime() > removeTime {
@@ -415,7 +412,7 @@ type MailRenderData struct {
 }
 
 // 返回0表示有效，否则返回错误码
-func MailIsValid(content *public_protocol_pbdesc.DMailContent, expiredTime int64) int32 {
+func MailIsValid(now int64, content *public_protocol_pbdesc.DMailContent, expiredTime int64) int32 {
 	if content == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 	}
@@ -424,11 +421,10 @@ func MailIsValid(content *public_protocol_pbdesc.DMailContent, expiredTime int64
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 	}
 	// 检查过期
-	if MailIsExpired(expiredTime) {
+	if MailIsExpired(now, expiredTime) {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_EXPIRED)
 	}
 	// 检查start_time
-	now := time.Now().Unix()
 	if content.GetStartTime() > 0 && now < content.GetStartTime() {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_START)
 	}
@@ -436,12 +432,28 @@ func MailIsValid(content *public_protocol_pbdesc.DMailContent, expiredTime int64
 }
 
 // IsMailShown 检查邮件是否应该显示
-func IsMailShown(content *public_protocol_pbdesc.DMailContent, record *public_protocol_pbdesc.DMailRecord) bool {
+func IsMailShown(now int64, content *public_protocol_pbdesc.DMailContent, record *public_protocol_pbdesc.DMailRecord) bool {
 	if content == nil || record == nil {
 		return false
 	}
 	if (content.GetStatus() & int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_REMOVED)) != 0 {
 		return false
 	}
-	return !MailIsExpired(record.GetExpiredTime())
+	return !MailIsExpired(now, record.GetExpiredTime())
+}
+
+func UpdateExperiedTimeAfterRead(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord) {
+	if record == nil {
+		return
+	}
+
+	if record.GetAfterReadExpiredTime() <= 0 {
+		return
+	}
+	now := ctx.GetNow().Unix()
+
+	newExperiedTime := now + record.GetAfterReadExpiredTime()
+	if record.GetExpiredTime() > 0 && newExperiedTime < record.GetExpiredTime() {
+		record.ExpiredTime = newExperiedTime
+	}
 }

@@ -38,12 +38,14 @@ message DMailTemplate {
   string title = 4;                                                            // 标题
   string content = 5;                                                          // 正文
   int32 expired_duration_s = 6;                                                // 有效期(秒)
-  google.protobuf.Timestamp show_time = 7;                                     // 展示时间
-  google.protobuf.Timestamp start_time = 8;                                    // 开始时间
-  google.protobuf.Timestamp expired_time = 9;                                  // 过期时间
-  bool is_padding_expired_time = 10;                                           // 过期时间对齐到天
-  int32 resolve_expired_time = 11;                                             // 按实际接收时间重算有效期（天）
-  int32 condition_id = 12;                                                     // 限制条件组ID
+  int32 after_read_expired_duration_s = 7;                                     // 阅读后有效期(秒)
+
+  google.protobuf.Timestamp show_time = 8;      // 展示时间
+  google.protobuf.Timestamp start_time = 9;     // 开始时间
+  google.protobuf.Timestamp expired_time = 10;  // 过期时间
+  bool is_padding_expired_time = 11;            // 过期时间对齐到天
+  int32 resolve_expired_time = 12;              // 按实际接收时间重算有效期（天）
+  int32 condition_id = 13;
 
   repeated DItemOffset attachments = 21 [(org.xresloader.field_separator) = ";"];  // 附件
   bool keep_after_take_attachments = 22;                                           // 领取附件后保留

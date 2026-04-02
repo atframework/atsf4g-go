@@ -294,6 +294,7 @@ enum EnErrorCode {
                                 [(error_code.description) = "道具类型无效"];
   EN_ERR_ITEM_TOO_MANY = -504
                          [(error_code.description) = "道具过多"];
+ 
   EN_ERR_MONEY_COIN_NOT_ENOUGH = -505
                                  [(error_code.description) = "金币不足"];
   EN_ERR_MONEY_CASH_NOT_ENOUGH = -506

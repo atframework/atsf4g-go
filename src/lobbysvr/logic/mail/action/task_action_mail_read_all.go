@@ -43,14 +43,15 @@ func (t *TaskActionMailReadAll) Run(_startData *component_dispatcher.DispatcherS
 		return nil
 	}
 
-	result := mailMgr.WaitForAsyncTask(t.GetRpcContext())
+	result := mailMgr.WaitForAsyncTask(t.GetAwaitableContext())
 	if result.GetResponseCode() != 0 {
 		t.GetRpcContext().LogError("TaskActionMailReadAll WaitForAsyncTask failed, code:", result.GetResponseCode())
 		return nil
 	}
-	resultCode := mailMgr.ReadAll(t.GetRpcContext(), requestBody.GetMajorType(),
-		requestBody.GetMinorType(), responseBody.MutableMails(), requestBody.GetNeedRemove())
+	mails, resultCode := mailMgr.ReadAll(t.GetRpcContext(), requestBody.GetMajorType(),
+		requestBody.GetMinorType(), requestBody.GetNeedRemove())
 	t.SetResponseCode(resultCode)
+	responseBody.Mails = mails
 
 	return nil
 }

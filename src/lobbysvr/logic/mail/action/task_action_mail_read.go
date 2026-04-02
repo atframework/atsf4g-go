@@ -42,7 +42,7 @@ func (t *TaskActionMailRead) Run(_startData *component_dispatcher.DispatcherStar
 		return nil
 	}
 
-	result := mailMgr.WaitForAsyncTask(t.GetRpcContext())
+	result := mailMgr.WaitForAsyncTask(t.GetAwaitableContext())
 	if result.GetResponseCode() != 0 {
 		t.GetRpcContext().LogError("TaskActionMailGetAll WaitForAsyncTask failed, code:", result.GetResponseCode())
 		return nil

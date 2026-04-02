@@ -1,8 +1,6 @@
 package lobbysvr_logic_global_mail_action
 
 import (
-	"time"
-
 	atframework_component_config "github.com/atframework/atsf4g-go/component/config"
 	db "github.com/atframework/atsf4g-go/component/db"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
@@ -14,11 +12,11 @@ import (
 
 // GlobalMailManagerForSync 定义 GlobalMailManager 所需的接口
 type GlobalMailManagerForSync interface {
-	UpdateFromDB(zoneId uint32, majorType int32, blobData *private_protocol_pbdesc.DatabaseGlobalMailBlobData, rewriteDbData bool) bool
-	FetchAllUnloadedMails() []int64
+	UpdateFromDB(ctx cd.RpcContext, zoneId uint32, majorType int32, blobData *private_protocol_pbdesc.DatabaseGlobalMailBlobData, rewriteDbData bool) bool
+	FetchAllUnloadedMails(ctx cd.RpcContext) []int64
 	SetMailContentLoaded(mailId int64)
 	GetMailRaw(mailId int64) *mail_data.MailData
-	RemoveGlobalMail(mailId int64)
+	RemoveGlobalMail(ctx cd.RpcContext, mailId int64)
 	SetLastSuccessFetchTimepoint(t int64)
 	GetPendingToRemoveContentsList() []int64
 	RemovePendingToRemoveContent(mailId int64)
@@ -49,13 +47,14 @@ func (t *TaskActionGlobalMailSyncObjects) Name() string {
 func (t *TaskActionGlobalMailSyncObjects) Run(_startData *cd.DispatcherStartData) error {
 	t.fetchMailNumber = 0
 	t.removeMailNumber = 0
-	t.fetchTimepoint = time.Now().Unix()
 
 	if t.manager == nil {
 		return nil
 	}
 
 	ctx := t.GetAwaitableContext()
+	now := ctx.GetNow().Unix()
+	t.fetchTimepoint = now
 
 	// TODO: 服务发现功能尚未实现，暂时假设当前节点为主节点
 	isZoneMaster := true   // TODO: 从服务发现获取
@@ -88,7 +87,7 @@ func (t *TaskActionGlobalMailSyncObjects) Run(_startData *cd.DispatcherStartData
 
 			// 判断是否需要写回数据库
 			rewriteDbData := (zoneId == 0 && isGlobalMaster) || (zoneId == localZoneId && isZoneMaster)
-			needUpdate := t.manager.UpdateFromDB(zoneId, majorType, dbData.MutableJobData(), rewriteDbData)
+			needUpdate := t.manager.UpdateFromDB(ctx, zoneId, majorType, dbData.MutableJobData(), rewriteDbData)
 
 			// 主节点更新删除无效数据
 			if needUpdate && rewriteDbData {
@@ -125,13 +124,12 @@ func (t *TaskActionGlobalMailSyncObjects) fetchMailContents() int {
 	if t.manager == nil {
 		return 0
 	}
+	ctx := t.GetAwaitableContext()
 
-	mailUnloaded := t.manager.FetchAllUnloadedMails()
+	mailUnloaded := t.manager.FetchAllUnloadedMails(ctx)
 	if len(mailUnloaded) == 0 {
 		return 0
 	}
-
-	ctx := t.GetAwaitableContext()
 
 	// 记录未完成的邮件
 	undoMails := make(map[int64]struct{})
@@ -196,13 +194,13 @@ func (t *TaskActionGlobalMailSyncObjects) fetchMailContents() int {
 			if record != nil {
 				record.FetchErrorCount = record.GetFetchErrorCount() + 1
 				if record.GetFetchErrorCount() > global_mail_data.EN_CL_MAIL_PLAYER_TOLERANCE_ERROR_COUNT {
-					t.manager.RemoveGlobalMail(dirtyMailId)
+					t.manager.RemoveGlobalMail(ctx, dirtyMailId)
 				}
 			} else {
-				t.manager.RemoveGlobalMail(dirtyMailId)
+				t.manager.RemoveGlobalMail(ctx, dirtyMailId)
 			}
 		} else {
-			t.manager.RemoveGlobalMail(dirtyMailId)
+			t.manager.RemoveGlobalMail(ctx, dirtyMailId)
 		}
 	}
 

@@ -10,7 +10,6 @@ import (
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
-	"google.golang.org/protobuf/proto"
 
 	config "github.com/atframework/atsf4g-go/component/config"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
@@ -49,6 +48,9 @@ type UserMailManager struct {
 
 	dirtyCache *mail_data.DirtyCache // 脏数据缓存
 
+	unreadMailCount               int32 // 未读邮件数量
+	unreciviedAttachmentMailCount int32 // 有未领取附件的邮件数量
+
 	// 异步任务相关
 	mailAsyncTask                 lu.AtomicInterface[cd.TaskActionImpl]
 	mailAsyncTaskProtectTimepoint time.Time
@@ -68,6 +70,8 @@ func CreateUserMailManager(owner *data.User) *UserMailManager {
 		receivedGlobalMails:           make(mail_data.MailRecordMap),
 		dirtyCache:                    mail_data.NewDirtyCache(),
 		mailAsyncTaskProtectTimepoint: time.Time{},
+		unreadMailCount:               0,
+		unreciviedAttachmentMailCount: 0,
 	}
 	return mgr
 }
@@ -83,8 +87,8 @@ func (m *UserMailManager) LoginInit(_ctx cd.RpcContext) {
 }
 
 func (m *UserMailManager) RefreshLimitSecond(ctx cd.RpcContext) {
-	if m.needStartAsyncJobs() {
-		m.tryToStartAsyncJobs(ctx)
+	if m.needStartAsyncJobs(ctx.GetNow()) {
+		m.TryToStartAsyncJobs(ctx)
 	}
 }
 
@@ -105,17 +109,22 @@ func (m *UserMailManager) InitFromDB(ctx cd.RpcContext, dbUser *private_protocol
 			Record:  record,
 			Content: nil,
 		}
+
+		if record.Status&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ) == 0 {
+			m.unreadMailCount++
+		}
+
+		if (record.Status&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT) == 0) && record.GetHasAttachments() {
+			m.unreciviedAttachmentMailCount++
+		}
+
 		m.mailBoxIdIndex[mailDataPtr.Record.GetMailId()] = mailDataPtr
 
 		mailTypeBox, ok := m.mailBoxTypeIndex[mailDataPtr.Record.GetMajorType()]
 		if !ok {
-			mailTypeBox = &mail_data.MailBox{
-				Mails:             make(map[int64]*mail_data.MailData),
-				FutureMailCount:   0,
-				FutureCacheExpire: 0,
-			}
+			mailTypeBox = mail_data.NewMailBoxWithSort(mail_data.MailDataLessByMailIdDesc)
 		}
-		mailTypeBox.Mails[mailDataPtr.Record.GetMailId()] = mailDataPtr
+		mailTypeBox.Push(mailDataPtr.Record.GetMailId(), mailDataPtr)
 
 		m.mailBoxTypeIndex[mailDataPtr.Record.GetMajorType()] = mailTypeBox
 
@@ -196,7 +205,7 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 
 	if existMail, ok := m.mailBoxIdIndex[mail.GetMailId()]; ok {
 		ctx.LogWarn("add mail twice", "mail_id", mail.GetMailId())
-		now := time.Now().Unix()
+		now := ctx.GetNow().Unix()
 		oldIsFuture := false
 		newIsFuture := mail.GetStartTime() > now
 
@@ -208,18 +217,18 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 			if mail.GetIsGlobalMail() {
 				m.updateGlobalMailRecord(ctx, existMail.Record, mail)
 			} else {
-				proto.Merge(existMail.Record, mail)
+				existMail.Record = mail.Clone()
 			}
 			existMail.Record.FetchErrorCount = keepFetchErrorCount
 		}
 
 		// 添加已过期的邮件则直接进删除队列
 		if mail.GetIsGlobalMail() {
-			if m.isGlobalMailRecordRemovable(ctx, mail) || mail_util.MailIsExpiredOrRemoved(mail) {
-				m.removeUserMail(ctx, mail.GetMailId())
+			if m.isGlobalMailRecordRemovable(ctx, mail) || mail_util.MailIsExpiredOrRemoved(now, mail) {
+				m.removeMailInternal(ctx, mail.GetMailId())
 			}
-		} else if mail_util.MailIsHistoryRemovable(mail) {
-			m.removeUserMail(ctx, mail.GetMailId())
+		} else if mail_util.MailIsHistoryRemovable(now, mail) {
+			m.removeMailInternal(ctx, mail.GetMailId())
 		} else if oldIsFuture != newIsFuture {
 			// 邮件起始时间变化，标记未来邮件缓存失效
 			if mailBox := m.GetMailBoxByMajorType(mail.GetMajorType()); mailBox != nil {
@@ -236,10 +245,10 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 
 	// 本身就是过期邮件则忽略
 	if mail.GetIsGlobalMail() {
-		if mail_util.MailIsExpiredOrRemoved(mail) || m.isGlobalMailRecordRemovable(ctx, mail) {
+		if mail_util.MailIsExpiredOrRemoved(ctx.GetNow().Unix(), mail) || m.isGlobalMailRecordRemovable(ctx, mail) {
 			return 0
 		}
-	} else if mail_util.MailIsHistoryRemovable(mail) {
+	} else if mail_util.MailIsHistoryRemovable(ctx.GetNow().Unix(), mail) {
 		return 0
 	}
 
@@ -266,13 +275,13 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 	// 添加到类型索引
 	majorType := mailDataPtr.Record.GetMajorType()
 	if _, ok := m.mailBoxTypeIndex[majorType]; !ok {
-		m.mailBoxTypeIndex[majorType] = mail_data.NewMailBox()
+		m.mailBoxTypeIndex[majorType] = mail_data.NewMailBoxWithSort(mail_data.MailDataLessByMailIdDesc)
 	}
 	mailBox := m.mailBoxTypeIndex[majorType]
-	mailBox.Mails[mailDataPtr.Record.GetMailId()] = mailDataPtr
+	mailBox.InsertSorted(mailDataPtr.Record.GetMailId(), mailDataPtr)
 
 	// 未来邮件索引
-	now := time.Now().Unix()
+	now := ctx.GetNow().Unix()
 	if mailDataPtr.Record.GetStartTime() > now {
 		mailBox.FutureMailCount++
 		if mailDataPtr.Record.GetStartTime() < mailBox.FutureCacheExpire {
@@ -288,10 +297,10 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 	// 如果本来就是已过期则加入到移除列表
 	if mail.GetIsGlobalMail() {
 		if m.isGlobalMailRecordRemovable(ctx, mail) || mail_util.MailIsRemoved(mail) {
-			m.removeUserMail(ctx, mail.GetMailId())
+			m.removeMailInternal(ctx, mail.GetMailId())
 		}
-	} else if mail_util.MailIsHistoryRemovable(mail) {
-		m.removeUserMail(ctx, mail.GetMailId())
+	} else if mail_util.MailIsHistoryRemovable(now, mail) {
+		m.removeMailInternal(ctx, mail.GetMailId())
 	}
 
 	// 刷新未来邮件缓存并检查数量限制
@@ -318,7 +327,7 @@ func (m *UserMailManager) AddGlobalMail(ctx cd.RpcContext, mail *public_protocol
 			}
 			// 添加已过期的邮件则直接进删除队列
 			if m.isGlobalMailRecordRemovable(ctx, mail) || mail_util.MailIsRemoved(mail) {
-				m.removeUserMail(ctx, mail.GetMailId())
+				m.removeMailInternal(ctx, mail.GetMailId())
 			}
 			return 0
 		}
@@ -346,7 +355,7 @@ func (m *UserMailManager) RemoveMail(ctx cd.RpcContext, mailId int64, out *publi
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 	}
 
-	m.removeUserMail(ctx, mailId)
+	m.removeMailInternal(ctx, mailId)
 	if out != nil {
 		out.Record = mail.Record.Clone()
 		out.Result = 0
@@ -356,7 +365,16 @@ func (m *UserMailManager) RemoveMail(ctx cd.RpcContext, mailId int64, out *publi
 
 // ReadMail 读取邮件
 func (m *UserMailManager) ReadMail(ctx cd.RpcContext, mailId int64, out *public_protocol_pbdesc.DMailOperationResult, needRemove bool) int32 {
-	ret := m.readMailInternal(ctx, mailId, out, needRemove)
+	mail := m.GetMailRaw(mailId)
+
+	if mail == nil || mail.Record == nil {
+		if out != nil {
+			out.Result = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
+		}
+		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
+	}
+
+	ret := m.readMailInternal(ctx, mail, out, needRemove)
 
 	if out != nil {
 		if out.Record == nil {
@@ -368,8 +386,8 @@ func (m *UserMailManager) ReadMail(ctx cd.RpcContext, mailId int64, out *public_
 }
 
 // readMailInternal 读取邮件内部逻辑
-func (m *UserMailManager) readMailInternal(ctx cd.RpcContext, mailId int64, out *public_protocol_pbdesc.DMailOperationResult, needRemove bool) int32 {
-	mail := m.GetMailRaw(mailId)
+func (m *UserMailManager) readMailInternal(ctx cd.RpcContext, mail *mail_data.MailData, out *public_protocol_pbdesc.DMailOperationResult, needRemove bool) int32 {
+	mailId := mail.Record.GetMailId()
 
 	if mail == nil || mail.Content == nil || mail.Record == nil {
 		if !needRemove {
@@ -378,7 +396,7 @@ func (m *UserMailManager) readMailInternal(ctx cd.RpcContext, mailId int64, out 
 		return 0
 	}
 
-	ret := mail_util.MailIsValid(mail.Content, mail.Record.GetExpiredTime())
+	ret := mail_util.MailIsValid(ctx.GetNow().Unix(), mail.Content, mail.Record.GetExpiredTime())
 	if ret < 0 {
 		if ret == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND) && needRemove {
 			ret = 0
@@ -387,87 +405,89 @@ func (m *UserMailManager) readMailInternal(ctx cd.RpcContext, mailId int64, out 
 	}
 
 	if (mail.Record.GetStatus() & int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ)) == 0 {
+		// 已读的邮件
 		mail.Record.Status = mail.Record.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ)
-
+		m.decreaseUnreadMailCount()
+		mail_util.UpdateExperiedTimeAfterRead(ctx, mail.Record)
 		if needRemove {
-			m.removeUserMail(ctx, mailId)
+			m.removeMailInternal(ctx, mailId)
 		} else {
 			m.MutableDirtyMail(mail.Record, false)
 		}
 
 		// TODO: OSS Log
 	} else if needRemove {
-		m.removeUserMail(ctx, mailId)
+		m.removeMailInternal(ctx, mailId)
 	}
 
-	out.Record = mail.Record.Clone()
+	if out != nil {
+		out.Record = mail.Record.Clone()
+	}
 
 	return 0
 }
 
 // ReadAll 读取所有邮件
-func (m *UserMailManager) ReadAll(ctx cd.RpcContext, majorType int32, minorType int32, out []*public_protocol_pbdesc.DMailOperationResult, needRemove bool) int32 {
+func (m *UserMailManager) ReadAll(ctx cd.RpcContext, majorType int32, minorType int32, needRemove bool) ([]*public_protocol_pbdesc.DMailOperationResult, int32) {
 	selectedMailBox := m.GetMailBoxByMajorType(majorType)
 	if selectedMailBox == nil {
-		return 0
+		return nil, 0
 	}
 
+	var out []*public_protocol_pbdesc.DMailOperationResult
+
 	var mailsToProcess []*mail_data.MailData
-	for _, mail := range selectedMailBox.Mails {
+	selectedMailBox.RangeUnordered(func(_ int64, mail *mail_data.MailData) bool {
 		if mail == nil || mail.Record == nil || mail.Content == nil {
-			continue
+			return true
 		}
 
-		if mail_util.MailIsValid(mail.Content, mail.Record.GetExpiredTime()) != 0 {
-			continue
+		if mail_util.MailIsValid(ctx.GetNow().Unix(), mail.Content, mail.Record.GetExpiredTime()) != 0 {
+			return true
 		}
 
 		if (mail.Record.GetStatus() & int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_REMOVED)) != 0 {
-			continue
+			return true
 		}
 
 		if !needRemove && (mail.Record.GetStatus()&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ)) != 0 {
-			continue
+			return true
 		}
 
 		if minorType != 0 && minorType != mail.Record.GetMinorType() {
-			continue
+			return true
 		}
 
-		// 一键已读的删除不能覆盖有附件的邮件
-		if needRemove && len(mail.Content.GetAttachmentsOffset()) > 0 {
-			continue
+		// 一键已读的删除不能覆盖有未领取附件的邮件
+		if needRemove && len(mail.Content.GetAttachmentsOffset()) > 0 && (mail.Record.GetStatus()&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)) == 0 {
+			return true
 		}
 
 		mailsToProcess = append(mailsToProcess, mail)
-	}
+		return true
+	})
 
 	for _, mail := range mailsToProcess {
-		mail.Record.Status = mail.Record.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ)
-
-		if needRemove {
-			m.removeUserMail(ctx, mail.Record.GetMailId())
-		} else {
-			m.MutableDirtyMail(mail.Record, false)
-		}
-
+		m.readMailInternal(ctx, mail, nil, needRemove)
 		// TODO: OSS Log
 
-		if out != nil {
-			outRes := &public_protocol_pbdesc.DMailOperationResult{
-				Record: mail.Record.Clone(),
-				Result: 0,
-			}
-			out = append(out, outRes)
+		outRes := &public_protocol_pbdesc.DMailOperationResult{
+			Record: mail.Record.Clone(),
+			Result: 0,
 		}
+		out = append(out, outRes)
 	}
 
-	return 0
+	return out, 0
 }
 
 // ReceiveMailAttachments 领取邮件附件
 func (m *UserMailManager) ReceiveMailAttachments(ctx cd.RpcContext, mailId int64, out *public_protocol_pbdesc.DMailOperationResult, needRemove bool) cd.RpcResult {
 	ret := m.receiveMailAttachmentsInternal(ctx, mailId, out, needRemove)
+
+	if ret != 0 {
+		return cd.RpcResult{Error: nil, ResponseCode: ret}
+	}
 
 	if out != nil {
 		if out.Record == nil {
@@ -484,12 +504,18 @@ func (m *UserMailManager) ReceiveMailAttachments(ctx cd.RpcContext, mailId int64
 	return cd.RpcResult{Error: nil, ResponseCode: ret}
 }
 
-func (m *UserMailManager) ReceiveMailAttachmentsAll(ctx cd.RpcContext, out []*public_protocol_pbdesc.DMailOperationResult, needRemove bool) cd.RpcResult {
+func (m *UserMailManager) ReceiveMailAttachmentsAll(ctx cd.RpcContext, needRemove bool) ([]*public_protocol_pbdesc.DMailOperationResult, cd.RpcResult) {
+	var out []*public_protocol_pbdesc.DMailOperationResult
 	var finalResult cd.RpcResult
 	for _, mailId := range m.FetchAllUserMailIds() {
 		result := &public_protocol_pbdesc.DMailOperationResult{}
 
 		rpcResult := m.ReceiveMailAttachments(ctx, mailId, result, needRemove)
+
+		if rpcResult.ResponseCode == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NO_ATTACHMENTS) {
+			continue
+		}
+
 		if rpcResult.IsError() {
 			finalResult = rpcResult
 			ctx.LogError("ReceiveMailAttachmentsAll failed", "mail_id", mailId, "ret", rpcResult)
@@ -497,9 +523,9 @@ func (m *UserMailManager) ReceiveMailAttachmentsAll(ctx cd.RpcContext, out []*pu
 		out = append(out, result)
 	}
 	if finalResult.Error != nil {
-		return finalResult
+		return out, finalResult
 	}
-	return cd.CreateRpcResultOk()
+	return out, cd.CreateRpcResultOk()
 }
 
 // receiveMailAttachmentsInternal 领取邮件附件内部逻辑
@@ -510,27 +536,38 @@ func (m *UserMailManager) receiveMailAttachmentsInternal(ctx cd.RpcContext, mail
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NOT_FOUND)
 	}
 
-	ret := mail_util.MailIsValid(mail.Content, mail.Record.GetExpiredTime())
+	ret := mail_util.MailIsValid(ctx.GetNow().Unix(), mail.Content, mail.Record.GetExpiredTime())
 	if ret < 0 {
 		return ret
 	}
 
 	if (mail.Record.GetStatus() & int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)) == 0 {
 		result := m.sendMailAttachments(ctx, mail, needRemove)
+
+		if result.ResponseCode == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NO_ATTACHMENTS) {
+			return result.GetResponseCode()
+		}
+
 		if result.IsError() {
 			ctx.LogError("receive_mail_attachments failed", "mail_id", mailId, "ret", result)
 			return result.GetResponseCode()
 		}
-		ctx.LogWarn("receive_mail_attachments not fully implemented", "mail_id", mailId)
+
+		for _, attachment := range mail.Content.GetAttachmentsOffset() {
+			out.Attachments = append(out.Attachments, &public_protocol_common.DItemOffset{
+				TypeId: attachment.Item.GetTypeId(),
+				Count:  attachment.Item.GetCount(),
+			})
+		}
 
 		if needRemove {
-			m.removeUserMail(ctx, mailId)
+			m.removeMailInternal(ctx, mailId)
 		} else {
 			m.MutableDirtyMail(mail.Record, false)
 		}
 	} else {
 		if needRemove {
-			m.removeUserMail(ctx, mailId)
+			m.removeMailInternal(ctx, mailId)
 		}
 		ret = int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_ALREADY_RECEIVED)
 	}
@@ -570,6 +607,7 @@ func (m *UserMailManager) SendAllSyncData(ctx cd.RpcContext) {
 
 	// m.GetOwner().SendAllSyncData(ctx)
 	syncData := &service_protocol.SCMailChangeSync{}
+	syncData.MailRedPoint = m.GetMailRedPoint()
 
 	hasData := false
 	for mailId, record := range m.dirtyCache.DirtyMails {
@@ -581,7 +619,7 @@ func (m *UserMailManager) SendAllSyncData(ctx cd.RpcContext) {
 	}
 
 	// 新邮件处理
-	needAsyncJob := m.needStartAsyncJobs()
+	needAsyncJob := m.needStartAsyncJobs(ctx.GetNow())
 	for mailId := range m.dirtyCache.NewMails {
 		idIter, ok := m.mailBoxIdIndex[mailId]
 		if !ok {
@@ -631,7 +669,7 @@ func (m *UserMailManager) SendAllSyncData(ctx cd.RpcContext) {
 
 	// 存在未拉取的全服邮件
 	if needAsyncJob {
-		m.tryToStartAsyncJobs(ctx)
+		m.TryToStartAsyncJobs(ctx)
 	}
 }
 
@@ -710,7 +748,7 @@ func (m *UserMailManager) checkAndCompactMailBox(ctx cd.RpcContext, mailBox *mai
 		futureReserveCount = 0
 	}
 
-	if maxMailCount > 0 && int32(len(mailBox.Mails)) > maxMailCount+futureReserveCount {
+	if maxMailCount > 0 && int32(mailBox.Len()) > maxMailCount+futureReserveCount {
 		m.compactMailsForBox(ctx, mailBox)
 	}
 }
@@ -720,7 +758,7 @@ func (m *UserMailManager) compactMailsForBox(ctx cd.RpcContext, mailBox *mail_da
 	m.refreshMailBoxFutureCache(mailBox)
 
 	maxMailCountPerMajorType := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetUserMailMaxCountPerMajorType()
-	if len(mailBox.Mails) == 0 || maxMailCountPerMajorType <= 0 {
+	if mailBox.Len() == 0 || maxMailCountPerMajorType <= 0 {
 		return
 	}
 
@@ -733,7 +771,7 @@ func (m *UserMailManager) compactMailsForBox(ctx cd.RpcContext, mailBox *mail_da
 	}
 
 	maxMailCount := int(maxMailCountPerMajorType) + int(futureReserveCount)
-	if len(mailBox.Mails) <= maxMailCount {
+	if mailBox.Len() <= maxMailCount {
 		return
 	}
 
@@ -742,25 +780,26 @@ func (m *UserMailManager) compactMailsForBox(ctx cd.RpcContext, mailBox *mail_da
 	var pendingRemoveList []int64
 	var selectMails []*mail_data.MailData
 
-	for mailId, mail := range mailBox.Mails {
+	mailBox.RangeUnordered(func(mailId int64, mail *mail_data.MailData) bool {
 		if mail == nil || mail.Record == nil {
 			pendingRemoveList = append(pendingRemoveList, mailId)
-			continue
+			return true
 		}
 
 		// 全服邮件在失效时就可以移除邮件内容但保留receivedGlobalMails
 		if mail.Record.GetIsGlobalMail() {
 			if m.isGlobalMailRecordRemovable(ctx, mail.Record) || mail_util.MailIsRemoved(mail.Record) {
 				pendingRemoveList = append(pendingRemoveList, mailId)
-				continue
+				return true
 			}
-		} else if mail_util.MailIsHistoryRemovable(mail.Record) {
+		} else if mail_util.MailIsHistoryRemovable(ctx.GetNow().Unix(), mail.Record) {
 			pendingRemoveList = append(pendingRemoveList, mailId)
-			continue
+			return true
 		}
 
 		selectMails = append(selectMails, mail)
-	}
+		return true
+	})
 
 	if len(selectMails) > maxMailCount {
 		rmcnt := len(selectMails) - maxMailCount
@@ -771,7 +810,7 @@ func (m *UserMailManager) compactMailsForBox(ctx cd.RpcContext, mailBox *mail_da
 	}
 
 	for _, mailId := range pendingRemoveList {
-		m.removeUserMail(ctx, mailId)
+		m.removeMailInternal(ctx, mailId)
 	}
 }
 
@@ -784,14 +823,14 @@ func (m *UserMailManager) scanAndRemoveExpiredMails(ctx cd.RpcContext) {
 				if m.isGlobalMailRecordRemovable(ctx, mail.Record) || mail_util.MailIsRemoved(mail.Record) {
 					removeIds = append(removeIds, mail.Record.GetMailId())
 				}
-			} else if mail_util.MailIsHistoryRemovable(mail.Record) {
+			} else if mail_util.MailIsHistoryRemovable(ctx.GetNow().Unix(), mail.Record) {
 				removeIds = append(removeIds, mail.Record.GetMailId())
 			}
 		}
 	}
 
 	for _, mailId := range removeIds {
-		m.removeUserMail(ctx, mailId)
+		m.removeMailInternal(ctx, mailId)
 	}
 
 	// 移除过期的全服邮件记录
@@ -804,14 +843,14 @@ func (m *UserMailManager) scanAndRemoveExpiredMails(ctx cd.RpcContext) {
 
 	for _, mailId := range removeIds {
 		delete(m.receivedGlobalMails, mailId)
-		m.removeUserMail(ctx, mailId)
+		m.removeMailInternal(ctx, mailId)
 	}
 
 	m.compactMails(ctx)
 }
 
-// removeUserMail 移除用户邮件
-func (m *UserMailManager) removeUserMail(ctx cd.RpcContext, mailId int64) {
+// removeMailInternal 移除用户邮件
+func (m *UserMailManager) removeMailInternal(ctx cd.RpcContext, mailId int64) {
 	// 从待拉取的新邮件集合中移除
 	delete(m.dirtyCache.NewMails, mailId)
 
@@ -836,8 +875,8 @@ func (m *UserMailManager) removeUserMail(ctx cd.RpcContext, mailId int64) {
 			if typeIter.FutureCacheExpire <= idIter.Record.GetStartTime() {
 				typeIter.FutureCacheExpire = 0
 			}
-			delete(typeIter.Mails, mailId)
-			if len(typeIter.Mails) == 0 {
+			typeIter.Remove(mailId)
+			if typeIter.Len() == 0 {
 				delete(m.mailBoxTypeIndex, idIter.Record.GetMajorType())
 			}
 		} else {
@@ -846,6 +885,14 @@ func (m *UserMailManager) removeUserMail(ctx cd.RpcContext, mailId int64) {
 	}
 
 	idIter.Record.Status = idIter.Record.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_REMOVED)
+
+	if idIter.Record.Status&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ) == 0 {
+		m.decreaseUnreadMailCount()
+	}
+
+	if (idIter.Record.GetStatus()&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)) == 0 && idIter.Record.GetHasAttachments() {
+		m.decreaseUnreciviedAttachmentMailCount()
+	}
 	m.MutableDirtyMail(idIter.Record, false)
 
 	ctx.LogDebug("remove mail success", "major_type", idIter.Record.GetMajorType(), "mail_id", idIter.Record.GetMailId())
@@ -862,16 +909,11 @@ func (m *UserMailManager) removeUserMail(ctx cd.RpcContext, mailId int64) {
 }
 
 // needStartAsyncJobs 检查是否需要启动异步任务
-func (m *UserMailManager) needStartAsyncJobs() bool {
-	if time.Now().Before(m.mailAsyncTaskProtectTimepoint) {
+func (m *UserMailManager) needStartAsyncJobs(now time.Time) bool {
+	if now.Before(m.mailAsyncTaskProtectTimepoint) {
 		return false
 	}
 	return len(m.pendingRemoveList) > 0 || !m.isGlobalMailsMerged || len(m.mailBoxUnloadedIndex) > 0
-}
-
-// tryToStartAsyncJobs 尝试启动异步任务
-func (m *UserMailManager) tryToStartAsyncJobs(ctx cd.RpcContext) {
-	m.TryToStartAsyncJobs(ctx)
 }
 
 // TryToStartAsyncJobs 尝试启动异步任务
@@ -885,7 +927,7 @@ func (m *UserMailManager) TryToStartAsyncJobs(ctx cd.RpcContext) {
 		return
 	}
 
-	if !m.needStartAsyncJobs() {
+	if !m.needStartAsyncJobs(ctx.GetNow()) {
 		return
 	}
 
@@ -894,7 +936,7 @@ func (m *UserMailManager) TryToStartAsyncJobs(ctx cd.RpcContext) {
 	}
 
 	timeoutDuration := 30 * time.Second // TODO: 从配置获取
-	m.mailAsyncTaskProtectTimepoint = time.Now().Add(timeoutDuration + time.Second)
+	m.mailAsyncTaskProtectTimepoint = ctx.GetNow().Add(timeoutDuration + time.Second)
 
 	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](ctx.GetApp())
 	if d == nil {
@@ -958,7 +1000,7 @@ func (m *UserMailManager) MergeGlobalMails(ctx cd.RpcContext) (cd.RpcResult, int
 	// 移除过期的全服邮件
 	for mailId, mail := range invalidMails {
 		if m.isGlobalMailRecordRemovable(ctx, mail.Record) {
-			m.removeUserMail(ctx, mailId)
+			m.removeMailInternal(ctx, mailId)
 			ret++
 		}
 	}
@@ -1032,7 +1074,7 @@ func (m *UserMailManager) SetMailContentLoaded(ctx cd.RpcContext, mailId int64) 
 
 // RemoveUserMail 移除用户邮件（公开方法）
 func (m *UserMailManager) RemoveUserMail(ctx cd.RpcContext, mailId int64) {
-	m.removeUserMail(ctx, mailId)
+	m.removeMailInternal(ctx, mailId)
 }
 
 // GetPendingRemoveList 获取待移除邮件列表
@@ -1065,7 +1107,7 @@ func (m *UserMailManager) updateGlobalMailRecord(ctx cd.RpcContext, dst *public_
 	if dst == nil || src == nil {
 		return
 	}
-	logic_global_mail.GetUserRouterManager(ctx.GetApp()).UpdateGlobalMailRecord(dst, src)
+	logic_global_mail.GetUserRouterManager(ctx.GetApp()).UpdateGlobalMailRecord(ctx, dst, src)
 }
 
 // isGlobalMailRecordRemovable 检查全服邮件是否可移除
@@ -1073,7 +1115,7 @@ func (m *UserMailManager) isGlobalMailRecordRemovable(ctx cd.RpcContext, record 
 	if record == nil {
 		return true
 	}
-	return logic_global_mail.GetUserRouterManager(ctx.GetApp()).IsRecordRemoveable(record)
+	return logic_global_mail.GetUserRouterManager(ctx.GetApp()).IsRecordRemoveable(ctx, record)
 }
 
 // isGlobalMailHistoryRemovable 检查全服邮件是否可历史移除
@@ -1094,7 +1136,6 @@ func (m *UserMailManager) sendMailAttachments(ctx cd.RpcContext, mail *mail_data
 	if len(mail.Content.AttachmentsOffset) == 0 {
 		ctx.LogDebug("SendMailAttachments failed, mail has no attachments", "mail_id", mail.Record.GetMailId())
 		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_MAIL_NO_ATTACHMENTS)
-
 	}
 
 	if (mail.Record.GetStatus() & int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)) != 0 {
@@ -1131,6 +1172,7 @@ func (m *UserMailManager) sendMailAttachments(ctx cd.RpcContext, mail *mail_data
 	// 更新邮件记录已领取附件
 
 	mail.Record.Status = mail.Record.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)
+	m.decreaseUnreciviedAttachmentMailCount()
 
 	itemFlowReason := &data.ItemFlowReason{
 		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_MAIL),
@@ -1151,11 +1193,23 @@ func (m *UserMailManager) sendMailAttachments(ctx cd.RpcContext, mail *mail_data
 	return ret
 }
 
-func (m *UserMailManager) WaitForAsyncTask(ctx cd.RpcContext) cd.RpcResult {
+func (m *UserMailManager) WaitForAsyncTask(ctx cd.AwaitableContext) cd.RpcResult {
 	if !m.IsAsyncTaskRunning() {
 		return cd.CreateRpcResultOk()
 	}
 	task := m.mailAsyncTask.Load()
-	result := cd.AwaitTask(m.GetOwner().GetSession().GetDispatcher().CreateAwaitableContext(), task)
+	result := cd.AwaitTask(ctx, task)
 	return result
+}
+
+func (m *UserMailManager) GetMailRedPoint() bool {
+	return m.unreadMailCount > 0 || m.unreciviedAttachmentMailCount > 0
+}
+
+func (m *UserMailManager) decreaseUnreadMailCount() {
+	m.unreadMailCount--
+}
+
+func (m *UserMailManager) decreaseUnreciviedAttachmentMailCount() {
+	m.unreciviedAttachmentMailCount--
 }

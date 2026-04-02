@@ -106,16 +106,18 @@ func AddUserMail(
 
 	// 创建邮件记录
 	mailRecord := &public_protocol_pbdesc.DMailRecord{
-		MailId:             mail.GetMailId(),
-		MajorType:          mail.GetMajorType(),
-		MinorType:          mail.GetMinorType(),
-		Status:             int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_NONE),
-		DeliveryTime:       mail.GetDeliveryTime(),
-		StartTime:          mail.GetStartTime(),
-		ShowTime:           mail.GetShowTime(),
-		ExpiredTime:        mail.GetExpiredTime(),
-		ResolveExpiredTime: mail.GetResolveExpiredTime(),
-		IsGlobalMail:       false,
+		MailId:               mail.GetMailId(),
+		MajorType:            mail.GetMajorType(),
+		MinorType:            mail.GetMinorType(),
+		Status:               int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_NONE),
+		DeliveryTime:         mail.GetDeliveryTime(),
+		StartTime:            mail.GetStartTime(),
+		ShowTime:             mail.GetShowTime(),
+		ExpiredTime:          mail.GetExpiredTime(),
+		ResolveExpiredTime:   mail.GetResolveExpiredTime(),
+		AfterReadExpiredTime: mail.GetAfterReadExpiredTime(),
+		IsGlobalMail:         false,
+		HasAttachments:       len(mail.GetAttachmentsOffset()) > 0,
 	}
 
 	// DB: add mail content
@@ -209,7 +211,7 @@ func AddUserMailWithTemplate(
 		ExpiredTime:  expiredTime,
 	}
 
-	ret := MailRenderTemplate(mailTemplateId, mail, sender,
+	ret := MailRenderTemplate(ctx.GetNow().Unix(), mailTemplateId, mail, sender,
 		attachments, extensions)
 	if ret.IsError() {
 		ctx.LogError("mail_render_template failed",

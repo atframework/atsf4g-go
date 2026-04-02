@@ -41,8 +41,8 @@ func (t *TaskActionMailGetAll) Run(_startData *component_dispatcher.DispatcherSt
 		return nil
 	}
 
-	responseBody.PageCount = requestBody.GetPageCount()
-	responseBody.PageNo = requestBody.GetPageNo()
+	responseBody.StartIndex = requestBody.GetStartIndex()
+	responseBody.Count = requestBody.GetCount()
 	responseBody.MajorType = requestBody.GetMajorType()
 
 	mailMgr := data.UserGetModuleManager[logic_mail.UserMailManager](user)
@@ -51,33 +51,29 @@ func (t *TaskActionMailGetAll) Run(_startData *component_dispatcher.DispatcherSt
 		return fmt.Errorf("user mail manager not found")
 	}
 
-	result := mailMgr.WaitForAsyncTask(t.GetRpcContext())
+	result := mailMgr.WaitForAsyncTask(t.GetAwaitableContext())
 	if result.GetResponseCode() != 0 {
 		t.GetRpcContext().LogError("TaskActionMailGetAll WaitForAsyncTask failed, code:", result.GetResponseCode())
 		return nil
 	}
 
-	var skipCount int32 = 0
-	if requestBody.GetPageCount() > 0 {
-		if requestBody.GetPageNo() > 0 {
-			skipCount = (requestBody.GetPageNo() - 1) * requestBody.GetPageCount()
-		}
-	}
+	var skipCount = responseBody.StartIndex
 
+	now := t.GetRpcContext().GetNow().Unix()
 	mailBox := mailMgr.GetMailBoxByMajorType(requestBody.GetMajorType())
 	var mailCount int32 = 0
 
 	if mailBox != nil {
-		for _, mailData := range mailBox.Mails {
-			if mail_data.IsMailDataShown(mailData) {
+		mailBox.Range(func(_ int64, mailData *mail_data.MailData) bool {
+			if mail_data.IsMailDataShown(now, mailData) {
 				mailCount++
-				if requestBody.GetPageCount() > 0 && int32(len(responseBody.GetMails())) >= requestBody.GetPageCount() {
-					continue
+				if requestBody.GetCount() <= 0 || int32(len(responseBody.GetMails())) >= requestBody.GetCount() {
+					return true
 				}
 
 				if skipCount > 0 {
 					skipCount--
-					continue
+					return true
 				}
 
 				// 合并邮件内容和记录
@@ -85,7 +81,8 @@ func (t *TaskActionMailGetAll) Run(_startData *component_dispatcher.DispatcherSt
 				mail.MailMergeContentAndRecord(out, mailData.Content, mailData.Record)
 				responseBody.Mails = append(responseBody.Mails, out)
 			}
-		}
+			return true
+		})
 	}
 
 	responseBody.MailCount = mailCount

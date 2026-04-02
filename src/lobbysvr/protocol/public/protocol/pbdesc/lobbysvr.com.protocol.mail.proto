@@ -11,21 +11,22 @@ option cc_generic_services = true;
 option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc";
 
 import "protocol/pbdesc/com.struct.mail.proto";
+import "protocol/common/com.struct.item.common.proto";
 
 package proy;
 
 message CSMailGetAllReq {
   int32 major_type = 1;
-  int32 page_count = 2;
-  int32 page_no = 3;
+  int32 start_index = 4;  // 从第几条开始获取 从0开始
+  int32 count = 5;        // 获取多少条
 }
 
 message SCMailGetAllRsp {
   repeated DMailContent mails = 1;
-  int32 page_count = 2;
-  int32 page_no = 3;
   int32 mail_count = 4;  // 总邮件数量
   int32 major_type = 5;
+  int32 start_index = 6;
+  int32 count = 7;
 }
 
 message CSMailReadReq {
@@ -54,7 +55,7 @@ message CSMailReceiveAttachmentsAllReq {
 }
 
 message SCMailReceiveAttachmentsAllRsp {
-  repeated DMailOperationResult mails = 1;
+  repeated DItemOffset received_items = 1;
 }
 
 message CSMailReceiveAttachmentsReq {
@@ -63,10 +64,11 @@ message CSMailReceiveAttachmentsReq {
 }
 
 message SCMailReceiveAttachmentsRsp {
-  repeated DMailOperationResult mails = 1;
+  repeated DItemOffset received_items = 1;
 }
 
 message SCMailChangeSync {
   repeated DMailRecord mails = 1;       // 邮件变更、删除、已读、已领取通知
   repeated DMailContent new_mails = 2;  // 新邮件通知
+  bool mail_red_point = 3;              // 邮件红点数据
 }

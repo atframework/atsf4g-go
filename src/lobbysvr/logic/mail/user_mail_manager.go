@@ -31,12 +31,12 @@ type UserMailManager interface {
 	// ReadMail 读取邮件
 	ReadMail(ctx cd.RpcContext, mailId int64, out *public_protocol_pbdesc.DMailOperationResult, needRemove bool) int32
 	// ReadAll 读取所有邮件
-	ReadAll(ctx cd.RpcContext, majorType int32, minorType int32, out []*public_protocol_pbdesc.DMailOperationResult, needRemove bool) int32
+	ReadAll(ctx cd.RpcContext, majorType int32, minorType int32, needRemove bool) ([]*public_protocol_pbdesc.DMailOperationResult, int32)
 
 	// ReceiveMailAttachments 领取邮件附件
 	ReceiveMailAttachments(ctx cd.RpcContext, mailId int64, out *public_protocol_pbdesc.DMailOperationResult, needRemove bool) cd.RpcResult
 	// ReceiveMailAttachmentsAll 领取邮件所有附件
-	ReceiveMailAttachmentsAll(ctx cd.RpcContext, out []*public_protocol_pbdesc.DMailOperationResult, needRemove bool) cd.RpcResult
+	ReceiveMailAttachmentsAll(ctx cd.RpcContext, needRemove bool) ([]*public_protocol_pbdesc.DMailOperationResult, cd.RpcResult)
 
 	// PackMailUser 打包邮件用户信息
 	PackMailUser(userInfo *public_protocol_pbdesc.DMailUserInfo)
@@ -68,6 +68,8 @@ type UserMailManager interface {
 	// GetPendingRemoveList 获取待移除邮件列表
 	GetPendingRemoveList() []int64
 
+	GetMailRedPoint() bool
+
 	RemovePendingRemoveItem(mailId int64)
 
 	GetLazySaveCounter() int
@@ -78,5 +80,5 @@ type UserMailManager interface {
 
 	TryToStartAsyncJobs(ctx cd.RpcContext)
 
-	WaitForAsyncTask(ctx cd.RpcContext) cd.RpcResult
+	WaitForAsyncTask(ctx cd.AwaitableContext) cd.RpcResult
 }

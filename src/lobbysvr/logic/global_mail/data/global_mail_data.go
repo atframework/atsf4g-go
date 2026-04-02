@@ -9,7 +9,6 @@ import (
 )
 
 // 全局邮件相关常量
-// 这些常量对应C++代码中的 EN_CL_MAIL_GLOBAL_* 定义
 const (
 	// EN_CL_MAIL_GLOBAL_JOBS_TASK_INTERVAL 全局邮件异步任务间隔（秒）
 	EN_CL_MAIL_GLOBAL_JOBS_TASK_INTERVAL int64 = 60
@@ -74,16 +73,17 @@ func RefreshGlobalMailBoxFutureCache(mailBox *mail_data.MailBox) {
 
 	mailBox.FutureCacheExpire = math.MaxInt64
 	mailBox.FutureMailCount = 0
-	for _, mail := range mailBox.Mails {
+	mailBox.RangeUnordered(func(_ int64, mail *mail_data.MailData) bool {
 		if mail == nil || mail.Record == nil {
-			continue
+			return true
 		}
 		if mail.Record.GetStartTime() <= now {
-			continue
+			return true
 		}
 		if mail.Record.GetStartTime() < mailBox.FutureCacheExpire {
 			mailBox.FutureCacheExpire = mail.Record.GetStartTime()
 		}
 		mailBox.FutureMailCount++
-	}
+		return true
+	})
 }

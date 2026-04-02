@@ -1,6 +1,7 @@
 package lobbysvr_logic_global_mail
 
 import (
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	global_mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/data"
@@ -23,22 +24,22 @@ type GlobalMailManager interface {
 	ResetAsyncJobsProtect()
 
 	// UpdateFromDB 从数据库更新全局邮件
-	UpdateFromDB(zoneId uint32, majorType int32, blobData *private_protocol_pbdesc.DatabaseGlobalMailBlobData, rewriteDbData bool) bool
+	UpdateFromDB(ctx cd.RpcContext, zoneId uint32, majorType int32, blobData *private_protocol_pbdesc.DatabaseGlobalMailBlobData, rewriteDbData bool) bool
 
 	// IsHistoryRemoveable 检查邮件是否可从历史记录移除
 	IsHistoryRemoveable(record *public_protocol_pbdesc.DMailRecord) bool
 
 	// IsRecordRemoveable 检查邮件是否可从邮箱移除
-	IsRecordRemoveable(record *public_protocol_pbdesc.DMailRecord) bool
+	IsRecordRemoveable(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord) bool
 
 	// UpdateGlobalMailRecord 更新全服邮件记录
-	UpdateGlobalMailRecord(dst *public_protocol_pbdesc.DMailRecord, src *public_protocol_pbdesc.DMailRecord)
+	UpdateGlobalMailRecord(ctx cd.RpcContext, dst *public_protocol_pbdesc.DMailRecord, src *public_protocol_pbdesc.DMailRecord)
 
 	// AddGlobalMail 添加全服邮件
-	AddGlobalMail(zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) int32
+	AddGlobalMail(ctx cd.RpcContext, zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) int32
 
 	// UpdateGlobalMail 更新全服邮件
-	UpdateGlobalMail(zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) bool
+	UpdateGlobalMail(ctx cd.RpcContext, zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) bool
 
 	// GetMailRaw 获取邮件原始数据
 	GetMailRaw(mailId int64) *mail_data.MailData
@@ -50,10 +51,10 @@ type GlobalMailManager interface {
 	GetAllGlobalMails() global_mail_data.GlobalMailBox
 
 	// RemoveGlobalMail 移除全服邮件
-	RemoveGlobalMail(mailId int64)
+	RemoveGlobalMail(ctx cd.RpcContext, mailId int64)
 
 	// FetchAllUnloadedMails 获取所有未加载内容的邮件ID
-	FetchAllUnloadedMails() []int64
+	FetchAllUnloadedMails(ctx cd.RpcContext) []int64
 
 	// SetMailContentLoaded 设置邮件内容已加载
 	SetMailContentLoaded(mailId int64)

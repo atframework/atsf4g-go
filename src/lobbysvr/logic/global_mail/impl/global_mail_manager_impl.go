@@ -118,7 +118,9 @@ func (m *GlobalMailManager) IsAsyncTaskRunning() bool {
 
 // TryToStartAsyncJobs 尝试启动异步任务
 func (m *GlobalMailManager) TryToStartAsyncJobs() {
-	now := time.Now().Unix()
+	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](m.GetApp())
+	ctx := d.CreateRpcContext()
+	now := ctx.GetNow().Unix()
 	if now < m.taskNextTimepoint {
 		return
 	}
@@ -126,9 +128,6 @@ func (m *GlobalMailManager) TryToStartAsyncJobs() {
 	if m.IsAsyncTaskRunning() {
 		return
 	}
-
-	d := libatapp.AtappGetModule[*cd.NoMessageDispatcher](m.GetApp())
-	ctx := d.CreateRpcContext()
 
 	globalMailSyncTask, startData := cd.CreateNoMessageTaskAction(
 		d, ctx, nil,
@@ -161,14 +160,16 @@ func (m *GlobalMailManager) ResetAsyncJobsProtect() {
 }
 
 // UpdateFromDB 从数据库更新全局邮件
-func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobData *private_protocol_pbdesc.DatabaseGlobalMailBlobData, rewriteDbData bool) bool {
+func (m *GlobalMailManager) UpdateFromDB(ctx cd.RpcContext, zoneId uint32, majorType int32, blobData *private_protocol_pbdesc.DatabaseGlobalMailBlobData, rewriteDbData bool) bool {
+	now := ctx.GetNow().Unix()
 	ret := false
 	oldMailBox := m.internalGetMailBoxByType(zoneId, majorType)
 	invalidIds := make(map[int64]struct{})
 	if oldMailBox != nil {
-		for mailId := range oldMailBox.Mails {
+		oldMailBox.RangeUnordered(func(mailId int64, _ *mail_data.MailData) bool {
 			invalidIds[mailId] = struct{}{}
-		}
+			return true
+		})
 	}
 
 	// 收集需要追加的邮件
@@ -176,11 +177,11 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 
 	// 先更新，再追加
 	for i, record := range blobData.GetMailRecords() {
-		if rewriteDbData && mail_util.MailIsHistoryRemovable(record) {
+		if rewriteDbData && mail_util.MailIsHistoryRemovable(now, record) {
 			ret = true
 		}
 		// 更新
-		if !m.updateGlobalMailInternal(zoneId, record) {
+		if !m.updateGlobalMailInternal(ctx, zoneId, record) {
 			appendMailIndices = append(appendMailIndices, i)
 		}
 		delete(invalidIds, record.GetMailId())
@@ -188,20 +189,20 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 
 	// 追加
 	for _, i := range appendMailIndices {
-		m.addGlobalMailInternal(zoneId, blobData.GetMailRecords()[i])
+		m.addGlobalMailInternal(ctx, zoneId, blobData.GetMailRecords()[i])
 	}
 
 	// 不在库里的邮件要全部删除
 	for invalidMailId := range invalidIds {
 		m.GetApp().GetDefaultLogger().LogInfo("GlobalMailManager", "remove mail record because not found in DB", "major_type", majorType, "mail_id", invalidMailId)
-		m.removeGlobalMailInternal(invalidMailId)
+		m.removeGlobalMailInternal(ctx, invalidMailId)
 	}
 
 	oldMailBox = m.internalGetMailBoxByType(zoneId, majorType)
 	if oldMailBox != nil {
-		oldCount := len(oldMailBox.Mails)
-		m.compactMails(oldMailBox)
-		if rewriteDbData && len(oldMailBox.Mails) != oldCount {
+		oldCount := oldMailBox.Len()
+		m.compactMails(ctx, oldMailBox)
+		if rewriteDbData && oldMailBox.Len() != oldCount {
 			ret = true
 		}
 	}
@@ -210,11 +211,12 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 	if ret {
 		blobData.MailRecords = nil
 		if oldMailBox != nil {
-			for _, mail := range oldMailBox.Mails {
+			oldMailBox.RangeUnordered(func(_ int64, mail *mail_data.MailData) bool {
 				if mail != nil && mail.Record != nil {
 					blobData.MailRecords = append(blobData.MailRecords, mail.Record.Clone())
 				}
-			}
+				return true
+			})
 		}
 	}
 
@@ -229,7 +231,7 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 	for i := 0; i < len(blobData.GetPendingRemoveList()); i++ {
 		record := blobData.GetPendingRemoveList()[i]
 		if checkRecord, ok := checkAdditionalRemoveList[record.GetMailId()]; ok {
-			if mail_util.MailIsHistoryRemovable(checkRecord) {
+			if mail_util.MailIsHistoryRemovable(now, checkRecord) {
 				delete(m.pendingToRemove, record.GetMailId())
 				if rewriteDbData {
 					m.pendingToRemoveContents[record.GetMailId()] = struct{}{}
@@ -239,7 +241,7 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 				proto.Merge(record, checkRecord)
 			}
 			delete(checkAdditionalRemoveList, record.GetMailId())
-		} else if mail_util.MailIsHistoryRemovable(record) {
+		} else if mail_util.MailIsHistoryRemovable(now, record) {
 			m.pendingToRemoveContents[record.GetMailId()] = struct{}{}
 		} else {
 			m.pendingToRemove[record.GetMailId()] = &global_mail_data.GlobalMailRecordEntry{
@@ -254,7 +256,7 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 		oldSize := len(blobData.GetPendingRemoveList())
 		newPendingRemoveList := make([]*public_protocol_pbdesc.DMailRecord, 0, oldSize)
 		for _, record := range blobData.GetPendingRemoveList() {
-			if !mail_util.MailIsHistoryRemovable(record) {
+			if !mail_util.MailIsHistoryRemovable(now, record) {
 				newPendingRemoveList = append(newPendingRemoveList, record)
 			}
 		}
@@ -265,7 +267,7 @@ func (m *GlobalMailManager) UpdateFromDB(zoneId uint32, majorType int32, blobDat
 	}
 
 	for mailId, record := range checkAdditionalRemoveList {
-		if mail_util.MailIsHistoryRemovable(record) {
+		if mail_util.MailIsHistoryRemovable(now, record) {
 			delete(m.pendingToRemove, mailId)
 			if rewriteDbData {
 				m.pendingToRemoveContents[mailId] = struct{}{}
@@ -311,7 +313,8 @@ func (m *GlobalMailManager) IsHistoryRemoveable(record *public_protocol_pbdesc.D
 }
 
 // IsRecordRemoveable 检查邮件是否可从邮箱移除
-func (m *GlobalMailManager) IsRecordRemoveable(record *public_protocol_pbdesc.DMailRecord) bool {
+func (m *GlobalMailManager) IsRecordRemoveable(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord) bool {
+	now := ctx.GetNow().Unix()
 	if record == nil {
 		return true
 	}
@@ -330,14 +333,13 @@ func (m *GlobalMailManager) IsRecordRemoveable(record *public_protocol_pbdesc.DM
 			m.GetApp().GetDefaultLogger().LogError("GlobalMailManager", "mail.record should not be null")
 			return true
 		}
-		return mail_util.MailIsHistoryRemovable(entry.MailData.Record)
+		return mail_util.MailIsHistoryRemovable(now, entry.MailData.Record)
 	}
 
 	// 如果处于待删除列表则可以移除
 	if _, ok := m.pendingToRemove[record.GetMailId()]; ok {
 		return true
 	}
-	now := time.Now().Unix()
 	maxTime := record.GetExpiredTime()
 	if record.GetRemoveTime() > maxTime {
 		maxTime = record.GetRemoveTime()
@@ -357,7 +359,8 @@ func (m *GlobalMailManager) IsRecordRemoveable(record *public_protocol_pbdesc.DM
 }
 
 // UpdateGlobalMailRecord 更新全服邮件记录
-func (m *GlobalMailManager) UpdateGlobalMailRecord(dst *public_protocol_pbdesc.DMailRecord, src *public_protocol_pbdesc.DMailRecord) {
+func (m *GlobalMailManager) UpdateGlobalMailRecord(ctx cd.RpcContext, dst *public_protocol_pbdesc.DMailRecord, src *public_protocol_pbdesc.DMailRecord) {
+	now := ctx.GetNow().Unix()
 	if dst == nil || src == nil {
 		return
 	}
@@ -374,7 +377,6 @@ func (m *GlobalMailManager) UpdateGlobalMailRecord(dst *public_protocol_pbdesc.D
 			dst.ExpiredTime = src.GetExpiredTime()
 			dst.RemoveTime = src.GetRemoveTime()
 		} else {
-			now := time.Now().Unix()
 			dst.DeliveryTime = now
 			expiredTime := global_mail_data.MailPaddingDayTime(now + src.GetResolveExpiredTime())
 			dst.ExpiredTime = expiredTime
@@ -387,18 +389,20 @@ func (m *GlobalMailManager) UpdateGlobalMailRecord(dst *public_protocol_pbdesc.D
 	}
 	dst.StartTime = src.GetStartTime()
 	dst.ShowTime = src.GetShowTime()
+	dst.AfterReadExpiredTime = src.GetAfterReadExpiredTime()
 
 	// 重设过期时间的配置
 	dst.ResolveExpiredTime = src.GetResolveExpiredTime()
 }
 
 // AddGlobalMail 添加全服邮件
-func (m *GlobalMailManager) AddGlobalMail(zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) int32 {
-	return m.addGlobalMailInternal(zoneId, mail)
+func (m *GlobalMailManager) AddGlobalMail(ctx cd.RpcContext, zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) int32 {
+	return m.addGlobalMailInternal(ctx, zoneId, mail)
 }
 
 // addGlobalMailInternal 添加全服邮件
-func (m *GlobalMailManager) addGlobalMailInternal(zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) int32 {
+func (m *GlobalMailManager) addGlobalMailInternal(ctx cd.RpcContext, zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) int32 {
+	now := ctx.GetNow().Unix()
 	if mail.GetMailId() == 0 || mail.GetMajorType() == 0 {
 		m.GetApp().GetDefaultLogger().LogError("GlobalMailManager", "cannot add mail, mail_id=0 or major_type=0")
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
@@ -409,7 +413,6 @@ func (m *GlobalMailManager) addGlobalMailInternal(zoneId uint32, mail *public_pr
 		return 0
 	}
 
-	now := time.Now().Unix()
 	if entry, ok := m.mailBoxIdIndex[mail.GetMailId()]; ok {
 		oldIsFuture := entry.MailData.Record.GetStartTime() > now
 		newIsFuture := mail.GetStartTime() > now
@@ -428,8 +431,8 @@ func (m *GlobalMailManager) addGlobalMailInternal(zoneId uint32, mail *public_pr
 		}
 
 		// 如果添加过期全服邮件则直接进删除队列
-		if mail_util.MailIsHistoryRemovable(mail) {
-			m.removeGlobalMailInternal(mail.GetMailId())
+		if mail_util.MailIsHistoryRemovable(now, mail) {
+			m.removeGlobalMailInternal(ctx, mail.GetMailId())
 		} else if oldIsFuture != newIsFuture {
 			if zoneBox, ok := m.mailBoxTypeIndex[zoneId]; ok {
 				if box, ok := zoneBox[mail.GetMajorType()]; ok {
@@ -460,10 +463,10 @@ func (m *GlobalMailManager) addGlobalMailInternal(zoneId uint32, mail *public_pr
 		m.mailBoxTypeIndex[zoneId] = make(map[int32]*mail_data.MailBox)
 	}
 	if _, ok := m.mailBoxTypeIndex[zoneId][mail.GetMajorType()]; !ok {
-		m.mailBoxTypeIndex[zoneId][mail.GetMajorType()] = mail_data.NewMailBox()
+		m.mailBoxTypeIndex[zoneId][mail.GetMajorType()] = mail_data.NewMailBoxWithSort(mail_data.MailDataLessByMailIdDesc)
 	}
 	mailBoxTypeIndex := m.mailBoxTypeIndex[zoneId][mail.GetMajorType()]
-	mailBoxTypeIndex.Mails[mail.GetMailId()] = mailData
+	mailBoxTypeIndex.InsertSorted(mail.GetMailId(), mailData)
 
 	m.GetApp().GetDefaultLogger().LogInfo("GlobalMailManager", "add mail success", "major_type", mail.GetMajorType(), "mail_id", mail.GetMailId())
 
@@ -475,8 +478,8 @@ func (m *GlobalMailManager) addGlobalMailInternal(zoneId uint32, mail *public_pr
 	}
 
 	// 如果本来就是已过期则加入到移除列表
-	if mail_util.MailIsHistoryRemovable(mail) {
-		m.removeGlobalMailInternal(mail.GetMailId())
+	if mail_util.MailIsHistoryRemovable(now, mail) {
+		m.removeGlobalMailInternal(ctx, mail.GetMailId())
 	}
 
 	global_mail_data.RefreshGlobalMailBoxFutureCache(mailBoxTypeIndex)
@@ -490,20 +493,21 @@ func (m *GlobalMailManager) addGlobalMailInternal(zoneId uint32, mail *public_pr
 	}
 
 	maxMailCount := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetGlobalMailMaxCountPerMajorType()
-	if maxMailCount > 0 && len(mailBoxTypeIndex.Mails) > int(maxMailCount)+int(futureReserveCount) {
-		m.compactMails(mailBoxTypeIndex)
+	if maxMailCount > 0 && mailBoxTypeIndex.Len() > int(maxMailCount)+int(futureReserveCount) {
+		m.compactMails(ctx, mailBoxTypeIndex)
 	}
 
 	return 0
 }
 
 // UpdateGlobalMail 更新全服邮件
-func (m *GlobalMailManager) UpdateGlobalMail(zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) bool {
-	return m.updateGlobalMailInternal(zoneId, mail)
+func (m *GlobalMailManager) UpdateGlobalMail(ctx cd.RpcContext, zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) bool {
+	return m.updateGlobalMailInternal(ctx, zoneId, mail)
 }
 
 // updateGlobalMailInternal 更新全服邮件
-func (m *GlobalMailManager) updateGlobalMailInternal(zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) bool {
+func (m *GlobalMailManager) updateGlobalMailInternal(ctx cd.RpcContext, zoneId uint32, mail *public_protocol_pbdesc.DMailRecord) bool {
+	now := ctx.GetNow().Unix()
 	if mail.GetMailId() == 0 || mail.GetMajorType() == 0 {
 		m.GetApp().GetDefaultLogger().LogError("GlobalMailManager", "cannot update mail", "mail_id", mail.GetMailId(), "major_type", mail.GetMajorType())
 		return false
@@ -519,7 +523,6 @@ func (m *GlobalMailManager) updateGlobalMailInternal(zoneId uint32, mail *public
 		return false
 	}
 
-	now := time.Now().Unix()
 	oldIsFuture := entry.MailData.Record.GetStartTime() > now
 	newIsFuture := mail.GetStartTime() > now
 
@@ -536,8 +539,8 @@ func (m *GlobalMailManager) updateGlobalMailInternal(zoneId uint32, mail *public
 	}
 
 	// 如果过期全服邮件则直接进删除队列
-	if mail_util.MailIsHistoryRemovable(mail) {
-		m.removeGlobalMailInternal(mail.GetMailId())
+	if mail_util.MailIsHistoryRemovable(now, mail) {
+		m.removeGlobalMailInternal(ctx, mail.GetMailId())
 	} else if oldIsFuture != newIsFuture {
 		if zoneBox, ok := m.mailBoxTypeIndex[zoneId]; ok {
 			if box, ok := zoneBox[mail.GetMajorType()]; ok {
@@ -578,12 +581,13 @@ func (m *GlobalMailManager) GetAllGlobalMails() global_mail_data.GlobalMailBox {
 }
 
 // RemoveGlobalMail 移除全服邮件（公开方法，带锁）
-func (m *GlobalMailManager) RemoveGlobalMail(mailId int64) {
-	m.removeGlobalMailInternal(mailId)
+func (m *GlobalMailManager) RemoveGlobalMail(ctx cd.RpcContext, mailId int64) {
+	m.removeGlobalMailInternal(ctx, mailId)
 }
 
 // removeGlobalMailInternal 移除全服邮件（内部方法，需要持有锁）
-func (m *GlobalMailManager) removeGlobalMailInternal(mailId int64) {
+func (m *GlobalMailManager) removeGlobalMailInternal(ctx cd.RpcContext, mailId int64) {
+	now := ctx.GetNow().Unix()
 	entry, ok := m.mailBoxIdIndex[mailId]
 	if !ok {
 		return
@@ -608,8 +612,8 @@ func (m *GlobalMailManager) removeGlobalMailInternal(mailId int64) {
 				box.FutureCacheExpire = 0
 			}
 
-			delete(box.Mails, mailId)
-			if len(box.Mails) == 0 {
+			box.Remove(mailId)
+			if box.Len() == 0 {
 				delete(zoneBox, majorType)
 			}
 		}
@@ -623,7 +627,7 @@ func (m *GlobalMailManager) removeGlobalMailInternal(mailId int64) {
 
 	time_tolerate := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetMailTimeTolerate().GetSeconds()
 	// 重设失效时间为当前时间+容忍误差时间
-	removeTime := time.Now().Unix() + time_tolerate
+	removeTime := now + time_tolerate
 	if entry.MailData.Record.GetExpiredTime() > removeTime {
 		entry.MailData.Record.ExpiredTime = removeTime
 	}
@@ -657,11 +661,12 @@ func (m *GlobalMailManager) removeGlobalMailInternal(mailId int64) {
 }
 
 // compactMails 压缩邮件箱（移除过期邮件）
-func (m *GlobalMailManager) compactMails(mailBox *mail_data.MailBox) {
+func (m *GlobalMailManager) compactMails(ctx cd.RpcContext, mailBox *mail_data.MailBox) {
+	now := ctx.GetNow().Unix()
 	global_mail_data.RefreshGlobalMailBoxFutureCache(mailBox)
 
 	maxMailCountConfig := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetGlobalMailMaxCountPerMajorType()
-	if len(mailBox.Mails) == 0 || maxMailCountConfig <= 0 {
+	if mailBox.Len() == 0 || maxMailCountConfig <= 0 {
 		return
 	}
 
@@ -674,31 +679,30 @@ func (m *GlobalMailManager) compactMails(mailBox *mail_data.MailBox) {
 	}
 
 	maxMailCount := int(maxMailCountConfig) + int(futureReserveCount)
-	if len(mailBox.Mails) <= maxMailCount {
+	if mailBox.Len() <= maxMailCount {
 		return
 	}
 
 	deliveryTimeMaxOffset := global_mail_data.DEFAULT_COMPACT_DELIVERY_TIME_MAX_OFFSET
 
-	now := time.Now().Unix()
-	pendingToRemove := make([]int64, 0, len(mailBox.Mails)-maxMailCount)
-	rmcnt := len(mailBox.Mails) - maxMailCount
+	pendingToRemove := make([]int64, 0, mailBox.Len()-maxMailCount)
+	rmcnt := mailBox.Len() - maxMailCount
 
 	m.GetApp().GetDefaultLogger().LogInfo("GlobalMailManager", "start to compact mails",
 		"rmcnt", rmcnt,
-		"sum_mail_count", len(mailBox.Mails),
+		"sum_mail_count", mailBox.Len(),
 		"future_mail_count", mailBox.FutureMailCount,
 		"limit", maxMailCountConfig,
 		"future_limit", futureReserveCount)
 
-	for i := 0; i < rmcnt && len(mailBox.Mails) > maxMailCount; i++ {
+	for i := 0; i < rmcnt && mailBox.Len() > maxMailCount; i++ {
 		var selectMailId int64 = 0
 		var selectMailCompactTime int64 = 0
 
-		for mailId, mail := range mailBox.Mails {
+		mailBox.RangeUnordered(func(mailId int64, mail *mail_data.MailData) bool {
 			if mail == nil || mail.Record == nil {
 				pendingToRemove = append(pendingToRemove, mailId)
-				continue
+				return true
 			}
 
 			maxExpireRemove := mail.Record.GetExpiredTime()
@@ -707,7 +711,7 @@ func (m *GlobalMailManager) compactMails(mailBox *mail_data.MailBox) {
 			}
 			if maxExpireRemove < now {
 				pendingToRemove = append(pendingToRemove, mailId)
-				continue
+				return true
 			}
 
 			compactTime := mail.Record.GetStartTime()
@@ -723,29 +727,31 @@ func (m *GlobalMailManager) compactMails(mailBox *mail_data.MailBox) {
 				selectMailCompactTime = compactTime
 				selectMailId = mailId
 			}
-		}
+			return true
+		})
 
-		if selectMailId != 0 && len(mailBox.Mails) > maxMailCount+len(pendingToRemove) {
+		if selectMailId != 0 && mailBox.Len() > maxMailCount+len(pendingToRemove) {
 			pendingToRemove = append(pendingToRemove, selectMailId)
 		}
 
 		for _, mailId := range pendingToRemove {
-			m.removeGlobalMailInternal(mailId)
+			m.removeGlobalMailInternal(ctx, mailId)
 		}
 		pendingToRemove = pendingToRemove[:0]
 	}
 }
 
 // FetchAllUnloadedMails 获取所有未加载内容的邮件ID
-func (m *GlobalMailManager) FetchAllUnloadedMails() []int64 {
+func (m *GlobalMailManager) FetchAllUnloadedMails(ctx cd.RpcContext) []int64 {
+	now := ctx.GetNow().Unix()
 	invalidMailIds := make([]int64, 0)
 	out := make([]int64, 0, len(m.mailUnloadedIndex))
 
 	for mailId, checked := range m.mailUnloadedIndex {
 		if checked != nil && checked.Record != nil && checked.Content == nil {
-			if m.IsRecordRemoveableInternal(checked.Record) {
+			if m.IsRecordRemoveableInternal(now, checked.Record) {
 				invalidMailIds = append(invalidMailIds, mailId)
-				m.removeGlobalMailInternal(checked.Record.GetMailId())
+				m.removeGlobalMailInternal(ctx, checked.Record.GetMailId())
 			} else {
 				out = append(out, mailId)
 			}
@@ -762,7 +768,7 @@ func (m *GlobalMailManager) FetchAllUnloadedMails() []int64 {
 }
 
 // IsRecordRemoveableInternal 检查邮件是否可从邮箱移除（内部方法，不加锁）
-func (m *GlobalMailManager) IsRecordRemoveableInternal(record *public_protocol_pbdesc.DMailRecord) bool {
+func (m *GlobalMailManager) IsRecordRemoveableInternal(now int64, record *public_protocol_pbdesc.DMailRecord) bool {
 	if record == nil {
 		return true
 	}
@@ -780,7 +786,7 @@ func (m *GlobalMailManager) IsRecordRemoveableInternal(record *public_protocol_p
 		if entry == nil || entry.MailData == nil || entry.MailData.Record == nil {
 			return true
 		}
-		return mail_util.MailIsHistoryRemovable(entry.MailData.Record)
+		return mail_util.MailIsHistoryRemovable(now, entry.MailData.Record)
 	}
 
 	// 如果处于待删除列表则可以移除
@@ -788,7 +794,6 @@ func (m *GlobalMailManager) IsRecordRemoveableInternal(record *public_protocol_p
 		return true
 	}
 
-	now := time.Now().Unix()
 	maxTime := record.GetExpiredTime()
 	if record.GetRemoveTime() > maxTime {
 		maxTime = record.GetRemoveTime()

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	global_mail_impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/impl"
 	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
 	"github.com/atframework/libatapp-go"
@@ -157,7 +157,7 @@ func TestAddMailSuccess(t *testing.T) {
 
 	mailBox := mgr.GetMailBoxByMajorType(1)
 	assert.NotNil(t, mailBox, "mailbox for major_type 1 should exist")
-	assert.Equal(t, 1, len(mailBox.Mails), "mailbox should contain 1 mail")
+	assert.Equal(t, 1, mailBox.Len(), "mailbox should contain 1 mail")
 }
 
 // TestAddMailInvalidParam 测试添加无效参数的邮件
@@ -215,7 +215,7 @@ func TestAddMailDuplicate(t *testing.T) {
 	// 邮件只应有1份
 	mailBox := mgr.GetMailBoxByMajorType(1)
 	assert.NotNil(t, mailBox, "mailbox should exist")
-	assert.Equal(t, 1, len(mailBox.Mails), "should still have only 1 mail after duplicate add")
+	assert.Equal(t, 1, mailBox.Len(), "should still have only 1 mail after duplicate add")
 }
 
 // TestAddMailWithoutContent 测试添加不带内容的邮件
@@ -292,8 +292,8 @@ func TestAddMailMultipleMajorTypes(t *testing.T) {
 	assert.Equal(t, int32(0), ret2)
 	assert.NotNil(t, mgr.GetMailBoxByMajorType(1), "mailbox type 1 should exist")
 	assert.NotNil(t, mgr.GetMailBoxByMajorType(2), "mailbox type 2 should exist")
-	assert.Equal(t, 1, len(mgr.GetMailBoxByMajorType(1).Mails))
-	assert.Equal(t, 1, len(mgr.GetMailBoxByMajorType(2).Mails))
+	assert.Equal(t, 1, mgr.GetMailBoxByMajorType(1).Len())
+	assert.Equal(t, 1, mgr.GetMailBoxByMajorType(2).Len())
 }
 
 // TestAddMailFuture 测试添加未来生效的邮件
@@ -567,7 +567,7 @@ func TestReadAllSuccess(t *testing.T) {
 	}
 
 	// Act
-	ret := mgr.ReadAll(ctx, 1, 0, nil, false)
+	_, ret := mgr.ReadAll(ctx, 1, 0, false)
 
 	// Assert
 	assert.Equal(t, int32(0), ret, "read all should succeed")
@@ -589,7 +589,7 @@ func TestReadAllEmptyMailbox(t *testing.T) {
 	ctx := newMockRpcContext()
 
 	// Act
-	ret := mgr.ReadAll(ctx, 99, 0, nil, false)
+	_, ret := mgr.ReadAll(ctx, 99, 0, false)
 
 	// Assert
 	assert.Equal(t, int32(0), ret, "read all on empty mailbox should succeed")
@@ -609,7 +609,7 @@ func TestReadAllWithRemove(t *testing.T) {
 	}
 
 	// Act
-	ret := mgr.ReadAll(ctx, 1, 0, nil, true)
+	_, ret := mgr.ReadAll(ctx, 1, 0, true)
 
 	// Assert
 	assert.Equal(t, int32(0), ret)
@@ -637,7 +637,7 @@ func TestReadAllWithMinorTypeFilter(t *testing.T) {
 	mgr.AddMail(ctx, record2, content2)
 
 	// Act - 只读 minorType=1 的邮件
-	ret := mgr.ReadAll(ctx, 1, 1, nil, false)
+	_, ret := mgr.ReadAll(ctx, 1, 1, false)
 
 	// Assert
 	assert.Equal(t, int32(0), ret)
@@ -930,7 +930,7 @@ func TestGetMailBoxByMajorTypeFound(t *testing.T) {
 
 	// Assert
 	assert.NotNil(t, mailBox, "should return mailbox for existing major type")
-	assert.Equal(t, 1, len(mailBox.Mails))
+	assert.Equal(t, 1, mailBox.Len())
 }
 
 // TestGetMailBoxByMajorTypeNotFound 测试获取不存在类型的邮箱
@@ -1171,7 +1171,7 @@ func TestNeedStartAsyncJobsWithPendingRemove(t *testing.T) {
 	mgr.isGlobalMailsMerged = true
 
 	// Act
-	result := mgr.needStartAsyncJobs()
+	result := mgr.needStartAsyncJobs(time.Now())
 
 	// Assert
 	assert.True(t, result, "should need async jobs with pending removes")
@@ -1185,7 +1185,7 @@ func TestNeedStartAsyncJobsGlobalNotMerged(t *testing.T) {
 	mgr.isGlobalMailsMerged = false
 
 	// Act
-	result := mgr.needStartAsyncJobs()
+	result := mgr.needStartAsyncJobs(time.Now())
 
 	// Assert
 	assert.True(t, result, "should need async jobs when global mails not merged")
@@ -1200,7 +1200,7 @@ func TestNeedStartAsyncJobsProtected(t *testing.T) {
 	mgr.isGlobalMailsMerged = false
 
 	// Act
-	result := mgr.needStartAsyncJobs()
+	result := mgr.needStartAsyncJobs(time.Now())
 
 	// Assert
 	assert.False(t, result, "should not need async jobs during protect period")
@@ -1214,7 +1214,7 @@ func TestNeedStartAsyncJobsNoWork(t *testing.T) {
 	mgr.isGlobalMailsMerged = true
 
 	// Act
-	result := mgr.needStartAsyncJobs()
+	result := mgr.needStartAsyncJobs(time.Now())
 
 	// Assert
 	assert.False(t, result, "should not need async jobs when no work to do")
