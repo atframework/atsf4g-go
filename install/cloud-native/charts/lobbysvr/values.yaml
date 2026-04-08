@@ -19,8 +19,94 @@ volumeMounts:
   logMountPath: /data/projecty/lobbysvr/log
 
 vector:
-  enabled: true
   log_path: /data/projecty/lobbysvr/log
+  source:
+    - name: crash
+      include_pattern: "*.crash.log"
+      ignore_older_secs: 3600
+      line_delimiter: "\n"
+      remap:
+        parse_type: crash
+      sinks:
+        sink_name: crash
+        opensearch:
+          dataset: log
+          namespace: crash
+    - name: normal
+      include_pattern: "*.normal.all.*.log"
+      ignore_older_secs: 600
+      line_delimiter: "\u001e\n"
+      remap:
+        parse_type: normal
+        index:
+          - "user_id"
+          - "task_name"
+          - "zone_id"
+          - "response_code"
+      sinks:
+        sink_name: running
+        opensearch:
+          dataset: log
+          namespace: running
+    - name: db_inner
+      include_pattern: "*.db_inner.all.*.log"
+      ignore_older_secs: 600
+      line_delimiter: "\u001e\n"
+      remap:
+        parse_type: normal
+      sinks:
+        sink_name: running
+        opensearch:
+          dataset: log
+          namespace: running
+    - name: redis
+      include_pattern: "*.redis.all.*.log"
+      ignore_older_secs: 600
+      line_delimiter: "\u001e\n"
+      remap:
+        parse_type: normal
+      sinks:
+        sink_name: running
+        opensearch:
+          dataset: log
+          namespace: running
+    - name: actor
+      include_pattern: "/*/*-*.*.log"
+      ignore_older_secs: 600
+      line_delimiter: "\u001e\n"
+      remap:
+        parse_type: actor
+      sinks:
+        sink_name: actor
+        opensearch:
+          dataset: log
+          namespace: actor
+    - name: mon
+      include_pattern: "*.mon.*.log"
+      ignore_older_secs: 3600
+      line_delimiter: "\u001e\n"
+      remap:
+        parse_type: oss
+      sinks:
+        sink_name: mon
+        opensearch:
+          dataset: mon
+          namespace: all
+        kafka:
+          logstore: project-y-cn-shanghai-mon.json
+    - name: oss
+      include_pattern: "*.oss.*.log"
+      ignore_older_secs: 3600
+      line_delimiter: "\u001e\n"
+      remap:
+        parse_type: oss
+      sinks:
+        sink_name: oss
+        opensearch:
+          dataset: oss
+          namespace: "type-{{ log_type }}"
+        kafka:
+          logstore: project-y-cn-shanghai-oss.json
   image:
     repository: harbor.m-oa.com:6023/vector/vector:latest
     pullPolicy: Always
@@ -31,14 +117,10 @@ vector:
       enable: false
     opensearch:
       enable: true
+      data_stream_type: project-y
       username: project-Y-log-writer
       password: 11bo1B{OE,gjzZ4D
       endpoint: https://opensearch-cluster-master.devops.svc.cluster.local:9200/
-  index:
-    - "user_id"
-    - "task_name"
-    - "zone_id"
-    - "response_code"
 
 persistence:
   cbs:
