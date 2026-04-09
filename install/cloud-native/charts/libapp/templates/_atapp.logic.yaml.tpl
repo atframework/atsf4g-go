@@ -11,7 +11,7 @@ logic:
     enable: true
     bindir: "../../resource/excel"
   user:
-    enable_session_actor_log: {{ .Values.enable_session_actor_log }}
+    enable_actor_log: {{ .Values.enable_actor_log }}
   operation_support_system:
     oss_cfg:
       enable: {{ .Values.enable_oss_log }}

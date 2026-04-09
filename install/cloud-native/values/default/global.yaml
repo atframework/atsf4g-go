@@ -37,7 +37,7 @@ remote_configure_update_interval: 5m
 
 # 日志级别
 log_level: INFO
-enable_session_actor_log: true
+enable_actor_log: true
 log_stacktrace_level: disable
 
 enable_oss_log: true
