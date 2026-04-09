@@ -209,11 +209,9 @@ func (callback ExcelConfigCallback) OnLoaded(config_group *generate_config.Confi
 	// 读取version.txt
 	versionFilePath := path.Join(config_group.ExcelResourceDir, "version.txt")
 	content, err := os.ReadFile(versionFilePath)
-	if err != nil {
-		callback.GetLogger().LogError("Version File Read Failed", "error", err)
-		return err
+	if err == nil {
+		config_group.SetResourceVersion(string(content))
 	}
-	config_group.SetResourceVersion(string(content))
 	return ExcelConfigCallbackOnLoad(config_group, callback.GetLogger())
 }
 
