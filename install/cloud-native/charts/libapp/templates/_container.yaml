@@ -45,6 +45,22 @@ volumeMounts:
   readOnly: true
 - name: log
   mountPath: {{ .Values.volumeMounts.logMountPath | quote }}
+{{- /* extra volumes */}}
+{{- range .Values.extraVolumes }}
+- name: {{ .name }}
+  mountPath: {{ .mountPath }}
+  {{- if .readOnly }}
+  readOnly: true
+  {{- end }}
+  {{- if .subPath }}
+  subPath: {{ .subPath }}
+  {{- end }}
+{{- end }}
+{{- if .Values.resources }}
+{{- $resources := unset .Values.resources "enabled" }}
+resources:
+  {{- toYaml $resources | nindent 2 }}
+{{- end }}
 env:
 - name: ATAPP_NAME
   valueFrom:
@@ -104,8 +120,12 @@ env:
     resourceFieldRef:
       containerName: {{ include "libapp.name" . }}
       resource: requests.memory
-- name: ATAPP_INSTANCE_ID
-  value: {{ include "libapp.busAddr" . }}
+- name: WORLD_ID
+  value: "{{ .Values.world_id }}"
+- name: ZONE_ID
+  value: "{{ .Values.zone_id }}"
+- name: TYPE_ID
+  value: "{{ .Values.type_id }}"
 {{- end -}}
 
 {{- define "libapp.vector.container.tpl" -}}
@@ -121,5 +141,16 @@ volumeMounts:
   readOnly: true
 - name: log
   mountPath: {{ .Values.volumeMounts.logMountPath | quote }}
+{{- /* extra volumes */}}
+{{- range .Values.extraVolumes }}
+- name: {{ .name }}
+  mountPath: {{ .mountPath }}
+  {{- if .readOnly }}
+  readOnly: true
+  {{- end }}
+  {{- if .subPath }}
+  subPath: {{ .subPath }}
+  {{- end }}
+{{- end }}
 {{- end }}
 {{- end -}}

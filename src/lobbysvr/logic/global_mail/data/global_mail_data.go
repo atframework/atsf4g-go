@@ -9,6 +9,7 @@ import (
 )
 
 // 全局邮件相关常量
+// 这些常量对应C++代码中的 EN_CL_MAIL_GLOBAL_* 定义
 const (
 	// EN_CL_MAIL_GLOBAL_JOBS_TASK_INTERVAL 全局邮件异步任务间隔（秒）
 	EN_CL_MAIL_GLOBAL_JOBS_TASK_INTERVAL int64 = 60

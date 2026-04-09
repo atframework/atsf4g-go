@@ -1,13 +1,9 @@
 # redis.yaml
 # vim: set sw=2 sts=2 et:
 # encoding: utf-8
-
-enabled: true
 addrs: [
   r-uf64i7dbftxsyhuhes.redis.rds.aliyuncs.com:6379,
 ]
 password: e4zNIjXG81kG5qsj
-pool_size: 50
-record_prefix:
-random_prefix: true
+random_prefix: false
 cluster_mode: false

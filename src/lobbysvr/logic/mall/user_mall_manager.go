@@ -18,4 +18,5 @@ type UserMallManager interface {
 
 	GetProductCounter(productId int32) *public_protocol_common.DConditionCounterStorage
 	GetMallPurchaseSum(mallType public_protocol_common.EnMallType) int64
+	RefreshMallRandomSheet(ctx cd.RpcContext, mallSheetId int32, realCosts []*public_protocol_common.DItemBasic) cd.RpcResult
 }

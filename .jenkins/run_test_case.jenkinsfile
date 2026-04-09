@@ -3,7 +3,7 @@ def cleanWorkspace() {
     if (isUnix()) {
         echo 'Cleaning workspace (Linux/Unix)...'
         sh """
-            rm -rf "${WORKSPACE}/*"
+            rm -rf ${WORKSPACE}/*
             echo "✓ Workspace cleaned"
         """
     } else {

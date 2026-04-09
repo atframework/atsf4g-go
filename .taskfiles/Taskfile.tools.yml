@@ -28,7 +28,11 @@ vars:
       if [ {{.BUILD_MODE}} = "Release" ]; then
         echo ""
       else
-        echo "-gcflags=\"all=-N -l\" -race -v"
+         if [ "{{OS}}" = "windows" ]; then
+            echo "-gcflags=\"all=-N -l\" -v"
+         else
+            echo "-gcflags=\"all=-N -l\" -race -v"
+          fi
       fi
   GO_BUILD_TAGS:
     sh: |

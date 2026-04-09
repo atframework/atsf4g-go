@@ -148,13 +148,14 @@ func (d *WebSocketMessageDispatcher) setupListen() error {
 		})
 	}
 
-	if d.webServerInstance != nil && d.webServerAddress != d.serverConfig.GetHost()+":"+fmt.Sprintf("%d", d.serverConfig.GetPort()) {
+	expectedAddress := d.serverConfig.GetHost() + ":" + fmt.Sprintf("%d", d.serverConfig.GetPort())
+	if d.webServerInstance != nil && d.webServerAddress != expectedAddress {
 		d.webServerInstance.Close()
 		d.webServerInstance = nil
 	}
 
 	if d.webServerInstance == nil {
-		d.webServerAddress = d.serverConfig.GetHost() + ":" + fmt.Sprintf("%d", d.serverConfig.GetPort())
+		d.webServerAddress = expectedAddress
 		d.webServerInstance = &http.Server{
 			Addr:         d.webServerAddress,
 			Handler:      d.webServerHandle,
@@ -162,9 +163,9 @@ func (d *WebSocketMessageDispatcher) setupListen() error {
 			WriteTimeout: d.serverConfig.GetWriteTimeout().AsDuration(),
 			IdleTimeout:  d.serverConfig.GetIdleTimeout().AsDuration(),
 		}
-	}
 
-	go d.runServer()
+		go d.runServer()
+	}
 
 	return nil
 }

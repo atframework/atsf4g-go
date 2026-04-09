@@ -231,3 +231,11 @@ message CSUserEditAvatarReq {
 }
 
 message SCUserEditAvatarRsp {}
+
+message CSQueryUsersBasicInfoReq {
+  map<uint64, uint32> user_zone_id_map = 1;  // key: user_id, value: zone_id
+}
+
+message SCQueryUsersBasicInfoRsp {
+  map<uint64, DUserBasicInfo> user_info = 1;  // key: user_id, value: zone_id
+}

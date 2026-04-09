@@ -1,0 +1,5 @@
+{{- define "lobbysvr.hpa" -}}
+{{- end -}}
+{{- if .Values.autoscaling.enabled -}}
+{{- template "libapp.hpa" (list . "lobbysvr.hpa") -}}
+{{- end -}}

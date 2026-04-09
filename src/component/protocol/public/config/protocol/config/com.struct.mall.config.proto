@@ -48,12 +48,15 @@ message ExcelMallSheet {
   string nochecked_tab_icon = 4;
   string checked_tab_icon = 5;
   string mallbg_icon = 6;
+
+  DMallSheetRandomCfg random_cfg = 10;  // 随机商店使用
 }
 message ExcelMallProduct {
   option (xrescode.loader) = {
     file_path: "mall_product.bytes"
     indexes: { fields: "product_id" fields: "purchase_priority" index_type: EN_INDEX_KV }
     indexes: { fields: "product_id" sort_by: "purchase_priority" index_type: EN_INDEX_KL }
+    indexes: { fields: "mall_sheet_id" index_type: EN_INDEX_KL }
 
     tags: "client"
     tags: "server"
@@ -69,6 +72,7 @@ message ExcelMallProduct {
   bool is_on_sale = 5;
   repeated DItemOffset product_items = 6;
   repeated DItemOffset purchase_cost = 7;
+  DMallProductionRandomCfg random_cfg = 8;  // 随机商店使用
 
   DConditionBasicLimit visible_condition = 10;
   DConditionBasicLimit unlock_condition = 11;

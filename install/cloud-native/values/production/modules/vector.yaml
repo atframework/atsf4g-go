@@ -1,0 +1,6 @@
+sliks:
+  kafka:
+    enable: true
+    bootstrap_servers:
+    project:
+    password:

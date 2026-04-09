@@ -59,6 +59,9 @@ func main() {
 	redisDispatcher := cd.CreateRedisMessageDispatcher(app)
 	atapp.AtappAddModule(app, redisDispatcher)
 
+	httpClientDispatcher := cd.CreateHttpClientDispatcher(app, "lobbysvr.http_client")
+	atapp.AtappAddModule(app, httpClientDispatcher)
+
 	globalMailManager := logic_global_mail.CreateGlobalMailManager(app)
 	atapp.AtappAddModule(app, globalMailManager)
 

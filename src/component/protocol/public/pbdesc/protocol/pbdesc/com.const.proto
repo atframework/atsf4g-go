@@ -37,14 +37,16 @@ enum EnMsgOpType {
 
 // account type
 enum EnAccountTypeID {
-  EN_ATI_ACCOUNT_INNER = 0;      // inner: username/password
-  EN_ATI_ACCOUNT_IOS_GUEST = 1;  // ios guest
+  EN_ATI_ACCOUNT_INTERNAL = 0;    // inner: username/password
+  EN_ATI_ACCOUNT_IOS_GUEST = 11;  // ios guest
+  EN_ATI_ACCOUNT_TAPTAP = 12;
 }
 
 // channel id
 enum EnPlatformChannelID {
-  EN_PCI_NONE = 0;              // NONE
-  EN_PCI_APPLE_GAMECENTER = 1;  // 苹果GAMECENTER渠道
+  EN_PCI_NONE = 0;               // NONE
+  EN_PCI_APPLE_GAMECENTER = 11;  // 苹果GAMECENTER渠道
+  EN_PCI_TAPTAP = 12;            // Taptap
 }
 
 // system type
@@ -294,7 +296,6 @@ enum EnErrorCode {
                                 [(error_code.description) = "道具类型无效"];
   EN_ERR_ITEM_TOO_MANY = -504
                          [(error_code.description) = "道具过多"];
- 
   EN_ERR_MONEY_COIN_NOT_ENOUGH = -505
                                  [(error_code.description) = "金币不足"];
   EN_ERR_MONEY_CASH_NOT_ENOUGH = -506
@@ -330,6 +331,10 @@ enum EnErrorCode {
                                   [(error_code.description) = "已达到上限"];
   EN_ERR_CONDITION_DYNAMIC_LIMIT = -836
                                    [(error_code.description) = "已达到上限"];
+  EN_ERR_CONDITION_RULE_INS_ID_NOT_FOUND = -837
+                                           [(error_code.description) = "规则实例ID未找到"];
+  EN_ERR_CONDITION_RULE_INS_ID_RECURSIVE = -838
+                                           [(error_code.description) = "规则实例ID未找到"];
 
   // 任务错误码 2000-2299
   EN_ERR_QUEST_CONFIG_NOT_FOUND = -2001
@@ -354,6 +359,16 @@ enum EnErrorCode {
                                     [(error_code.description) = "商城商品初始化失败"];
   EN_ERR_MALL_PURCHASE_LIMIT_NOT_MATCH = -2605
                                          [(error_code.description) = "商城商品购买限制不匹配"];
+  EN_ERR_MALL_SHEET_NOT_FOUND = -2606
+                                [(error_code.description) = "商城页签未找到"];
+  EN_ERR_MALL_SHEET_NOT_RANDOM = -2607
+                                 [(error_code.description) = "商城页签不是随机页签"];
+  EN_ERR_MALL_SHEET_RANDOM_COUNT_INVALID = -2608
+                                           [(error_code.description) = "商城页签随机数量无效"];
+  EN_ERR_MALL_SHEET_RANDOM_DATA_NOT_FOUND = -2609
+                                            [(error_code.description) = "商城页签随机数据未找到"];
+  EN_ERR_MALL_SHEET_RANDOM_REFRESH_COUNT_LIMIT = -2610
+                                                 [(error_code.description) = "商城页签随机刷新次数达到上限"];
   // 邮件系统 3000 - 3099
   EN_ERR_MAIL_NOT_FOUND = -3001
                           [(error_code.description) = "邮件未找到"];

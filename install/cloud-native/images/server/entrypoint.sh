@@ -137,7 +137,10 @@ function init_env_from_file() {
 
   # specify instance id
   if [[ -z "${SERVER_INSTANCE_ID}" ]]; then
-    add_env SERVER_INSTANCE_ID "$(/data/projecty/atdtool/atdtool guid gen)"
+    ordinal=${HOSTNAME##*-}
+    echo $ordinal
+    add_env SERVER_INSTANCE_ID $ordinal
+    add_env ATAPP_INSTANCE_ID ${WORLD_ID}.${ZONE_ID}.${TYPE_ID}.${ordinal}
   fi
 
   #  add dsa instance env
@@ -150,25 +153,25 @@ function init_env_from_file() {
 }
 
 function init_server_config() {
-  # init_env_from_file "${INSTANCE_ENV_FILE}"
-  # if [[ $? -ne 0 ]]; then
-  #   return $?
-  # fi
-  mkdir -p ${WORKDIR}/../cfg/
-  cp -f /etc/projecty/${SERVER_TYPE_NAME}/cfg/${SERVER_TYPE_NAME}.yaml ${WORKDIR}/../cfg/${SERVER_TYPE_NAME}.yaml
+  init_env_from_file "${INSTANCE_ENV_FILE}"
   if [[ $? -ne 0 ]]; then
     return $?
   fi
+  mkdir -p ${WORKDIR}/../cfg/
+  # cp -f /etc/projecty/${SERVER_TYPE_NAME}/cfg/*.yaml ${WORKDIR}/../cfg/
+  # if [[ $? -ne 0 ]]; then
+  #   return 1
+  # fi
 
   cp -f /etc/projecty/${SERVER_TYPE_NAME}/cfg/vector.yaml ${WORKDIR}/../cfg/vector.yaml
   if [[ $? -ne 0 ]]; then
     return $?
   fi
-  # init server config
-  # envsubst < /etc/projecty/${SERVER_TYPE_NAME}/cfg/${SERVER_TYPE_NAME}.yaml > ${WORKDIR}/../cfg/${SERVER_TYPE_NAME}.yaml
-  # if [[ $? -ne 0 ]]; then
-  #   return $?
-  # fi
+
+  envsubst < /etc/projecty/${SERVER_TYPE_NAME}/cfg/${SERVER_TYPE_NAME}.yaml > ${WORKDIR}/../cfg/${SERVER_TYPE_NAME}.yaml
+  if [[ $? -ne 0 ]]; then
+    return $?
+  fi
 
   # # init server config
   # envsubst < /etc/projecty/${SERVER_TYPE_NAME}/cfg/vector.yaml > ${WORKDIR}/../cfg/vector.yaml
@@ -212,7 +215,7 @@ if [[ "${COMMAND}" == "start" ]]; then
   END_TIME=$(($BEGIN_TIME+$TIMEOUT))
 
   # start server
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml -crash-output-file "../log/${SERVER_TYPE_NAME}_${ATAPP_INSTANCE_ID}.crash.log" start &
+  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml -crash-output-file "../log/${SERVER_TYPE_NAME}_${ATAPP_INSTANCE_ID}.crash.log" -id "${ATAPP_INSTANCE_ID}" start &
   if [[ $? -ne 0 ]]; then
     echo "$(date "+%Y/%m/%d %H:%M:%S") [ERROR] server start failed!!!"
     exit 1
@@ -247,8 +250,11 @@ elif [[ "${COMMAND}" == "stop" ]]; then
   END_TIME=$(($BEGIN_TIME+$TIMEOUT))
   echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] received stop command, timeout seconds(${TIMEOUT})"
 
+
+  local SEVER_PIDS=($(ps -efH|grep "${SERVER_TYPE_NAME}"|grep "start"|grep -v grep|awk '{print $2}'))
+
   # stop server
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml stop
+  kill ${SEVER_PIDS}
 
   # wait server stop finished
   check_server_running ${PID_FILE}
@@ -266,7 +272,9 @@ elif [[ "${COMMAND}" == "reload" ]]; then
   fi
   
   # reload server
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml reload
+  local SEVER_PIDS=($(ps -efH|grep "${SERVER_TYPE_NAME}"|grep "start"|grep -v grep|awk '{print $2}'))
+  kill -SIGHUP ${SEVER_PIDS}
+
   echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] server reload done, ret[$?]"
 elif [[ "${COMMAND}" == "kill" ]]; then
   echo "$(date "+%Y/%m/%d %H:%M:%S") [WARN] try force stop server"
@@ -300,7 +308,7 @@ elif [[ "${COMMAND}" == "kill" ]]; then
 
   stop_watch_configmap
 elif [[ "${COMMAND}" == "runcmd" ]]; then
-  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml run ${RUNCMD_PARAM}
+  ${WORKDIR}/${SERVER_TYPE_NAME}d -pid "${PID_FILE}" -config ../cfg/${SERVER_TYPE_NAME}.yaml -id "${ATAPP_INSTANCE_ID}" run ${RUNCMD_PARAM}
   echo "$(date "+%Y/%m/%d %H:%M:%S") [INFO] server runcmd done, ret[$?]"
 elif [[ "${COMMAND}" == "health_check" ]]; then
   check_server_running ${PID_FILE}

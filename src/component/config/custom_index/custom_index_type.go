@@ -12,6 +12,7 @@ type ExcelConfigCustomIndex struct {
 	QuestSequence        []*public_protocol_config.Readonly_ExcelQuestList
 	UnlockIndex          map[public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID][]*UnlockValueFunction
 	MallIndex            ExcelConfigMallIndex
+	MallRandomSheetIndex []int32
 	MailGlobalMajorTypes []int32
 	MailUserMajorTypes   []int32
 }

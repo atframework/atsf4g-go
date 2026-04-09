@@ -20,6 +20,10 @@ import (
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 )
 
+func registerConditionRule() {
+	logic_condition.AddRuleChecker(public_protocol_common.GetTypeIDDConditionRule_RuleInsId(), checkRuleRuleInsIdStatic, checkRuleRuleInsIdDynamic)
+}
+
 func init() {
 	var _ logic_condition.UserConditionManager = (*UserConditionManager)(nil)
 	data.RegisterUserModuleManagerCreator[logic_condition.UserConditionManager](func(_ctx cd.RpcContext,
@@ -27,6 +31,8 @@ func init() {
 	) data.UserModuleManagerImpl {
 		return CreateUserConditionManager(owner)
 	})
+
+	registerConditionRule()
 }
 
 type UserConditionManager struct {
@@ -502,13 +508,15 @@ func (m *UserConditionManager) RefreshCounter(_ctx cd.RpcContext, now time.Time,
 
 		// TODO: 月度重置时间点计算
 
-		if limit.GetCustomLimit() > 0 && limit.GetCustomDuration().GetSeconds() > 0 && nowSec >= versionedCounter.GetCustomNextCheckpoint().GetSeconds() {
-			versionedCounter.CustomCounter = 0
+		if limit.GetCustomLimit() > 0 && limit.GetCustomDuration().GetSeconds() > 0 {
+			if nowSec >= versionedCounter.GetCustomNextCheckpoint().GetSeconds() {
+				versionedCounter.CustomCounter = 0
 
-			customDurationSec := limit.GetCustomDuration().GetSeconds()
-			cycles := (nowSec - limit.GetCustomStartTime().GetSeconds()) / customDurationSec
-			versionedCounter.MutableCustomNextCheckpoint().Seconds = (cycles+1)*customDurationSec + limit.GetCustomStartTime().GetSeconds()
-			isDirty = true
+				customDurationSec := limit.GetCustomDuration().GetSeconds()
+				cycles := (nowSec - limit.GetCustomStartTime().GetSeconds()) / customDurationSec
+				versionedCounter.MutableCustomNextCheckpoint().Seconds = (cycles+1)*customDurationSec + limit.GetCustomStartTime().GetSeconds()
+				isDirty = true
+			}
 		} else {
 			versionedCounter.CustomNextCheckpoint = nil
 		}
@@ -538,6 +546,17 @@ func (m *UserConditionManager) RefreshCounter(_ctx cd.RpcContext, now time.Time,
 	if isDirty {
 		m.insertCounterDirty(storage)
 	}
+}
+
+func (m *UserConditionManager) ResetCustomLimitCounter(ctx cd.RpcContext, now time.Time,
+	storage *public_protocol_common.DConditionCounterStorage,
+) {
+	if m == nil || storage == nil {
+		return
+	}
+	versionedCounter := storage.MutableVersionCounter()
+	versionedCounter.CustomCounter = 0
+	m.insertCounterDirty(storage)
 }
 
 func (m *UserConditionManager) HasCounterLimit(limit *public_protocol_common.DConditionCounterLimit) bool {
@@ -736,4 +755,46 @@ func (m *UserConditionManager) AddCounter(ctx cd.RpcContext, now time.Time, offs
 
 	m.insertCounterDirty(storage)
 	return cd.CreateRpcResultOk()
+}
+
+func checkRuleRuleInsIdStatic(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	ruleCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelConditionRuleInsByRuleInsId(rule.GetRuleInsId())
+	if ruleCfg == nil {
+		// 错误码: 条件规则实例不存在
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_RULE_INS_ID_NOT_FOUND)
+	}
+
+	if ruleCfg.GetRule().GetRuleTypeOneofCase() == public_protocol_common.DConditionRule_EnRuleTypeID_RuleInsId {
+		if ruleCfg.GetRule().GetRuleInsId() == rule.GetRuleInsId() {
+			// 错误码: 不允许递归
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_RULE_INS_ID_RECURSIVE)
+		}
+
+		return checkRuleRuleInsIdStatic(m, ctx, ruleCfg.GetRule(), runtime)
+	}
+
+	return m.CheckStaticRules(ctx, []*public_protocol_common.Readonly_DConditionRule{ruleCfg.GetRule()}, runtime)
+}
+
+func checkRuleRuleInsIdDynamic(m logic_condition.UserConditionManager, ctx cd.RpcContext,
+	rule *public_protocol_common.Readonly_DConditionRule, runtime *logic_condition.RuleCheckerRuntime,
+) cd.RpcResult {
+	ruleCfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelConditionRuleInsByRuleInsId(rule.GetRuleInsId())
+	if ruleCfg == nil {
+		// 错误码: 条件规则实例不存在
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_RULE_INS_ID_NOT_FOUND)
+	}
+
+	if ruleCfg.GetRule().GetRuleTypeOneofCase() == public_protocol_common.DConditionRule_EnRuleTypeID_RuleInsId {
+		if ruleCfg.GetRule().GetRuleInsId() == rule.GetRuleInsId() {
+			// 错误码: 不允许递归
+			return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_CONDITION_RULE_INS_ID_RECURSIVE)
+		}
+
+		return checkRuleRuleInsIdDynamic(m, ctx, ruleCfg.GetRule(), runtime)
+	}
+
+	return m.CheckDynamicRules(ctx, []*public_protocol_common.Readonly_DConditionRule{ruleCfg.GetRule()}, runtime)
 }

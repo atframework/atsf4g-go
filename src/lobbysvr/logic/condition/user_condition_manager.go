@@ -48,6 +48,10 @@ type UserConditionManager interface {
 		storage *public_protocol_common.DConditionCounterStorage,
 	)
 
+	ResetCustomLimitCounter(ctx cd.RpcContext, now time.Time,
+		storage *public_protocol_common.DConditionCounterStorage,
+	)
+
 	HasCounterLimit(limit *public_protocol_common.DConditionCounterLimit) bool
 	HasCounterLimitCfg(limit *public_protocol_common.Readonly_DConditionCounterLimit) bool
 
@@ -100,7 +104,7 @@ func HasLimitData(limit *public_protocol_common.Readonly_DConditionBasicLimit) b
 		return false
 	}
 
-	return len(limit.GetRule()) > 0 || len(limit.GetValidTime()) > 0
+	return len(limit.GetRule()) > 0 || len(limit.GetValidTime()) > 0 || len(limit.GetWeeklyValidTime()) > 0
 }
 
 type (

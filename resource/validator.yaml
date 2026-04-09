@@ -1,6 +1,11 @@
 # @see 转表工具文档: https://xresloader.atframe.work/
 # @see 验证器文档: https://github.com/owent/xresloader?tab=readme-ov-file#%E9%AA%8C%E8%AF%81%E5%99%A8
 validator:
+  - name: "ExcelDayRange_Weekday"
+    description: "星期几"
+    rules:
+      - 1-7
+
   - name: "ExcelItemIdRange_VirtualWritable"
     description: "道具ID范围-可发放虚拟道具"
     rules:
@@ -108,3 +113,13 @@ validator:
     description: "ModuleUnlock.xlsx|模块解锁表|module_id 值校验"
     rules:
       - InTableColumn("ModuleUnlock.xlsx", "模块解锁表", 3, 2, "module_id")
+
+  - name: "ExcelMail_id"
+    description: "Mail.xlsx|邮件模板表|type_id 值校验"
+    rules:
+      - InTableColumn("Mail.xlsx", "邮件模板表", 3, 2, "type_id")
+
+  - name: "ExcelConditionRuleIns_id"
+    description: "Condition.xlsx|ConditionRule|rule_ins_id 值校验"
+    rules:
+      - InTableColumn("Condition.xlsx", "ConditionRule", 3, 2, "rule_ins_id")

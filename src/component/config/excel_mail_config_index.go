@@ -66,7 +66,7 @@ func insertMailMajorType(output map[int32]struct{}, input string) {
 	}
 }
 
-func SetupMailConfig(group *generate_config.ConfigGroup) error {
+func setupMailConfig(group *generate_config.ConfigGroup) error {
 	if group == nil {
 		return nil
 	}
@@ -134,8 +134,8 @@ func SetupMailConfig(group *generate_config.ConfigGroup) error {
 	return nil
 }
 
-func InitExcelMailConfigIndex(group *generate_config.ConfigGroup) error {
-	return SetupMailConfig(group)
+func initExcelMailConfigIndex(group *generate_config.ConfigGroup) error {
+	return setupMailConfig(group)
 }
 
 func IsValidUserMailInner(group *generate_config.ConfigGroup, majorType int32) bool {

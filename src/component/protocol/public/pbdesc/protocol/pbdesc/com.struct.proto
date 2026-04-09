@@ -68,9 +68,15 @@ message DClientAuthAccessPassword {
   string weak_token = 2;
 }
 
+message DClientAuthAccessOpenPlatformToken {
+  // access_token 在 account.access 字段
+  map<string, string> platform_parameter = 9;
+}
+
 message DClientAuthAccessData {
   oneof type {
     DClientAuthAccessPassword password = 1;
+    DClientAuthAccessOpenPlatformToken open_platform = 2;
   }
 }
 
@@ -102,6 +108,13 @@ message DUserProfile {
   string nick_name = 3;
   string profile_card = 4;
   string avatar = 5;
+}
+
+message DUserBasicInfo {
+  uint64 user_id = 1;
+  string nick_name = 2;
+  string profile_card = 3;
+  string avatar = 4;
 }
 
 // 用户profile

@@ -11,6 +11,7 @@ option go_package = "github.com/atframework/atsf4g-go/component/protocol/public/
 import "protocol/extension/xrescode_extensions_v3.proto";
 import "protocol/extension/v3/xresloader.proto";
 
+import "protocol/common/com.struct.redirect.common.proto";
 import "protocol/common/com.struct.base.common.proto";
 import "protocol/common/com.struct.item.common.proto";
 
@@ -56,4 +57,15 @@ message ExcelItemReset {
       [(org.xresloader.field_unique_tag) = "item_id", (org.xresloader.validator) = "ExcelItemIdRange_ALL"];
   // 仅客户端资源导出
   DItemResetData reset_data = 2;
+}
+
+message ExcelItemRedirect {
+  option (xrescode.loader) = {
+    file_path: "item_redirect.bytes"
+    indexes: { fields: "redirect_source" index_type: EN_INDEX_KV allow_not_found: true }
+
+    tags: "client"
+  };
+  ERedirectSource redirect_source = 1;
+  string redirect_name = 2 [(org.xresloader.field_unique_tag) = "redirect_name"];
 }

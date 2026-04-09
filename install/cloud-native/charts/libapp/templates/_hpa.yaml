@@ -1,0 +1,52 @@
+{{- define "libapp.hpa.tpl" -}}
+{{- if and .Values.autoscaling .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "libapp.fullname" . }}
+  labels:
+    {{- include "libapp.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "libapp.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+  - type: ContainerResource
+    containerResource:
+      name: cpu
+      container: {{ include "libapp.name" . }}
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+  - type: ContainerResource
+    containerResource:
+      name: memory
+      container: {{ include "libapp.name" . }}
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- if or .Values.autoscaling.scaleUp .Values.autoscaling.scaleDown }}
+  behavior:
+    {{- with .Values.autoscaling.scaleUp }}
+    scaleUp:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.autoscaling.scaleDown }}
+    scaleDown:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- define "libapp.hpa" -}}
+{{- /* clear new line so indentation works correctly */ -}}
+{{- println "" -}}
+{{- include "libapp.util.merge" (append . "libapp.hpa.tpl") -}}
+{{- end -}}

@@ -80,6 +80,10 @@ message websocket_server_cfg {
   repeated string sub_protocols = 12;
 }
 
+message http_client_cfg {
+  google.protobuf.Duration timeout = 1 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "15s" }];
+}
+
 message logic_user_async_job_cfg {
   google.protobuf.Duration timeout = 101
       [(atframework.atapp.protocol.CONFIGURE) = { default_value: "30s" min_value: "5s" }];

@@ -53,7 +53,7 @@ type RedisMessageDispatcher struct {
 }
 
 const (
-	RedisDataVersion = 1 // 改动这个值等于清库
+	RedisDataVersion = 2 // 改动这个值等于清库
 )
 
 // GetStableHostID 返回一个稳定的 8 位字符串

@@ -26,9 +26,21 @@ message DMallData {
 message DUserMallData {
   repeated DMallProductData product_data = 1;
   repeated DMallData mall_data = 2;
+  repeated DUserMallRandomSheetData random_sheet_data = 3;  // 随机商店数据
 }
 
 message DUserMallDirtyChg {
   repeated DMallProductData product_data = 1;
   repeated DMallData mall_data = 2;
+  repeated DUserMallRandomSheetData random_sheet_data = 3;  // 随机商店数据
+}
+
+message DUserMallRandomProductData {
+  int32 product_id = 1;
+}
+
+message DUserMallRandomSheetData {
+  int32 mall_sheet_id = 1;
+  repeated DUserMallRandomProductData products = 2;
+  int32 refresh_count = 3;
 }

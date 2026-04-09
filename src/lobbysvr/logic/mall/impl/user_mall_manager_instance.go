@@ -7,10 +7,10 @@ import (
 
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
+	config "github.com/atframework/atsf4g-go/component/config"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	config "github.com/atframework/atsf4g-go/component/config"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
 	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
@@ -55,9 +55,14 @@ type UserMallManager struct {
 
 	productData map[int32]*private_protocol_pbdesc.UserMallProductData
 	mallData    map[public_protocol_common.EnMallType]*UserMallData
+
+	randomSheetData  map[int32]*private_protocol_pbdesc.UserMallRandomSheetData // mall_sheet_id -> random sheet data
+	randomProductMap map[int32]bool                                             // 当前随机池中的商品ID集合，方便快速判断商品是否在随机池内
+
 	// Dirty 数据
 	dirtyMallProduct map[int32]struct{}
 	dirtyMall        map[public_protocol_common.EnMallType]struct{}
+	dirtyRandomSheet []int32
 }
 
 func CreateUserMallManager(owner *data.User) *UserMallManager {
@@ -67,6 +72,8 @@ func CreateUserMallManager(owner *data.User) *UserMallManager {
 
 		productData:      make(map[int32]*private_protocol_pbdesc.UserMallProductData),
 		mallData:         make(map[public_protocol_common.EnMallType]*UserMallData),
+		randomSheetData:  make(map[int32]*private_protocol_pbdesc.UserMallRandomSheetData),
+		randomProductMap: make(map[int32]bool),
 		dirtyMallProduct: make(map[int32]struct{}),
 	}
 }
@@ -79,6 +86,13 @@ func (m *UserMallManager) InitFromDB(ctx cd.RpcContext, _dbUser *private_protoco
 	for _, data := range mallData.GetMallTypeData() {
 		m.mallData[data.GetMallType()] = &UserMallData{
 			purchaseSum: data.GetPurchaseSum(),
+		}
+	}
+
+	for _, data := range mallData.GetRandomSheetData() {
+		m.randomSheetData[data.GetMallSheetId()] = data
+		for _, product := range data.GetProduct() {
+			m.randomProductMap[product.GetProductId()] = true
 		}
 	}
 
@@ -102,6 +116,16 @@ func (m *UserMallManager) DumpToDB(ctx cd.RpcContext, _dbUser *private_protocol_
 			PurchaseSum: data.purchaseSum,
 		})
 	}
+
+	for mallSheetId, data := range m.randomSheetData {
+		_dbUser.MutableMallData().RandomSheetData = append(_dbUser.MutableMallData().RandomSheetData, &private_protocol_pbdesc.UserMallRandomSheetData{
+			MallSheetId:          mallSheetId,
+			NextRefreshTimepoint: data.GetNextRefreshTimepoint(),
+			Product:              data.GetProduct(),
+			RefreshCount:         data.GetRefreshCount(),
+		})
+	}
+
 	return cd.RpcResult{
 		Error:        nil,
 		ResponseCode: 0,
@@ -113,6 +137,17 @@ func (m *UserMallManager) CreateInit(ctx cd.RpcContext, _versionType uint32) {
 }
 
 func (m *UserMallManager) LoginInit(ctx cd.RpcContext) {
+
+}
+
+func (m *UserMallManager) RefreshLimitSecond(ctx cd.RpcContext) {
+	randomSheet := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().MallRandomSheetIndex
+	for _, mallSheetId := range randomSheet {
+		mallRandomSheetData := m.randomSheetData[mallSheetId]
+		if mallRandomSheetData == nil || mallRandomSheetData.GetNextRefreshTimepoint() <= ctx.GetNow().Unix() {
+			m.refreshMallRandomSheet(ctx, mallSheetId)
+		}
+	}
 }
 
 func (m *UserMallManager) GetCounterSizeCapacity() int32 {
@@ -168,8 +203,12 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PRODUCT_NOT_ON_SELL)
 	}
 
-	mallRow := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().
-		GetMallByMallSheet(productRow.GetMallSheetId())
+	sheetRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallSheetByMallSheetId(productRow.GetMallSheetId())
+	if sheetRow == nil {
+		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_SHEET_NOT_FOUND)
+	}
+
+	mallRow := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetMallByMallSheet(productRow.GetMallSheetId())
 
 	if mallRow == nil {
 		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PRODUCT_NOT_ON_SELL)
@@ -183,12 +222,29 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 	conditionRuntime := logic_condition.CreateRuleCheckerRuntime(
 		logic_condition_data.CreateRuntimeParameterPair(req),
 	)
-	if logic_condition.HasLimitData(mallRow.GetUnlockCondition()) {
-		conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
-		if conditionMgr == nil {
-			return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
+
+	if conditionMgr == nil {
+		ctx.LogError("UserConditionManager not found",
+			"product_id", productRow.GetProductId(),
+		)
+		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+	}
+
+	// 随机sheet需要检查是否在当前随机池内
+	if sheetRow.GetRandomCfg().GetIsRandom() {
+		_, ok := m.randomSheetData[productRow.GetMallSheetId()]
+		if !ok {
+			return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_SHEET_NOT_FOUND)
+		}
+		isSale, ok := m.randomProductMap[productRow.GetProductId()]
+		if !ok || !isSale {
+			return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_PRODUCT_NOT_ON_SELL)
 		}
 
+	}
+
+	if logic_condition.HasLimitData(mallRow.GetUnlockCondition()) {
 		rpcResult := conditionMgr.CheckBasicLimit(ctx, mallRow.GetUnlockCondition(), conditionRuntime)
 		if !rpcResult.IsOK() {
 			return rpcResult.GetResponseCode()
@@ -198,11 +254,6 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 	{
 		// 商品可见条件
 		if logic_condition.HasLimitData(productRow.GetVisibleCondition()) {
-			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
-			if conditionMgr == nil {
-				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-			}
-
 			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetVisibleCondition(), conditionRuntime)
 			if !rpcResult.IsOK() {
 				return rpcResult.GetResponseCode()
@@ -211,11 +262,6 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 
 		// 商品解锁条件
 		if logic_condition.HasLimitData(productRow.GetUnlockCondition()) {
-			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
-			if conditionMgr == nil {
-				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-			}
-
 			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetUnlockCondition(), conditionRuntime)
 			if !rpcResult.IsOK() {
 				return rpcResult.GetResponseCode()
@@ -224,24 +270,11 @@ func (m *UserMallManager) MallPurchaseSingle(ctx cd.RpcContext, req *service_pro
 
 		// 商品购买条件
 		if logic_condition.HasLimitData(productRow.GetPurchaseCondition()) {
-			conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
-			if conditionMgr == nil {
-				return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-			}
-
 			rpcResult := conditionMgr.CheckBasicLimit(ctx, productRow.GetPurchaseCondition(), conditionRuntime)
 			if !rpcResult.IsOK() {
 				return rpcResult.GetResponseCode()
 			}
 		}
-	}
-
-	conditionMgr := data.UserGetModuleManager[logic_condition.UserConditionManager](m.GetOwner())
-	if conditionMgr == nil {
-		ctx.LogError("UserConditionManager not found",
-			"product_id", productRow.GetProductId(),
-		)
-		return int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
 	// 检查次数
@@ -366,6 +399,15 @@ func (m *UserMallManager) FetchData() *public_protocol_pbdesc.DUserMallData {
 			PurchaseSum: data.purchaseSum,
 		})
 	}
+
+	for mallSheetId, data := range m.randomSheetData {
+		ret.RandomSheetData = append(ret.RandomSheetData, &public_protocol_pbdesc.DUserMallRandomSheetData{
+			MallSheetId:  mallSheetId,
+			Products:     data.GetProduct(),
+			RefreshCount: data.RefreshCount,
+		})
+	}
+
 	return ret
 }
 
@@ -391,13 +433,27 @@ func (m *UserMallManager) insertDirtyHandle() {
 					ret = true
 				}
 			}
+			for _, id := range m.dirtyRandomSheet {
+				v, ok := m.randomSheetData[id]
+				if ok && v != nil {
+					dirtyData.MutableDirtyMall().AppendRandomSheetData(&public_protocol_pbdesc.DUserMallRandomSheetData{
+						MallSheetId:  id,
+						Products:     v.GetProduct(),
+						RefreshCount: v.RefreshCount,
+					})
+					ret = true
+				}
+			}
+
 			return ret
 		},
 		func(ctx cd.RpcContext) {
 			clear(m.dirtyMallProduct)
 			clear(m.dirtyMall)
+			clear(m.dirtyRandomSheet)
 		},
 	)
+
 }
 
 func (m *UserMallManager) GetProductCounter(productId int32) *public_protocol_common.DConditionCounterStorage {
@@ -406,6 +462,53 @@ func (m *UserMallManager) GetProductCounter(productId int32) *public_protocol_co
 		return productData.GetTotalCounterStorageData()
 	}
 	return nil
+}
+
+func (m *UserMallManager) RefreshMallRandomSheet(ctx cd.RpcContext, mallSheetId int32, realCosts []*public_protocol_common.DItemBasic) cd.RpcResult {
+	//
+
+	sheetRow := config.GetConfigManager().GetCurrentConfigGroup().GetExcelMallSheetByMallSheetId(mallSheetId)
+	if sheetRow == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("invalid mall sheet id %d", mallSheetId), public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_SHEET_NOT_FOUND)
+	}
+
+	if sheetRow.GetRandomCfg().GetIsRandom() == false {
+		return cd.CreateRpcResultError(fmt.Errorf("mall sheet id %d is not random mall sheet", mallSheetId), public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_SHEET_NOT_RANDOM)
+	}
+
+	// 次数校验
+	mallRadonSheetData, ok := m.randomSheetData[mallSheetId]
+	if !ok || mallRadonSheetData == nil {
+		return cd.CreateRpcResultError(fmt.Errorf("random sheet data not found for mall sheet id %d", mallSheetId), public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_SHEET_RANDOM_DATA_NOT_FOUND)
+	}
+
+	if mallRadonSheetData.GetRefreshCount()+1 > sheetRow.GetRandomCfg().GetRefreshCount() {
+		return cd.CreateRpcResultError(fmt.Errorf("refresh count limit for mall sheet id %d", mallSheetId), public_protocol_pbdesc.EnErrorCode_EN_ERR_MALL_SHEET_RANDOM_REFRESH_COUNT_LIMIT)
+	}
+
+	// 刷新消耗
+	result := m.GetOwner().CheckCostItemCfg(ctx, realCosts, sheetRow.GetRandomCfg().GetRefreshCost())
+	if result.IsError() {
+		ctx.LogError("check cost item failed", "error", result.GetResponseCode())
+		return result
+	}
+
+	subGuards, result := m.GetOwner().CheckSubItem(ctx, realCosts)
+	if result.IsError() {
+		return result
+	}
+
+	// 扣除消耗道具
+	result = m.GetOwner().SubItem(ctx, subGuards, &data.ItemFlowReason{
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_MAIL),
+		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_MALL_REFRESH_COST),
+		Parameter:   0,
+	})
+
+	m.refreshMallRandomSheet(ctx, mallSheetId)
+	mallRadonSheetData.RefreshCount += 1
+
+	return cd.CreateRpcResultOk()
 }
 
 func registerCondition() {

@@ -27,7 +27,7 @@ type UserAsyncJobsManager interface {
 	TryAsyncJobs(ctx cd.RpcContext) bool
 
 	// WaitForAsyncTask 等待异步任务完成
-	WaitForAsyncTask(ctx cd.RpcContext) cd.RpcResult
+	WaitForAsyncTask(ctx cd.AwaitableContext) cd.RpcResult
 
 	// ForceAsyncJob 强制执行指定类型的异步任务
 	ForceAsyncJob(jobsType int32)

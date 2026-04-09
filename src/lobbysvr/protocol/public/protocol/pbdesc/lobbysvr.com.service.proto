@@ -81,6 +81,13 @@ service LobbyClientService {
     };
   };
 
+  rpc user_query_basic_info(CSQueryUsersBasicInfoReq) returns (SCQueryUsersBasicInfoRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "user"
+      api_name: "Query users basic info"
+    };
+  };
+
   // Use stream request to disable waiting for response
   rpc user_dirty_chg_sync(google.protobuf.Empty) returns (stream SCUserDirtyChgSync) {
     option (atframework.rpc_options) = {
@@ -140,6 +147,13 @@ service LobbyClientService {
     option (atframework.rpc_options) = {
       module_name: "mall"
       api_name: "购买商品"
+    };
+  };
+
+  rpc mall_refresh_random_sheet(CSMallRefreshRandomSheetReq) returns (SCMallRefreshRandomSheetRsp) {
+    option (atframework.rpc_options) = {
+      module_name: "mall"
+      api_name: "刷新商城随机页签"
     };
   };
   /////////////////////////// mall /////////////////////////////

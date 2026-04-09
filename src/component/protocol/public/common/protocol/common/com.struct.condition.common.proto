@@ -137,6 +137,8 @@ message DConditionRule {
 
   oneof rule_type {
     option (org.xresloader.oneof_separator) = "|";
+    int32 rule_ins_id = 1
+        [(org.xresloader.field_alias) = "条件实例表", (org.xresloader.validator) = "ExcelConditionRuleIns_id"];
 
     // @see EnAccountITopLoginChannelType
     DConditionRuleMultipleUInt login_channel = 101 [(org.xresloader.field_alias) = "登入渠道"];

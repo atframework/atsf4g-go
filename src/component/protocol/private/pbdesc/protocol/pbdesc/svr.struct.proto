@@ -183,9 +183,20 @@ message user_mall_type_data {
   int64 purchase_sum = 2;
 }
 
+
+message user_mall_random_sheet_data {
+  int32 mall_sheet_id = 1;
+  int64 next_refresh_timepoint = 2;
+  repeated DUserMallRandomProductData product = 3; // 随机商店使用
+
+  int32 refresh_count = 11; // 已经刷新次数
+  int64 refresh_count_reset_timepoint = 12; // 刷新次数重置时间
+}
+
 message user_mall_data {
   repeated user_mall_product_data mall_data = 1;
   repeated user_mall_type_data mall_type_data = 2;
+  repeated user_mall_random_sheet_data random_sheet_data = 3;
 }
 
 message user_async_jobs_blob_data {

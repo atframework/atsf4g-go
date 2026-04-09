@@ -18,7 +18,13 @@ volumeMounts:
   configMountPath: /etc/projecty/lobbysvr/cfg
   logMountPath: /data/projecty/lobbysvr/log
 
+extraVolumes:
+  - name: opt
+    emptyDir: {}
+    mountPath: /opt/projecty/lobbysvr
+
 vector:
+  enabled: true
   log_path: /data/projecty/lobbysvr/log
   source:
     - name: crash
@@ -110,17 +116,6 @@ vector:
   image:
     repository: harbor.m-oa.com:6023/vector/vector:latest
     pullPolicy: Always
-  sliks:
-    console:
-      enable: false
-    test_file:
-      enable: false
-    opensearch:
-      enable: true
-      data_stream_type: project-y
-      username: project-Y-log-writer
-      password: 11bo1B{OE,gjzZ4D
-      endpoint: https://opensearch-cluster-master.devops.svc.cluster.local:9200/
 
 persistence:
   cbs:
@@ -156,7 +151,13 @@ service:
   protocol: TCP
 
 redis:
-  enable: true
+  enabled: true
+
+autoscaling:
+  enabled: true
+
+resources:
+  enabled: true
 
 webserver:
   port: 7001
@@ -188,3 +189,7 @@ lobbysvr:
       salt_length: 16
       # argon2密钥长度，单位KB，默认32B
       key_length: 32
+  http_client:
+    timeout: 10s
+
+log_level: DEBUG

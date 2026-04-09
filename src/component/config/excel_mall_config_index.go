@@ -30,6 +30,15 @@ func initExcelMallConfigIndex(group *generate_config.ConfigGroup) error {
 		}
 	}
 
+	randomSheetIndex := make([]int32, 0)
+	for _, v := range *group.GetExcelMallSheetAllOfMallSheetId() {
+		if v.GetRandomCfg().GetIsRandom() == false {
+			continue
+		}
+		randomSheetIndex = append(randomSheetIndex, v.GetMallSheetId())
+	}
+
 	group.GetCustomIndex().MallIndex.MallSheetMallIndex = index
+	group.GetCustomIndex().MallRandomSheetIndex = randomSheetIndex
 	return nil
 }

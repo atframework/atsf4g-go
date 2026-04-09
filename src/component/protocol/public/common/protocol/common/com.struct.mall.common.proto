@@ -9,9 +9,25 @@ option cc_enable_arenas = true;
 option go_package = "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common";
 
 import "protocol/extension/v3/xresloader.proto";
+import "google/protobuf/timestamp.proto";
+import "protocol/common/com.struct.item.common.proto";
 
 package proy;
 
 enum EnMallType {
   EN_MALL_TYPE_INVALID = 0;
+}
+
+message DMallSheetRandomCfg {
+  bool is_random = 1;
+  int32 duration = 2;
+  google.protobuf.Timestamp start_timepoint = 3;
+  int32 market_location_count = 4;
+  int32 refresh_count = 5;
+  repeated DItemOffset refresh_cost = 6 [(org.xresloader.field_separator) = ";"];
+}
+
+message DMallProductionRandomCfg {
+  int32 random_weight = 1;
+  int32 refresh_count = 2;
 }

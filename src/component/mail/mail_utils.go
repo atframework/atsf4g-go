@@ -379,7 +379,7 @@ func MailFillAdminSender(sender *public_protocol_pbdesc.DMailUserInfo) {
 		return
 	}
 
-	sender.AccountType = uint32(public_protocol_pbdesc.EnAccountTypeID_EN_ATI_ACCOUNT_INNER)
+	sender.AccountType = uint32(public_protocol_pbdesc.EnAccountTypeID_EN_ATI_ACCOUNT_INTERNAL)
 	sender.AccountId = 0
 	if sender.Profile == nil {
 		sender.Profile = &public_protocol_common.DUserIDKey{}

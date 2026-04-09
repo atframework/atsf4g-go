@@ -1,0 +1,7 @@
+sliks:
+  opensearch:
+    enable: true
+    data_stream_type: project-y
+    username: project-Y-log-writer
+    password: 11bo1B{OE,gjzZ4D
+    endpoint: https://opensearch-cluster-master.devops.svc.cluster.local:9200/

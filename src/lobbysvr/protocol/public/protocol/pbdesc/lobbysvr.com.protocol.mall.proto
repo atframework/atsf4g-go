@@ -28,3 +28,10 @@ message CSMallPurchaseReq {
 message SCMallPurchaseRsp {
   repeated DItemInstance reward_items = 1;
 }
+
+message CSMallRefreshRandomSheetReq {
+  int32 mall_sheet_id = 1;
+  repeated DItemBasic expect_cost_items = 4;
+}
+
+message SCMallRefreshRandomSheetRsp {}

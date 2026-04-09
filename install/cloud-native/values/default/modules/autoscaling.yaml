@@ -1,0 +1,27 @@
+# autoscaling.yaml
+# vim: set sw=2 sts=2 et:
+# encoding: utf-8
+minReplicas: 1
+maxReplicas: 5
+targetCPUUtilizationPercentage: 80
+targetMemoryUtilizationPercentage: 80
+scaleUp:
+  selectPolicy: Max
+  stabilizationWindowSeconds: 60
+  policies:
+    - type: Percent
+      value: 10
+      periodSeconds: 60
+    - type: Pods
+      value: 8
+      periodSeconds: 15
+scaleDown:
+  selectPolicy: Disabled
+  stabilizationWindowSeconds: 60
+  policies:
+    - type: Percent
+      value: 10
+      periodSeconds: 60
+    - type: Pods
+      value: 32
+      periodSeconds: 60

@@ -235,6 +235,7 @@ func (m *ConfigManagerModule) Name() string {
 
 // 同步接口
 func (m *ConfigManagerModule) Reload() error {
+	GetConfigManager().SetConfigOriginData(m.GetApp().GetConfig().ConfigOriginData)
 	return m.SharedConfigManager.Reload()
 }
 

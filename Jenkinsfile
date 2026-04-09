@@ -57,7 +57,7 @@ pipeline {
         string(name: 'BUILD_VERSION', defaultValue: 'v1.0.0', description: '构建版本号 (如: v1.0.0, v1.0.0-rc.1)')
         string(name: 'CONFIG_VERSION', defaultValue: 'v1.0.0', description: '配置版本号 (如: v1.0.0)')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: '服务器分支')
-        choice(name: 'BUILD_MODE', choices: ['Release', 'Debug'], description: '构建模式')
+        choice(name: 'BUILD_MODE', choices: ['Debug', 'Release'], description: '构建模式')
     }
     
     environment {
@@ -525,7 +525,8 @@ PYEOF
                 script {
                     echo "开始打包构建产物..."
                     def sourceDir = "${env.WORKSPACE}/build/install"
-                    def zipFile = "ProjectY_Server_${env.BUILD_NUMBER}.tar.gz"
+                    def branchName = params.GIT_BRANCH.contains('/') ? params.GIT_BRANCH.split('/').last() : params.GIT_BRANCH
+                    def zipFile = "ProjectY_Server_${branchName}_${env.BUILD_NUMBER}.tar.gz"
                     def docTarFile = "ProjectY_Server_Doc.tar.gz"
                     if (params.NODE_LABEL != 'linux') {
                         env.ARCHIVE_PATH = "/data/archive/disk1/nextcloud/temporary/ProjectY/Server/${params.NODE_LABEL}/${env.BUILD_TIME}_${env.BUILD_NUMBER}"

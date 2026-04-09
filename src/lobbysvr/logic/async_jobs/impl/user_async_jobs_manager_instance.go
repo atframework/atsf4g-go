@@ -266,12 +266,12 @@ func (m *UserAsyncJobsManager) TryAsyncJobs(ctx cd.RpcContext) bool {
 }
 
 // WaitForAsyncTask 等待异步任务完成
-func (m *UserAsyncJobsManager) WaitForAsyncTask(ctx cd.RpcContext) cd.RpcResult {
+func (m *UserAsyncJobsManager) WaitForAsyncTask(ctx cd.AwaitableContext) cd.RpcResult {
 	if !m.IsAsyncJobsTaskRunning() {
 		return cd.CreateRpcResultOk()
 	}
 	task := m.remoteCommandPatchTask.Load()
-	result := cd.AwaitTask(m.GetOwner().GetSession().GetDispatcher().CreateAwaitableContext(), task)
+	result := cd.AwaitTask(ctx, task)
 	return result
 }
 
