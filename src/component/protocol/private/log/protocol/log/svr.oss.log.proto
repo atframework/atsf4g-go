@@ -18,17 +18,23 @@ message OperationSupportSystemLogBasicInfo {
   string app_id = 1;
   uint64 user_id = 2;
   uint32 zone_id = 3;
+  string open_id = 4;
 }
 
 message OperationSupportSystemLog {
   string log_type = 1;
   OperationSupportSystemLogBasicInfo basic = 2;
-  oneof detail {
+  OperationSupportSystemLogDetail log = 3;
+}
+
+message OperationSupportSystemLogDetail {
+  oneof log {
     OSSItemFlow item_flow = 10;
     OSSLoginClientBeginFlow login_client_begin_flow = 11;
     OSSLoginServerBeginFlow login_server_begin_flow = 12;
     OSSLoginFlow login_flow = 13;
     OSSLogoutFlow logout_flow = 14;
+    OSSOnlineFlow online_flow = 15;
   }
 }
 
@@ -64,4 +70,8 @@ message OSSLoginFlow {
 
 message OSSLogoutFlow {
   // 登出
+}
+
+message OSSOnlineFlow {
+  int32 online_count = 1;
 }

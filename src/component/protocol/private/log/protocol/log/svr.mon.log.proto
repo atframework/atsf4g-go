@@ -19,8 +19,13 @@ message MonitorLogCommonHeader {
 message MonitorLog {
   string log_type = 1;
   MonitorLogCommonHeader basic = 2;
-  oneof detail {
+  MonitorLogDetail log = 3;
+}
+
+message MonitorLogDetail {
+  oneof log {
     MONServerOperationFlow server_operation_flow = 10;
+    MONOnlineCountFlow server_online_count_flow = 11;
   }
 }
 
@@ -36,4 +41,8 @@ message MONServerOperationFlow {
   uint64 start_timestamp = 2;
   string server_version = 3;
   string resource_version = 4;
+}
+
+message MONOnlineCountFlow {
+  int32 online_count = 1;
 }

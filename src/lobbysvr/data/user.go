@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	"github.com/atframework/libatapp-go"
 
 	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
@@ -397,10 +398,11 @@ func (u *User) OnLogin(ctx cd.RpcContext) {
 
 	{
 		log := private_protocol_log.OperationSupportSystemLog{}
-		log.MutableLoginFlow()
+		log.MutableLog().MutableLoginFlow()
 		u.SendUserOssLog(ctx, &log)
 	}
 	u.isLogin = true
+	libatapp.AtappGetModule[*uc.UserManager](ctx.GetApp()).Online(u)
 }
 
 func (u *User) OnLogout(ctx cd.RpcContext) {
@@ -415,10 +417,11 @@ func (u *User) OnLogout(ctx cd.RpcContext) {
 
 	{
 		log := private_protocol_log.OperationSupportSystemLog{}
-		log.MutableLogoutFlow()
+		log.MutableLog().MutableLogoutFlow()
 		u.SendUserOssLog(ctx, &log)
 	}
 	u.isLogin = false
+	libatapp.AtappGetModule[*uc.UserManager](ctx.GetApp()).Offline(u)
 }
 
 func (u *User) OnSaved(ctx cd.RpcContext, version uint64) {

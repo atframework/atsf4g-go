@@ -64,7 +64,8 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		log := private_protocol_log.OperationSupportSystemLog{}
 		log.MutableBasic().UserId = userId
 		log.MutableBasic().ZoneId = zoneId
-		log.MutableLoginClientBeginFlow()
+		log.MutableBasic().OpenId = request_body.GetOpenId()
+		log.MutableLog().MutableLoginClientBeginFlow()
 		operation_support_system.SendOssLog(t.GetRpcContext().GetApp(), &log)
 	}
 
@@ -129,7 +130,8 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		log := private_protocol_log.OperationSupportSystemLog{}
 		log.MutableBasic().UserId = userId
 		log.MutableBasic().ZoneId = zoneId
-		log.MutableLoginServerBeginFlow()
+		log.MutableBasic().OpenId = request_body.GetOpenId()
+		log.MutableLog().MutableLoginServerBeginFlow()
 		operation_support_system.SendOssLog(t.GetRpcContext().GetApp(), &log)
 	}
 

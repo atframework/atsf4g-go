@@ -55,7 +55,7 @@ func CreateOperationSupportSystem(app libatapp.AppImpl) *OperationSupportSystem 
 func (m *OperationSupportSystem) Ready() {
 	m.startTimestamp = uint64(logical_time.GetSysNow().Unix())
 	log := private_protocol_log.MonitorLog{}
-	flow := log.MutableServerOperationFlow()
+	flow := log.MutableLog().MutableServerOperationFlow()
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_START
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
@@ -65,7 +65,7 @@ func (m *OperationSupportSystem) Ready() {
 
 func (m *OperationSupportSystem) Reload() error {
 	log := private_protocol_log.MonitorLog{}
-	flow := log.MutableServerOperationFlow()
+	flow := log.MutableLog().MutableServerOperationFlow()
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_RELOAD
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
@@ -76,7 +76,7 @@ func (m *OperationSupportSystem) Reload() error {
 
 func (m *OperationSupportSystem) Stop() (bool, error) {
 	log := private_protocol_log.MonitorLog{}
-	flow := log.MutableServerOperationFlow()
+	flow := log.MutableLog().MutableServerOperationFlow()
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_STOP
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
@@ -95,7 +95,7 @@ func (m *OperationSupportSystem) Tick(parent context.Context) bool {
 	m.lastTickTimestamp = uint64(now)
 
 	log := private_protocol_log.MonitorLog{}
-	flow := log.MutableServerOperationFlow()
+	flow := log.MutableLog().MutableServerOperationFlow()
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_KEEP_ALIVE
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
@@ -139,7 +139,7 @@ func init() {
 }
 
 func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.OperationSupportSystemLog) {
-	if m == nil || m.ossLogWriter == nil || ossLog.GetDetailOneofName() == "" {
+	if m == nil || m.ossLogWriter == nil || ossLog.GetLog().GetLogOneofName() == "" {
 		return
 	}
 
@@ -153,7 +153,7 @@ func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.Operati
 	}
 
 	// 处理头
-	ossLog.LogType = ossLog.GetDetailOneofName()
+	ossLog.LogType = ossLog.GetLog().GetLogOneofName()
 	ossLog.MutableBasic().AppId = m.GetApp().GetConfig().ConfigPb.GetName()
 	// 写入
 	b, _ := protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true, UseProtoNames: true}.MarshalAppend(
@@ -163,7 +163,7 @@ func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.Operati
 }
 
 func (m *OperationSupportSystem) sendMonLog(monLog *private_protocol_log.MonitorLog) {
-	if m == nil || m.monLogWriter == nil || monLog.GetDetailOneofName() == "" {
+	if m == nil || m.monLogWriter == nil || monLog.GetLog().GetLogOneofName() == "" {
 		return
 	}
 
@@ -177,7 +177,7 @@ func (m *OperationSupportSystem) sendMonLog(monLog *private_protocol_log.Monitor
 	}
 
 	// 处理头
-	monLog.LogType = monLog.GetDetailOneofName()
+	monLog.LogType = monLog.GetLog().GetLogOneofName()
 	monLog.MutableBasic().AppId = m.GetApp().GetConfig().ConfigPb.GetName()
 	// 写入
 	b, _ := protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true, UseProtoNames: true}.MarshalAppend(

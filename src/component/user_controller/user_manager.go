@@ -3,8 +3,12 @@ package atframework_component_user_controller
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
@@ -18,6 +22,10 @@ type CreateUserCallback func(ctx cd.RpcContext, zoneId uint32, userId uint64, op
 
 type UserManager struct {
 	libatapp.AppModuleBase
+
+	lastReportOnline int64
+	onlineUserLock   sync.Mutex
+	onlineUser       map[uint64]UserImpl
 }
 
 func init() {
@@ -29,13 +37,28 @@ func (m *UserManager) Init(parent context.Context) error {
 }
 
 func (m *UserManager) Tick(parent context.Context) bool {
-	// TODO 排队降级流程
+	now := logical_time.GetSysNow().Unix()
+	if now > m.lastReportOnline+60 {
+		m.lastReportOnline = now
+		onlineCount := int32(m.OnlineCount())
+		{
+			log := private_protocol_log.OperationSupportSystemLog{}
+			log.MutableLog().MutableOnlineFlow().OnlineCount = onlineCount
+			operation_support_system.SendOssLog(m.GetApp(), &log)
+		}
+		{
+			log := private_protocol_log.MonitorLog{}
+			log.MutableLog().MutableServerOnlineCountFlow().OnlineCount = onlineCount
+			operation_support_system.SendMonLog(m.GetApp(), &log)
+		}
+	}
 	return false
 }
 
 func CreateUserManager(app libatapp.AppImpl) *UserManager {
 	ret := &UserManager{
 		AppModuleBase: libatapp.CreateAppModuleBase(app),
+		onlineUser:    make(map[uint64]UserImpl),
 	}
 	return ret
 }
@@ -45,6 +68,25 @@ func (um *UserManager) Name() string {
 }
 
 /////////////////////////////////////////////////////////////////////
+
+func (um *UserManager) Online(user UserImpl) {
+	um.onlineUserLock.Lock()
+	defer um.onlineUserLock.Unlock()
+	um.onlineUser[user.GetUserId()] = user
+}
+
+func (um *UserManager) Offline(user UserImpl) {
+	um.onlineUserLock.Lock()
+	defer um.onlineUserLock.Unlock()
+	currentUser := um.onlineUser[user.GetUserId()]
+	if !lu.IsNil(currentUser) && currentUser == user {
+		delete(um.onlineUser, user.GetUserId())
+	}
+}
+
+func (um *UserManager) OnlineCount() int {
+	return len(um.onlineUser)
+}
 
 func (um *UserManager) Find(ctx cd.RpcContext, zoneID uint32, userID uint64) UserImpl {
 	routerObject := GetUserRouterManager(um.GetApp()).GetObject(ctx, router.RouterObjectKey{

@@ -616,6 +616,7 @@ func (u *UserCache) SendUserOssLog(ctx cd.RpcContext, ossLog *private_protocol_l
 	}
 	ossLog.MutableBasic().UserId = u.GetUserId()
 	ossLog.MutableBasic().ZoneId = u.GetZoneId()
+	ossLog.MutableBasic().OpenId = u.GetOpenId()
 	operation_support_system.SendOssLog(ctx.GetApp(), ossLog)
 }
 

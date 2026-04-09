@@ -3,11 +3,11 @@ package lobbysvr_data
 import (
 	"slices"
 
+	config "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	config "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 )
 
 func (u *User) GetItemManager(typeId int32) UserItemManagerImpl {
@@ -70,8 +70,8 @@ func (u *User) AddItem(ctx cd.RpcContext, itemOffset []*ItemAddGuard, reason *It
 		}
 		for _, itemGuard := range group.data {
 			for _, addedItem := range itemGuard.GetAddedItems() {
-				ossLog.Detail = nil
-				data := ossLog.MutableItemFlow()
+				ossLog.MutableLog().Log = nil
+				data := ossLog.MutableLog().MutableItemFlow()
 				data.OperationType = private_protocol_log.OSSItemFlow_EN_OSS_ITEM_FLOW_OPERATION_TYPE_ADD
 				data.OperationCount = addedItem.GetItemBasic().GetCount()
 				data.ItemId = addedItem.GetItemBasic().GetTypeId()
@@ -125,8 +125,8 @@ func (u *User) SubItem(ctx cd.RpcContext, itemOffset []*ItemSubGuard, reason *It
 			result = subResult
 		}
 		for _, itemGuard := range group.data {
-			ossLog.Detail = nil
-			data := ossLog.MutableItemFlow()
+			ossLog.MutableLog().Log = nil
+			data := ossLog.MutableLog().MutableItemFlow()
 			data.OperationType = private_protocol_log.OSSItemFlow_EN_OSS_ITEM_FLOW_OPERATION_TYPE_SUB
 			data.OperationCount = itemGuard.Item.GetCount()
 			data.ItemId = itemGuard.Item.GetTypeId()
