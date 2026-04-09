@@ -29,7 +29,8 @@ type OperationSupportSystem struct {
 	ossLogWriter *log.LogBufferedRotatingWriter
 	monLogWriter *log.LogBufferedRotatingWriter
 
-	startTimestamp uint64
+	startTimestamp    uint64
+	lastTickTimestamp uint64
 }
 
 func init() {
@@ -58,6 +59,7 @@ func (m *OperationSupportSystem) Ready() {
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_START
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
+	flow.ResourceVersion = config.GetConfigManager().GetCurrentConfigGroup().GetResourceVersion()
 	m.sendMonLog(&log)
 }
 
@@ -67,6 +69,7 @@ func (m *OperationSupportSystem) Reload() error {
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_RELOAD
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
+	flow.ResourceVersion = config.GetConfigManager().GetCurrentConfigGroup().GetResourceVersion()
 	m.sendMonLog(&log)
 	return nil
 }
@@ -77,10 +80,28 @@ func (m *OperationSupportSystem) Stop() (bool, error) {
 	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_STOP
 	flow.StartTimestamp = m.startTimestamp
 	flow.ServerVersion = m.GetApp().GetAppVersion()
+	flow.ResourceVersion = config.GetConfigManager().GetCurrentConfigGroup().GetResourceVersion()
 	m.sendMonLog(&log)
 	m.monLogWriter.Flush()
 	m.ossLogWriter.Flush()
 	return true, nil
+}
+
+func (m *OperationSupportSystem) Tick(parent context.Context) bool {
+	now := logical_time.GetSysNow().Unix()
+	if now < int64(m.lastTickTimestamp)+60 {
+		return false
+	}
+	m.lastTickTimestamp = uint64(now)
+
+	log := private_protocol_log.MonitorLog{}
+	flow := log.MutableServerOperationFlow()
+	flow.OperationType = private_protocol_log.MONServerOperationFlow_EN_SERVER_OPERATION_TYPE_KEEP_ALIVE
+	flow.StartTimestamp = m.startTimestamp
+	flow.ServerVersion = m.GetApp().GetAppVersion()
+	flow.ResourceVersion = config.GetConfigManager().GetCurrentConfigGroup().GetResourceVersion()
+	m.sendMonLog(&log)
+	return true
 }
 
 //////////////////////////////////////////////////////////////////////////////////

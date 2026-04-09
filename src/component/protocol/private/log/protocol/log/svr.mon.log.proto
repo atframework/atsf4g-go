@@ -35,4 +35,5 @@ message MONServerOperationFlow {
   EnServerOperationType operation_type = 1;
   uint64 start_timestamp = 2;
   string server_version = 3;
+  string resource_version = 4;
 }

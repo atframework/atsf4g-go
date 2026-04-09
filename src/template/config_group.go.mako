@@ -26,6 +26,7 @@ type ConfigGroup struct {
 	ExcelResourceDir string
 	sectionConfig 	 *private_protocol_config.Readonly_LogicSectionCfg
 	serverConfig     interface{}
+	resourceVersion  string
 
 % for pb_msg in pb_set.generate_message:
 	% for loader in pb_msg.loaders:
@@ -63,6 +64,20 @@ func (configGroup *ConfigGroup) GetServerConfig() interface{} {
 		return nil
 	}
 	return configGroup.serverConfig
+}
+
+func (configGroup *ConfigGroup) SetResourceVersion(version string) {
+	if configGroup == nil {
+		return
+	}
+	configGroup.resourceVersion = version
+}
+
+func (configGroup *ConfigGroup) GetResourceVersion() string {
+	if configGroup == nil {
+		return ""
+	}
+	return configGroup.resourceVersion
 }
 
 type ServerConfigureLoadFuncType = func(originConfigData interface{}, callback ConfigCallback) (interface{}, error)
