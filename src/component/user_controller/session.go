@@ -106,7 +106,7 @@ func (s *Session) Close(ctx cd.RpcContext, _ int32, reasonMessage string) {
 		writer, _ := log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.key.SessionId),
 			"", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
-			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 64)
 		if writer != nil {
 			s.FlushPendingActorLog(writer)
 		}
@@ -187,7 +187,7 @@ func (s *Session) BindUser(ctx cd.RpcContext, bindUser UserImpl) {
 			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), bindUser.GetZoneId(),
 				bindUser.GetUserId()), config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
-			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 0)
+			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 64)
 		s.FlushPendingActorLog(s.actorLogWriter)
 		outputLog := fmt.Sprintf("%s >>>>>>>>>>>>>>>>>>>> Bind Session: %d", ctx.GetSysNow().Format("2006-01-02 15:04:05.000"), s.GetSessionId())
 		ctx.LogDebug(outputLog)
