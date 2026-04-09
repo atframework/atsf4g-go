@@ -1,5 +1,5 @@
 {{- define "atapp.logic.yaml" -}}
-{{- $bus_addr := .Values.bus_addr | default "${ATAPP_INSTANCE_ID}" -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 # =========== logic configure ===========
 logic:
   world_id: {{ .Values.world_id }} # world_id

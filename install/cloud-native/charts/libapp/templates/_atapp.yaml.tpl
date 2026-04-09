@@ -1,5 +1,5 @@
 {{- define "atapp.yaml" -}}
-{{- $bus_addr := .Values.bus_addr | default "${ATAPP_INSTANCE_ID}" -}}
+{{- $bus_addr := include "libapp.busAddr" . -}}
 atapp:
   # =========== bus configure ===========
   id: {{ $bus_addr }}

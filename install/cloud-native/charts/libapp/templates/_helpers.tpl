@@ -171,15 +171,6 @@ If .Values.bus_addr is set, use it directly
   {{- if .Values.bus_addr -}}
     {{- .Values.bus_addr -}}
   {{- else -}}
-    {{- $worldID := .Values.world_id | default 1 | toString -}}
-    {{- $zoneID := .Values.zone_id | default 1 | toString -}}
-    {{- $isWorldInstance := .Values.world_instance | default false -}}
-    {{- $typeID := .Values.type_id | default 65 | toString -}}
-    {{- $insID := "1" -}}
-    {{- $zoneIDPart := $zoneID -}}
-    {{- if $isWorldInstance -}}
-      {{- $zoneIDPart = "0" -}}
-    {{- end -}}
-    {{- printf "%s.%s.%s.%s" $worldID $zoneIDPart $typeID $insID -}}
+    ${ATAPP_INSTANCE_ID}
   {{- end -}}
 {{- end }}
