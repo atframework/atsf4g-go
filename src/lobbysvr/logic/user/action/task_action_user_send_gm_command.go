@@ -131,7 +131,7 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "unlock-all-modules", "", "unlock all modules", (*TaskActionUserSendGmCommand).runGMCmdUnlockAllModules)
 	registerGmCommandHandle(callbacks, "unlock-module", "<module_id>", "unlock special module", (*TaskActionUserSendGmCommand).runGMCmdUnlockModule)
 	registerGmCommandHandle(callbacks, "query-module-status", "<module_id>", "query special module", (*TaskActionUserSendGmCommand).runGMCmdQueryModuleStatus)
-	registerGmCommandHandle(callbacks, "del-account", "", "delete account", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
+	registerGmCommandHandle(callbacks, "del-account", "", "delete account [user_id]", (*TaskActionUserSendGmCommand).runGMCmdDelAccount)
 	registerGmCommandHandle(callbacks, "copy-account", "<new_account_id>", "copy account", (*TaskActionUserSendGmCommand).runGMCmdCopyAccount)
 	registerGmCommandHandle(callbacks, "enable-random-delay", "", "Enable random delay", (*TaskActionUserSendGmCommand).runGMCmdEnableRandomDelay)
 	registerGmCommandHandle(callbacks, "disable-random-delay", "", "Disable random delay", (*TaskActionUserSendGmCommand).runGMCmdDisableRandomDelay)
@@ -676,10 +676,15 @@ func (t *TaskActionUserSendGmCommand) runGMCmdQuestForceFinish(ctx component_dis
 
 func (t *TaskActionUserSendGmCommand) runGMCmdDelAccount(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	component_dispatcher.AsyncThen(ctx, "del account", user.GetActorExecutor(), ctx.GetAction(), func(childCtx cd.AwaitableContext) {
-		libatapp.AtappGetModule[*uc.UserManager](childCtx.GetApp()).Remove(childCtx, user.GetZoneId(), user.GetUserId(), user, true)
-		db.DatabaseTableAccessDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())
-		db.DatabaseTableLoginLockDelWithUserId(childCtx, user.GetUserId())
-		db.DatabaseTableUserDelWithZoneIdUserId(childCtx, user.GetZoneId(), user.GetUserId())
+		userId := user.GetUserId()
+		if len(args) >= 1 {
+			userId, _ = strconv.ParseUint(args[0], 10, 64)
+		}
+		if userId == user.GetUserId() {
+			libatapp.AtappGetModule[*uc.UserManager](childCtx.GetApp()).Remove(childCtx, user.GetZoneId(), userId, user, true)
+		}
+		db.DatabaseTableLoginLockDelWithUserId(childCtx, userId)
+		db.DatabaseTableUserDelWithZoneIdUserId(childCtx, user.GetZoneId(), userId)
 	})
 	return []string{""}, nil
 }
