@@ -12,6 +12,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component/config"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
@@ -152,6 +154,16 @@ func (t *TaskManager) StartTaskAction(ctx RpcContext, action TaskActionImpl, sta
 		}
 
 		action.OnComplete()
+
+		if action.GetResponseCode() != 0 {
+			log := private_protocol_log.MonitorLog{}
+			taskFlow := log.MutableLog().MutableTaskFlow()
+			taskFlow.TaskName = action.Name()
+			taskFlow.TaskId = action.GetTaskId()
+			taskFlow.Duration = uint64(action.GetNow().Sub(action.GetTaskStartTime()).Milliseconds())
+			taskFlow.ResultCode = action.GetResponseCode()
+			operation_support_system.SendMonLog(action.GetRpcContext().GetApp(), &log)
+		}
 
 		action.OnSendResponse()
 

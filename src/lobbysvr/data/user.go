@@ -367,6 +367,10 @@ func (u *User) CreateInit(ctx cd.RpcContext, versionType uint32) {
 			u.createInitItemOneByOne(ctx, itemInsts)
 		}
 	}
+
+	log := private_protocol_log.OperationSupportSystemLog{}
+	log.MutableLog().MutableUserRegisterFlow()
+	u.SendUserOssLog(ctx, &log)
 }
 
 func (u *User) LoginInit(ctx cd.RpcContext) {
@@ -398,7 +402,7 @@ func (u *User) OnLogin(ctx cd.RpcContext) {
 
 	{
 		log := private_protocol_log.OperationSupportSystemLog{}
-		log.MutableLog().MutableLoginFlow()
+		log.MutableLog().MutableLoginFlow().DeviceInfo = u.GetClientInfo()
 		u.SendUserOssLog(ctx, &log)
 	}
 	u.isLogin = true

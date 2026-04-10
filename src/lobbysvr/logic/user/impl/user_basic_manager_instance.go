@@ -8,6 +8,7 @@ import (
 
 	private_protocol_common "github.com/atframework/atsf4g-go/component/protocol/private/common/protocol/common"
 	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
@@ -328,6 +329,12 @@ func (m *UserBasicManager) AddUserExp(ctx cd.RpcContext, v int64) data.Result {
 			unlockMgr.OnUserUnlockRangeDataChange(ctx, public_protocol_common.DFunctionUnlockCondition_EnConditionTypeID_PlayerLevel,
 				int64(oldLevel), int64(m.GetUserLevel()))
 		}
+
+		log := private_protocol_log.OperationSupportSystemLog{}
+		levelChange := log.MutableLog().MutableUserLevelChangeFlow()
+		levelChange.AfterLevel = int32(m.GetUserLevel())
+		levelChange.BeforeLevel = int32(oldLevel)
+		m.GetOwner().SendUserOssLog(ctx, &log)
 	}
 
 	if hasDirty {
