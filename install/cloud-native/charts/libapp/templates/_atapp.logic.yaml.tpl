@@ -10,7 +10,7 @@ logic:
   excel:
     enable: true
     bindir: "../../resource/excel"
-  user:
+  session:
     enable_actor_log: {{ .Values.enable_actor_log }}
   operation_support_system:
     oss_cfg:
