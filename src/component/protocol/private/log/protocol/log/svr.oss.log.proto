@@ -9,6 +9,7 @@ option cc_enable_arenas = true;
 option go_package = "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log";
 
 import "protocol/common/com.struct.item.common.proto";
+import "protocol/pbdesc/com.struct.proto";
 
 package proy;
 
@@ -35,6 +36,8 @@ message OperationSupportSystemLogDetail {
     OSSLoginFlow login_flow = 13;
     OSSLogoutFlow logout_flow = 14;
     OSSOnlineFlow online_flow = 15;
+    OSSUserRegisterFlow user_register_flow = 16;
+    OSSUserLevelChangeFlow user_level_change_flow = 17;
   }
 }
 
@@ -66,6 +69,7 @@ message OSSLoginServerBeginFlow {
 
 message OSSLoginFlow {
   // 登录成功
+  DClientDeviceInfo device_info = 1;
 }
 
 message OSSLogoutFlow {
@@ -74,4 +78,14 @@ message OSSLogoutFlow {
 
 message OSSOnlineFlow {
   int32 online_count = 1;
+}
+
+message OSSUserRegisterFlow {
+  // 用户注册
+}
+
+message OSSUserLevelChangeFlow {
+  // 用户等级变化
+  int32 before_level = 1;
+  int32 after_level = 2;
 }
