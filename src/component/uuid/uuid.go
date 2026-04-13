@@ -140,7 +140,7 @@ func GenerateGlobalUniqueID(ctx cd.AwaitableContext,
 			pool.index = 0
 		}
 
-		uuid = (pool.base << bitsOff) | pool.index
+		uuid = ((pool.base << bitsOff) | pool.index) + 1000000
 		pool.index++
 		pool.mu.Unlock()
 		break
