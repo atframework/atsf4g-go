@@ -32,6 +32,21 @@ atapp:
       scaling_down_queue_size: 8
       leak_scan_interval: 600s
 
+router:
+  cache_update_interval: 1800s
+  cache_free_timeout: 600s
+  cache_retry_interval: 256ms
+  object_free_timeout: 600s
+  object_save_interval: 60s
+  object_retry_interval: 256ms
+  default_timer_interval: 30s
+  fast_timer_interval: 10s
+  retry_max_ttl: 3
+  pending_action_batch_count: 200
+  pending_action_max_count: 2000
+  closing_action_batch_count: 500
+  transfer_max_ttl: 128
+
 # 远程服务器配置自动更新间隔
 remote_configure_update_interval: 5m
 

@@ -40,4 +40,8 @@ logic:
     record_prefix: {{ .Values.redis.record_prefix }}
     random_prefix: {{ .Values.redis.random_prefix }}
 {{- end -}} {{- /* end if */}}
+{{- if and .Values.router }}
+  router:
+    {{- toYaml .Values.router | nindent 4 }}
+{{- end -}} {{- /* end if */}}
 {{- end }}
