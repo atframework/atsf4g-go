@@ -236,7 +236,7 @@ func (obj *RouterObjectBase) GetLastSaveTime() int64 {
 }
 
 func (obj *RouterObjectBase) UnsetFlag(flag FlagType) {
-	obj.flags.Add(^int32(flag))
+	obj.flags.And(^int32(flag))
 }
 
 func (obj *RouterObjectBase) SetFlag(flag FlagType) {
