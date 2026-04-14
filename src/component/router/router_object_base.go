@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"log/slog"
 	"runtime"
+	"sync/atomic"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	config "github.com/atframework/atsf4g-go/component/config"
@@ -41,7 +42,7 @@ type RouterObjectBase struct {
 	impl RouterObjectImpl // 实现对象接口
 
 	key   RouterObjectKey // 对象的键
-	flags int32           // 标志位
+	flags atomic.Int32    // 标志位
 
 	actorExecutor *cd.ActorExecutor // Actor执行器 操作对象需要检查Actor
 
@@ -235,15 +236,15 @@ func (obj *RouterObjectBase) GetLastSaveTime() int64 {
 }
 
 func (obj *RouterObjectBase) UnsetFlag(flag FlagType) {
-	obj.flags &= ^int32(flag)
+	obj.flags.Add(^int32(flag))
 }
 
 func (obj *RouterObjectBase) SetFlag(flag FlagType) {
-	obj.flags |= int32(flag)
+	obj.flags.Or(int32(flag))
 }
 
 func (obj *RouterObjectBase) CheckFlag(flag FlagType) bool {
-	return (obj.flags & int32(flag)) == int32(flag)
+	return (obj.flags.Load() & int32(flag)) == int32(flag)
 }
 
 func (obj *RouterObjectBase) IsWritable() bool {
