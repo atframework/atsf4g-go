@@ -184,8 +184,7 @@ func (s *Session) BindUser(ctx cd.RpcContext, bindUser UserImpl) {
 	if config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetEnableActorLog() {
 		s.actorLogWriter, _ = log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/%d-%d.%%N.log",
 			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), bindUser.GetZoneId(), bindUser.GetUserId()),
-			fmt.Sprintf("%s/%%F/%d-%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), bindUser.GetZoneId(),
-				bindUser.GetUserId()), config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
+			"", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
 			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
 			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 64)
 		s.FlushPendingActorLog(s.actorLogWriter)
