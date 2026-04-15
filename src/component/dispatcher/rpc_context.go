@@ -129,17 +129,25 @@ func (ctx *RpcContextImpl) LogWithLevelContextWithCaller(pc uintptr, c context.C
 
 	if ctx != nil {
 		if ctx.taskAction != nil {
-			args = append(args, slog.Uint64("task_id", ctx.taskAction.GetTaskId()), slog.String("task_name", ctx.taskAction.Name()))
 			attr := ctx.taskAction.GetActorExecutor().LogAttr()
+			externArgs := make([]any, 0, len(attr)+2)
+			externArgs = append(externArgs,
+				slog.Uint64("task_id", ctx.taskAction.GetTaskId()),
+				slog.String("task_name", ctx.taskAction.Name()),
+			)
 			for _, a := range attr {
-				args = append(args, a)
+				externArgs = append(externArgs, a)
 			}
+			logger.LogInner(ctx.GetSysNow(), pc, c, level, msg, externArgs, args)
 		} else if ctx.dispatcher != nil {
-			args = append(args, slog.String("dispatcher", ctx.dispatcher.Name()))
+			logger.LogInner(ctx.GetSysNow(), pc, c, level, msg, []any{
+				slog.String("dispatcher", ctx.dispatcher.Name()),
+			}, args)
+		} else {
+			logger.LogInner(ctx.GetSysNow(), pc, c, level, msg, args)
 		}
-		logger.LogInner(ctx.GetSysNow(), pc, c, level, msg, args...)
 	} else {
-		logger.LogInner(logical_time.GetSysNow(), pc, c, level, msg, args...)
+		logger.LogInner(logical_time.GetSysNow(), pc, c, level, msg, args)
 	}
 }
 

@@ -369,7 +369,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 		if !lu.IsNil(ctx) {
 			ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 		} else {
-			log.LogInner(logical_time.GetSysNow(), slog.Default(), pc, c, level, msg, args...)
+			log.LogInner(logical_time.GetSysNow(), slog.Default(), pc, c, level, msg, args)
 		}
 		return
 	}
@@ -384,7 +384,7 @@ func (der *RpcResult) LogWithLevelContextWithCaller(pc uintptr, c context.Contex
 	if !lu.IsNil(ctx) {
 		ctx.LogWithLevelContextWithCaller(pc, c, level, msg, args...)
 	} else {
-		log.LogInner(logical_time.GetSysNow(), slog.Default(), pc, c, level, msg, args...)
+		log.LogInner(logical_time.GetSysNow(), slog.Default(), pc, c, level, msg, args)
 	}
 }
 
