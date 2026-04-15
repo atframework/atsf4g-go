@@ -136,7 +136,7 @@ func (m *UserBasicManager) insertDirtyHandle() {
 						dirtyLevelUpRewards.ReasonType = &public_protocol_common.DItemAutoReward_UserLevelUp{
 							UserLevelUp: m.GetUserLevel(),
 						}
-						dirtyData.MutableAutoRewards().AppendRewards(dirtyLevelUpRewards)
+						dirtyData.MutableAutoRewards().AppendAndReverseRewards(len(rewardItems), dirtyLevelUpRewards)
 					}
 
 					if itemInst.GetItemBasic() != nil {

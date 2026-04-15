@@ -419,14 +419,14 @@ func (m *UserMallManager) insertDirtyHandle() {
 			for id := range m.dirtyMallProduct {
 				v, ok := m.productData[id]
 				if ok && v != nil {
-					dirtyData.MutableDirtyMall().AppendProductData(v.GetProductData())
+					dirtyData.MutableDirtyMall().AppendAndReverseProductData(len(m.dirtyMallProduct), v.GetProductData())
 					ret = true
 				}
 			}
 			for id := range m.dirtyMall {
 				v, ok := m.mallData[id]
 				if ok && v != nil {
-					dirtyData.MutableDirtyMall().AppendMallData(&public_protocol_pbdesc.DMallData{
+					dirtyData.MutableDirtyMall().AppendAndReverseMallData(len(m.dirtyMall), &public_protocol_pbdesc.DMallData{
 						MallType:    id,
 						PurchaseSum: v.purchaseSum,
 					})
@@ -436,7 +436,7 @@ func (m *UserMallManager) insertDirtyHandle() {
 			for _, id := range m.dirtyRandomSheet {
 				v, ok := m.randomSheetData[id]
 				if ok && v != nil {
-					dirtyData.MutableDirtyMall().AppendRandomSheetData(&public_protocol_pbdesc.DUserMallRandomSheetData{
+					dirtyData.MutableDirtyMall().AppendAndReverseRandomSheetData(len(m.dirtyRandomSheet), &public_protocol_pbdesc.DUserMallRandomSheetData{
 						MallSheetId:  id,
 						Products:     v.GetProduct(),
 						RefreshCount: v.RefreshCount,

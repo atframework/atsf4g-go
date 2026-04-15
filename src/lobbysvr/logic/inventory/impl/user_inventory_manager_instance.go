@@ -388,7 +388,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 				group := m.getItemGroup(typeId)
 				if group == nil {
 					for guid := range guidSet {
-						dirtyData.MutableRemoveItemKeys().AppendItemKeys(&lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
+						dirtyData.MutableRemoveItemKeys().AppendAndReverseItemKeys(len(guidSet), &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
 							TypeId: typeId,
 							Guid:   guid,
 						})
@@ -399,7 +399,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 				for guid := range guidSet {
 					itemInstance := group.GetGroup(guid)
 					if itemInstance == nil {
-						dirtyData.MutableRemoveItemKeys().AppendItemKeys(&lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
+						dirtyData.MutableRemoveItemKeys().AppendAndReverseItemKeys(len(guidSet), &lobbysvr_protocol_pbdesc.SCUserDirtyChgSync_RemoveItemKey{
 							TypeId: typeId,
 							Guid:   guid,
 						})
@@ -407,7 +407,7 @@ func (m *UserInventoryManager) markItemDirty(typeId int32, guid int64) {
 						continue
 					}
 
-					dirtyData.MutableDirtyItems().AppendItem(itemInstance.Clone())
+					dirtyData.MutableDirtyItems().AppendAndReverseItem(len(guidSet), itemInstance.Clone())
 					ret = true
 				}
 			}
