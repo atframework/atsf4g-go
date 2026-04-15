@@ -72,7 +72,8 @@ type UserLazyEvalationData struct {
 }
 
 type User struct {
-	uc.UserCache
+	_ noCopy
+	*uc.UserCache
 
 	loginTaskLock                 sync.Mutex
 	loginTaskId                   uint64

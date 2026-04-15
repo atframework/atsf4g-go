@@ -121,6 +121,7 @@ func (u *UserDirtyWrapper[T]) SetDirty(version uint64) {
 }
 
 type UserCache struct {
+	_    noCopy
 	Impl UserImpl
 
 	zoneId uint32
@@ -150,24 +151,23 @@ type UserCache struct {
 	runningCsTask            map[uint64]struct{}
 }
 
-func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache UserCache) {
+func CreateUserCache(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) (cache *UserCache) {
 	// 由路由系统创建可能没有OpenId
-	cache = UserCache{
+	cache = &UserCache{
 		zoneId:        zoneId,
 		userId:        userId,
 		openId:        openId,
 		runningCsTask: make(map[uint64]struct{}),
 	}
 	cache.actorExecutor = actorExecutor
-	cache.actorExecutor.Instance = &cache
-	cache.Impl = &cache
+	cache.actorExecutor.Instance = cache
+	cache.Impl = cache
 	cache.Init()
 	return
 }
 
 func CreateUserImpl(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string, actorExecutor *cd.ActorExecutor) UserImpl {
-	cache := CreateUserCache(ctx, zoneId, userId, openId, actorExecutor)
-	return &cache
+	return CreateUserCache(ctx, zoneId, userId, openId, actorExecutor)
 }
 
 func (u *UserCache) Init() {

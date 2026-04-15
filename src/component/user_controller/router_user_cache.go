@@ -20,16 +20,6 @@ type UserRouterCache struct {
 	obj UserImpl
 }
 
-func CreateUserRouterCache(ctx cd.RpcContext, key router.RouterObjectKey) *UserRouterCache {
-	// 这个时候openid无效，后面需要再init一次
-	ret := &UserRouterCache{
-		RouterObjectBase: router.CreateRouterObjectBase(ctx, key),
-	}
-	cache := CreateUserCache(ctx, key.ZoneID, key.ObjectID, "", ret.GetActorExecutor())
-	ret.obj = &cache
-	return ret
-}
-
 type UserRouterPrivateData struct {
 	loginLockTb     *private_protocol_pbdesc.DatabaseTableLoginLock
 	loginCASVersion uint64
