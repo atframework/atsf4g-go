@@ -159,7 +159,6 @@ func (m *OperationSupportSystem) sendOssLog(ossLog *private_protocol_log.Operati
 	b, _ := protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true, UseProtoNames: true}.MarshalAppend(
 		lu.StringtoBytes(entry.prefix), ossLog)
 	m.ossLogWriter.Write(b)
-	m.ossLogWriter.Flush()
 }
 
 func (m *OperationSupportSystem) sendMonLog(monLog *private_protocol_log.MonitorLog) {
@@ -183,5 +182,4 @@ func (m *OperationSupportSystem) sendMonLog(monLog *private_protocol_log.Monitor
 	b, _ := protojson.MarshalOptions{Multiline: false, UseEnumNumbers: true, UseProtoNames: true}.MarshalAppend(
 		lu.StringtoBytes(entry.prefix), monLog)
 	m.monLogWriter.Write(b)
-	m.monLogWriter.Flush()
 }
