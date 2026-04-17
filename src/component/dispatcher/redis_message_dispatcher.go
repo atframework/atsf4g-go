@@ -159,14 +159,15 @@ func (d *RedisMessageDispatcher) Init(initCtx context.Context) error {
 		return fmt.Errorf("create redis cluster client failed")
 	}
 
-	sha, err := d.redisInstance.ScriptLoad(initCtx, CASLuaScript).Result()
+	newCtx, _ := context.WithTimeout(initCtx, time.Duration(3)*time.Second)
+	sha, err := d.redisInstance.ScriptLoad(newCtx, CASLuaScript).Result()
 	if err != nil {
 		d.GetLogger().LogError("register CAS lua script failed", "err", err)
 		return err
 	}
 	d.casLuaSHA = sha
 	d.GetLogger().LogInfo("CAS lua script registered", "sha", sha)
-	sha, err = d.redisInstance.ScriptLoad(initCtx, ListAddLuaScript).Result()
+	sha, err = d.redisInstance.ScriptLoad(newCtx, ListAddLuaScript).Result()
 	if err != nil {
 		d.GetLogger().LogError("register list add CAS lua script failed", "err", err)
 		return err

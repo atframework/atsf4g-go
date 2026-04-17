@@ -55,10 +55,6 @@ func main() {
 	userManager := uc.CreateUserManager(app)
 	atapp.AtappAddModule(app, userManager)
 
-	// CS消息WebSocket分发器
-	csDispatcher := uc_d.WebsocketDispatcherCreateCSMessage(app, "lobbysvr.webserver", "lobbysvr.websocket")
-	atapp.AtappAddModule(app, csDispatcher)
-
 	redisDispatcher := cd.CreateRedisMessageDispatcher(app)
 	atapp.AtappAddModule(app, redisDispatcher)
 
@@ -70,6 +66,10 @@ func main() {
 
 	globalMailManager := logic_global_mail.CreateGlobalMailManager(app)
 	atapp.AtappAddModule(app, globalMailManager)
+
+	// CS消息WebSocket分发器 放在最后，确保其他模块都已注册完成
+	csDispatcher := uc_d.WebsocketDispatcherCreateCSMessage(app, "lobbysvr.webserver", "lobbysvr.websocket")
+	atapp.AtappAddModule(app, csDispatcher)
 
 	if err := lobbysvr_app.RegisterLobbyClientService(csDispatcher, uc_d.WebsocketDispatcherFindSessionFromMessage); err != nil {
 		println("RegisterLobbyClientService fail: %s", err.Error())
