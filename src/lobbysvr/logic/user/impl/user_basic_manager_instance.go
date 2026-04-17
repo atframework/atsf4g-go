@@ -2,6 +2,7 @@ package lobbysvr_logic_user_impl
 
 import (
 	"fmt"
+	"strings"
 	"unicode/utf8"
 
 	"google.golang.org/protobuf/proto"
@@ -459,6 +460,11 @@ func (m *UserBasicManager) UpdateUserClientOptions(ctx cd.RpcContext, opts *publ
 func (m *UserBasicManager) Rename(ctx cd.AwaitableContext, newName string, expectCostItems []*public_protocol_common.DItemBasic) data.Result {
 	if newName == m.GetOwner().GetAccountInfo().GetProfile().GetNickName() || newName == "" {
 		return cd.CreateRpcResultOk()
+	}
+
+	// 检查是否包含制表符或空格
+	if strings.ContainsAny(newName, " \t") {
+		return cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
 	// 检查长度合法
