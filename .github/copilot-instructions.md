@@ -17,6 +17,7 @@
 ### 子组件文档
 
 - libatapp-go：`/atframework/libatapp-go/.github/copilot-instructions.md`
+- libatbus-go：`/atframework/libatbus-go/.github/copilot-instructions.md`
 
 ## Repo 关键规则（高优先级）
 

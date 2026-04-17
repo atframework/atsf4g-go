@@ -51,6 +51,23 @@
       "group": "none"
     },
     {
+      "label": "Build-robot-only-bin RACE",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "build",
+        "-race",
+        "-o",
+        "../../build/install/robot/bin/robotd${if:os==windows}.exe${end}",
+        "."
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/src/robot"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
       "label": "Build-fast-build",
       "type": "shell",
       "command": "task fast-build",

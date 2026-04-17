@@ -9,8 +9,6 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 )
 
-type noCopy struct{}
-
 type SessionManager struct {
 	libatapp.AppModuleBase
 

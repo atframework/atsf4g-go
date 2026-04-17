@@ -16,8 +16,10 @@ import (
 
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
+	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
 	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
 	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
+	logic_open_platform "github.com/atframework/atsf4g-go/service-lobbysvr/logic/open_platform"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
 )
@@ -39,6 +41,18 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 
 	request_body := t.GetRequestBody()
 	response_body := t.MutableResponseBody()
+
+	// 等待开放平台的任务完成
+	{
+		opmgr := data.UserGetModuleManager[logic_open_platform.UserOpenPlatformManager](user)
+		if opmgr != nil {
+			rpcResult := opmgr.AwaitIoTask(t.GetAwaitableContext())
+			if rpcResult.IsError() {
+				t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_OPENAPI_CALL_FAIL))
+				return rpcResult.GetStandardError()
+			}
+		}
+	}
 
 	if request_body.GetNeedUserInfo() {
 		response_body.UserProfile = user.GetAccountInfo().GetProfile()
@@ -111,5 +125,13 @@ func (t *TaskActionUserGetInfo) Run(_startData *component_dispatcher.DispatcherS
 		response_body.UserMall = mallMgr.FetchData()
 	}
 
+	if request_body.GetNeedMailRedPoint() {
+		mailMgr := data.UserGetModuleManager[logic_mail.UserMailManager](user)
+		if mailMgr == nil {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+			return fmt.Errorf("user mail manager not found")
+		}
+		response_body.MailRedPoint = mailMgr.GetMailRedPoint()
+	}
 	return nil
 }

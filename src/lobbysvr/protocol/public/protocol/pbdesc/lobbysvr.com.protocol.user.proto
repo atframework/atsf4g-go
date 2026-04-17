@@ -80,6 +80,9 @@ message CSAccessUpdateReq {
   uint64 user_id = 2;     // 玩家数字ID
   string old_access = 3;  // 老密码
   string new_access = 4;
+
+  DAccountData account = 5;             // 平台信息
+  DClientAuthAccessData auth_data = 6;  // 认证数据
 }
 
 message SCAccessUpdateRsp {}
@@ -163,6 +166,7 @@ message CSUserGetInfoReq {
   bool need_user_quest = 11;          // 标记为true 回包才有会有任务
   bool need_user_module_unlock = 12;  // 标记为true 回包才有会有模块解锁数据
   bool need_user_mall = 14;           // 标记为true 回包才有会有商城数据
+  bool need_mail_red_point = 20;           // 标记为true 回包才有会有邮件红点数据
 
   bool need_user_condition_counter = 201;  // 标记为true 回包才有会有条件计数器数据
 }
@@ -175,6 +179,7 @@ message SCUserGetInfoRsp {
   DUserQuestsData user_quest = 11;                    // 玩家任务信息
   DUserModuleUnlockData user_module_unlock = 12;      // 玩家模块解锁数据
   DUserMallData user_mall = 15;                       // 玩家商城数据
+  bool mail_red_point = 22;                           // 玩家邮件红点数据
 
   // 道具化通用下发
   message NormalizeItemData {

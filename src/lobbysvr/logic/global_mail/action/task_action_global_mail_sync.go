@@ -64,10 +64,8 @@ func (t *TaskActionGlobalMailSyncObjects) Run(_startData *cd.DispatcherStartData
 
 	// 拉取邮件记录
 	// zone_id = 0 表示全服邮件，local_zone_id 表示本区邮件
-	// zoneIds := []uint32{0, localZoneId}
-	// majorTypes := atframework_component_config.GetAllGlobalMailMajorTypesCurrent()
-	zoneIds := []uint32{1001}
-	majorTypes := []int32{2}
+	zoneIds := []uint32{0, localZoneId}
+	majorTypes := atframework_component_config.GetAllGlobalMailMajorTypesCurrent()
 	for _, zoneId := range zoneIds {
 		for _, majorType := range majorTypes {
 			dbData, retResult := db.DatabaseTableGlobalMailLoadWithZoneIdMajorType(ctx, zoneId, majorType)

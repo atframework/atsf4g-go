@@ -8,12 +8,12 @@ import (
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 
 	config "github.com/atframework/atsf4g-go/component/config"
+	logic_time "github.com/atframework/atsf4g-go/component/logical_time"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-
-	logic_time "github.com/atframework/atsf4g-go/component/logical_time"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
 	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
@@ -901,6 +901,8 @@ func (m *UserQuestManager) addQuest(ctx cd.RpcContext, questCfg *public_protocol
 	questData.ExpiredTime = m.GetQuestExpiredTime(ctx, questCfg)
 	m.quests.ProgressingQuests[questID] = &questData
 
+	m.ossQuestLog(ctx, &questData)
+
 	if isFinsh {
 		m.finishQuest(ctx, questID, true)
 		return
@@ -1090,10 +1092,7 @@ func (m *UserQuestManager) finishQuest(ctx cd.RpcContext, questID int32, noProgr
 		ctx.LogDebug("quest finish with no progress",
 			"quest_id", questID)
 	}
-	// 	ctx.LogError("try to finish quest but quest data not found in ProgressingQuests",
-	// 		 "quest_id", questID)
-	// 	return
-	// }
+
 	delete(m.quests.ProgressingQuests, questID)
 	questData.CompletedTime = ctx.GetNow().Unix()
 	questData.Status = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE
@@ -1101,6 +1100,8 @@ func (m *UserQuestManager) finishQuest(ctx cd.RpcContext, questID int32, noProgr
 
 	// 任务状态已完成
 	m.existQuestIDs[questID] = public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE
+
+	m.ossQuestLog(ctx, questData)
 
 	m.questDataLog(ctx, questData, int(public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_PROCESSING),
 		int(public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE))
@@ -1161,7 +1162,8 @@ func (m *UserQuestManager) ReceivedQuestReward(ctx cd.RpcContext, questID int32,
 	// 检查任务状态
 	if m.existQuestIDs[questID] != public_protocol_common.EnQuestStatus_EN_QUEST_STATUS_COMPLETE {
 		ctx.LogError("try to receive quest reward but quest not completed",
-			"quest_id", questID)
+			"quest_id", questID,
+			"now_status", m.existQuestIDs[questID])
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
@@ -1169,7 +1171,8 @@ func (m *UserQuestManager) ReceivedQuestReward(ctx cd.RpcContext, questID int32,
 	if !ok || questData == nil {
 		// 不存在完成任务数据 如果走到这里说明逻辑有问题
 		ctx.LogError("try to receive quest reward but completed quest data not found",
-			"quest_id", questID)
+			"quest_id", questID,
+			"now_status", m.existQuestIDs[questID])
 		return nil, cd.CreateRpcResultError(nil, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
@@ -1241,6 +1244,8 @@ func (m *UserQuestManager) ReceivedQuestReward(ctx cd.RpcContext, questID int32,
 	for _, itemInst := range addGuards {
 		rewards = append(rewards, itemInst.Item.GetItemBasic())
 	}
+
+	m.ossQuestLog(ctx, questData)
 
 	m.addDirtyQuestData(ctx, questData)
 
@@ -1383,24 +1388,6 @@ func (m *UserQuestManager) GetQuestResetTime(ctx cd.RpcContext, questCfg *public
 	}
 	return resetTimepoint
 }
-
-// func (m *UserQuestManager) deleteExpriedDeletequestCache(ctx cd.RpcContext) {
-// 	now := ctx.GetNow().Unix()
-
-// 	deleteCacheKeepSeconds := config.GetConfigManager().GetCurrentConfigGroup().GetCustomIndex().GetConstIndex().GetDeleteQuestCacheTime().GetSeconds()
-// 	if deleteCacheKeepSeconds <= logic_quest.DeleteCacheKeepSeconds {
-// 		deleteCacheKeepSeconds = logic_quest.DeleteCacheKeepSeconds
-// 	}
-
-// 	for questID, deleteCache := range m.quests.MutableDeleteCache() {
-// 		if now-deleteCache.GetDeleteTimepoint() > logic_quest.DeleteCacheKeepSeconds {
-// 			delete(m.quests.MutableDeleteCache(), questID)
-// 			ctx.LogDebug("delete expired quest delete cache",
-// 				"quest_id", questID,
-// 			)
-// 		}
-// 	}
-// }
 
 func (m *UserQuestManager) deleteQuestByStatusInner(ctx cd.RpcContext, quest_id int32, status public_protocol_common.EnQuestStatus) {
 	switch status {
@@ -1585,4 +1572,21 @@ func (m *UserQuestManager) GMForceFinishQuest(ctx cd.RpcContext, questID int32) 
 
 	m.finishQuest(ctx, questID, true)
 	return cd.CreateRpcResultOk()
+}
+
+func (m *UserQuestManager) ossQuestLog(ctx cd.RpcContext, questData *public_protocol_pbdesc.DQuestData) {
+	user := m.GetOwner()
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userQuestLog := ossLog.MutableLog().MutableQuestFlow()
+	userQuestLog.QuestId = questData.GetQuestId()
+	userQuestLog.QuestStatus = int32(questData.GetStatus())
+	for _, progress := range questData.GetProgress() {
+		progressData := userQuestLog.AddProgressList()
+		progressData.Id = int64(progress.GetUniqueId())
+		progressData.Value = int64(progress.GetValue())
+	}
+
+	user.SendUserOssLog(ctx, ossLog)
 }

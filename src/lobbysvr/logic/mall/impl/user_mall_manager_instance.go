@@ -500,7 +500,7 @@ func (m *UserMallManager) RefreshMallRandomSheet(ctx cd.RpcContext, mallSheetId 
 
 	// 扣除消耗道具
 	result = m.GetOwner().SubItem(ctx, subGuards, &data.ItemFlowReason{
-		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_MAIL),
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_MALL),
 		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_MALL_REFRESH_COST),
 		Parameter:   0,
 	})

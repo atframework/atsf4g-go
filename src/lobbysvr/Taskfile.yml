@@ -89,7 +89,7 @@ tasks:
           PROTOC_EXEC_BIN: "{{.PROTOC_EXEC_BIN}}"
           PROJECT_RESOURCE_TARGET_PBDESC_PATH: "{{.PROJECT_RESOURCE_TARGET_PBDESC_PATH}}"
           PYTHON_BIN_PATH: "{{.PYTHON_BIN_PATH}}"
-      - task: mock_code_gen
+      # - task: mock_code_gen
       - task: inn-tools:tidy-dir
         vars:
           TIDY_DIR: "{{.PROJECT_ROOT}}/src/lobbysvr"

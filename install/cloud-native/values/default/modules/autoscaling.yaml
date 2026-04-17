@@ -6,7 +6,7 @@ maxReplicas: 5
 targetCPUUtilizationPercentage: 80
 targetMemoryUtilizationPercentage: 80
 scaleUp:
-  selectPolicy: Max
+  selectPolicy: Disabled
   stabilizationWindowSeconds: 60
   policies:
     - type: Percent

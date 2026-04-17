@@ -24,8 +24,6 @@ import (
 	lobbysvr_client_rpc "github.com/atframework/atsf4g-go/service-lobbysvr/rpc/lobbyclientservice"
 )
 
-type noCopy struct{}
-
 type Result = cd.RpcResult
 
 type userItemManagerWrapper struct {
@@ -58,7 +56,9 @@ const (
 	UserLazyEvalationPriority_Default UserLazyEvalationPriority = 1
 
 	// 统计类的优先级较低
-	UserLazyEvalationPriority_Statistic UserLazyEvalationPriority = 299999
+	UserLazyEvalationPriority_StatisticCharacter UserLazyEvalationPriority = 299999
+	UserLazyEvalationPriority_StatisticTeam      UserLazyEvalationPriority = 300000
+	UserLazyEvalationPriority_Statistic          UserLazyEvalationPriority = 300001
 
 	// 任务的放最后，因为可能很多模块的数值计算会触发任务变化
 	UserLazyEvalationPriority_Quest UserLazyEvalationPriority = 999999
@@ -72,7 +72,7 @@ type UserLazyEvalationData struct {
 }
 
 type User struct {
-	_ noCopy
+	_ lu.NoCopy
 	*uc.UserCache
 
 	loginTaskLock                 sync.Mutex
@@ -395,6 +395,10 @@ func (u *User) OnLogin(ctx cd.RpcContext) {
 	if u.isLogin {
 		return
 	}
+
+	// 是否新玩家判定必须在UserCache.OnLogin前才有效
+	isNewUser := u.IsNewUser()
+
 	u.UserCache.OnLogin(ctx)
 
 	for _, mgr := range u.moduleManagerMap {
@@ -404,6 +408,8 @@ func (u *User) OnLogin(ctx cd.RpcContext) {
 	{
 		log := private_protocol_log.OperationSupportSystemLog{}
 		log.MutableLog().MutableLoginFlow().DeviceInfo = u.GetClientInfo()
+		log.MutableLog().MutableLoginFlow().IsNewUser = isNewUser
+		log.MutableLog().MutableLoginFlow().UserName = u.GetAccountInfo().GetProfile().GetNickName()
 		u.SendUserOssLog(ctx, &log)
 	}
 	u.isLogin = true
@@ -422,7 +428,10 @@ func (u *User) OnLogout(ctx cd.RpcContext) {
 
 	{
 		log := private_protocol_log.OperationSupportSystemLog{}
-		log.MutableLog().MutableLogoutFlow()
+		ossBody := log.MutableLog().MutableLogoutFlow()
+		ossBody.LoginTime = u.GetUserLogin().GetBusinessLoginTime()
+		ossBody.LogoutTime = u.GetLastLogoutTime()
+		ossBody.OnlineDuration = u.GetLastLogoutDuration()
 		u.SendUserOssLog(ctx, &log)
 	}
 	u.isLogin = false

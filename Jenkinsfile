@@ -331,18 +331,22 @@ pipeline {
                         echo "=========================================="
                     """
                     
-                    // 安装项目依赖(多模块结构)
-                    echo "Installing project dependencies..."
-                    sh """${setupBuildEnv()}
-                        
-                        # 项目是多模块结构,需要遍历所有 go.mod 目录
-                        echo "Finding all Go modules..."
-                        find . -name go.mod -not -path "*/vendor/*" -not -path "*/.tools/*" -exec dirname {} \\; | sort -u | while IFS= read -r dir; do
-                            echo "Running go mod download in \$dir"
-                            (cd "\$dir" && go mod download) || true
-                        done
-                        echo "✓ Go modules download completed"
-                    """
+                    // 安装项目依赖(多模块结构) - 仅全量构建时显式下载，普通构建由 go build 按需下载
+                    if (params.FULL_BUILD) {
+                        echo "Installing project dependencies (full build)..."
+                        sh """${setupBuildEnv()}
+                            
+                            # 项目是多模块结构,需要遍历所有 go.mod 目录
+                            echo "Finding all Go modules..."
+                            find . -name go.mod -not -path "*/vendor/*" -not -path "*/.tools/*" -exec dirname {} \\; | sort -u | while IFS= read -r dir; do
+                                echo "Running go mod download in \$dir"
+                                (cd "\$dir" && go mod download) || true
+                            done
+                            echo "✓ Go modules download completed"
+                        """
+                    } else {
+                        echo "Skipping go mod download (incremental build, go build will download on demand)"
+                    }
                 }
             }
         }

@@ -13,7 +13,7 @@ replace github.com/atframework/atframe-utils-go => ../../atframework/atframe-uti
 replace github.com/atframework/libatapp-go => ../../atframework/libatapp-go
 
 require (
-	github.com/atframework/atframe-utils-go v1.0.3
+	github.com/atframework/atframe-utils-go v1.0.5-0.20260416024202-66c04636f055
 	github.com/atframework/atsf4g-go/component v0.0.0-00010101000000-000000000000
 	github.com/atframework/libatapp-go v1.0.1
 	github.com/google/uuid v1.6.0

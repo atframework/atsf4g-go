@@ -3,13 +3,12 @@ package lobbysvr_data
 import (
 	"slices"
 
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	cc "github.com/atframework/atsf4g-go/component/config"
+	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	ppc "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	ppcfg "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
 	ppp "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-
-	cc "github.com/atframework/atsf4g-go/component/config"
-
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 )
 
 type ItemFlowReason struct {
@@ -167,7 +166,7 @@ func RegisterUserItemManagerCreator(typeIdRanges []UserItemTypeIdRange, creator 
 }
 
 type UserItemManagerBase struct {
-	_ noCopy
+	_ lu.NoCopy
 
 	owner *User
 

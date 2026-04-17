@@ -11,7 +11,7 @@ replace github.com/atframework/atframe-utils-go => ../../atframework/atframe-uti
 replace github.com/atframework/libatapp-go => ../../atframework/libatapp-go
 
 require (
-	github.com/atframework/atframe-utils-go v1.0.3
+	github.com/atframework/atframe-utils-go v1.0.5-0.20260416024202-66c04636f055
 	github.com/atframework/libatapp-go v1.0.1
 	github.com/ebitengine/purego v0.10.0
 	github.com/gorilla/websocket v1.5.3

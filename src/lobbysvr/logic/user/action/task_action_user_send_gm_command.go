@@ -29,9 +29,11 @@ import (
 	libatapp "github.com/atframework/libatapp-go"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
+	config "github.com/atframework/atsf4g-go/component/config"
 
 	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
 	mail_component "github.com/atframework/atsf4g-go/component/mail"
+	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
 	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
 	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
 	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
@@ -137,10 +139,14 @@ func buildCommandCallbacks() map[string]*gmCommandHandle {
 	registerGmCommandHandle(callbacks, "disable-random-delay", "", "Disable random delay", (*TaskActionUserSendGmCommand).runGMCmdDisableRandomDelay)
 	registerGmCommandHandle(callbacks, "send-user-mail", "", "Send user mail", (*TaskActionUserSendGmCommand).runGMCmdSendUserMail)
 	registerGmCommandHandle(callbacks, "send-global-mail", "", "Send global mail", (*TaskActionUserSendGmCommand).runGMCmdSendGlobalMail)
+	registerGmCommandHandle(callbacks, "send-user-mail-custom", "<major_type> <title> <content> <user_id> [delivery_time_unix=<unix>] [expired_time_unix=<unix>] [items=typeId1,count1;typeId2,count2;...]", "Send user mail with custom title/content/attachments", (*TaskActionUserSendGmCommand).runGMCmdSendUserMailCustom)
+	registerGmCommandHandle(callbacks, "send-global-mail-custom", "<major_type> <title> <content>  [delivery_time_unix=<unix>] [expired_time_unix=<unix>] [items=typeId1,count1;typeId2,count2;...]", "Send global mail with custom title/content/attachments", (*TaskActionUserSendGmCommand).runGMCmdSendGlobalMailCustom)
 	registerGmCommandHandle(callbacks, "delete-user-mail", "", "Delete user mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteUserMail)
 	registerGmCommandHandle(callbacks, "delete-global-mail", "", "Delete global mail", (*TaskActionUserSendGmCommand).runGMCmdDeleteGlobalMail)
+	registerGmCommandHandle(callbacks, "mail-test-extension", "", "Send user mail", (*TaskActionUserSendGmCommand).runGMCmdMailTestExtension)
 	registerGmCommandHandle(callbacks, "generate-account-password", "[openid...]", "Generate password", (*TaskActionUserSendGmCommand).runGMCmdGeneratePassword)
 	registerGmCommandHandle(callbacks, "wait-ms", "<milliseconds>", "Wait for specified milliseconds", (*TaskActionUserSendGmCommand).runGMCmdWaitMs)
+	registerGmCommandHandle(callbacks, "run-excel-test", "<time>", "Run excel test", (*TaskActionUserSendGmCommand).runGMCmdRunExcelTest)
 	return callbacks
 }
 
@@ -732,17 +738,22 @@ func (t *TaskActionUserSendGmCommand) runGMCmdDisableRandomDelay(ctx component_d
 }
 
 func (t *TaskActionUserSendGmCommand) runGMCmdSendUserMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
-	if len(args) < 1 {
-		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
+	if len(args) < 2 {
+		return nil, fmt.Errorf("invalid arguments for send-user-mail <mail template id> command")
 	}
 
 	mailTemplateId, err := strconv.ParseInt(args[0], 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+		return nil, fmt.Errorf("invalid mail template id: %w", err)
+	}
+
+	userId, err := strconv.ParseUint(args[1], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user_id: %w", err)
 	}
 	sender := public_protocol_pbdesc.DMailUserInfo{}
 	receiver := public_protocol_pbdesc.DMailUserInfo{}
-	receiver.MutableProfile().UserId = user.GetUserId()
+	receiver.MutableProfile().UserId = userId
 	receiver.MutableProfile().ZoneId = user.GetZoneId()
 	result, mailResult := mail_component.AddUserMailWithTemplate(ctx, int32(mailTemplateId), &sender, &receiver,
 		user.GetZoneId(), int32(public_protocol_pbdesc.EnMailChannelType_EN_MAIL_CHANNEL_GM), 0, nil,
@@ -751,6 +762,30 @@ func (t *TaskActionUserSendGmCommand) runGMCmdSendUserMail(ctx component_dispatc
 			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM),
 			Parameter:   0,
 		}, nil, 0, 0)
+	if result.IsError() || mailResult == nil {
+		return nil, fmt.Errorf("send user mail failed: %v", result.Error)
+	}
+
+	return []string{fmt.Sprintf("Send user mail success, mail_id=%d", mailResult.MailId)}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdMailTestExtension(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	mailTemplateId := 1006
+	sender := public_protocol_pbdesc.DMailUserInfo{}
+	receiver := public_protocol_pbdesc.DMailUserInfo{}
+	receiver.MutableProfile().UserId = user.GetUserId()
+	receiver.MutableProfile().ZoneId = user.GetZoneId()
+	extensions := make(map[string]string)
+	extensions["0"] = "test_value_0"
+	extensions["1"] = "test_value_1"
+
+	result, mailResult := mail_component.AddUserMailWithTemplate(ctx, int32(mailTemplateId), &sender, &receiver,
+		user.GetZoneId(), int32(public_protocol_pbdesc.EnMailChannelType_EN_MAIL_CHANNEL_GM), 0, nil,
+		&public_protocol_pbdesc.DMailFlowReason{
+			MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_GM),
+			MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM),
+			Parameter:   0,
+		}, extensions, 0, 0)
 	if result.IsError() {
 		return nil, fmt.Errorf("send user mail failed: %v", result.Error)
 	}
@@ -760,12 +795,12 @@ func (t *TaskActionUserSendGmCommand) runGMCmdSendUserMail(ctx component_dispatc
 
 func (t *TaskActionUserSendGmCommand) runGMCmdSendGlobalMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
 	if len(args) < 1 {
-		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
+		return nil, fmt.Errorf("invalid arguments for send-global-mail <mail template id> command")
 	}
 
 	mailTemplateId, err := strconv.ParseInt(args[0], 10, 32)
 	if err != nil {
-		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+		return nil, fmt.Errorf("invalid mail template id: %w", err)
 	}
 	// sender := public_protocol_pbdesc.DMailUserInfo{}
 	result := mail_component.AddGlobalMailWithTemplate(ctx, int32(mailTemplateId), nil,
@@ -784,11 +819,29 @@ func (t *TaskActionUserSendGmCommand) runGMCmdSendGlobalMail(ctx component_dispa
 }
 
 func (t *TaskActionUserSendGmCommand) runGMCmdDeleteUserMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
-	if len(args) < 2 {
+	if len(args) < 1 {
 		return nil, fmt.Errorf("invalid arguments for send-user-mail <title> <content> command")
 	}
 
-	return []string{""}, nil
+	mail_id, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid phaseId id: %w", err)
+	}
+
+	mgr := data.UserGetModuleManager[logic_mail.UserMailManager](user)
+	if mgr == nil {
+		return nil, fmt.Errorf("user mail manager not found")
+	}
+
+	out := public_protocol_pbdesc.DMailOperationResult{}
+
+	mgr.RemoveMail(ctx, mail_id, &out)
+
+	if out.GetResult() != 0 {
+		return nil, fmt.Errorf("delete user mail failed: %d", out.GetResult())
+	}
+
+	return []string{fmt.Sprintf("delete user mail ret =%d", out.GetResult())}, nil
 }
 
 func (t *TaskActionUserSendGmCommand) runGMCmdDeleteGlobalMail(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
@@ -814,19 +867,215 @@ func (t *TaskActionUserSendGmCommand) runGMCmdDeleteGlobalMail(ctx component_dis
 	return []string{""}, nil
 }
 
+// parseKVOptionalArgs 解析 key=value 形式的可选参数列表
+func parseKVOptionalArgs(args []string) map[string]string {
+	result := make(map[string]string, len(args))
+	for _, arg := range args {
+		parts := strings.SplitN(arg, "=", 2)
+		if len(parts) == 2 {
+			result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	return result
+}
+
+// parseMailCustomItems 解析附件参数，格式: typeId1,count1;typeId2,count2;...
+func parseMailCustomItems(itemsStr string) ([]*public_protocol_common.DItemOffset, error) {
+	if itemsStr == "" {
+		return nil, nil
+	}
+	pairs := strings.Split(itemsStr, ";")
+	result := make([]*public_protocol_common.DItemOffset, 0, len(pairs))
+	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		parts := strings.SplitN(pair, ",", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid item format %q, expected typeId,count", pair)
+		}
+		typeId, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid item typeId %q: %w", parts[0], err)
+		}
+		count, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid item count %q: %w", parts[1], err)
+		}
+		result = append(result, &public_protocol_common.DItemOffset{
+			TypeId: int32(typeId),
+			Count:  count,
+		})
+	}
+	return result, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdSendUserMailCustom(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 4 {
+		return nil, fmt.Errorf("invalid arguments: send-user-mail-custom <major_type> <title> <content> <user_id> [delivery_time_unix=<unix>] [expired_time_unix=<unix>] [items=typeId1,count1;typeId2,count2;...]")
+	}
+
+	majorType, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid major_type: %w", err)
+	}
+	title := args[1]
+	content := args[2]
+	userId, err := strconv.ParseUint(args[3], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user_id: %w", err)
+	}
+
+	kv := parseKVOptionalArgs(args[4:])
+
+	var deliveryTime, expiredTime int64
+	if v, ok := kv["delivery_time_unix"]; ok && v != "" && v != "0" {
+		deliveryTime, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid delivery_time_unix: %w", err)
+		}
+	}
+	if v, ok := kv["expired_time_unix"]; ok && v != "" && v != "0" {
+		expiredTime, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid expired_time_unix: %w", err)
+		}
+	}
+
+	var items []*public_protocol_common.DItemOffset
+	if v, ok := kv["items"]; ok && v != "" {
+		items, err = parseMailCustomItems(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid items: %w", err)
+		}
+	}
+
+	if deliveryTime == 0 {
+		deliveryTime = ctx.GetNow().Unix()
+	}
+
+	mail := &public_protocol_pbdesc.DMailContent{
+		MajorType:    int32(majorType),
+		Title:        title,
+		Content:      content,
+		DeliveryTime: deliveryTime,
+		ExpiredTime:  expiredTime + deliveryTime,
+	}
+	for i, item := range items {
+		cfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelItemByItemId(item.TypeId)
+		if cfg == nil {
+			return nil, fmt.Errorf("invalid item typeId %d", item.TypeId)
+		}
+		mail.AttachmentsOffset = append(mail.AttachmentsOffset, &public_protocol_pbdesc.DMailItemOffset{
+			Index: int32(i),
+			Item:  item,
+		})
+	}
+
+	reason := &public_protocol_pbdesc.DMailFlowReason{
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_GM),
+		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM),
+	}
+	result, mailResult := mail_component.AddUserMail(ctx, userId, user.GetZoneId(), mail,
+		int32(public_protocol_pbdesc.EnMailChannelType_EN_MAIL_CHANNEL_GM), 0, reason)
+	if result.IsError() || mailResult == nil {
+		return nil, fmt.Errorf("send user mail custom failed: %v", result.Error)
+	}
+
+	return []string{fmt.Sprintf("send user mail custom success, mail_id=%d", mailResult.MailId)}, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdSendGlobalMailCustom(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("invalid arguments: send-global-mail-custom <major_type> <title> <content> [delivery_time_unix=<unix>] [expired_time_unix=<unix>] [items=typeId1,count1;typeId2,count2;...]")
+	}
+
+	majorType, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid major_type: %w", err)
+	}
+	title := args[1]
+	content := args[2]
+
+	kv := parseKVOptionalArgs(args[3:])
+
+	var deliveryTime, expiredTime int64
+	if v, ok := kv["delivery_time_unix"]; ok && v != "" && v != "0" {
+		deliveryTime, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid delivery_time_unix: %w", err)
+		}
+	}
+	if v, ok := kv["expired_time_unix"]; ok && v != "" && v != "0" {
+		expiredTime, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid expired_time_unix: %w", err)
+		}
+	}
+
+	var items []*public_protocol_common.DItemOffset
+	if v, ok := kv["items"]; ok && v != "" {
+		items, err = parseMailCustomItems(v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid items: %w", err)
+		}
+	}
+
+	if deliveryTime == 0 {
+		deliveryTime = ctx.GetNow().Unix()
+	}
+
+	mail := &public_protocol_pbdesc.DMailContent{
+		MajorType:    int32(majorType),
+		Title:        title,
+		Content:      content,
+		DeliveryTime: deliveryTime,
+		ExpiredTime:  expiredTime + deliveryTime,
+	}
+	for i, item := range items {
+		cfg := config.GetConfigManager().GetCurrentConfigGroup().GetExcelItemByItemId(item.TypeId)
+		if cfg == nil {
+			return nil, fmt.Errorf("invalid item typeId %d", item.TypeId)
+		}
+
+		mail.AttachmentsOffset = append(mail.AttachmentsOffset, &public_protocol_pbdesc.DMailItemOffset{
+			Index: int32(i),
+			Item:  item,
+		})
+	}
+
+	reason := &public_protocol_pbdesc.DMailFlowReason{
+		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_GM),
+		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_GM_ADD_ITEM),
+	}
+	result := mail_component.AddGlobalMail(ctx, mail, user.GetZoneId(),
+		int32(public_protocol_pbdesc.EnMailChannelType_EN_MAIL_CHANNEL_GM), 0, reason)
+	if result.IsError() {
+		return nil, fmt.Errorf("send global mail custom failed: %v", result.Error)
+	}
+
+	return []string{"send global mail custom success"}, nil
+}
+
 func (t *TaskActionUserSendGmCommand) runGMCmdGeneratePassword(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
-	if len(args) < 2 {
+	if len(args) < 1 {
 		return nil, fmt.Errorf("invalid arguments for generate-account-password [openid...]")
 	}
 
 	ret := []string{}
 	zoneId := user.GetZoneId()
+	processed := make(map[string]struct{})
 
 	for i := 0; i < len(args); i++ {
 		openid := strings.TrimSpace(args[i])
 		if openid == "" {
 			continue
 		}
+		if _, ok := processed[openid]; ok {
+			continue
+		}
+		processed[openid] = struct{}{}
 
 		userId, err := strconv.ParseUint(openid, 10, 64)
 		if err != nil {
@@ -852,17 +1101,22 @@ func (t *TaskActionUserSendGmCommand) runGMCmdGeneratePassword(ctx component_dis
 			break
 		}
 
-		authTable, result := db.DatabaseTableAccessLoadWithZoneIdUserId(ctx, zoneId, userId)
+		authTable, result := db.DatabaseTableAccessLoadWithOpenId(ctx, openid)
 		if result.IsError() && result.GetResponseCode() != int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
 			result.LogError(ctx, "generate account password but load DB failed", "index", i, "open_id", openid)
 			break
 		}
 
-		authTable.ZoneId = zoneId
-		authTable.UserId = userId
+		if authTable == nil {
+			authTable = &private_protocol_pbdesc.DatabaseTableAccess{
+				OpenId: openid,
+				ZoneId: zoneId,
+				UserId: userId,
+			}
+		}
 		authTable.AccessSecret = pwdStore
 
-		result = db.DatabaseTableAccessUpdateZoneIdUserId(ctx, authTable)
+		result = db.DatabaseTableAccessUpdateOpenId(ctx, authTable)
 		if result.IsError() {
 			result.LogError(ctx, "generate account password but save DB failed", "index", i, "open_id", openid)
 			break
@@ -885,5 +1139,27 @@ func (t *TaskActionUserSendGmCommand) runGMCmdWaitMs(ctx component_dispatcher.Aw
 	}
 
 	cd.Wait(ctx, time.Duration(ms)*time.Millisecond)
+	return nil, nil
+}
+
+func (t *TaskActionUserSendGmCommand) runGMCmdRunExcelTest(ctx component_dispatcher.AwaitableContext, user *data.User, args []string) ([]string, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("invalid arguments")
+	}
+	// 测试读Excel配置
+	testTime, err := strconv.ParseInt(args[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid test time: %w", err)
+	}
+
+	for range testTime {
+		configGroup := config.GetConfigManager().GetCurrentConfigGroup()
+		if configGroup == nil {
+			return nil, fmt.Errorf("config group not found")
+		}
+		_ = configGroup.GetExcelUserLevelByLevel(1)
+		_ = configGroup.GetExcelUserInitializeItemsByIndex(1)
+		_ = configGroup.GetExcelMallProductByMallSheetId(9010000)
+	}
 	return nil, nil
 }

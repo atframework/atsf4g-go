@@ -6,7 +6,7 @@
 envOverride: ""
 partition: ""
 
-id_mask: 8.8.8.8
+id_mask: 24.12.12.16
 
 atapp:
   deployment:

@@ -4,7 +4,6 @@
 
 proc_name: lobbysvrd
 
-type_id: 65
 type_name: "lobbysvr"
 
 image:
@@ -38,6 +37,8 @@ vector:
         opensearch:
           dataset: log
           namespace: crash
+        kafka:
+          logstore: project-y-cn-shanghai-crash.json
     - name: normal
       include_pattern: "*.normal.all.*.log"
       ignore_older_secs: 600
@@ -113,9 +114,6 @@ vector:
           namespace: "type-{{ log_type }}"
         kafka:
           logstore: project-y-cn-shanghai-oss-{{ log_type }}.json
-  image:
-    repository: harbor.m-oa.com:6023/vector/vector:latest
-    pullPolicy: Always
 
 persistence:
   cbs:

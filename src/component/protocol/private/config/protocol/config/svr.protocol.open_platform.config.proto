@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+// option optimize_for = LITE_RUNTIME;
+// option optimize_for = CODE_SIZE;
+// --cpp_out=lite:,--cpp_out=
+option cc_enable_arenas = true;
+
+option go_package = "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config";
+
+package proy.config;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+import "atframe/atapp_conf.proto";
+
+message open_platform_channel_none_cfg {}
+
+message open_platform_channel_taptap_cfg {
+  string client_id = 1 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "" }];
+  string host = 2 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "open.tapapis.cn" }];
+  int32 port = 3 [(atframework.atapp.protocol.CONFIGURE) = { default_value: "443" }];
+}
+
+message open_platform_channels_cfg {
+  open_platform_channel_none_cfg none = 1;
+  open_platform_channel_taptap_cfg taptap = 2;
+}
+
+message open_platform_manager_cfg {
+  open_platform_channels_cfg channel = 1;
+}

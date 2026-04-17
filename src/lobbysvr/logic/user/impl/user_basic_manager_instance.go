@@ -546,6 +546,12 @@ func (m *UserBasicManager) Rename(ctx cd.AwaitableContext, newName string, expec
 			m.GetOwner().GetZoneId(),
 			m.GetOwner().GetAccountInfo().GetProfile().GetNickName())
 	}
+	{
+		log := private_protocol_log.OperationSupportSystemLog{}
+		log.MutableLog().MutableRenameFlow().BeforeName = m.GetOwner().GetAccountInfo().GetProfile().GetNickName()
+		log.MutableLog().MutableRenameFlow().AfterName = newName
+		m.GetOwner().SendUserOssLog(ctx, &log)
+	}
 	// 改名字
 	m.GetOwner().GetAccountInfo().MutableProfile().NickName = newName
 	m.MarkUserProfileDirty()

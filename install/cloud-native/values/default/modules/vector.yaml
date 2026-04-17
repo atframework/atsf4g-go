@@ -7,3 +7,6 @@ sliks:
     enable: false
   kafka:
     enable: false
+image:
+  repository: timberio/vector:nightly-debian
+  pullPolicy: Always

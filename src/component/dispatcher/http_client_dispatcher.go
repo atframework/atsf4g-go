@@ -25,9 +25,10 @@ type httpQueryWithDispatcherContext struct {
 	originRequest  *http.Request
 	originResponse *http.Response
 
-	method string
-	url    string
-	body   io.Reader
+	method       string
+	url          string
+	requestBody  io.Reader
+	responseBody []byte
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -59,6 +60,14 @@ func (q *httpQueryWithDispatcherContext) GetHttpResponse() *http.Response {
 	return q.originResponse
 }
 
+func (q *httpQueryWithDispatcherContext) GetHttpResponseBody() []byte {
+	if q == nil {
+		return nil
+	}
+
+	return q.responseBody
+}
+
 func (q *httpQueryWithDispatcherContext) Cancel() bool {
 	if q == nil {
 		return false
@@ -79,12 +88,14 @@ type HttpClientDispatcher struct {
 
 	initialized atomic.Bool
 
-	mu                  sync.Mutex
 	clientConfigurePath string
+	clientConfigure     *private_protocol_config.Readonly_HttpClientCfg
+	clientConfigureMu   sync.RWMutex
 
-	clientConfig    *private_protocol_config.Readonly_HttpClientCfg
-	client          *http.Client
-	runningRequests map[uint64]*HttpQuery
+	client *http.Client
+
+	runningRequestMu sync.Mutex
+	runningRequests  map[uint64]*HttpQuery
 }
 
 func CreateHttpClientDispatcher(owner libatapp.AppImpl, clientConfigurePath string) *HttpClientDispatcher {
@@ -124,16 +135,18 @@ func (d *HttpClientDispatcher) Reload() error {
 		return err
 	}
 
-	clientConfig := &private_protocol_config.HttpClientCfg{}
+	clientConfigure := &private_protocol_config.HttpClientCfg{}
 
-	loadErr := d.GetApp().LoadConfigByPath(clientConfig, d.clientConfigurePath,
+	loadErr := d.GetApp().LoadConfigByPath(clientConfigure, d.clientConfigurePath,
 		strings.ToUpper(strings.ReplaceAll(d.clientConfigurePath, ".", "_")), nil, "")
 	if loadErr != nil {
 		d.GetLogger().LogError("Failed to load client config", "error", loadErr)
 		return loadErr
 	}
 
-	d.clientConfig = clientConfig.ToReadonly()
+	d.clientConfigureMu.Lock()
+	d.clientConfigure = clientConfigure.ToReadonly()
+	d.clientConfigureMu.Unlock()
 	return nil
 }
 
@@ -144,12 +157,12 @@ func (d *HttpClientDispatcher) Cleanup() {
 
 	if d.client != nil {
 		// No explicit cleanup needed for http.Client
-		d.mu.Lock()
+		d.runningRequestMu.Lock()
 
 		runningRequests := d.runningRequests
 		d.runningRequests = make(map[uint64]*HttpQuery)
 
-		d.mu.Unlock()
+		d.runningRequestMu.Unlock()
 
 		for _, query := range runningRequests {
 			query.Cancel()
@@ -164,7 +177,10 @@ func (d *HttpClientDispatcher) CreateDispatcherAwaitOptions() *DispatcherAwaitOp
 		return nil
 	}
 
-	timeout := d.clientConfig.GetTimeout().AsDuration()
+	d.clientConfigureMu.RLock()
+	timeout := d.clientConfigure.GetTimeout().AsDuration()
+	d.clientConfigureMu.RUnlock()
+
 	if timeout.Milliseconds() <= 1 {
 		timeout = time.Second * 15
 	}
@@ -176,17 +192,18 @@ func (d *HttpClientDispatcher) CreateDispatcherAwaitOptions() *DispatcherAwaitOp
 	}
 }
 
-func (d *HttpClientDispatcher) insertRequestAndStart(query *HttpQuery, awaitOption *DispatcherAwaitOptions) RpcResult {
+func (d *HttpClientDispatcher) insertRequestAndStart(ctx RpcContext, query *HttpQuery, awaitOption *DispatcherAwaitOptions) RpcResult {
 	if d == nil || query == nil || awaitOption == nil {
 		return CreateRpcResultError(fmt.Errorf("invalid parameter"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	d.mu.Lock()
-
+	d.runningRequestMu.Lock()
 	if d.client == nil {
+		d.clientConfigureMu.RLock()
 		d.client = &http.Client{
-			Timeout: d.clientConfig.GetTimeout().AsDuration(),
+			Timeout: d.clientConfigure.GetTimeout().AsDuration(),
 		}
+		d.clientConfigureMu.RUnlock()
 	}
 
 	if d.runningRequests == nil {
@@ -197,18 +214,51 @@ func (d *HttpClientDispatcher) insertRequestAndStart(query *HttpQuery, awaitOpti
 
 	client := d.client
 	app := d.GetApp()
-	d.mu.Unlock()
+	d.runningRequestMu.Unlock()
 
 	err := app.PushAction(func(action *libatapp.AppActionData) error {
 		var err error
 		query.originResponse, err = client.Do(query.originRequest)
-		if err != nil {
+		if err != nil || query.originResponse == nil {
 			d.GetLogger().LogError("HTTP request failed", "error", err, "method", query.method, "url", query.url)
+			return err
 		}
+
+		if query.originResponse.Body != nil {
+			query.responseBody, err = io.ReadAll(query.originResponse.Body)
+			query.originResponse.Body.Close()
+		}
+
+		resumeData := &DispatcherResumeData{
+			Message: &DispatcherRawMessage{
+				Type: awaitOption.Type,
+			},
+			Sequence:    awaitOption.Sequence,
+			PrivateData: nil,
+		}
+
+		if err != nil {
+			d.GetLogger().LogError("Failed to read HTTP response body", "error", err, "method", query.method, "url", query.url)
+			resumeData.Result = CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_OPENAPI_CALL_FAIL)
+		} else {
+			resumeData.Result = CreateRpcResultOk()
+		}
+
+		ResumeTaskAction(ctx, ctx.GetAction(), resumeData)
 		return err
 	}, nil, query)
 	if err != nil {
 		d.GetLogger().LogError("Failed to push HTTP request action", "error", err)
+
+		resumeData := &DispatcherResumeData{
+			Message: &DispatcherRawMessage{
+				Type: awaitOption.Type,
+			},
+			Sequence:    awaitOption.Sequence,
+			Result:      CreateRpcResultError(err, public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM_BUSY),
+			PrivateData: nil,
+		}
+		ResumeTaskAction(ctx, ctx.GetAction(), resumeData)
 		return CreateRpcResultError(fmt.Errorf("failed to start HTTP request"), public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
 	}
 
@@ -220,12 +270,12 @@ func (d *HttpClientDispatcher) removeRequestAndCleanup(query *HttpQuery, awaitOp
 		return CreateRpcResultError(fmt.Errorf("invalid parameter"), public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
 	}
 
-	d.mu.Lock()
+	d.runningRequestMu.Lock()
 
 	delete(d.runningRequests, awaitOption.Sequence)
 	query.Cancel()
 
-	d.mu.Unlock()
+	d.runningRequestMu.Unlock()
 
 	return CreateRpcResultOk()
 }
@@ -247,7 +297,7 @@ func (d *HttpClientDispatcher) CreateQuery(ctx AwaitableContext, method string, 
 		originResponse: nil,
 		method:         req.Method,
 		url:            req.URL.String(),
-		body:           body,
+		requestBody:    body,
 		ctx:            newCtx,
 		cancel:         cancelFn,
 	}, nil
@@ -276,16 +326,26 @@ func (d *HttpClientDispatcher) StartQuery(ctx AwaitableContext, query *HttpQuery
 
 	resumeData, retResult := YieldTaskAction(ctx, currentAction, awaitOption, &YieldTaskHookSet{
 		PreYield: func(ctx RpcContext) RpcResult {
-			return d.insertRequestAndStart(query, awaitOption)
+			ctx.LogDebug("Start http query", "url", query.url)
+			return d.insertRequestAndStart(ctx, query, awaitOption)
 		},
 		PostYield: func(ctx RpcContext, resume *DispatcherResumeData, result RpcResult) RpcResult {
+			statusCode := 0
+			if query.originResponse != nil {
+				statusCode = query.originResponse.StatusCode
+			}
+			if query.responseBody != nil {
+				ctx.LogDebug("Finish http query", "url", query.url, "status", statusCode, "response_body", string(query.responseBody))
+			} else {
+				ctx.LogDebug("Finish http query", "url", query.url, "status", statusCode)
+			}
 			return d.removeRequestAndCleanup(query, awaitOption)
 		},
 	})
 	if retResult.IsError() {
 		return retResult
 	}
-	if resumeData.Result.IsError() {
+	if resumeData != nil && resumeData.Result.IsError() {
 		retResult = resumeData.Result
 	}
 

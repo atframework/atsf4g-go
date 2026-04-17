@@ -5,8 +5,8 @@ package lobbysvr_logic_user_action
 import (
 	"fmt"
 	"log/slog"
-	"strconv"
 
+	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
 	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
 	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
@@ -23,6 +23,8 @@ import (
 	router "github.com/atframework/atsf4g-go/component/router"
 	uc "github.com/atframework/atsf4g-go/component/user_controller"
 	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+
+	logic_open_platform "github.com/atframework/atsf4g-go/service-lobbysvr/logic/open_platform"
 )
 
 type TaskActionLogin struct {
@@ -40,24 +42,93 @@ func (t *TaskActionLogin) AllowNoActor() bool {
 }
 
 func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
+	csSession := t.GetSession()
+	if csSession == nil {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
+		t.GetRpcContext().LogError("session is required")
+		return nil
+	}
+
 	t.GetRpcContext().LogInfo("TaskActionLogin Run",
-		slog.Uint64("session_id", t.GetSession().GetSessionId()),
+		slog.Uint64("session_id", csSession.GetSessionId()),
 	)
 
 	request_body := t.GetRequestBody()
 
-	userId := request_body.GetUserId()
-	if userId == 0 {
-		userIdFromOpenId, err := strconv.ParseUint(request_body.GetOpenId(), 10, 64)
-		if err != nil {
-			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
-			t.GetRpcContext().LogWarn("invalid openid id", "open_id", request_body.GetOpenId(), "error", err)
-			return nil
+	if request_body.GetOpenId() == "" {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_INVALID_PARAM)
+		t.GetRpcContext().LogWarn("open_id is empty")
+		csSession.SetUnflushActorLogName("NO_OPENID")
+		return nil
+	}
+	csSession.SetUnflushActorLogName(request_body.GetOpenId())
+
+	// 登入鉴权
+	authTable, rpcResult := db.DatabaseTableAccessLoadWithOpenId(t.GetAwaitableContext(), request_body.GetOpenId())
+	if rpcResult.IsError() {
+		if rpcResult.GetResponseCode() == int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_DB_RECORD_NOT_FOUND) {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OPENID_NOT_FOUND)
+		} else {
+			t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
 		}
-		userId = userIdFromOpenId
+		t.GetRpcContext().LogWarn("load table access error",
+			"open_id", request_body.GetOpenId(), "zone_id", request_body.GetZoneId(),
+			"user_id", request_body.GetUserId(), "req", request_body.GetLoginCode())
+		return nil
 	}
 
-	zoneId := config.GetConfigManager().GetLogicId()
+	if authTable == nil {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_OPENID_NOT_FOUND)
+		t.GetRpcContext().LogWarn("load table access not found",
+			"open_id", request_body.GetOpenId(), "zone_id", request_body.GetZoneId(),
+			"user_id", request_body.GetUserId(), "req", request_body.GetLoginCode())
+		return nil
+	}
+
+	loginCode := authTable.GetLoginCode()
+	if loginCode == "" || loginCode != request_body.GetLoginCode() {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+		t.GetRpcContext().LogWarn("invalid login code",
+			"open_id", request_body.GetOpenId(), "zone_id", request_body.GetZoneId(),
+			"user_id", request_body.GetUserId(), "code", loginCode, "req", request_body.GetLoginCode())
+		return nil
+	}
+
+	if request_body.GetUserId() != authTable.GetUserId() || request_body.GetZoneId() != authTable.GetZoneId() {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
+		t.GetRpcContext().LogWarn("invalid user id or zone id",
+			"open_id", request_body.GetOpenId(),
+			"expect_zone_id", authTable.GetZoneId(), "got_zone_id", request_body.GetZoneId(),
+			"expect_user_id", authTable.GetUserId(), "got_user_id", request_body.GetUserId(),
+			"code", loginCode, "req", request_body.GetLoginCode())
+		return nil
+	}
+	accountData := authTable.GetLastAccessData().GetAccount()
+	accessData := authTable.GetLastAccessData().GetAccessData()
+
+	opMgr := libatapp.AtappGetModule[component_open_platform.OpenPlatformManager](t.GetRpcContext().GetApp())
+	if opMgr == nil {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_INVALID_CHANNEL)
+		t.GetRpcContext().LogWarn("OpenPlatformManager is not setup",
+			"open_id", request_body.GetOpenId(), "zone_id", request_body.GetZoneId(),
+			"user_id", request_body.GetUserId(), "code", loginCode, "req", request_body.GetLoginCode())
+		return nil
+	}
+	channelDelegate := opMgr.CreateChannelDelegate(component_open_platform.OpenPlatformAccountType(accountData.GetAccountType()))
+	if channelDelegate == nil {
+		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_INVALID_CHANNEL)
+		t.GetRpcContext().LogWarn("OpenPlatformManager create channel delegate failed",
+			"open_id", request_body.GetOpenId(), "zone_id", request_body.GetZoneId(),
+			"user_id", request_body.GetUserId(), "code", loginCode, "req", request_body.GetLoginCode())
+		return nil
+	}
+
+	platformUserKey := component_open_platform.MakeOpenPlatformUserKey(request_body.GetOpenId())
+	platformAuthData := channelDelegate.MakeUserAuthData(t.GetRpcContext(),
+		platformUserKey, accountData, accessData)
+
+	userId := request_body.GetUserId()
+	zoneId := request_body.GetZoneId()
 
 	{
 		// 开始尝试登录
@@ -69,12 +140,6 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		operation_support_system.SendOssLog(t.GetRpcContext().GetApp(), &log)
 	}
 
-	csSession := t.GetSession()
-	if csSession == nil {
-		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
-		t.GetRpcContext().LogError("session is required", "zone_id", zoneId, "user_id", userId)
-		return nil
-	}
 	session := csSession.(*uc.Session)
 	if session == nil {
 		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM)
@@ -89,18 +154,6 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		return nil
 	}
 	// 这里开始 如有user 则创建加锁成功
-
-	// 登入鉴权
-	authTable, _ := db.DatabaseTableAccessLoadWithZoneIdUserId(t.GetAwaitableContext(), zoneId, userId)
-	loginCode := ""
-	if authTable != nil {
-		loginCode = authTable.GetLoginCode()
-	}
-	if loginCode == "" || loginCode != request_body.GetLoginCode() {
-		t.SetResponseError(public_protocol_pbdesc.EnErrorCode_EN_ERR_LOGIN_AUTHORIZE)
-		t.GetRpcContext().LogWarn("invalid login code", "zone_id", zoneId, "user_id", userId, "code", loginCode, "req", request_body.GetLoginCode())
-		return nil
-	}
 
 	// TODO: 登入鉴权Token有效期
 
@@ -122,6 +175,17 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 	// 如果是在线用户，走替换Session流程
 	if user != nil && user.IsWriteable() {
 		t.replaceSession(t.GetRpcContext(), user, session)
+
+		// 更新鉴权信息
+		userOpMgr := data.UserGetModuleManager[logic_open_platform.UserOpenPlatformManager](user)
+		if userOpMgr != nil {
+			userOpMgr.UpdateAccessToken(t.GetRpcContext(),
+				accountData.GetAccess(), accessData)
+			userOpMgr.UpdateAuthData(t.GetRpcContext(), channelDelegate, platformAuthData)
+		} else {
+			t.GetRpcContext().LogWarn("UserOpenPlatformManager not found when replace session",
+				"open_id", request_body.GetOpenId(), "zone_id", zoneId, "user_id", userId)
+		}
 		return nil
 	}
 
@@ -185,13 +249,24 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		loginTb, loginCASVersion, func(user *data.User) {
 			// 填充客户端数据
 			accountInfo := user.MutableAccountInfo()
-			accountInfo.AccountType = request_body.GetAccount().GetAccountType()
-			// Access: request_body.Account.Access,
+			accountInfo.AccountType = accountData.GetAccountType()
+			accountInfo.Access = accountData.GetAccess()
 			accountInfo.Profile = &public_protocol_pbdesc.DUserProfile{
 				OpenId: request_body.GetOpenId(),
 				UserId: userId,
 			}
-			accountInfo.ChannelId = request_body.GetAccount().GetChannelId()
+			accountInfo.ChannelId = accountData.GetChannelId()
+
+			// 创建时先插入鉴权信息
+			userOpMgr := data.UserGetModuleManager[logic_open_platform.UserOpenPlatformManager](user)
+			if userOpMgr != nil {
+				userOpMgr.UpdateAccessToken(t.GetRpcContext(),
+					accountData.GetAccess(), accessData)
+				userOpMgr.UpdateAuthData(t.GetRpcContext(), channelDelegate, platformAuthData)
+			} else {
+				t.GetRpcContext().LogWarn("UserOpenPlatformManager not found when create user",
+					"open_id", request_body.GetOpenId(), "zone_id", zoneId, "user_id", userId)
+			}
 		}, func(user *data.User) cd.RpcResult {
 			if user == nil {
 				return cd.CreateRpcResultError(
@@ -215,6 +290,19 @@ func (t *TaskActionLogin) Run(_startData *cd.DispatcherStartData) error {
 		}
 		result.LogError(t.GetRpcContext(), "create user failed", "zone_id", zoneId, "user_id", userId)
 		return nil
+	}
+
+	// 老用户更新健全信息
+	{
+		userOpMgr := data.UserGetModuleManager[logic_open_platform.UserOpenPlatformManager](user)
+		if userOpMgr != nil {
+			userOpMgr.UpdateAccessToken(t.GetRpcContext(),
+				accountData.GetAccess(), accessData)
+			userOpMgr.UpdateAuthData(t.GetRpcContext(), channelDelegate, platformAuthData)
+		} else {
+			t.GetRpcContext().LogWarn("UserOpenPlatformManager not found when init an old user",
+				"open_id", request_body.GetOpenId(), "zone_id", zoneId, "user_id", userId)
+		}
 	}
 
 	t.isNewPlayer = user.IsNewUser()

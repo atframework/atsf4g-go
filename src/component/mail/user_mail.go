@@ -7,6 +7,8 @@ import (
 	config "github.com/atframework/atsf4g-go/component/config"
 	db "github.com/atframework/atsf4g-go/component/db"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
@@ -28,7 +30,29 @@ type AddUserMailResult struct {
 // @param channelParam 渠道参数
 // @param reason 道具变更原因
 // @return cd.RpcResult, *AddUserMailResult
+
 func AddUserMail(
+	ctx cd.AwaitableContext,
+	userId uint64,
+	zoneId uint32,
+	mail *public_protocol_pbdesc.DMailContent,
+	channel int32,
+	channelParam int64,
+	reason *public_protocol_pbdesc.DMailFlowReason,
+) (cd.RpcResult, *AddUserMailResult) {
+	rpcResultl, mailResult := addUserMailInner(ctx, userId, zoneId, mail, channel, channelParam, reason)
+	if rpcResultl.IsError() {
+		ctx.LogError("add_user_mail_with_template failed",
+			"mail_template_id", mail.GetMailTemplateId(),
+			"user_id", userId,
+			"error", rpcResultl,
+		)
+		ossRemoveUserMailSendFailedLog(ctx, mail, rpcResultl.GetResponseCode())
+	}
+	return cd.CreateRpcResultOk(), mailResult
+}
+
+func addUserMailInner(
 	ctx cd.AwaitableContext,
 	userId uint64,
 	zoneId uint32,
@@ -234,5 +258,32 @@ func AddUserMailWithTemplate(
 	}
 
 	// call AddUserMail()
-	return AddUserMail(ctx, userId, zoneId, mail, channel, channelParam, reason)
+	result, mailResult := addUserMailInner(ctx, userId, zoneId, mail, channel, channelParam, reason)
+	if result.IsError() {
+		ctx.LogError("add_user_mail_with_template failed",
+			"mail_template_id", mailTemplateId,
+			"user_id", userId,
+			"error", result,
+		)
+		ossRemoveUserMailSendFailedLog(ctx, mail, result.GetResponseCode())
+	}
+	return result, mailResult
+}
+
+func ossRemoveUserMailSendFailedLog(ctx cd.RpcContext, content *public_protocol_pbdesc.DMailContent, reason int32) {
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userSendMailFailedLog := ossLog.MutableLog().MutableUserSendMailFailedFlow()
+	if content != nil {
+		MailDumpToOssLog(nil, content, userSendMailFailedLog.MutableBaseInfo())
+	}
+	userSendMailFailedLog.Reason = reason
+
+	ctx.LogError("send_global_mail failed",
+		"mail_id", content.GetMailId(),
+		"reason", reason,
+	)
+
+	operation_support_system.SendOssLog(ctx.GetApp(), ossLog)
 }

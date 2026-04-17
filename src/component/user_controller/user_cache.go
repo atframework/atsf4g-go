@@ -121,7 +121,7 @@ func (u *UserDirtyWrapper[T]) SetDirty(version uint64) {
 }
 
 type UserCache struct {
-	_    noCopy
+	_    lu.NoCopy
 	Impl UserImpl
 
 	zoneId uint32
@@ -182,6 +182,7 @@ func (obj *UserCache) LogAttr() []slog.Attr {
 		return nil
 	}
 	return []slog.Attr{
+		slog.String("open_id", obj.openId),
 		slog.Uint64("zone_id", uint64(obj.zoneId)),
 		slog.Uint64("user_id", obj.userId),
 	}

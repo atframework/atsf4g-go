@@ -65,6 +65,14 @@ enum EnSystemID {
   EN_OS_SWITCH = 11;
 }
 
+enum EnArchitecture {
+  EN_ARCH_UNKNOWN = 0;
+  EN_ARCH_X64 = 1;
+  EN_ARCH_ARM64 = 2;
+  EN_ARCH_X86 = 3;
+  EN_ARCH_ARM32 = 4;
+}
+
 // 模拟器ID
 enum EnWellKnownSimulatorID {
   EN_WKS_ID_NONE = 0;               // 未使用模拟器

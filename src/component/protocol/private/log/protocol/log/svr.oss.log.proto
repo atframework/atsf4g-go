@@ -38,6 +38,16 @@ message OperationSupportSystemLogDetail {
     OSSOnlineFlow online_flow = 15;
     OSSUserRegisterFlow user_register_flow = 16;
     OSSUserLevelChangeFlow user_level_change_flow = 17;
+    OSSMailUserSendMailFlow mail_user_send_mail_flow = 19;                    // 用户发送邮件流水
+    OSSMailUserReadMailFlow mail_user_read_mail_flow = 20;                    // 用户阅读邮件流水
+    OSSMailUserReceiveAttachmentFlow mail_user_receive_attachment_flow = 21;  // 用户领取邮件附件流水
+    OSSMailUserRemoveMailFlow mail_user_remove_mail_flow = 22;                // 用户删除邮件流水
+    OSSUserSendMailFailedFlow user_send_mail_failed_flow = 23;                // 用户发送邮件失败流水
+    OSSMailGlobalSendMailFlow mail_global_send_mail_flow = 24;                // 全局发送邮件流水
+    OSSMailGlobalRemoveMailFlow mail_global_remove_mail_flow = 25;            // 全局删除邮件流水
+    OSSGlobalSendMailFailedFlow global_send_mail_failed_flow = 26;            // 全局发送邮件失败流水
+    OSSQuestFlow quest_flow = 27;                                             // 任务流水
+    OSSRenameFlow rename_flow = 28;                                           // 改名流水
   }
 }
 
@@ -70,10 +80,15 @@ message OSSLoginServerBeginFlow {
 message OSSLoginFlow {
   // 登录成功
   DClientDeviceInfo device_info = 1;
+  bool is_new_user = 2;  // 是否新用户
+  string user_name = 3;
 }
 
 message OSSLogoutFlow {
   // 登出
+  int64 login_time = 1;       // 登录时间，单位秒
+  int64 logout_time = 2;      // 登录时间，单位秒
+  int64 online_duration = 3;  // 在线时长，单位秒
 }
 
 message OSSOnlineFlow {
@@ -88,4 +103,75 @@ message OSSUserLevelChangeFlow {
   // 用户等级变化
   int32 before_level = 1;
   int32 after_level = 2;
+}
+
+message OSSMailMailBaseInfo {
+  int64 mail_id = 1;
+  int32 major_type = 2;
+  int32 minor_type = 3;
+  uint64 sender_user_id = 4;
+  int32 channel_type = 5;
+  int64 channel_parameter = 6;
+  int32 major_reason = 7;
+  int32 minor_reason = 8;
+  int64 reason_param = 9;
+  int32 flags = 10;
+
+  repeated DItemOffset item_offset_list = 101;
+}
+
+message OSSMailUserSendMailFlow {
+  OSSMailMailBaseInfo base_info = 1;
+}
+
+message OSSMailUserReadMailFlow {
+  OSSMailMailBaseInfo base_info = 1;
+  bool is_removed = 11;  // 是否被删除
+}
+
+message OSSMailUserReceiveAttachmentFlow {
+  OSSMailMailBaseInfo base_info = 1;
+  bool is_removed = 11;  // 是否被删除
+  int32 result = 12;     // 领取结果
+}
+
+message OSSMailUserRemoveMailFlow {
+  int64 mail_id = 1;
+}
+
+message OSSUserSendMailFailedFlow {
+  OSSMailMailBaseInfo base_info = 1;
+
+  int32 reason = 11;  // 失败原因
+}
+
+message OSSMailGlobalSendMailFlow {
+  OSSMailMailBaseInfo base_info = 1;
+}
+
+message OSSMailGlobalRemoveMailFlow {
+  int64 mail_id = 1;
+}
+
+message OSSGlobalSendMailFailedFlow {
+  OSSMailMailBaseInfo base_info = 1;
+
+  int32 reason = 11;  // 失败原因
+}
+
+message OSSQuestProgressData {
+  int64 id = 1;
+  int64 value = 2;
+}
+
+message OSSQuestFlow {
+  int32 quest_id = 1;
+  int32 quest_type = 2;
+  int32 quest_status = 3;
+  repeated OSSQuestProgressData progress_list = 4;
+}
+
+message OSSRenameFlow {
+  string before_name = 1;
+  string after_name = 2;
 }

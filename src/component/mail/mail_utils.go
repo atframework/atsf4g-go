@@ -9,6 +9,7 @@ import (
 
 	config "github.com/atframework/atsf4g-go/component/config"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
@@ -348,7 +349,8 @@ func MailIsHistoryRemovableContent(now int64, content *public_protocol_pbdesc.DM
 // MailMergeContentAndRecord 合并邮件内容和记录
 func MailMergeContentAndRecord(out *public_protocol_pbdesc.DMailContent,
 	content *public_protocol_pbdesc.DMailContent,
-	record *public_protocol_pbdesc.DMailRecord) {
+	record *public_protocol_pbdesc.DMailRecord,
+) {
 	if out == nil || content == nil || record == nil {
 		return
 	}
@@ -455,5 +457,29 @@ func UpdateExperiedTimeAfterRead(ctx cd.RpcContext, record *public_protocol_pbde
 	newExperiedTime := now + record.GetAfterReadExpiredTime()
 	if record.GetExpiredTime() > 0 && newExperiedTime < record.GetExpiredTime() {
 		record.ExpiredTime = newExperiedTime
+	}
+}
+
+func MailDumpToOssLog(record *public_protocol_pbdesc.DMailRecord, content *public_protocol_pbdesc.DMailContent, logEntry *private_protocol_log.OSSMailMailBaseInfo) {
+	if content == nil || record == nil || logEntry == nil {
+		return
+	}
+
+	logEntry.MailId = record.GetMailId()
+	logEntry.MajorType = content.GetMajorType()
+	logEntry.MinorType = content.GetMinorType()
+	logEntry.SenderUserId = content.GetSender().GetProfile().GetUserId()
+	logEntry.ChannelType = content.GetChannel()
+	logEntry.ChannelParameter = content.GetChannelParam()
+	logEntry.MajorReason = content.GetReason().GetMajorReason()
+	logEntry.MinorReason = content.GetReason().GetMinorReason()
+	logEntry.ReasonParam = content.GetReason().GetParameter()
+	logEntry.Flags = content.GetFlags()
+
+	for _, attach := range content.GetAttachmentsOffset() {
+		logEntry.ItemOffsetList = append(logEntry.ItemOffsetList, &public_protocol_common.DItemOffset{
+			TypeId: attach.GetItem().GetTypeId(),
+			Count:  attach.GetItem().GetCount(),
+		})
 	}
 }

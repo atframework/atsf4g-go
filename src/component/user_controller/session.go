@@ -45,12 +45,14 @@ type SessionImpl interface {
 	IsEnableActorLog() bool
 	InsertPendingActorLog(string)
 	FlushPendingActorLog(log.LogWriter)
+	SetUnflushActorLogName(name string)
 }
 
 type Session struct {
 	key SessionKey
 
-	user UserImpl
+	user                UserImpl
+	unflushActorLogName string
 
 	networkHandle SessionNetworkHandleImpl
 	networkClosed bool
@@ -89,6 +91,10 @@ func (s *Session) GetKey() *SessionKey {
 	return &s.key
 }
 
+func (s *Session) SetUnflushActorLogName(name string) {
+	s.unflushActorLogName = name
+}
+
 func (s *Session) Close(ctx cd.RpcContext, _ int32, reasonMessage string) {
 	if !s.networkClosed {
 		s.networkClosed = true
@@ -103,9 +109,14 @@ func (s *Session) Close(ctx cd.RpcContext, _ int32, reasonMessage string) {
 
 	// 处理日志
 	if len(s.pendingCsLog) > 0 {
-		writer, _ := log.NewLogBufferedRotatingWriter(ctx, fmt.Sprintf("%s/%%F/session-unflush/%d.%%N.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.key.SessionId),
-			"", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(),
-			uint32(config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogRotate()),
+		var logName string
+		if s.unflushActorLogName != "" {
+			logName = fmt.Sprintf("%s/%%F/session-unflush/%s.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.unflushActorLogName)
+		} else {
+			logName = fmt.Sprintf("%s/%%F/session-unflush/%d.log", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetServer().GetLogPath(), s.key.SessionId)
+		}
+		writer, _ := log.NewLogBufferedRotatingWriter(ctx, logName,
+			"", config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorLogSize(), 1,
 			config.GetConfigManager().GetCurrentConfigGroup().GetSectionConfig().GetSession().GetActorAutoFlush().AsDuration(), 64)
 		if writer != nil {
 			s.FlushPendingActorLog(writer)

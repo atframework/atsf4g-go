@@ -7,6 +7,8 @@ import (
 	config "github.com/atframework/atsf4g-go/component/config"
 	db "github.com/atframework/atsf4g-go/component/db"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
@@ -135,13 +137,33 @@ func compactMails(_ctx cd.AwaitableContext, dbData *private_protocol_pbdesc.Data
 	}
 }
 
+func AddGlobalMail(
+	ctx cd.AwaitableContext,
+	mail *public_protocol_pbdesc.DMailContent,
+	zoneId uint32,
+	channel int32,
+	channelParam int64,
+	reason *public_protocol_pbdesc.DMailFlowReason,
+) cd.RpcResult {
+	result := addGlobalMailInner(ctx, mail, zoneId, channel, channelParam, reason)
+	if result.IsError() {
+		ctx.LogError("add_global_mail_with_template failed",
+			"mail_template_id", mail.GetMailTemplateId(),
+			"zone_id", zoneId,
+			"error", result,
+		)
+		ossRemoveGlobalMailSendFailedLog(ctx, mail, result.GetResponseCode())
+	}
+	return result
+}
+
 // AddGlobalMail 添加全服邮件
 // @param ctx 上下文
 // @param mail 邮件内容
 // @param zoneId 区服ID，0则是跨区服全服邮件
 // @param channel 来源渠道
 // @param channelParam 渠道参数
-func AddGlobalMail(
+func addGlobalMailInner(
 	ctx cd.AwaitableContext,
 	mail *public_protocol_pbdesc.DMailContent,
 	zoneId uint32,
@@ -293,6 +315,9 @@ func AddGlobalMail(
 			"zone_id", zoneId,
 			"mail_id", mail.GetMailId(),
 		)
+
+		ossSendMailGlobalSendMailLog(ctx, mailRecord, mail)
+
 		return cd.CreateRpcResultOk()
 	}
 
@@ -454,5 +479,44 @@ func AddGlobalMailWithTemplate(
 	}
 
 	// call AddGlobalMail()
-	return AddGlobalMail(ctx, mail, ZoneId, Channel, ChannelParam, reason)
+	result := addGlobalMailInner(ctx, mail, ZoneId, Channel, ChannelParam, reason)
+	if result.IsError() {
+		ctx.LogError("add_global_mail_with_template failed",
+			"mail_template_id", MailTemplateId,
+			"zone_id", ZoneId,
+			"error", result,
+		)
+		ossRemoveGlobalMailSendFailedLog(ctx, mail, result.GetResponseCode())
+	}
+	return result
+}
+
+func ossSendMailGlobalSendMailLog(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord, content *public_protocol_pbdesc.DMailContent) {
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userMailSendLog := ossLog.MutableLog().MutableMailGlobalSendMailFlow()
+	if record != nil && content != nil {
+		MailDumpToOssLog(record, content, userMailSendLog.MutableBaseInfo())
+	}
+
+	operation_support_system.SendOssLog(ctx.GetApp(), ossLog)
+}
+
+func ossRemoveGlobalMailSendFailedLog(ctx cd.RpcContext, content *public_protocol_pbdesc.DMailContent, reason int32) {
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userSendMailFailedLog := ossLog.MutableLog().MutableGlobalSendMailFailedFlow()
+	if content != nil {
+		MailDumpToOssLog(nil, content, userSendMailFailedLog.MutableBaseInfo())
+	}
+	userSendMailFailedLog.Reason = reason
+
+	ctx.LogError("send_global_mail failed",
+		"mail_id", content.GetMailId(),
+		"reason", reason,
+	)
+
+	operation_support_system.SendOssLog(ctx.GetApp(), ossLog)
 }

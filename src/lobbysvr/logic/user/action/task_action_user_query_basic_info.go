@@ -67,6 +67,9 @@ func (t *TaskActionUserQueryBasicInfo) Run(_startData *component_dispatcher.Disp
 			NickName:    profile.GetNickName(),
 			ProfileCard: profile.GetProfileCard(),
 			Avatar:      profile.GetAvatar(),
+
+			PlatformNickName: profile.GetPlatformNickName(),
+			PlatformAvatar:   profile.GetPlatformAvatar(),
 		}
 	}
 

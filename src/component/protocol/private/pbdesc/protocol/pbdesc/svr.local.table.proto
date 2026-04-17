@@ -11,6 +11,7 @@ option go_package = "github.com/atframework/atsf4g-go/component/protocol/private
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
+import "protocol/pbdesc/com.const.proto";
 import "protocol/pbdesc/com.struct.proto";
 import "protocol/pbdesc/svr.struct.proto";
 import "protocol/extension/svr.database.extension.proto";
@@ -21,25 +22,32 @@ message database_auth_weak_data {
   repeated DClientAuthWeakData token_list = 1;  // 弱认证token列表
 }
 
+message database_auth_last_access_data {
+  DAccountData account = 1;  // 平台信息
+
+  DClientAuthAccessData access_data = 9;  // 上一次认证访问数据
+}
+
 message database_table_access {
   // clang-format off
   option (atframework.database_table) = {
     index: {
       name: "access"
       type: EN_ATFRAMEWORK_DB_INDEX_TYPE_KV
-      key_fields: "zone_id"
-      key_fields: "user_id"
+      key_fields: "open_id"
     }
   };
   // clang-format on
-  uint64 user_id = 1;
-  uint32 zone_id = 2;
+  string open_id = 1;
+  uint64 user_id = 2;
+  uint32 zone_id = 3;
 
-  // 密码认证方式中，这个是
-  string access_secret = 3;
-  string login_code = 4;
+  // 密码认证方式中，这个是密码的hash值，其他认证方式不能修改这个值
+  string access_secret = 4;
+  string login_code = 5;
 
-  database_auth_weak_data weak_data = 11;  // 弱认证token列表
+  database_auth_weak_data weak_data = 11;                // 弱认证token列表
+  database_auth_last_access_data last_access_data = 12;  // 上一次认证访问数据
 }
 
 message database_table_login_lock {

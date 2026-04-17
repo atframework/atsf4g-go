@@ -4,13 +4,13 @@ import (
 	"container/list"
 	"sync"
 	"sync/atomic"
-)
 
-type noCopy struct{}
+	lu "github.com/atframework/atframe-utils-go/lang_utility"
+)
 
 // RouterTimer 路由定时器
 type RouterTimer struct {
-	_          noCopy
+	_          lu.NoCopy
 	ObjWatcher RouterObjectImpl // 路由对象
 	TypeID     uint32
 
@@ -21,12 +21,12 @@ type RouterTimer struct {
 }
 
 type TimerElement struct {
-	_       noCopy
+	_       lu.NoCopy
 	element *list.Element
 }
 
 type TimerList struct {
-	_    noCopy
+	_    lu.NoCopy
 	list *list.List
 
 	removeLock    sync.Mutex

@@ -5,12 +5,12 @@ atapp:
   id: {{ $bus_addr }}
   id_mask: {{ .Values.id_mask }}
   name: {{ .Values.type_name | default (include "libapp.name" .) }}_{{ $bus_addr }}
-  world_id: {{ .Values.world_id }}
-  zone_id: {{ .Values.zone_id }}
   type_id: {{ required ".Values.type_id who entry required!" .Values.type_id }} # server type id
   type_name: {{ .Values.type_name | default (include "libapp.name" .) }}         # server type name
   area:
-{{ include "atapp.default.metadata.yaml" . | indent 4 }}
+    zone_id: {{ .Values.zone_id }}
+  metadata:
+    {{- include "atapp.default.metadata.yaml" . | nindent 4 }}
   remove_pidfile_after_exit: false     # keep pid file after exited
   {{- with .Values.inner_ip }}
   hostname: "{{ . }}"   # hostname, any host should has a unique name. if empty, we wil try to use the mac address
@@ -28,7 +28,7 @@ atapp:
     retry_interval: 3s                 # retry interval when error happen(second)
     fault_tolerant: 2                  # how many errors at most to ignore, or it will kill the connection
     message_size: 256KB                    # max message size(256KB)
-    recv_buffer_size: {{ default "2MB" .Values.atapp.bus_recv_buff_size }} # recv channel size(2MB), will be used to initialize (shared) memory channel size
+    receive_buffer_size: {{ default "2MB" .Values.atapp.bus_recv_buff_size }} # recv channel size(2MB), will be used to initialize (shared) memory channel size
     send_buffer_size: {{ default "1MB" .Values.atapp.bus_send_buff_size }} # send buffer size, will be used to initialize io_stream channel write queue
     send_buffer_number: 0              # send message number limit, will be used to initialize io_stream channel write queue, 0 for dynamic buffer
     gateways:

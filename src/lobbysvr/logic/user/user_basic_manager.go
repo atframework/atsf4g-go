@@ -24,6 +24,7 @@ type UserBasicManager interface {
 	GetUserExp() int64
 	GetUserLevel() uint32
 
+	MarkUserProfileDirty()
 	Rename(ctx cd.AwaitableContext, newName string, expectCostItems []*public_protocol_common.DItemBasic) data.Result
 	EditProfileCard(ctx cd.AwaitableContext, profileCard string) data.Result
 	EditAvatar(ctx cd.AwaitableContext, avatar string) data.Result

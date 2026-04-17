@@ -16,6 +16,9 @@ import (
 	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
 	uc "github.com/atframework/atsf4g-go/component/user_controller"
 	uc_d "github.com/atframework/atsf4g-go/component/user_controller/dispatcher"
+
+	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
+
 	lobbysvr_app "github.com/atframework/atsf4g-go/service-lobbysvr/app"
 	logic_global_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail"
 	logic_user_impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/impl"
@@ -61,6 +64,9 @@ func main() {
 
 	httpClientDispatcher := cd.CreateHttpClientDispatcher(app, "lobbysvr.http_client")
 	atapp.AtappAddModule(app, httpClientDispatcher)
+
+	openPlatformManager := component_open_platform.CreateOpenPlatformManager(app, "lobbysvr.open_platform")
+	atapp.AtappAddModule(app, openPlatformManager)
 
 	globalMailManager := logic_global_mail.CreateGlobalMailManager(app)
 	atapp.AtappAddModule(app, globalMailManager)

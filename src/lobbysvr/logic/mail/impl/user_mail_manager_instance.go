@@ -6,6 +6,7 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	cd "github.com/atframework/atsf4g-go/component/dispatcher"
 	mail_util "github.com/atframework/atsf4g-go/component/mail"
+	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
 	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
 	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
 	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
@@ -289,6 +290,14 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 		}
 	}
 
+	// 更新红点计数
+	if mailDataPtr.Record.GetStatus()&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_READ) == 0 {
+		m.unreadMailCount++
+	}
+	if (mailDataPtr.Record.GetStatus()&int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)) == 0 && mailDataPtr.Record.GetHasAttachments() {
+		m.unreciviedAttachmentMailCount++
+	}
+
 	m.isDirty = true
 	ctx.LogDebug("add mail success", "major_type", mail.GetMajorType(), "mail_id", mail.GetMailId())
 
@@ -306,6 +315,9 @@ func (m *UserMailManager) AddMail(ctx cd.RpcContext, mail *public_protocol_pbdes
 	// 刷新未来邮件缓存并检查数量限制
 	mail_data.RefreshMailBoxFutureCache(mailBox)
 	m.checkAndCompactMailBox(ctx, mailBox)
+
+	// 添加邮件日志
+	m.ossUserMailSendLog(ctx, mail, content, m.GetOwner())
 
 	return 0
 }
@@ -341,7 +353,6 @@ func (m *UserMailManager) AddGlobalMail(ctx cd.RpcContext, mail *public_protocol
 
 	m.receivedGlobalMails[mail.GetMailId()] = mail.Clone()
 
-	// TODO: OSS Log
 	return ret
 }
 
@@ -360,6 +371,10 @@ func (m *UserMailManager) RemoveMail(ctx cd.RpcContext, mailId int64, out *publi
 		out.Record = mail.Record.Clone()
 		out.Result = 0
 	}
+
+	// 添加删除日志
+	m.ossUserMailRemoveLog(ctx, mailId, m.GetOwner())
+
 	return 0
 }
 
@@ -414,8 +429,8 @@ func (m *UserMailManager) readMailInternal(ctx cd.RpcContext, mail *mail_data.Ma
 		} else {
 			m.MutableDirtyMail(mail.Record, false)
 		}
+		m.ossUserMailReadLog(ctx, mail.Record, mail.Content, needRemove, m.GetOwner())
 
-		// TODO: OSS Log
 	} else if needRemove {
 		m.removeMailInternal(ctx, mailId)
 	}
@@ -469,7 +484,6 @@ func (m *UserMailManager) ReadAll(ctx cd.RpcContext, majorType int32, minorType 
 
 	for _, mail := range mailsToProcess {
 		m.readMailInternal(ctx, mail, nil, needRemove)
-		// TODO: OSS Log
 
 		outRes := &public_protocol_pbdesc.DMailOperationResult{
 			Record: mail.Record.Clone(),
@@ -500,6 +514,9 @@ func (m *UserMailManager) ReceiveMailAttachments(ctx cd.RpcContext, mailId int64
 	if ret == 0 && !needRemove {
 		m.ReadMail(ctx, mailId, nil, false)
 	}
+
+	// 添加领取附件日志
+	m.ossUserMailReceiveAttachmentLog(ctx, m.GetMailRaw(mailId).Record, m.GetMailRaw(mailId).Content, needRemove, ret, m.GetOwner())
 
 	return cd.RpcResult{Error: nil, ResponseCode: ret}
 }
@@ -1169,11 +1186,6 @@ func (m *UserMailManager) sendMailAttachments(ctx cd.RpcContext, mail *mail_data
 		return ret
 	}
 
-	// 更新邮件记录已领取附件
-
-	mail.Record.Status = mail.Record.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)
-	m.decreaseUnreciviedAttachmentMailCount()
-
 	itemFlowReason := &data.ItemFlowReason{
 		MajorReason: int32(public_protocol_common.EnItemFlowReasonMajorType_EN_ITEM_FLOW_REASON_MAJOR_MAIL),
 		MinorReason: int32(public_protocol_common.EnItemFlowReasonMinorType_EN_ITEM_FLOW_REASON_MINOR_MAIL_ATTACHMENTS),
@@ -1189,6 +1201,10 @@ func (m *UserMailManager) sendMailAttachments(ctx cd.RpcContext, mail *mail_data
 		)
 		return ret
 	}
+
+	// 更新邮件记录已领取附件（在AddItem成功后才标记，避免失败时计数器不一致）
+	mail.Record.Status = mail.Record.GetStatus() | int32(public_protocol_common.EnMailStatusType_EN_MAIL_STATUS_TOKEN_ATTACHMENT)
+	m.decreaseUnreciviedAttachmentMailCount()
 
 	return ret
 }
@@ -1207,9 +1223,78 @@ func (m *UserMailManager) GetMailRedPoint() bool {
 }
 
 func (m *UserMailManager) decreaseUnreadMailCount() {
-	m.unreadMailCount--
+	if m.unreadMailCount > 0 {
+		m.unreadMailCount--
+	}
 }
 
 func (m *UserMailManager) decreaseUnreciviedAttachmentMailCount() {
-	m.unreciviedAttachmentMailCount--
+	if m.unreciviedAttachmentMailCount > 0 {
+		m.unreciviedAttachmentMailCount--
+	}
+}
+
+func (m *UserMailManager) ossUserMailReadLog(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord, content *public_protocol_pbdesc.DMailContent, isRemove bool, user *data.User) {
+
+	if user == nil {
+		return
+	}
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userMailReadLog := ossLog.MutableLog().MutableMailUserReadMailFlow()
+	if record != nil && content != nil {
+		mail_util.MailDumpToOssLog(record, content, userMailReadLog.MutableBaseInfo())
+	}
+	userMailReadLog.IsRemoved = isRemove
+
+	user.SendUserOssLog(ctx, ossLog)
+
+}
+
+func (m *UserMailManager) ossUserMailReceiveAttachmentLog(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord, content *public_protocol_pbdesc.DMailContent, isRemove bool, result int32, user *data.User) {
+
+	if user == nil {
+		return
+	}
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userMailReceiveAttachmentLog := ossLog.MutableLog().MutableMailUserReceiveAttachmentFlow()
+	if record != nil && content != nil {
+		mail_util.MailDumpToOssLog(record, content, userMailReceiveAttachmentLog.MutableBaseInfo())
+	}
+	userMailReceiveAttachmentLog.IsRemoved = isRemove
+	userMailReceiveAttachmentLog.Result = result
+	user.SendUserOssLog(ctx, ossLog)
+
+}
+
+func (m *UserMailManager) ossUserMailSendLog(ctx cd.RpcContext, record *public_protocol_pbdesc.DMailRecord, content *public_protocol_pbdesc.DMailContent, user *data.User) {
+
+	if user == nil {
+		return
+	}
+
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userMailSendLog := ossLog.MutableLog().MutableMailUserSendMailFlow()
+	if record != nil && content != nil {
+		mail_util.MailDumpToOssLog(record, content, userMailSendLog.MutableBaseInfo())
+	}
+
+	user.SendUserOssLog(ctx, ossLog)
+
+}
+
+func (m *UserMailManager) ossUserMailRemoveLog(ctx cd.RpcContext, mail_id int64, user *data.User) {
+
+	if user == nil {
+		return
+	}
+	ossLog := &private_protocol_log.OperationSupportSystemLog{}
+
+	userMailRemoveLog := ossLog.MutableLog().MutableMailUserRemoveMailFlow()
+	userMailRemoveLog.MailId = mail_id
+
+	user.SendUserOssLog(ctx, ossLog)
 }
