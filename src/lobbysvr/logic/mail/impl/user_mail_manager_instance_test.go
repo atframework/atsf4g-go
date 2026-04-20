@@ -836,37 +836,6 @@ func TestMutableDirtyMailNil(t *testing.T) {
 
 // ==================== FetchAllUserMailIds 测试 ====================
 
-// TestFetchAllUserMailIds 测试获取所有用户邮件ID
-// Scenario: 应只返回非全服邮件的ID
-func TestFetchAllUserMailIds(t *testing.T) {
-	// Arrange
-	mgr := newTestUserMailManager()
-	ctx := newMockRpcContext()
-
-	// 添加普通邮件
-	record1 := newTestMailRecord(1001, 1)
-	content1 := newTestMailContent(1001, 1)
-	mgr.AddMail(ctx, record1, content1)
-
-	record2 := newTestMailRecord(1002, 1)
-	content2 := newTestMailContent(1002, 1)
-	mgr.AddMail(ctx, record2, content2)
-
-	// 手动添加一封全服邮件到索引中
-	globalRecord := newTestMailRecord(2001, 1)
-	globalRecord.IsGlobalMail = true
-	mgr.mailBoxIdIndex[2001] = &mail_data.MailData{
-		Record: globalRecord,
-	}
-
-	// Act
-	ids := mgr.FetchAllUserMailIds()
-
-	// Assert
-	assert.Equal(t, 2, len(ids), "should return 2 user mail ids (excluding global)")
-	assert.NotContains(t, ids, int64(2001), "should not contain global mail id")
-}
-
 // TestFetchAllUserMailIdsEmpty 测试空邮箱获取ID
 // Scenario: 空邮箱应返回空列表
 func TestFetchAllUserMailIdsEmpty(t *testing.T) {

@@ -721,7 +721,7 @@ func (m *UserMailManager) RemoveExpiredMails(ctx cd.RpcContext) {
 func (m *UserMailManager) FetchAllUserMailIds() []int64 {
 	var out []int64
 	for _, mail := range m.mailBoxIdIndex {
-		if mail != nil && mail.Record != nil && !mail.Record.GetIsGlobalMail() {
+		if mail != nil && mail.Record != nil {
 			out = append(out, mail.Record.GetMailId())
 		}
 	}
