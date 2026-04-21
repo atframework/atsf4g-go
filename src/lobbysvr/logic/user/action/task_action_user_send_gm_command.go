@@ -57,11 +57,12 @@ func (t *TaskActionUserSendGmCommand) Run(_startData *component_dispatcher.Dispa
 
 	redirMgr := data.UserGetModuleManager[logic_user.UserBasicManager](user)
 	if redirMgr == nil {
-		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_SYSTEM))
+		return fmt.Errorf("user basic manager not found")
 	}
 
 	if !redirMgr.AllowGMCmd() {
 		t.SetResponseCode(int32(public_protocol_pbdesc.EnErrorCode_EN_ERR_NOT_GM))
+		return fmt.Errorf("not GM")
 	}
 
 	request_body := t.GetRequestBody()
