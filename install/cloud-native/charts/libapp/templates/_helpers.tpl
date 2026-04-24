@@ -111,6 +111,7 @@ Libapp deploy cluster
 {{/*
 Calculate LogicID from world_id and zone_id
 Formula: worldID * ZoneBase() + zoneID
+If .Values.logic_id is set, use it directly
 */}}
 {{- define "libapp.logicID" -}}
   {{- if .Values.logic_id -}}
@@ -145,4 +146,45 @@ Formula: worldID * ZoneBase() + zoneID
   {{- else -}}
     ${ATAPP_INSTANCE_ID}
   {{- end -}}
+{{- end }}
+
+{{- define "libapp.configure.hostname" -}}
+  {{- if .Values.external_ipv6 -}}
+    {{- .Values.external_ipv6 -}}
+  {{- else if .Values.external_ipv4 -}}
+    {{- .Values.external_ipv4 -}}
+  {{- else if .Values.internal_ipv6 -}}
+    {{- .Values.internal_ipv6 -}}
+  {{- else if .Values.internal_ipv4 -}}
+    {{- .Values.internal_ipv4 -}}
+  {{- end -}}
+{{- end }}
+
+{{- define "libapp.atbus.calculateAtproxyPort" -}}
+  {{- $basePort := (dig "policy" "port" "atproxy_base" 7100 .Values.atapp.atbus ) -}}
+  {{- $machineIndex := (dig "policy" "port" "machine_index" 0 .Values.atapp.atbus ) -}}
+  {{- $machineIndexMultiply := (dig "policy" "port" "machine_index_multiply" 500 .Values.atapp.atbus ) -}}
+  {{- $insID := (1 | int64) -}}
+  {{- if eq .Values.type_name "atproxy" -}}
+    {{- $insID = (.Values.instance_id | default 1 | int64) -}}
+  {{- else -}}
+    {{- $insID = (1 | int64) -}}
+  {{- end -}}
+  {{- add $basePort (mul $machineIndex $machineIndexMultiply) $insID -}}
+{{- end }}
+
+{{- define "libapp.atbus.calculateServicePort" -}}
+  {{- $basePort := (1 | int64) -}}
+  {{- $machineIndex := (dig "policy" "port" "machine_index" 0 .Values.atapp.atbus ) -}}
+  {{- $machineIndexMultiply := (dig "policy" "port" "machine_index_multiply" 500 .Values.atapp.atbus ) -}}
+  {{- $typeMultiply := (dig "policy" "port" "type_multiply" 10 .Values.atapp.atbus ) -}}
+  {{- $typeID := .Values.type_id | default 11 | int64 -}}
+  {{- $insID := .Values.instance_id | default 1 | int64 -}}
+  {{- if eq .Values.type_name "atproxy" }}
+    {{- $basePort = (dig "policy" "port" "atproxy_base" 7100 .Values.atapp.atbus | int) -}}
+    {{- add $basePort (mul $machineIndex $machineIndexMultiply) $insID -}}
+  {{- else }}
+    {{- $basePort = (dig "policy" "port" "base" 7200 .Values.atapp.atbus | int) -}}
+    {{- add $basePort (mul $machineIndex $machineIndexMultiply) (mul $typeID $typeMultiply) $insID -}}
+  {{- end }}
 {{- end }}
