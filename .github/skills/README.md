@@ -1,8 +1,8 @@
-# Skills (Project Playbooks)
+# Skills (Legacy Playbooks / Compatibility Index)
 
-This directory contains reusable, task-oriented playbooks for working on this repo.
+> **权威入口迁移说明**：本仓库跨工具标准 Agent Skills 已迁至 [/.agents/skills/](../../.agents/skills/README.md)，共享规则权威源为根目录 [AGENTS.md](../../AGENTS.md)。本目录文件保留以确保历史链接与子模块 `atframework/libatbus-go/CLAUDE.md`（引用 `testing.md`）兼容。
 
-`/.github/copilot-instructions.md` should stay short and link here.
+`/.github/copilot-instructions.md` stays short and links to `AGENTS.md` and `/.agents/skills/`.
 
 ## Index
 
