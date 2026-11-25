@@ -1,0 +1,11 @@
+go 1.27.4
+
+use (
+	.
+	./atframework/atframe-utils-go
+	./atframework/atframe-utils-go/buildkit
+	./atframework/libatbus-go
+	./atframework/libatapp-go
+	./third_party/xresloader/protocols/core
+	./third_party/xresloader/protocols/code
+)

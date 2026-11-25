@@ -3,16 +3,16 @@ package atframework_component_mail
 import (
 	"time"
 
-	async_jobs "github.com/atframework/atsf4g-go/component/async_jobs"
-	config "github.com/atframework/atsf4g-go/component/config"
-	db "github.com/atframework/atsf4g-go/component/db"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
-	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	uuid "github.com/atframework/atsf4g-go/component/uuid"
+	async_jobs "github.com/atframework/atsf4g-go/src/component/async_jobs"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	db "github.com/atframework/atsf4g-go/src/component/db"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	operation_support_system "github.com/atframework/atsf4g-go/src/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/src/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	uuid "github.com/atframework/atsf4g-go/src/component/uuid"
 )
 
 // AddUserMailResult 用户邮件添加结果

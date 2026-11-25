@@ -5,13 +5,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	db "github.com/atframework/atsf4g-go/component/db"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component/router"
-	uc "github.com/atframework/atsf4g-go/component/user_controller"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
+	db "github.com/atframework/atsf4g-go/src/component/db"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/src/component/router"
+	uc "github.com/atframework/atsf4g-go/src/component/user_controller"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	mail_data "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mail/data"
 )
 
 // UserMailManagerForAsyncJobs 定义异步任务所需的 UserMailManager 接口

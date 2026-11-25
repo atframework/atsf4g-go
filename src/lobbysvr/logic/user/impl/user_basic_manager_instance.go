@@ -7,25 +7,25 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	private_protocol_common "github.com/atframework/atsf4g-go/component/protocol/private/common/protocol/common"
-	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
-	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	private_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/private/common/protocol/common"
+	private_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/private/config/protocol/config"
+	private_protocol_log "github.com/atframework/atsf4g-go/src/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/public/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	db "github.com/atframework/atsf4g-go/component/db"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	db "github.com/atframework/atsf4g-go/src/component/db"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
-	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
-	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
-	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
+	logic_condition "github.com/atframework/atsf4g-go/src/lobbysvr/logic/condition"
+	logic_quest "github.com/atframework/atsf4g-go/src/lobbysvr/logic/quest"
+	logic_unlock "github.com/atframework/atsf4g-go/src/lobbysvr/logic/unlock"
+	logic_user "github.com/atframework/atsf4g-go/src/lobbysvr/logic/user"
 )
 
 func init() {

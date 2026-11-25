@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	private_protocol_log "github.com/atframework/atsf4g-go/src/component/protocol/private/log/protocol/log"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 	"google.golang.org/protobuf/proto"
 )
 

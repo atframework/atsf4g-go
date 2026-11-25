@@ -1,8 +1,8 @@
 package lobbysvr_logic_timer
 
 import (
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 )
 
 type UserTimerManager interface {

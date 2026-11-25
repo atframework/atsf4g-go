@@ -4,13 +4,13 @@
 package lobbysvr_logic_mail_action
 
 import (
-	config "github.com/atframework/atsf4g-go/component/config"
-	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	component_dispatcher "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/src/component/user_controller"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	logic_mail "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mail"
+	service_protocol "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskActionMailReadAll struct {

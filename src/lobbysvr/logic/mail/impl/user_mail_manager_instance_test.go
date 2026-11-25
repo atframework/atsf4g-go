@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	global_mail_impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail/impl"
-	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	global_mail_impl "github.com/atframework/atsf4g-go/src/lobbysvr/logic/global_mail/impl"
+	mail_data "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mail/data"
 	"github.com/atframework/libatapp-go"
 	"github.com/stretchr/testify/assert"
 )

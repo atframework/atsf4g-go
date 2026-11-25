@@ -7,21 +7,21 @@ import (
 	"github.com/atframework/libatapp-go"
 	atapp "github.com/atframework/libatapp-go"
 
-	ssc "github.com/atframework/atsf4g-go/component/service_shared_collection"
+	ssc "github.com/atframework/atsf4g-go/src/component/service_shared_collection"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	config "github.com/atframework/atsf4g-go/component/config"
-	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
-	uc "github.com/atframework/atsf4g-go/component/user_controller"
-	uc_d "github.com/atframework/atsf4g-go/component/user_controller/dispatcher"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	generate_config "github.com/atframework/atsf4g-go/src/component/config/generate_config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	private_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/private/config/protocol/config"
+	uc "github.com/atframework/atsf4g-go/src/component/user_controller"
+	uc_d "github.com/atframework/atsf4g-go/src/component/user_controller/dispatcher"
 
-	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
+	component_open_platform "github.com/atframework/atsf4g-go/src/component/open_platform"
 
-	lobbysvr_app "github.com/atframework/atsf4g-go/service-lobbysvr/app"
-	logic_global_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/global_mail"
-	logic_user_impl "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/impl"
+	lobbysvr_app "github.com/atframework/atsf4g-go/src/lobbysvr/app"
+	logic_global_mail "github.com/atframework/atsf4g-go/src/lobbysvr/logic/global_mail"
+	logic_user_impl "github.com/atframework/atsf4g-go/src/lobbysvr/logic/user/impl"
 )
 
 func main() {

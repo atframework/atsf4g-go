@@ -4,9 +4,9 @@
 package atframework_component_open_platform_type
 
 import (
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 )
 
 type OpenPlatformChannelDelegate interface {

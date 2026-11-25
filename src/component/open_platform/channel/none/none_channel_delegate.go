@@ -6,12 +6,12 @@ package atframework_component_open_platform
 import (
 	"fmt"
 
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	op_types "github.com/atframework/atsf4g-go/component/open_platform/type"
+	op_types "github.com/atframework/atsf4g-go/src/component/open_platform/type"
 )
 
 type NoneChannelDelegate struct{}

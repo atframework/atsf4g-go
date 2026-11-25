@@ -12,11 +12,11 @@ import (
 	pu "github.com/atframework/atframe-utils-go/proto_utility"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	config "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component/router"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_extension "github.com/atframework/atsf4g-go/src/component/protocol/public/extension/protocol/extension"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/src/component/router"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

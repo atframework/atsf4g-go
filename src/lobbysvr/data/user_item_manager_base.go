@@ -4,11 +4,11 @@ import (
 	"slices"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cc "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	ppc "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	ppcfg "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
-	ppp "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	cc "github.com/atframework/atsf4g-go/src/component/config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	ppc "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	ppcfg "github.com/atframework/atsf4g-go/src/component/protocol/public/config/protocol/config"
+	ppp "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 type ItemFlowReason struct {

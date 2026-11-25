@@ -11,17 +11,17 @@ import (
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	"github.com/atframework/libatapp-go"
 
-	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
+	private_protocol_log "github.com/atframework/atsf4g-go/src/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
 
-	config "github.com/atframework/atsf4g-go/component/config"
+	config "github.com/atframework/atsf4g-go/src/component/config"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	uc "github.com/atframework/atsf4g-go/component/user_controller"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	uc "github.com/atframework/atsf4g-go/src/component/user_controller"
 
-	lobbysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
-	lobbysvr_client_rpc "github.com/atframework/atsf4g-go/service-lobbysvr/rpc/lobbyclientservice"
+	lobbysvr_protocol_pbdesc "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/public/protocol/pbdesc"
+	lobbysvr_client_rpc "github.com/atframework/atsf4g-go/src/lobbysvr/rpc/lobbyclientservice"
 )
 
 type Result = cd.RpcResult

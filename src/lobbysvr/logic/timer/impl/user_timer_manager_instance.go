@@ -3,11 +3,11 @@ package lobbysvr_logic_timer_internal
 import (
 	"time"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 	libatapp "github.com/atframework/libatapp-go"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	logic_timer "github.com/atframework/atsf4g-go/service-lobbysvr/logic/timer"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	logic_timer "github.com/atframework/atsf4g-go/src/lobbysvr/logic/timer"
 )
 
 // 确保实现接口

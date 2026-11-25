@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	logic_condition_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition/data"
+	logic_condition_data "github.com/atframework/atsf4g-go/src/lobbysvr/logic/condition/data"
 )
 
 type CheckConditionFunc = func(m UserConditionManager, ctx cd.RpcContext, rule *public_protocol_common.Readonly_DConditionRule, runtime *RuleCheckerRuntime) cd.RpcResult

@@ -1,13 +1,13 @@
 package lobbysvr_logic_open_platform
 
 import (
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
+	component_open_platform "github.com/atframework/atsf4g-go/src/component/open_platform"
 )
 
 type UserOpenPlatformManager interface {

@@ -6,16 +6,16 @@ import (
 	"sync"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	logical_time "github.com/atframework/atsf4g-go/component/logical_time"
-	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
-	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	router "github.com/atframework/atsf4g-go/component/router"
+	logical_time "github.com/atframework/atsf4g-go/src/component/logical_time"
+	operation_support_system "github.com/atframework/atsf4g-go/src/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/src/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	router "github.com/atframework/atsf4g-go/src/component/router"
 	libatapp "github.com/atframework/libatapp-go"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 )
 
 type CreateUserCallback func(ctx cd.RpcContext, zoneId uint32, userId uint64, openId string) UserImpl

@@ -72,24 +72,25 @@ The generated code lives in `*_mutable.pb.go` files alongside the standard `*.pb
 - Generated merged rule file (output):
   - `build/_gen/generate-for-pb.yaml`
 
-## Typical workflows (gotask)
+## Typical workflows (`go tool dev`)
 
-- Generate protocol descriptors (component level):
-  - `task component:generate-protocol`
-- Generate config outputs (component level):
-  - `task component:generate-config`
+- Generate protocol descriptors and Go protobuf code (cached):
+  - `go tool dev proto`
+- Generate Excel configs and Go config loaders (cached):
+  - `go tool dev config`
+- Generate Mako RPC/DB Go code (cached):
+  - `go tool dev codegen`
 - Generate + build per service:
-  - `task build:lobbysvr`
-  - `task build:robot`
+  - `go tool dev build -service lobbysvr`
 
 ## Changing/adding RPC
 
 1. Update the relevant `.proto` definitions.
 2. Update the corresponding generation rule template under `src/*/generate-for-pb.atfw.yaml.tpl` if needed.
-3. Run `task build:<module>` (or the module generation tasks) to regenerate.
+3. Run `go tool dev build -service <module>` to regenerate and compile.
 
 ## Notes
 
 - Treat `build/_gen/generate-for-pb.yaml` as generated output, not editable source.
-- Tool/bootstrap parameters are driven by `/.taskfiles/build-tools.env`.
+- Tool versions are controlled by `mise.toml` and `atframework/atframe-utils-go/buildkit` defaults.
 

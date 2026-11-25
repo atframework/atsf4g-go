@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	config "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 type RouterObjectKey struct {

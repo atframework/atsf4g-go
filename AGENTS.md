@@ -5,14 +5,16 @@
 ## 项目与范围
 
 - **项目用途**：Go 游戏服务器框架（MIT 许可），基于 `atframe-utils-go`、`libatapp-go`、`libatbus-go`，与 C++ `atsf4g-co` 协作。
-- **关键模块与入口**（2026-11-25 核验）：
-  - `src/lobbysvr/`（模块 `github.com/atframework/atsf4g-go/service-lobbysvr`，`go 1.25.1`）：大厅服主服务，含 `app/`、`data/`、`protocol/` 与 `logic/`（15 个业务域）。
-  - `src/component/`（模块 `github.com/atframework/atsf4g-go/component`，`go 1.25.1`）：公共服务端组件（`config`、`db`、`dispatcher`、`logical_time`、`protocol`、`router`、`user_controller` 等）。
+- **关键模块与入口**（2026-11-25 核验，已完成 Go 1.27.4 单模块与纯 Go 构建改造）：
+  - 根模块 `go.mod`（`github.com/atframework/atsf4g-go`，`go 1.27.4`）+ 根 `go.work`（挂载本地子模块联调）：统一纳管 `src/component/`、`src/lobbysvr/`（及未来扩展至 20+ 的业务服 `src/<svc>/` 或 `src/services/<svc>/`）与 `tools/dev/`。
+  - `src/lobbysvr/`：大厅服主服务，含 `app/`、`data/`、`protocol/` 与 `logic/`（15 个业务域）。
+  - `src/component/`：公共服务端组件（`config`、`db`、`dispatcher`、`logical_time`、`protocol`、`router`、`user_controller` 等）。
   - `src/template/`：Mako 代码生成模板（配置、DB、RPC 处理器与下行推送 API）。
-  - `tools/`：构建与代码生成辅助 Go/Python 工具（`build`、`delete-generate-go`、`generate-for-pbtool`、`lint-runner`、`project-settings`、`sync-protocol-to-svn`）。
+  - `tools/`：`tools/dev/`（基于 `atframe-utils-go/buildkit` 的统一纯 Go 构建、增量代码生成、受影响测试、Lint 与 CI 引擎，通过 `go tool dev` 调用）与 `tools/generate-for-pbtool/`（Mako/Jinja2 渲染脚本）。
+  - `atframework/` 三个独立可编译基础库仓库（均已升级 `go 1.27.4`，保持 `github.com/atframework/*` 模块名）：`atframe-utils-go`（含独立 `buildkit/` 子模块与 `atbuild` CLI）、`libatbus-go`、`libatapp-go`，各自提供 `atbuild.yaml`、`tools.mod`、`mise.toml` 与 `.golangci.yaml`。
   - `doc/`：MkDocs Material 项目文档站点（`doc/docs/`、`doc/mkdocs.yml`）；`docs/ai/`：AI 工程维护与治理记录（不发布至 MkDocs 站点）。
-  - `install/cloud-native/` 与 `script/`：Helm charts/values、本地配置生成脚本与 `script/hooks/` 预提交钩子；CI 流水线见 `Jenkinsfile`。
-  - **已核验差异**：`README.md`、`.vscode/tasks.json`、`.taskfiles/Taskfile.ci.yml` 与 `install/cloud-native/charts/robot/` 存在历史 `robot` 引用，但当前工作树**不存在 `src/robot/` 目录**，且 `Taskfile.yml` 仅编排 `lobbysvr`。不要假设 `src/robot` 可构建或测试。
+  - `install/cloud-native/` 与 `script/`：Helm charts/values、本地配置生成脚本与 `script/hooks/` 预提交钩子；CI 流水线见 `Jenkinsfile`；多语言环境与 Python 依赖分别由根目录 `mise.toml` 与 `pyproject.toml`（`uv`）管理。
+  - **已核验差异**：`install/cloud-native/charts/robot/` 存在历史 `robot` Helm chart 引用，但当前工作树**不存在 `src/robot/` 目录**；`go tool dev` 按 `src/<svc>/main.go` 或 `src/services/<svc>/main.go` 自动发现服务。不要假设 `src/robot` 可构建或测试。
 - **独立子模块边界（严禁越界修改）**：
   - `atframework/atframe-utils-go`、`atframework/libatapp-go`、`atframework/libatbus-go`、`third_party/xresloader/xres-code-generator`、`third_party/xresloader/xresconv-cli` 均为独立 Git 子模块。
   - **不要为了解决主仓库问题去修改独立子项目的源码或规则**。子组件规则参考（只读）：`atframework/libatapp-go/.github/copilot-instructions.md`、`atframework/libatbus-go/AGENTS.md`。
@@ -36,20 +38,20 @@
 
 ## 开发、构建与验证
 
-以下均已在仓库配置核验；除特别标注外，在**仓库根目录**执行，依赖 Go（`>=1.25.1`）、Git、Java `>=17`、Python 3（带 `venv`）与 `task`（go-task）：
+以下均在**仓库根目录**执行，依赖 Go（`>=1.27.4`）、Git、Java `>=17`、Python 3（推荐 `uv`，自动读取根目录 `pyproject.toml`）；可选 `mise install` 一键对齐全部工具版本：
 
-- **查看所有任务**：`task -l`（或 `task help`）。
+- **环境体检与服务发现**：`go tool dev doctor`。
 - **子模块初始化**：`git submodule update --init --recursive`。
-- **全量构建（清理 + 准备工具 + 生成代码 + 编译 `lobbysvr`）**：`task build` 或 `task build:lobbysvr`。
-- **快速构建（需先有 `build/build-settings.json` 与已准备工具）**：`task fast-build` / `task "fast-[lobby]-build"`。
-- **局部代码生成 / 文档构建**：`task "fast-[proto]-gen"`、`task "fast-[config]-gen"`、`task "fast-[doc]-build"`；清理生成 pb 代码：`task tools:clean-generate-pb`。
-- **运行 Go 测试（分模块，明确前提）**：
-  - 无需预先 codegen（本机已实测通过）：在 `src/component` 目录运行 `go test -v ./logical_time/...`。
-  - 依赖生成 `*.pb.go`（须先执行 `task build:lobbysvr` 或 `task fast-build:lobbysvr`）：在 `src/lobbysvr` 目录运行 `go test ./...`。
-- **静态检查（Go Lint）**：
-  - 配置为 `.golangci.yaml`（v2 格式，要求 `golangci-lint` `v2.6.0`，超时 `5m`）。
-  - 根目录 `task lint` 调用 `tools/lint-runner` 输出报告到 `build/lint_report/`；但 `lint-runner` 会忽略子命令退出码，且只扫描含 `go.mod` 的目录（会跳过 `.taskfiles/Taskfile.ci.yml` 中不含独立 `go.mod` 的 `src/component/*` 子目录）。做门禁验收时，应在 `src/lobbysvr`、`src/component` 各自目录直接运行 `golangci-lint run ./...` 并检查退出码。
-  - 当前工作站缺失工具说明（2026-11-25）：本机未安装 `golangci-lint`、`goimports`、`markdownlint-cli2`、`skills-ref`；未运行检查必须如实报告。
+- **增量构建（自动准备工具 + SHA-256 增量代码生成 + 并行编译全部已发现服务 + 拷贝部署脚本）**：`go tool dev build`（指定服务：`go tool dev build -service lobbysvr`；跳过代码生成极速编译：`go tool dev build -service lobbysvr -skip-codegen`；强制全量重新生成：`go tool dev build -force-codegen`）。
+- **局部代码生成 / 文档 / 清理**：`go tool dev proto`、`go tool dev config`、`go tool dev codegen`、`go tool dev docs`、`go tool dev clean -pb`（全量清理：`go tool dev clean -all`）。
+- **运行 Go 测试与三库独立编译验证**：
+  - 无需预先 codegen：`go test -v ./src/component/logical_time/... ./tools/dev/...`。
+  - 全量主仓测试（依赖已生成 `*.pb.go`）：`go tool dev test`（受影响包增量测试：`go tool dev test -affected origin/main`；支持 `GOCACHEPROG` 远程缓存）。
+  - 三个基础库独立编译与测试门禁（`GOWORK=off`）：`go tool dev verify-standalone -test`（单仓独立目录内也可执行 `go tool -modfile tools.mod atbuild proto|test|lint|verify-standalone`）。
+- **静态检查（Go Lint + Option 2 `depguard` 门禁）**：
+  - 配置为 `.golangci.yaml`（v2 格式，要求 `golangci-lint` `v2.6.0`，超时 `5m`），启用 `depguard` 禁止主仓 `src/` 越界导入 `atframework/*/detail` 与 `libatbus-go/impl`，并禁止 `src/component` 反向导入业务服务。
+  - 执行：`go tool dev lint`（严格传递非零退出码，同时输出报告到 `build/lint_report/`）。
+  - 当前工作站缺失工具说明（2026-11-25）：本机未安装 `golangci-lint`、`goimports`、`markdownlint-cli2`、`skills-ref`、`mise`；未运行检查必须如实报告。
 
 ## 工具与执行约定
 

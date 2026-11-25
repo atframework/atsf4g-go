@@ -1,18 +1,18 @@
 package lobbysvr_logic_open_platform_impl
 
 import (
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 	"github.com/atframework/libatapp-go"
 
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
+	component_open_platform "github.com/atframework/atsf4g-go/src/component/open_platform"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	logic_open_platform "github.com/atframework/atsf4g-go/service-lobbysvr/logic/open_platform"
-	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
+	logic_open_platform "github.com/atframework/atsf4g-go/src/lobbysvr/logic/open_platform"
+	logic_user "github.com/atframework/atsf4g-go/src/lobbysvr/logic/user"
 )
 
 func init() {

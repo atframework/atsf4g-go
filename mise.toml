@@ -1,0 +1,7 @@
+[tools]
+go = "1.27.4"
+java = "temurin-21"
+uv = "latest"
+protoc = "32.1"
+golangci-lint = "2.6.0"
+helm = "3"

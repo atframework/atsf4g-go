@@ -8,25 +8,25 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	db "github.com/atframework/atsf4g-go/component/db"
-	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
-	"github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	logic_uuid "github.com/atframework/atsf4g-go/component/uuid"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	db "github.com/atframework/atsf4g-go/src/component/db"
+	private_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/private/config/protocol/config"
+	"github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	logic_uuid "github.com/atframework/atsf4g-go/src/component/uuid"
 	libatapp "github.com/atframework/libatapp-go"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
-	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
-	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
+	component_dispatcher "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	component_open_platform "github.com/atframework/atsf4g-go/src/component/open_platform"
+	user_controller "github.com/atframework/atsf4g-go/src/component/user_controller"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	user_auth "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user/auth"
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	user_auth "github.com/atframework/atsf4g-go/src/lobbysvr/logic/user/auth"
+	service_protocol "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/public/protocol/pbdesc"
 
-	uc "github.com/atframework/atsf4g-go/component/user_controller"
+	uc "github.com/atframework/atsf4g-go/src/component/user_controller"
 )
 
 var (

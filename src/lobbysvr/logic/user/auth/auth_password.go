@@ -13,11 +13,11 @@ import (
 	"golang.org/x/crypto/argon2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
+	private_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/private/config/protocol/config"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
 )
 
 type Argon2Params struct {

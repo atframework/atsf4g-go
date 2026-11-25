@@ -1,14 +1,14 @@
 package lobbysvr_logic_quest
 
 import (
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	lobbysvr_logic_quest_handler "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest/handler"
-	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/public/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	lobbysvr_logic_quest_handler "github.com/atframework/atsf4g-go/src/lobbysvr/logic/quest/handler"
+	logic_unlock "github.com/atframework/atsf4g-go/src/lobbysvr/logic/unlock"
 )
 
 // DaySeconds 一天的秒数.

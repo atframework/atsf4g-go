@@ -8,6 +8,6 @@ option optimize_for = SPEED;
 option cc_enable_arenas = true;
 option cc_generic_services = true;
 
-option go_package = "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/private/protocol/pbdesc";
+option go_package = "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/private/protocol/pbdesc";
 
 package proy;

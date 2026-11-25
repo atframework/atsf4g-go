@@ -1,11 +1,11 @@
 package lobbysvr_logic_mail
 
 import (
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	mail_data "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	mail_data "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mail/data"
 )
 
 // UserMailManager 用户邮件管理器接口

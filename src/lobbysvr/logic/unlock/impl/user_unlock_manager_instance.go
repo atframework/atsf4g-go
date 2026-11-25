@@ -3,18 +3,18 @@ package lobbysvr_logic_unlock_internal
 import (
 	"fmt"
 
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	config "github.com/atframework/atsf4g-go/component/config"
-	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/component/config/custom_index"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	atframework_component_config_custom_index_type "github.com/atframework/atsf4g-go/src/component/config/custom_index"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
-	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
-	logic_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/unlock"
-	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
+	logic_module_unlock "github.com/atframework/atsf4g-go/src/lobbysvr/logic/module_unlock"
+	logic_quest "github.com/atframework/atsf4g-go/src/lobbysvr/logic/quest"
+	logic_unlock "github.com/atframework/atsf4g-go/src/lobbysvr/logic/unlock"
+	logic_user "github.com/atframework/atsf4g-go/src/lobbysvr/logic/user"
 )
 
 // 确保实现接口

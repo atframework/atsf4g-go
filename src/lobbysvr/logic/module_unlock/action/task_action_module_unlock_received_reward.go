@@ -5,12 +5,12 @@ package lobbysvr_logic_module_unlock_action
 import (
 	"fmt"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	component_dispatcher "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/src/component/user_controller"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	logic_module_unlock "github.com/atframework/atsf4g-go/src/lobbysvr/logic/module_unlock"
+	service_protocol "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/public/protocol/pbdesc"
 )
 
 type TaskActionModuleUnlockReceivedReward struct {

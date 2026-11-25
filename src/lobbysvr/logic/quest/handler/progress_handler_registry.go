@@ -1,11 +1,11 @@
 package lobbysvr_logic_quest_handler
 
 import (
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_config "github.com/atframework/atsf4g-go/component/protocol/public/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/public/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 )
 
 // InitProgressHandler 进度初始化处理函数

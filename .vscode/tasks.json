@@ -2,76 +2,35 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build-lobbysvrOnlyBin",
+      "label": "Dev-Build All (Incremental)",
       "type": "shell",
       "command": "go",
       "args": [
-        "build",
-        "-o",
-        "../../build/install/lobbysvr/bin/lobbysvrd${if:os==windows}.exe${end}",
-        "."
+        "tool",
+        "dev",
+        "build"
       ],
       "options": {
-        "cwd": "${workspaceFolder}/src/lobbysvr"
+        "cwd": "${workspaceFolder}"
       },
       "problemMatcher": "$go",
-      "group": "none"
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     },
     {
-      "label": "Build-lobbysvrOnlyBin RACE",
+      "label": "Dev-Build Lobbysvr Only Bin (Skip Codegen)",
       "type": "shell",
       "command": "go",
       "args": [
+        "tool",
+        "dev",
         "build",
-        "-race",
-        "-o",
-        "../../build/install/lobbysvr/bin/lobbysvrd${if:os==windows}.exe${end}",
-        "."
+        "-service",
+        "lobbysvr",
+        "-skip-codegen"
       ],
-      "options": {
-        "cwd": "${workspaceFolder}/src/lobbysvr"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Build-robot-only-bin",
-      "type": "shell",
-      "command": "go",
-      "args": [
-        "build",
-        "-o",
-        "../../build/install/robot/bin/robotd${if:os==windows}.exe${end}",
-        "."
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}/src/robot"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Build-robot-only-bin RACE",
-      "type": "shell",
-      "command": "go",
-      "args": [
-        "build",
-        "-race",
-        "-o",
-        "../../build/install/robot/bin/robotd${if:os==windows}.exe${end}",
-        "."
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}/src/robot"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
-    {
-      "label": "Build-fast-build",
-      "type": "shell",
-      "command": "task fast-build",
-      "args": [],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -79,10 +38,112 @@
       "group": "none"
     },
     {
-      "label": "Build-build",
+      "label": "Dev-Build Lobbysvr Debug Race (Skip Codegen)",
       "type": "shell",
-      "command": "task build",
-      "args": [],
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "build",
+        "-service",
+        "lobbysvr",
+        "-mode",
+        "Debug",
+        "-race",
+        "-skip-codegen"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "Dev-Generate Proto Only",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "proto"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "Dev-Generate Config Only",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "config"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "Dev-Run Tests",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "test"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "test"
+    },
+    {
+      "label": "Dev-Verify Submodules Standalone",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "verify-standalone",
+        "-test"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "test"
+    },
+    {
+      "label": "Dev-Lint",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "lint"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$go",
+      "group": "none"
+    },
+    {
+      "label": "Dev-Clean Generated Code",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "tool",
+        "dev",
+        "clean",
+        "-pb"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -105,7 +166,7 @@
     {
       "label": "Deploy-GenerateServiceConfig",
       "type": "shell",
-      "command": "generate_config.sh",
+      "command": "./generate_config.sh",
       "args": [],
       "options": {
         "cwd": "${workspaceFolder}/build/install"
@@ -125,20 +186,6 @@
       },
       "problemMatcher": "$go",
       "group": "none"
-    },
-    {
-      "label": "Clean Pb go",
-      "type": "shell",
-      "command": "go",
-      "args": [
-        "run",
-        "."
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}/tools/delete-generate-go"
-      },
-      "problemMatcher": "$go",
-      "group": "none"
-    },
+    }
   ]
 }

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
+	public_protocol_extension "github.com/atframework/atsf4g-go/src/component/protocol/public/extension/protocol/extension"
 )
 
 type DispatcherOptions struct {

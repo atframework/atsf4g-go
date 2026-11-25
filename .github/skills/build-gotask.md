@@ -1,57 +1,25 @@
-# Build with go-task (`task`)
+# Build with Unified Go CLI (`go tool dev` & `atbuild`)
 
-This repo uses [go-task](https://taskfile.dev/) (`task`) as the primary build orchestrator (see `Taskfile.yml`).
+This repo has migrated from `go-task` to a pure Go 1.27.4 build and codegen engine (`tools/dev`, backed by `atframework/atframe-utils-go/buildkit`), with `mise.toml` for toolchain version pinning and `pyproject.toml` (`uv`) for Python tooling.
 
 ## Prerequisites
 
-- Install `task` (go-task). On Windows, use one of:
-  - `choco install go-task`
-  - `scoop install task`
-  - `go install github.com/go-task/task/v3/cmd/task@latest` (ensure `$GOPATH/bin` is on `PATH`)
-- System requirements (used by `task` bootstrap steps):
-  - Go toolchain (this repo is multi-module)
-  - Git (for submodules)
-  - Java `>= 17` (checked by `.taskfiles/Taskfile.build.prepare.yml`)
-  - Python (Windows: `python`, others: `python3`) with `venv` support
+- Go `>= 1.27.4`
+- Git (for submodules)
+- Java `>= 17` (for `xresloader.jar`)
+- `uv` (recommended; automatically manages `.venv` from `pyproject.toml`) or Python 3 with `venv`
+- Optional: `mise install` to provision pinned Go, JDK, `uv`, `protoc`, `golangci-lint`, and `helm`
 
-## Python venv location
+## Common commands (repo root)
 
-Bootstrap tasks create/use a Python virtual environment:
-
-- Default path:
-  - Windows: `./protject_venv`
-  - Linux/macOS: `${HOME}/protject_venv`
-- Override: set env var `PYTHON_VENV_PATH` to point to a custom venv directory.
-
-## Submodules
-
-This repo includes git submodules under `third_party/xresloader/*`.
-
-- Initialize/update all submodules:
-  - `git submodule update --init --recursive`
-- Update submodules to upstream commits:
-  - `git submodule update --remote --recursive`
-
-## Common tasks (repo root)
-
-- List all tasks: `task -l`
-- Full build (includes cleanup + tool/bootstrap + codegen): `task build`
-- Fast build (skips some expensive steps): `task fast-build`
-- Build only one module:
-  - `task build:lobbysvr` / `task fast-build:lobbysvr`
-  - `task build:robot` / `task fast-build:robot`
-- Lint: `task lint` (delegates to `task ci:lint`, which installs `golangci-lint@v2.6.0` if needed)
-
-## Outputs and directories
-
-- Build outputs: `build/install/**`
-- Generated files: `build/_gen/**`
-- Tool downloads/cache: `build/tools/**`
-- Tool versions/env: `.taskfiles/build-tools.env`
-
-## VS Code tasks
-
-If you use VS Code, `/.vscode/tasks.json` contains wrappers such as:
-
-- `Build-build` / `Build-fast-build` (runs `task build` / `task fast-build`)
-- `Deploy-Update Dependencies` / `Deploy-GenerateServiceConfig` (runs scripts under `build/install/`)
+- Inspect toolchain & discovered services: `go tool dev doctor`
+- Incremental build (SHA-256 cached codegen + parallel Go build): `go tool dev build`
+- Build single service / fast Go-only recompile:
+  - `go tool dev build -service lobbysvr`
+  - `go tool dev build -service lobbysvr -skip-codegen`
+- Force full regeneration: `go tool dev build -force-codegen`
+- Granular stages: `go tool dev proto`, `go tool dev config`, `go tool dev codegen`, `go tool dev docs`
+- Tests (supports affected pruning & `GOCACHEPROG`): `go tool dev test` / `go tool dev test -affected origin/main`
+- Verify standalone builds of the 3 `atframework/*` submodules (`GOWORK=off`): `go tool dev verify-standalone -test`
+- Lint (strict exit code + `depguard` rules): `go tool dev lint`
+- Clean generated code / full build: `go tool dev clean -pb` / `go tool dev clean -all`

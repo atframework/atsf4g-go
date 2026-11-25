@@ -7,10 +7,10 @@ import (
 	log "github.com/atframework/atframe-utils-go/log"
 	"github.com/gorilla/websocket"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	public_protocol_extension "github.com/atframework/atsf4g-go/component/protocol/public/extension/protocol/extension"
+	public_protocol_extension "github.com/atframework/atsf4g-go/src/component/protocol/public/extension/protocol/extension"
 )
 
 type SessionNetworkHandleImpl interface {

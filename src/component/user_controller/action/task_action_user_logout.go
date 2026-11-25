@@ -5,12 +5,12 @@ import (
 
 	"time"
 
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	uc "github.com/atframework/atsf4g-go/component/user_controller"
+	uc "github.com/atframework/atsf4g-go/src/component/user_controller"
 )
 
 type TaskActionUserLogout struct {

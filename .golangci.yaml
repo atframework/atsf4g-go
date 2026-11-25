@@ -42,6 +42,7 @@ linters:
     - lll
 
     # 其他
+    - depguard # 强制 Option 2 跨仓 detail/impl 可见性与业务服务隔离门禁
     - unconvert
     - unparam
     - whitespace
@@ -50,6 +51,31 @@ linters:
     - exhaustive # 检查 switch 语句的全面性
 
   settings:
+
+    depguard:
+      rules:
+        forbid-framework-details-in-main-repo:
+          desc: "Option 2 visibility guard: main repo src/ must not import framework detail/ or libatbus impl/ packages"
+          files:
+            - "**/src/**"
+          deny:
+            - pkg: "github.com/atframework/atframe-utils-go/detail"
+              desc: "detail packages are internal to atframework libraries; use public APIs"
+            - pkg: "github.com/atframework/libatbus-go/detail"
+              desc: "detail packages are internal to atframework libraries; use public APIs"
+            - pkg: "github.com/atframework/libatbus-go/impl"
+              desc: "libatbus-go/impl is internal implementation; import github.com/atframework/libatbus-go public API"
+            - pkg: "github.com/atframework/libatapp-go/detail"
+              desc: "detail packages are internal to atframework libraries; use public APIs"
+        forbid-component-importing-services:
+          desc: "Shared src/component packages must never import business service packages"
+          files:
+            - "**/src/component/**"
+          deny:
+            - pkg: "github.com/atframework/atsf4g-go/src/lobbysvr"
+              desc: "src/component is shared infrastructure and must not depend on service packages"
+            - pkg: "github.com/atframework/atsf4g-go/src/services"
+              desc: "src/component is shared infrastructure and must not depend on service packages"
   
     lll:
       line-length: 150
@@ -166,6 +192,8 @@ linters:
 
     paths:
       - third_party
+      - .venv
+      - .cache
       - py_venv
       - protject_venv
       - testdata

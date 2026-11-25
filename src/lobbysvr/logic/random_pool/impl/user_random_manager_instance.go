@@ -3,15 +3,15 @@ package lobbysvr_logic_random_pool_impl
 import (
 	"fmt"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	logic_random_pool "github.com/atframework/atsf4g-go/service-lobbysvr/logic/random_pool"
+	logic_random_pool "github.com/atframework/atsf4g-go/src/lobbysvr/logic/random_pool"
 )
 
 func init() {

@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 
 	log "github.com/atframework/atframe-utils-go/log"
-	generate_config "github.com/atframework/atsf4g-go/component/config/generate_config"
+	generate_config "github.com/atframework/atsf4g-go/src/component/config/generate_config"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

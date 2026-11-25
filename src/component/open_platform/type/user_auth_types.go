@@ -4,7 +4,7 @@
 package atframework_component_open_platform_type
 
 import (
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 )
 
 type openPlatformUserKeyImpl struct {

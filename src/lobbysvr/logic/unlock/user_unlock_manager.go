@@ -1,10 +1,10 @@
 package lobbysvr_logic_unlock
 
 import (
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 )
 
 // UserUnlockListener 接收功能解锁事件的模块需实现

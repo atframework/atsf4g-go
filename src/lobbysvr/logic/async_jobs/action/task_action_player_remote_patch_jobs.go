@@ -6,13 +6,13 @@ package lobbysvr_logic_async_jobs_action
 import (
 	"time"
 
-	db "github.com/atframework/atsf4g-go/component/db"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	logic_async_jobs "github.com/atframework/atsf4g-go/service-lobbysvr/logic/async_jobs"
-	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
+	db "github.com/atframework/atsf4g-go/src/component/db"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	logic_async_jobs "github.com/atframework/atsf4g-go/src/lobbysvr/logic/async_jobs"
+	logic_mail "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mail"
 )
 
 // UserAsyncJobsManagerForTask 异步任务需要的 UserAsyncJobsManager 接口

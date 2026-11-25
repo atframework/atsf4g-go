@@ -7,8 +7,8 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 
-	config "github.com/atframework/atsf4g-go/component/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	config "github.com/atframework/atsf4g-go/src/component/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

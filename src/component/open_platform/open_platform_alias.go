@@ -4,7 +4,7 @@
 package atframework_component_open_platform
 
 import (
-	op_types "github.com/atframework/atsf4g-go/component/open_platform/type"
+	op_types "github.com/atframework/atsf4g-go/src/component/open_platform/type"
 )
 
 type (

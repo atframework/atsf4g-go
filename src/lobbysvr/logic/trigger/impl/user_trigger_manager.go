@@ -1,10 +1,10 @@
 package lobbysvr_logic_trigger_impl
 
 import (
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	logic_trigger "github.com/atframework/atsf4g-go/service-lobbysvr/logic/trigger"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	logic_trigger "github.com/atframework/atsf4g-go/src/lobbysvr/logic/trigger"
 )
 
 type UserTriggerManager struct {

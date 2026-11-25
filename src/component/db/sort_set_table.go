@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 	"github.com/atframework/libatapp-go"
 	"github.com/redis/go-redis/v9"
 )

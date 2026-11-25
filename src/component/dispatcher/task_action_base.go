@@ -11,7 +11,7 @@ import (
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
 	log "github.com/atframework/atframe-utils-go/log"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 )
 

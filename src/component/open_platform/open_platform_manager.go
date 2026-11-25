@@ -13,12 +13,12 @@ import (
 	log "github.com/atframework/atframe-utils-go/log"
 	libatapp "github.com/atframework/libatapp-go"
 
-	private_protocol_config "github.com/atframework/atsf4g-go/component/protocol/private/config/protocol/config"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	private_protocol_config "github.com/atframework/atsf4g-go/src/component/protocol/private/config/protocol/config"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	op_channel_none "github.com/atframework/atsf4g-go/component/open_platform/channel/none"
-	op_channel_taptap "github.com/atframework/atsf4g-go/component/open_platform/channel/taptap"
-	op_types "github.com/atframework/atsf4g-go/component/open_platform/type"
+	op_channel_none "github.com/atframework/atsf4g-go/src/component/open_platform/channel/none"
+	op_channel_taptap "github.com/atframework/atsf4g-go/src/component/open_platform/channel/taptap"
+	op_types "github.com/atframework/atsf4g-go/src/component/open_platform/type"
 )
 
 type openPlatformManagerImpl struct {

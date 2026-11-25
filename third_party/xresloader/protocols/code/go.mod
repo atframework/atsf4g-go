@@ -1,6 +1,6 @@
 module github.com/xresloader/xres-code-generator
 
-go 1.25.1
+go 1.27.4
 
 replace github.com/atframework/atframe-utils-go => ../../../../atframework/atframe-utils-go
 

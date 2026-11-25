@@ -5,23 +5,23 @@ package lobbysvr_logic_user_action
 import (
 	"fmt"
 
-	component_dispatcher "github.com/atframework/atsf4g-go/component/dispatcher"
-	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
+	component_dispatcher "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	user_controller "github.com/atframework/atsf4g-go/src/component/user_controller"
 
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
 
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
+	service_protocol "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/public/protocol/pbdesc"
 
-	logic_condition "github.com/atframework/atsf4g-go/service-lobbysvr/logic/condition"
-	logic_inventory "github.com/atframework/atsf4g-go/service-lobbysvr/logic/inventory"
-	logic_mail "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mail"
-	logic_mall "github.com/atframework/atsf4g-go/service-lobbysvr/logic/mall"
-	logic_module_unlock "github.com/atframework/atsf4g-go/service-lobbysvr/logic/module_unlock"
-	logic_open_platform "github.com/atframework/atsf4g-go/service-lobbysvr/logic/open_platform"
-	logic_quest "github.com/atframework/atsf4g-go/service-lobbysvr/logic/quest"
-	logic_user "github.com/atframework/atsf4g-go/service-lobbysvr/logic/user"
+	logic_condition "github.com/atframework/atsf4g-go/src/lobbysvr/logic/condition"
+	logic_inventory "github.com/atframework/atsf4g-go/src/lobbysvr/logic/inventory"
+	logic_mail "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mail"
+	logic_mall "github.com/atframework/atsf4g-go/src/lobbysvr/logic/mall"
+	logic_module_unlock "github.com/atframework/atsf4g-go/src/lobbysvr/logic/module_unlock"
+	logic_open_platform "github.com/atframework/atsf4g-go/src/lobbysvr/logic/open_platform"
+	logic_quest "github.com/atframework/atsf4g-go/src/lobbysvr/logic/quest"
+	logic_user "github.com/atframework/atsf4g-go/src/lobbysvr/logic/user"
 )
 
 type TaskActionUserGetInfo struct {

@@ -1,6 +1,6 @@
 ---
 name: go-testing-and-lint
-description: "Design, write, and run Go unit tests, regression tests, golangci-lint, proto formatting, and Markdown/diagram quality checks for atsf4g-go. Do not use for running full go-task code generation builds or prose-only style rewrites."
+description: "Design, write, and run Go unit tests, regression tests, golangci-lint (including depguard visibility checks), proto formatting, and Markdown/diagram quality checks for atsf4g-go. Do not use for running full code generation builds or prose-only style rewrites."
 license: MIT
 metadata:
   owner: "atsf4g-go-maintainers"
@@ -14,7 +14,7 @@ metadata:
 
 - **适用场景**：编写或更新 `*_test.go`、为缺陷补充可复现的回归测试、按模块运行 `go test` / `-race` / Benchmark、运行 Go lint 与预提交 hook 检查、执行文档/图表及 Markdown 格式与链接核查。
 - **不适用场景**：全量工具准备与 proto/xresloader 代码生成（改用 `build-and-codegen`）、纯文案文风润色（改用 `docs-and-comments-writing`）。
-- **输入前提**：确认当前改动属于哪一 Go 模块（主仓库：`src/component`、`src/lobbysvr`、`tools/*`；独立子模块：`atframework/atframe-utils-go`、`atframework/libatapp-go`、`atframework/libatbus-go`），并确认改动是否依赖已生成的 `*.pb.go` 或 `src/component/config/generate_config`。
+- **输入前提**：确认当前改动属于主仓库单根模块（`github.com/atframework/atsf4g-go`，涵盖 `src/component`、`src/lobbysvr`、`tools/dev`）还是独立子模块（`atframework/atframe-utils-go`、`atframework/libatapp-go`、`atframework/libatbus-go`），并确认改动是否依赖已生成的 `*.pb.go` 或 `src/component/config/generate_config`。
 
 ## 工作流
 
@@ -29,21 +29,19 @@ metadata:
 
 ### 2. 按模块执行测试（明确前置条件）
 
-- 主仓库现有 `*_test.go` 入口（2026-11-25 核验）：
-  - `src/component/logical_time/datetime_cache_test.go`（纯 Go，**无需先跑 codegen**，可在 `src/component` 目录直接执行 `go test -v ./logical_time/...`）。
+- 主仓库现有 `*_test.go` 入口（2026-11-25 核验，仓库根目录执行）：
+  - `src/component/logical_time/datetime_cache_test.go` 与 `tools/dev/dev_test.go`（纯 Go，**无需先跑 codegen**，直接运行 `go test -v ./src/component/logical_time/... ./tools/dev/...`）。
   - `src/component/dynamiclib_caller/example_test.go`。
-  - `src/lobbysvr/logic/global_mail/impl/global_mail_manager_impl_test.go` 与 `src/lobbysvr/logic/mail/impl/user_mail_manager_instance_test.go`（依赖生成的 `*.pb.go`，**必须先运行 `task build:lobbysvr` 或 `task fast-build:lobbysvr` 生成代码**后，再在 `src/lobbysvr` 目录执行 `go test ./...`）。
-- 独立子模块如需单独验证，进入对应子模块目录运行 `go test ./...`（例如 `atframework/libatapp-go`、`atframework/libatbus-go`）。
-- 参考 `Jenkinsfile` 合同：单包测试超时 `-timeout=5m`，外层超时 `10m`。并发改动增加 `-race` 检测（Windows 需可用的 CGO/gcc 环境；若缺少 CGO 明确报告原因，不静默跳过）。
+  - `src/lobbysvr/logic/global_mail/impl/global_mail_manager_impl_test.go` 与 `src/lobbysvr/logic/mail/impl/user_mail_manager_instance_test.go`（依赖生成的 `*.pb.go`，**必须先运行 `go tool dev build -service lobbysvr` 生成代码**后，运行 `go tool dev test` 或 `go test ./...`）。
+- 受影响包增量测试：`go tool dev test -affected origin/main`（支持通过 `GOCACHEPROG` 接入分布式编译与测试缓存）。
+- 三个独立子模块验证：`go tool dev verify-standalone -test`（强制以 `GOWORK=off` 脱离根工作区验证独立编译与单测）。
+- 并发改动增加 `-race` 检测（Windows 需可用的 CGO/gcc 环境；若缺少 CGO 明确报告原因，不静默跳过）。
 - 注意：仓库中不存在 `src/robot/` 目录，不要对其运行测试。
 
 ### 3. 执行 Go Lint、Proto 格式与 Git Hooks 检查
 
-- **配置权威源**：根 `.golangci.yaml`（`version: "2"`，要求 `golangci-lint` `v2.6.0`，超时 `5m`；启用 `errcheck`、`errorlint`、`wrapcheck`、`nilerr`、`nilnil`、`staticcheck`、`govet`/`shadow`、`revive`、`mnd`、`prealloc`、`goconst`、`gosec`、`cyclop<=15`、`funlen<=80/50`、`gocognit<=20`、`godot`、`misspell`、`lll<=150`、`durationcheck`、`exhaustive` 等，测试文件放宽 `goconst`/`funlen`/`cyclop`/`gocognit`/`gosec`，生成文件 `*_gen.go`/`*.pb.go` 放宽 `revive`/`gosec`/`goconst`）。
-- **已核验的 `task lint` 行为注意点（切勿误判）**：
-  1. 根目录 `task lint` 调用 `tools/lint-runner`，报告输出至 `build/lint_report/`。
-  2. `tools/lint-runner/main.go` 忽略单个 `golangci-lint` 退出码（脚本整体仍可能退出 0），且仅扫描包含 `go.mod` 的目录；当前 `.taskfiles/Taskfile.ci.yml` 的 `LintDirs` 列出了 `src/component/db` 等不含独立 `go.mod` 的子目录，会被 `lint-runner` 跳过。
-  3. 因此要获得可信的门禁结论，应直接在受影响模块目录（`src/lobbysvr`、`src/component`）运行 `golangci-lint run ./...` 并检查退出码与完整报告，或核查 `build/lint_report/` 内容。
+- **配置权威源**：根 `.golangci.yaml`（`version: "2"`，要求 `golangci-lint` `v2.6.0`，超时 `5m`；已启用 `depguard` 强制 Option 2 跨仓 `detail/`、`libatbus-go/impl` 隔离以及 `src/component` 禁反向依赖业务服，同时启用 `errcheck`、`errorlint`、`wrapcheck`、`nilerr`、`nilnil`、`staticcheck`、`govet`/`shadow`、`revive`、`mnd`、`prealloc`、`goconst`、`gosec`、`cyclop<=15`、`funlen<=80/50`、`gocognit<=20`、`godot`、`misspell`、`lll<=150`、`durationcheck`、`exhaustive` 等）。
+- **统一门禁命令**：根目录执行 `go tool dev lint`（支持 `-affected origin/main`），严格传递非零退出码并将完整报告写入 `build/lint_report/golangci-lint-report.txt`（已替代旧 `tools/lint-runner`）。
 - **可选预提交钩子**：`script/hooks/` 提供 `goimports` + `golangci-lint` pre-commit hook（需本地执行 `script/hooks/install.{bat,sh}` 配置 `core.hooksPath = script/hooks`；当前本机未启用，日志写入 `script/hooks/pre-commit.log`）。
 - **`.proto` 格式**：遵循 `.clang-format`（`Language: Proto`、`Google`、`ColumnLimit: 120`）。
 

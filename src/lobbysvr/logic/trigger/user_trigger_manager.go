@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
 
-	public_protocol_common "github.com/atframework/atsf4g-go/component/protocol/public/common/protocol/common"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	public_protocol_common "github.com/atframework/atsf4g-go/src/component/protocol/public/common/protocol/common"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 )
 
 type UserTriggerManager interface {

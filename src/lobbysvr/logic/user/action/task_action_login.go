@@ -6,25 +6,25 @@ import (
 	"fmt"
 	"log/slog"
 
-	component_open_platform "github.com/atframework/atsf4g-go/component/open_platform"
-	operation_support_system "github.com/atframework/atsf4g-go/component/operation_support_system"
-	private_protocol_log "github.com/atframework/atsf4g-go/component/protocol/private/log/protocol/log"
-	private_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/private/pbdesc/protocol/pbdesc"
-	public_protocol_pbdesc "github.com/atframework/atsf4g-go/component/protocol/public/pbdesc/protocol/pbdesc"
-	user_controller "github.com/atframework/atsf4g-go/component/user_controller"
-	service_protocol "github.com/atframework/atsf4g-go/service-lobbysvr/protocol/public/protocol/pbdesc"
+	component_open_platform "github.com/atframework/atsf4g-go/src/component/open_platform"
+	operation_support_system "github.com/atframework/atsf4g-go/src/component/operation_support_system"
+	private_protocol_log "github.com/atframework/atsf4g-go/src/component/protocol/private/log/protocol/log"
+	private_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/private/pbdesc/protocol/pbdesc"
+	public_protocol_pbdesc "github.com/atframework/atsf4g-go/src/component/protocol/public/pbdesc/protocol/pbdesc"
+	user_controller "github.com/atframework/atsf4g-go/src/component/user_controller"
+	service_protocol "github.com/atframework/atsf4g-go/src/lobbysvr/protocol/public/protocol/pbdesc"
 	libatapp "github.com/atframework/libatapp-go"
 
-	config "github.com/atframework/atsf4g-go/component/config"
+	config "github.com/atframework/atsf4g-go/src/component/config"
 
 	lu "github.com/atframework/atframe-utils-go/lang_utility"
-	db "github.com/atframework/atsf4g-go/component/db"
-	cd "github.com/atframework/atsf4g-go/component/dispatcher"
-	router "github.com/atframework/atsf4g-go/component/router"
-	uc "github.com/atframework/atsf4g-go/component/user_controller"
-	data "github.com/atframework/atsf4g-go/service-lobbysvr/data"
+	db "github.com/atframework/atsf4g-go/src/component/db"
+	cd "github.com/atframework/atsf4g-go/src/component/dispatcher"
+	router "github.com/atframework/atsf4g-go/src/component/router"
+	uc "github.com/atframework/atsf4g-go/src/component/user_controller"
+	data "github.com/atframework/atsf4g-go/src/lobbysvr/data"
 
-	logic_open_platform "github.com/atframework/atsf4g-go/service-lobbysvr/logic/open_platform"
+	logic_open_platform "github.com/atframework/atsf4g-go/src/lobbysvr/logic/open_platform"
 )
 
 type TaskActionLogin struct {

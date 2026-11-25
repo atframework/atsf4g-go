@@ -1,81 +1,72 @@
 # atsf4g-go
 
-Service framework for game server using libatbus-go, libatapp-go and etc.
+Service framework for game server using `libatbus-go`, `libatapp-go`, and `atframe-utils-go`.
 
 To work with <https://github.com/atframework/atsf4g-co>.
 
 ## Quick Start
 
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+### Toolchain Setup (Recommended: `mise` + `uv`)
 
-scoop install python task
+```powershell
+# Recommended: provision pinned Go 1.27.4, JDK, uv, protoc, golangci-lint, helm via mise
+mise install
+```
+
+Or install prerequisites manually on Windows:
+
+```powershell
+scoop install go uv helm
 scoop bucket add java
 scoop install microsoft-lts-jdk
-scoop install helm
 ```
 
-// 之后退出全部终端 刷新环境变量
+### Build (Pure Go CLI: `go tool dev`)
 
-#### Alternatively, you can use winget to install
-winget install Task.Task Microsoft.OpenJDK.25 Helm.Helm
-
-### Build
-```powershell
-# Build all modules
-task build
-
-# Or build specific modules
-task build:lobbysvr    # Build lobbysvr
-task build:robot       # Build robot
-```
-
-#### Fast Build (without tool downloads)
+`atsf4g-go` uses a single root Go 1.27.4 module (`github.com/atframework/atsf4g-go`) with `go.work` linking the three standalone `atframework/*` submodules, driven by the unified cross-platform Go CLI `go tool dev` (backed by `atframe-utils-go/buildkit`).
 
 ```powershell
-# Fast build all modules
-task fast-build
+# Inspect local toolchain and auto-discovered business services
+go tool dev doctor
 
-# Or fast build specific modules
-task fast-build:lobbysvr
-task fast-build:robot
+# Incremental build for all discovered services (SHA-256 cached proto/Excel/Mako codegen + Go build)
+go tool dev build
+
+# Build a specific service (e.g. lobbysvr) or skip codegen for fast inner-loop Go compilation
+go tool dev build -service lobbysvr
+go tool dev build -service lobbysvr -skip-codegen
+
+# Force full regeneration of proto, Excel configs, and Mako templates
+go tool dev build -force-codegen
+
+# Run granular stages independently
+go tool dev proto
+go tool dev config
+go tool dev codegen
+go tool dev docs
 ```
 
-**Build process includes:**
-- Preparing compilation tools (protoc, Java, Python, etc.)
-- Downloading/installing dependency tools (atdtool, xresloader)
-- Generating Protocol Buffer code
-- Running `go mod tidy` to organize dependencies
-- Compiling each service module
+### Testing, Standalone Verification & Linting
+
+```powershell
+# Run tests across atsf4g-go (supports -affected origin/main and GOCACHEPROG remote cache)
+go tool dev test
+
+# Verify all three atframework submodules compile & pass tests standalone (GOWORK=off)
+go tool dev verify-standalone -test
+
+# Run golangci-lint (strict exit codes + depguard architecture boundary rules)
+go tool dev lint
+
+# Clean generated code / caches / full build artifacts
+go tool dev clean -pb
+go tool dev clean -all
+```
 
 ### Project Configuration
 
 ```powershell
-
-// config
 cd build/install/
-
 .\update_dependency.bat
 .\generate_config.bat
 ```
-### Tools and Commands
-
-#### List all available tasks
-
-```powershell
-task help
-# 或
-task -l
-```
-
-#### Code Analysis
-
-```powershell
-# Install linter (one time only)
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.0
-
-# Run linting
-task lint
-```
-
