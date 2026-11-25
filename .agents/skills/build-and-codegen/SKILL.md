@@ -17,15 +17,15 @@ metadata:
 - **必要前提（以根目录 `mise.toml`、`pyproject.toml` 与 `tools/dev/` 为准）**：
   - Go（`>= 1.27.4`）、Git、Java `>= 17`、`uv`（推荐，自动管理根目录 `.venv`；缺失时回退到系统 Python 3 `venv`）。
   - Helm（仅更新 `install/cloud-native/charts/*` 依赖和生成部署配置时需要）。
-  - `protoc`、`xresloader.jar` 与 `atdtool` 如不在 PATH 中，会由 `go tool dev prepare` / `build` 按固定版本自动下载并缓存到 `build/tools/`。
+  - `protoc`、`xresloader.jar`、`xresconv-cli` 与 `atdtool` 如不在 PATH 或本地缓存中，会由 `go tool dev prepare` / `config` / `build` 按当前平台与固定版本按需下载，并缓存到 `build/tools/`（`xresconv-cli` 同时复用用户级持久化缓存并校验 `.sha256`）。
 - **仓库事实边界**：`install/cloud-native/charts/robot/` 存在历史 `robot` 引用，但当前工作树**不存在 `src/robot/` 目录**；`go tool dev` 自动扫描 `src/<svc>/main.go` 或 `src/services/<svc>/main.go` 发现服务。不要假设 `src/robot` 可构建或测试。
 
 ## 工作流
 
 1. **确认子模块与工作区状态**
-   - 检查工作区是否有未提交修改；确认全部 5 个 Git 子模块状态：
+   - 检查工作区是否有未提交修改；确认全部 4 个 Git 子模块状态：
      - `atframework/atframe-utils-go`（含 `buildkit/` 子模块）、`atframework/libatapp-go`、`atframework/libatbus-go`
-     - `third_party/xresloader/xres-code-generator`、`third_party/xresloader/xresconv-cli`
+     - `third_party/xresloader/xres-code-generator`
    - 初始化子模块（在仓库根目录）：`git submodule update --init --recursive`。未获明确授权不要擅自执行 `--remote` 升级子模块。
 
 2. **选择最小必要 `go tool dev` 入口（仓库根目录执行）**
@@ -64,7 +64,7 @@ metadata:
 
 ## 异常与恢复
 
-- **工具下载超时或网络波动**：检查 `build/tools/` 半成品后有限重试；工具版本由 `mise.toml` 与 `buildkit` 常量控制（当前 `protoc 32.1`、`atdtool 1.0.6`、`xresloader 2.23.4`），支持通过 `ATBUILD_PROTOC_URL`、`ATBUILD_XRESLOADER_URL`、`ATBUILD_ATDTOOL_URL` 指向内网镜像。
+- **工具下载超时或网络波动**：检查 `build/tools/` 半成品后有限重试；工具版本由 `mise.toml`、`buildkit` 与 `tools/dev` 常量控制（当前 `protoc 32.1`、`atdtool 1.0.6`、`xresloader 2.23.4`、`xresconv-cli 2.1.0`），支持通过 `ATBUILD_PROTOC_URL`、`ATBUILD_XRESLOADER_URL`、`ATBUILD_XRESCONV_CLI_URL`、`ATBUILD_ATDTOOL_URL` 指向内网镜像（`xresconv-cli` 亦支持 `XRESCONV_CLI_BIN` / `ATBUILD_XRESCONV_CLI` 指定本地二进制）。
 - **残留旧 `.pb.go` 引起编译冲突**：在仓库根目录运行 `go tool dev clean -pb` 后再执行 `go tool dev build -service lobbysvr -force-codegen`。
 - **切勿破坏正常构建目录**：清理仅针对本任务临时路径或使用 `go tool dev clean`，确认不包含未提交源码。
 

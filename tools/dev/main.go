@@ -78,9 +78,9 @@ Usage:
   go tool dev <command> [flags]
 
 Commands:
-  prepare            Verify/download build tools (protoc, plugins, xresloader, atdtool, Java, uv/Python)
+  prepare            Verify/download build tools (protoc, plugins, xresloader, xresconv-cli, atdtool, Java, uv/Python)
   proto              Generate protobuf & *_mutable.pb.go + .pb descriptors (incremental SHA-256 cached)
-  config             Convert Excel configs via xresloader & generate Go config loaders (cached)
+  config             Convert Excel configs via xresconv-cli/xresloader & generate Go config loaders (cached)
   codegen            Generate RPC/DB Go files from .pb descriptors & Mako templates (cached)
   build              Incremental codegen + parallel Go build for discovered services + deploy packaging
   test               Run Go unit tests (supports --affected <git-ref>, --race, --with-submodules)
@@ -96,7 +96,7 @@ Commands:
 
 func cmdPrepare(ctx context.Context, env *ProjectEnv, args []string) error {
 	fs := flag.NewFlagSet("prepare", flag.ExitOnError)
-	skipOptional := fs.Bool("skip-optional", false, "skip optional tools (xresloader/atdtool/java/python)")
+	skipOptional := fs.Bool("skip-optional", false, "skip optional tools (xresloader/xresconv-cli/atdtool/java/python)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -376,6 +376,11 @@ func cmdDoctor(ctx context.Context, env *ProjectEnv) error {
 		fmt.Printf("golangci-lint:%s\n", lintBin)
 	} else {
 		fmt.Printf("golangci-lint:missing\n")
+	}
+	if binPath, ver, source, ok := env.InspectXresconvCLI(ctx); ok {
+		fmt.Printf("xresconv-cli: %s (%s, %s)\n", ver, binPath, source)
+	} else {
+		fmt.Printf("xresconv-cli: not cached yet (will download v%s on demand)\n", env.XresconvCLIVersion)
 	}
 
 	svcs, err := env.DiscoverServices()

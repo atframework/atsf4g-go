@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -312,7 +313,7 @@ func (e *ProjectEnv) RunProto(ctx context.Context, force bool, serviceFilter []s
 	return runner.RunTargets(ctx, targets)
 }
 
-// RunConfig converts Excel tables via xresloader and generates Go config loaders via xrescode-gen.py,
+// RunConfig converts Excel tables via xresconv-cli/xresloader and generates Go config loaders via xrescode-gen.py,
 // skipping JVM/Python invocation when SHA-256 input digest is unchanged.
 func (e *ProjectEnv) RunConfig(ctx context.Context, force bool) error {
 	cache, err := e.ensureCache()
@@ -335,7 +336,7 @@ func (e *ProjectEnv) RunConfig(ctx context.Context, force bool) error {
 	excelDigest, err := buildkit.HashInputs(
 		[]string{generatedXML, xresconvXML, filepath.Join(e.ResourceDir, "validator.yaml"), publicConfigPb, e.ExcelSrcDir},
 		nil,
-		[]string{"xresloader:" + e.XresloaderVersion},
+		[]string{"xresloader:" + e.XresloaderVersion, "xresconv-cli:" + e.XresconvCLIVersion},
 	)
 	if err != nil {
 		return fmt.Errorf("hash excel config inputs: %w", err)
@@ -344,14 +345,17 @@ func (e *ProjectEnv) RunConfig(ctx context.Context, force bool) error {
 	if !force && cache.IsUpToDate("config:excel", excelDigest, []string{excelMarker}) && dirHasFiles(e.ExcelOutDir) {
 		fmt.Println("[config] skip excel conversion (up-to-date)")
 	} else {
-		fmt.Println("[config] converting Excel tables via xresloader...")
-		xresconvScript := filepath.Join(e.XresloaderDir, "xresconv-cli", "xresconv-cli.py")
-		cmd := e.Python.ExecCmd(ctx, xresconvScript, "--java-path", e.JavaBin, generatedXML)
+		xresconvBin, err := e.EnsureXresconvCLI(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("[config] converting Excel tables via xresconv-cli %s...\n", e.XresconvCLIVersion)
+		cmd := exec.CommandContext(ctx, xresconvBin, "--java-path", e.JavaBin, generatedXML)
 		cmd.Dir = e.RootDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("xresconv-cli.py failed: %w", err)
+			return fmt.Errorf("xresconv-cli failed: %w", err)
 		}
 		_ = os.MkdirAll(e.CacheDir, 0o755)
 		_ = os.WriteFile(excelMarker, []byte(excelDigest+"\n"), 0o644)

@@ -16,7 +16,7 @@
   - `install/cloud-native/` 与 `script/`：Helm charts/values、本地配置生成脚本与 `script/hooks/` 预提交钩子；CI 流水线见 `Jenkinsfile`；多语言环境与 Python 依赖分别由根目录 `mise.toml` 与 `pyproject.toml`（`uv`）管理。
   - **已核验差异**：`install/cloud-native/charts/robot/` 存在历史 `robot` Helm chart 引用，但当前工作树**不存在 `src/robot/` 目录**；`go tool dev` 按 `src/<svc>/main.go` 或 `src/services/<svc>/main.go` 自动发现服务。不要假设 `src/robot` 可构建或测试。
 - **独立子模块边界（严禁越界修改）**：
-  - `atframework/atframe-utils-go`、`atframework/libatapp-go`、`atframework/libatbus-go`、`third_party/xresloader/xres-code-generator`、`third_party/xresloader/xresconv-cli` 均为独立 Git 子模块。
+  - `atframework/atframe-utils-go`、`atframework/libatapp-go`、`atframework/libatbus-go`、`third_party/xresloader/xres-code-generator` 均为独立 Git 子模块（`xresconv-cli` 已迁移为按平台按需下载预编译二进制并缓存复用）。
   - **不要为了解决主仓库问题去修改独立子项目的源码或规则**。子组件规则参考（只读）：`atframework/libatapp-go/.github/copilot-instructions.md`、`atframework/libatbus-go/AGENTS.md`。
   - 保留 `.github/instructions/gotest.instructions.md` 与 `.github/skills/testing.md` 路径，因 `atframework/libatbus-go/CLAUDE.md` 通过相对路径 `@import` 引用它们。
 

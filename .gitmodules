@@ -2,9 +2,6 @@
 	path = third_party/xresloader/xres-code-generator
 	url = git@github.com:xresloader/xres-code-generator.git
 	branch = main
-[submodule "third_party/xresloader/xresconv-cli"]
-	path = third_party/xresloader/xresconv-cli
-	url = git@github.com:owent/xresconv-cli.git
 [submodule "atframework/atframe-utils-go"]
 	path = atframework/atframe-utils-go
 	url = git@github.com:atframework/atframe-utils-go.git

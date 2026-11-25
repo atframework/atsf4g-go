@@ -29,22 +29,24 @@ type ServiceTarget struct {
 
 // ProjectEnv holds all resolved paths and toolchain state in memory across pipeline stages.
 type ProjectEnv struct {
-	RootDir           string
-	BuildDir          string
-	GenDir            string
-	CacheDir          string
-	ToolsDir          string
-	InstallDir        string
-	PbdescDir         string
-	ExcelOutDir       string
-	ResourceDir       string
-	ExcelSrcDir       string
-	TemplateDir       string
-	XresloaderDir     string
-	ProtocVersion     string
-	XresloaderVersion string
-	AtdtoolVersion    string
-	Namespace         string
+	RootDir              string
+	BuildDir             string
+	GenDir               string
+	CacheDir             string
+	ToolsDir             string
+	InstallDir           string
+	PbdescDir            string
+	ExcelOutDir          string
+	ResourceDir          string
+	ExcelSrcDir          string
+	TemplateDir          string
+	XresloaderDir        string
+	ProtocVersion        string
+	XresloaderVersion    string
+	XresconvCLIVersion   string
+	AtdtoolVersion       string
+	Namespace            string
+	XresconvUserCacheDir string // Optional override for persistent user cache (defaults to OS user cache dir)
 
 	// Populated dynamically in memory by PrepareAll / EnsureProtoToolchain:
 	ProtocBin        string
@@ -53,6 +55,7 @@ type ProjectEnv struct {
 	JavaBin          string
 	JavaMajor        int
 	XresloaderJar    string
+	XresconvCLIBin   string
 	AtdtoolBin       string
 	Python           *buildkit.PythonRunner
 	ModuleDirs       map[string]string
@@ -64,22 +67,23 @@ func NewProjectEnv(rootDir string) *ProjectEnv {
 	buildDir := filepath.Join(rootDir, "build")
 	installDir := filepath.Join(buildDir, "install")
 	return &ProjectEnv{
-		RootDir:           rootDir,
-		BuildDir:          buildDir,
-		GenDir:            filepath.Join(buildDir, "_gen"),
-		CacheDir:          filepath.Join(rootDir, ".cache", "atbuild"),
-		ToolsDir:          filepath.Join(buildDir, "tools"),
-		InstallDir:        installDir,
-		PbdescDir:         filepath.Join(installDir, "resource", "pbdesc"),
-		ExcelOutDir:       filepath.Join(installDir, "resource", "excel"),
-		ResourceDir:       filepath.Join(rootDir, "resource"),
-		ExcelSrcDir:       filepath.Join(rootDir, "resource", "ExcelTables"),
-		TemplateDir:       filepath.Join(rootDir, "src", "template"),
-		XresloaderDir:     filepath.Join(rootDir, "third_party", "xresloader"),
-		ProtocVersion:     envOrDefault("ENV_PROTOC_VERSION", buildkit.DefaultProtocVersion),
-		XresloaderVersion: envOrDefault("ENV_XRESLOADER_VERSION", buildkit.DefaultXresloaderVersion),
-		AtdtoolVersion:    envOrDefault("ENV_ADTOOLS_VERSION", buildkit.DefaultAtdtoolVersion),
-		Namespace:         "proy",
+		RootDir:            rootDir,
+		BuildDir:           buildDir,
+		GenDir:             filepath.Join(buildDir, "_gen"),
+		CacheDir:           filepath.Join(rootDir, ".cache", "atbuild"),
+		ToolsDir:           filepath.Join(buildDir, "tools"),
+		InstallDir:         installDir,
+		PbdescDir:          filepath.Join(installDir, "resource", "pbdesc"),
+		ExcelOutDir:        filepath.Join(installDir, "resource", "excel"),
+		ResourceDir:        filepath.Join(rootDir, "resource"),
+		ExcelSrcDir:        filepath.Join(rootDir, "resource", "ExcelTables"),
+		TemplateDir:        filepath.Join(rootDir, "src", "template"),
+		XresloaderDir:      filepath.Join(rootDir, "third_party", "xresloader"),
+		ProtocVersion:      envOrDefault("ENV_PROTOC_VERSION", buildkit.DefaultProtocVersion),
+		XresloaderVersion:  envOrDefault("ENV_XRESLOADER_VERSION", buildkit.DefaultXresloaderVersion),
+		XresconvCLIVersion: normalizeVersion(envOrDefault("ENV_XRESCONV_CLI_VERSION", DefaultXresconvCLIVersion)),
+		AtdtoolVersion:     envOrDefault("ENV_ADTOOLS_VERSION", buildkit.DefaultAtdtoolVersion),
+		Namespace:          "proy",
 	}
 }
 
@@ -172,6 +176,12 @@ func (e *ProjectEnv) PrepareAll(ctx context.Context, includeExternal bool) error
 		e.XresloaderJar = jarPath
 	}
 
+	if e.XresconvCLIBin == "" {
+		if _, err := e.EnsureXresconvCLI(ctx); err != nil {
+			return err
+		}
+	}
+
 	if e.AtdtoolBin == "" {
 		ext := "tar.gz"
 		if runtime.GOOS == "windows" {
@@ -216,10 +226,11 @@ func (e *ProjectEnv) writeCompatSettings() error {
 		Tools map[string]toolEntry `json:"tools"`
 	}{
 		Tools: map[string]toolEntry{
-			"protoc":     {Path: e.ProtocBin, Version: e.ProtocVersion},
-			"java":       {Path: e.JavaBin, Version: fmt.Sprintf("%d", e.JavaMajor)},
-			"xresloader": {Path: e.XresloaderJar, Version: e.XresloaderVersion},
-			"atdtool":    {Path: e.AtdtoolBin, Version: e.AtdtoolVersion},
+			"protoc":       {Path: e.ProtocBin, Version: e.ProtocVersion},
+			"java":         {Path: e.JavaBin, Version: fmt.Sprintf("%d", e.JavaMajor)},
+			"xresloader":   {Path: e.XresloaderJar, Version: e.XresloaderVersion},
+			"xresconv-cli": {Path: e.XresconvCLIBin, Version: e.XresconvCLIVersion},
+			"atdtool":      {Path: e.AtdtoolBin, Version: e.AtdtoolVersion},
 		},
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
