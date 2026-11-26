@@ -43,9 +43,9 @@ The generated code lives in `*_mutable.pb.go` files alongside the standard `*.pb
    val := ro.GetVersion()  // Safe read-only access
    ```
 
-6. **Reflect Type Helpers**: Get reflect.Type for messages:
+6. **Type ID Helpers**: Get `lang_utility.TypeID` for messages:
    ```go
-   reflectType := msg.GetReflectType()
+   typeID := msg.GetTypeID()
    ```
 
 7. **Slog Integration**: Messages implement `slog.LogValuer` for structured logging:

@@ -54,7 +54,7 @@ metadata:
      - `Mutable<Field>()`：消息字段空值自动创建并返回非 nil 指针；优于手写 nil 检查与初始化。
      - `Clone()` / `Merge(other)`：安全深拷贝与合并，避免跨 goroutine 共享可变 proto 指针。
      - Oneof 枚举常量与可变访问：`Get<Oneof>OneofCase()` 配合生成的 `En<Oneof>ID_*` 常量（如 `DActivate_EnEventID_QuestId`）与 `Mutable<Case>()`，不硬编码字段号。
-     - `ToReadonly()` 不可变视图、`GetReflectType()` 反射辅助及 `slog.LogValuer` 结构化日志输出。
+     - `ToReadonly()` 不可变视图、`GetTypeID()` 类型标识辅助（返回 `lang_utility.TypeID`）及 `slog.LogValuer` 结构化日志输出。
 
 4. **新增或修改 RPC 的标准顺序**
    1. 修改对应 `.proto` 文件（遵守 `.clang-format`：`Language: Proto`、`BasedOnStyle: Google`、`ColumnLimit: 120`）。
